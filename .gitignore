@@ -16,3 +16,6 @@ Thumbs.db
 *.tmp
 *.temp
 .venv/
+__pycache__/
+*.pyc
+.pytest_cache/
