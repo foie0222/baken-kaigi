@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>馬券会議</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- アラートバナー（ログイン時のみ表示） -->
+    <div id="alert-banner" class="alert-banner hidden">
+        <span class="alert-icon">⚠</span>
+        <span class="alert-text">負け額限度額まで残り <strong>¥3,000</strong></span>
+    </div>
+
+    <!-- ヘッダー -->
+    <header class="app-header">
+        <h1 class="app-title">馬券会議</h1>
+        <div class="header-actions">
+            <button class="cart-btn" id="cart-btn" onclick="showCart()">
+                <span class="cart-icon">🛒</span>
+                <span class="cart-badge hidden" id="cart-badge">0</span>
+            </button>
+            <button class="login-btn" id="login-btn">ログイン</button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main id="main-content">
+        <!-- コンテンツはJSで動的に描画 -->
+    </main>
+
+    <!-- ボトムナビゲーション -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-page="races">
+            <span class="nav-icon">🏇</span>
+            <span class="nav-label">レース</span>
+        </button>
+        <button class="nav-item" data-page="dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">損益</span>
+        </button>
+        <button class="nav-item" data-page="history">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">履歴</span>
+        </button>
+        <button class="nav-item" data-page="settings">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">設定</span>
+        </button>
+    </nav>
+
+    <!-- ログインモーダル -->
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>ログイン</h2>
+            <p class="modal-desc">ログインすると、会話履歴の保存や損益管理機能が使えます。</p>
+            <div class="form-group">
+                <label>メールアドレス</label>
+                <input type="email" placeholder="example@email.com">
+            </div>
+            <div class="form-group">
+                <label>パスワード</label>
+                <input type="password" placeholder="パスワード">
+            </div>
+            <button class="btn-primary btn-full" onclick="doLogin()">ログイン</button>
+            <button class="btn-secondary btn-full" onclick="closeModal()">キャンセル</button>
+            <p class="modal-footer">アカウントをお持ちでない方は<a href="#" onclick="showRegister()">新規登録</a></p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
