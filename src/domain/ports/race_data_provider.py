@@ -1,7 +1,7 @@
 """レースデータ取得インターフェース（ポート）."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from ..identifiers import RaceId
 
@@ -64,6 +64,21 @@ class RaceDataProvider(ABC):
     @abstractmethod
     def get_race(self, race_id: RaceId) -> RaceData | None:
         """レース情報を取得する."""
+        pass
+
+    @abstractmethod
+    def get_races_by_date(
+        self, target_date: date, venue: str | None = None
+    ) -> list[RaceData]:
+        """日付でレース一覧を取得する.
+
+        Args:
+            target_date: 対象日付
+            venue: 開催場（指定しない場合は全開催場）
+
+        Returns:
+            レース一覧（開催場、レース番号順）
+        """
         pass
 
     @abstractmethod
