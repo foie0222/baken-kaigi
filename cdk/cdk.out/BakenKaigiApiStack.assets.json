@@ -1,0 +1,51 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "8d1a066c1f0fcffb4a2a80a560e24ca6f9108abbaa8a3db0ed97e1bce611160b": {
+      "displayName": "DepsLayer/Code",
+      "source": {
+        "path": "asset.8d1a066c1f0fcffb4a2a80a560e24ca6f9108abbaa8a3db0ed97e1bce611160b",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-ap-northeast-1-c737041f": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
+          "objectKey": "8d1a066c1f0fcffb4a2a80a560e24ca6f9108abbaa8a3db0ed97e1bce611160b.zip",
+          "region": "ap-northeast-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
+        }
+      }
+    },
+    "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71": {
+      "displayName": "GetRacesFunction/Code",
+      "source": {
+        "path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-ap-northeast-1-ac737d66": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
+          "objectKey": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip",
+          "region": "ap-northeast-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
+        }
+      }
+    },
+    "abba505a5f0bd0fc5520bef2cf29e067ed567606a512d96ca90402dedb7347a5": {
+      "displayName": "BakenKaigiApiStack Template",
+      "source": {
+        "path": "BakenKaigiApiStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-ap-northeast-1-3f1c14f8": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1",
+          "objectKey": "abba505a5f0bd0fc5520bef2cf29e067ed567606a512d96ca90402dedb7347a5.json",
+          "region": "ap-northeast-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-ap-northeast-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

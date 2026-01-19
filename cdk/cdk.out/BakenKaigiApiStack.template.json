@@ -1,0 +1,2574 @@
+{
+ "Resources": {
+  "DepsLayerA0D7F79A": {
+   "Type": "AWS::Lambda::LayerVersion",
+   "Properties": {
+    "CompatibleRuntimes": [
+     "python3.12"
+    ],
+    "Content": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "8d1a066c1f0fcffb4a2a80a560e24ca6f9108abbaa8a3db0ed97e1bce611160b.zip"
+    },
+    "Description": "Dependencies layer for baken-kaigi"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/DepsLayer/Resource",
+    "aws:asset:path": "asset.8d1a066c1f0fcffb4a2a80a560e24ca6f9108abbaa8a3db0ed97e1bce611160b",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Content"
+   }
+  },
+  "GetRacesFunctionServiceRoleBB689DBA": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetRacesFunction/ServiceRole/Resource"
+   }
+  },
+  "GetRacesFunction3C46F3EB": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "レース一覧取得",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-get-races",
+    "Handler": "src.api.handlers.races.get_races",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "GetRacesFunctionServiceRoleBB689DBA",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "GetRacesFunctionServiceRoleBB689DBA"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetRacesFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "GetRaceDetailFunctionServiceRole9FEA26B8": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetRaceDetailFunction/ServiceRole/Resource"
+   }
+  },
+  "GetRaceDetailFunction56562BE6": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "レース詳細取得",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-get-race-detail",
+    "Handler": "src.api.handlers.races.get_race_detail",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "GetRaceDetailFunctionServiceRole9FEA26B8",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "GetRaceDetailFunctionServiceRole9FEA26B8"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetRaceDetailFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "AddToCartFunctionServiceRoleBE161785": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/AddToCartFunction/ServiceRole/Resource"
+   }
+  },
+  "AddToCartFunction019AD5EC": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "カートに買い目追加",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-add-to-cart",
+    "Handler": "src.api.handlers.cart.add_to_cart",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "AddToCartFunctionServiceRoleBE161785",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "AddToCartFunctionServiceRoleBE161785"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/AddToCartFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "GetCartFunctionServiceRoleEF55E282": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetCartFunction/ServiceRole/Resource"
+   }
+  },
+  "GetCartFunction4ED3A0CF": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "カート取得",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-get-cart",
+    "Handler": "src.api.handlers.cart.get_cart",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "GetCartFunctionServiceRoleEF55E282",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "GetCartFunctionServiceRoleEF55E282"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetCartFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "RemoveFromCartFunctionServiceRole1906E905": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/RemoveFromCartFunction/ServiceRole/Resource"
+   }
+  },
+  "RemoveFromCartFunction2486A4D3": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "カートアイテム削除",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-remove-from-cart",
+    "Handler": "src.api.handlers.cart.remove_from_cart",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "RemoveFromCartFunctionServiceRole1906E905",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "RemoveFromCartFunctionServiceRole1906E905"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/RemoveFromCartFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ClearCartFunctionServiceRole9C96BD6B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/ClearCartFunction/ServiceRole/Resource"
+   }
+  },
+  "ClearCartFunction15770141": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "カートクリア",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-clear-cart",
+    "Handler": "src.api.handlers.cart.clear_cart",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "ClearCartFunctionServiceRole9C96BD6B",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ClearCartFunctionServiceRole9C96BD6B"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/ClearCartFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "StartConsultationFunctionServiceRoleE234A9F2": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/StartConsultationFunction/ServiceRole/Resource"
+   }
+  },
+  "StartConsultationFunction480B68AA": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "AI相談開始",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-start-consultation",
+    "Handler": "src.api.handlers.consultation.start_consultation",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "StartConsultationFunctionServiceRoleE234A9F2",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "StartConsultationFunctionServiceRoleE234A9F2"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/StartConsultationFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SendMessageFunctionServiceRoleBA456E9F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/SendMessageFunction/ServiceRole/Resource"
+   }
+  },
+  "SendMessageFunctionA37DCB9D": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "メッセージ送信",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-send-message",
+    "Handler": "src.api.handlers.consultation.send_message",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "SendMessageFunctionServiceRoleBA456E9F",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "SendMessageFunctionServiceRoleBA456E9F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/SendMessageFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "GetConsultationFunctionServiceRoleE7EAE559": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetConsultationFunction/ServiceRole/Resource"
+   }
+  },
+  "GetConsultationFunction9FD1B086": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-ap-northeast-1"
+     },
+     "S3Key": "dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71.zip"
+    },
+    "Description": "相談セッション取得",
+    "Environment": {
+     "Variables": {
+      "PYTHONPATH": "/var/task:/opt/python"
+     }
+    },
+    "FunctionName": "baken-kaigi-get-consultation",
+    "Handler": "src.api.handlers.consultation.get_consultation",
+    "Layers": [
+     {
+      "Ref": "DepsLayerA0D7F79A"
+     }
+    ],
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "GetConsultationFunctionServiceRoleE7EAE559",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "GetConsultationFunctionServiceRoleE7EAE559"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/GetConsultationFunction/Resource",
+    "aws:asset:path": "asset.dda8a165271fea2136f66be4cb33595953c7657a2697951ce23f09767db0cb71",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "BakenKaigiApi9254ECE8": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Description": "馬券会議 API",
+    "Name": "baken-kaigi-api"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Resource"
+   }
+  },
+  "BakenKaigiApiCloudWatchRole91A187C1": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/CloudWatchRole/Resource"
+   }
+  },
+  "BakenKaigiApiAccount92F1589E": {
+   "Type": "AWS::ApiGateway::Account",
+   "Properties": {
+    "CloudWatchRoleArn": {
+     "Fn::GetAtt": [
+      "BakenKaigiApiCloudWatchRole91A187C1",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "BakenKaigiApi9254ECE8"
+   ],
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Account"
+   }
+  },
+  "BakenKaigiApiDeploymentEC407D2E9bac77df6716652a911e131d8a183f03": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "Description": "馬券会議 API",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "DependsOn": [
+    "BakenKaigiApicartcartidDELETEAA4B4C82",
+    "BakenKaigiApicartcartidGETD4CEF7D6",
+    "BakenKaigiApicartcartiditemsitemidDELETED5BF599A",
+    "BakenKaigiApicartcartiditemsitemidOPTIONS3DA3DE05",
+    "BakenKaigiApicartcartiditemsitemid44D189AB",
+    "BakenKaigiApicartcartiditemsOPTIONSBBFE6354",
+    "BakenKaigiApicartcartiditemsB158A8C7",
+    "BakenKaigiApicartcartidOPTIONS686607E2",
+    "BakenKaigiApicartcartidDC13219C",
+    "BakenKaigiApicartitemsOPTIONSE62C5423",
+    "BakenKaigiApicartitemsPOST528E7D9E",
+    "BakenKaigiApicartitemsF8601C5C",
+    "BakenKaigiApicartOPTIONS7E4EBF24",
+    "BakenKaigiApicartECC125F7",
+    "BakenKaigiApiconsultationssessionidGET707DFEDF",
+    "BakenKaigiApiconsultationssessionidmessagesOPTIONS0506CDFB",
+    "BakenKaigiApiconsultationssessionidmessagesPOST66B58069",
+    "BakenKaigiApiconsultationssessionidmessages8A3301C6",
+    "BakenKaigiApiconsultationssessionidOPTIONS2ACEC14A",
+    "BakenKaigiApiconsultationssessionid4A49A95D",
+    "BakenKaigiApiconsultationsOPTIONS89B7CFCD",
+    "BakenKaigiApiconsultationsPOST883DFFE4",
+    "BakenKaigiApiconsultationsC038E8C0",
+    "BakenKaigiApiOPTIONS67446C5F",
+    "BakenKaigiApiracesraceidGET6C802260",
+    "BakenKaigiApiracesraceidOPTIONSC6FCCE05",
+    "BakenKaigiApiracesraceid5A6AB7E5",
+    "BakenKaigiApiracesGET698515D6",
+    "BakenKaigiApiracesOPTIONS9AB3EF2D",
+    "BakenKaigiApiracesD6A8675F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Deployment/Resource",
+    "aws:cdk:do-not-refactor": true
+   }
+  },
+  "BakenKaigiApiDeploymentStageprod5D0FC787": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "BakenKaigiApiDeploymentEC407D2E9bac77df6716652a911e131d8a183f03"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    },
+    "StageName": "prod"
+   },
+   "DependsOn": [
+    "BakenKaigiApiAccount92F1589E"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/DeploymentStage.prod/Resource"
+   }
+  },
+  "BakenKaigiApiOPTIONS67446C5F": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "BakenKaigiApi9254ECE8",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApiracesD6A8675F": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "BakenKaigiApi9254ECE8",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "races",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/Resource"
+   }
+  },
+  "BakenKaigiApiracesOPTIONS9AB3EF2D": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApiracesD6A8675F"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApiracesGETApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03GETraces919C8F04": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetRacesFunction3C46F3EB",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/GET/races"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/GET/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.GET..races"
+   }
+  },
+  "BakenKaigiApiracesGETApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03GETraces6D0D9C5B": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetRacesFunction3C46F3EB",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/GET/races"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/GET/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.GET..races"
+   }
+  },
+  "BakenKaigiApiracesGET698515D6": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "GetRacesFunction3C46F3EB",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApiracesD6A8675F"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/GET/Resource"
+   }
+  },
+  "BakenKaigiApiracesraceid5A6AB7E5": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApiracesD6A8675F"
+    },
+    "PathPart": "{race_id}",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/{race_id}/Resource"
+   }
+  },
+  "BakenKaigiApiracesraceidOPTIONSC6FCCE05": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApiracesraceid5A6AB7E5"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/{race_id}/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApiracesraceidGETApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03GETracesraceid4625EE22": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetRaceDetailFunction56562BE6",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/GET/races/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/{race_id}/GET/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.GET..races.{race_id}"
+   }
+  },
+  "BakenKaigiApiracesraceidGETApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03GETracesraceid55281B5D": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetRaceDetailFunction56562BE6",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/GET/races/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/{race_id}/GET/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.GET..races.{race_id}"
+   }
+  },
+  "BakenKaigiApiracesraceidGET6C802260": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "GetRaceDetailFunction56562BE6",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApiracesraceid5A6AB7E5"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/races/{race_id}/GET/Resource"
+   }
+  },
+  "BakenKaigiApicartECC125F7": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "BakenKaigiApi9254ECE8",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "cart",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/Resource"
+   }
+  },
+  "BakenKaigiApicartOPTIONS7E4EBF24": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartECC125F7"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApicartitemsF8601C5C": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApicartECC125F7"
+    },
+    "PathPart": "items",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/items/Resource"
+   }
+  },
+  "BakenKaigiApicartitemsOPTIONSE62C5423": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartitemsF8601C5C"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/items/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApicartitemsPOSTApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03POSTcartitems07FCC3E5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AddToCartFunction019AD5EC",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/POST/cart/items"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/items/POST/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.POST..cart.items"
+   }
+  },
+  "BakenKaigiApicartitemsPOSTApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03POSTcartitems884D5AF9": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AddToCartFunction019AD5EC",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/POST/cart/items"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/items/POST/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.POST..cart.items"
+   }
+  },
+  "BakenKaigiApicartitemsPOST528E7D9E": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "AddToCartFunction019AD5EC",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartitemsF8601C5C"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/items/POST/Resource"
+   }
+  },
+  "BakenKaigiApicartcartidDC13219C": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApicartECC125F7"
+    },
+    "PathPart": "{cart_id}",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/Resource"
+   }
+  },
+  "BakenKaigiApicartcartidOPTIONS686607E2": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartcartidDC13219C"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApicartcartidGETApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03GETcartcartid9FED5A8F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetCartFunction4ED3A0CF",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/GET/cart/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/GET/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.GET..cart.{cart_id}"
+   }
+  },
+  "BakenKaigiApicartcartidGETApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03GETcartcartid7A8BCB1C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetCartFunction4ED3A0CF",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/GET/cart/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/GET/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.GET..cart.{cart_id}"
+   }
+  },
+  "BakenKaigiApicartcartidGETD4CEF7D6": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "GetCartFunction4ED3A0CF",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartcartidDC13219C"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/GET/Resource"
+   }
+  },
+  "BakenKaigiApicartcartidDELETEApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03DELETEcartcartid99FCB6C1": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ClearCartFunction15770141",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/DELETE/cart/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/DELETE/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.DELETE..cart.{cart_id}"
+   }
+  },
+  "BakenKaigiApicartcartidDELETEApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03DELETEcartcartidCF03C474": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ClearCartFunction15770141",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/DELETE/cart/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/DELETE/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.DELETE..cart.{cart_id}"
+   }
+  },
+  "BakenKaigiApicartcartidDELETEAA4B4C82": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "DELETE",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "ClearCartFunction15770141",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartcartidDC13219C"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/DELETE/Resource"
+   }
+  },
+  "BakenKaigiApicartcartiditemsB158A8C7": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApicartcartidDC13219C"
+    },
+    "PathPart": "items",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/Resource"
+   }
+  },
+  "BakenKaigiApicartcartiditemsOPTIONSBBFE6354": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartcartiditemsB158A8C7"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApicartcartiditemsitemid44D189AB": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApicartcartiditemsB158A8C7"
+    },
+    "PathPart": "{item_id}",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/{item_id}/Resource"
+   }
+  },
+  "BakenKaigiApicartcartiditemsitemidOPTIONS3DA3DE05": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartcartiditemsitemid44D189AB"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/{item_id}/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApicartcartiditemsitemidDELETEApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03DELETEcartcartiditemsitemid9BD94700": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "RemoveFromCartFunction2486A4D3",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/DELETE/cart/*/items/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/{item_id}/DELETE/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.DELETE..cart.{cart_id}.items.{item_id}"
+   }
+  },
+  "BakenKaigiApicartcartiditemsitemidDELETEApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03DELETEcartcartiditemsitemidB78F4730": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "RemoveFromCartFunction2486A4D3",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/DELETE/cart/*/items/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/{item_id}/DELETE/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.DELETE..cart.{cart_id}.items.{item_id}"
+   }
+  },
+  "BakenKaigiApicartcartiditemsitemidDELETED5BF599A": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "DELETE",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "RemoveFromCartFunction2486A4D3",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApicartcartiditemsitemid44D189AB"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/cart/{cart_id}/items/{item_id}/DELETE/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationsC038E8C0": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Fn::GetAtt": [
+      "BakenKaigiApi9254ECE8",
+      "RootResourceId"
+     ]
+    },
+    "PathPart": "consultations",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationsOPTIONS89B7CFCD": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApiconsultationsC038E8C0"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationsPOSTApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03POSTconsultations5B767B77": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "StartConsultationFunction480B68AA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/POST/consultations"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/POST/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.POST..consultations"
+   }
+  },
+  "BakenKaigiApiconsultationsPOSTApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03POSTconsultations1FECF791": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "StartConsultationFunction480B68AA",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/POST/consultations"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/POST/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.POST..consultations"
+   }
+  },
+  "BakenKaigiApiconsultationsPOST883DFFE4": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "StartConsultationFunction480B68AA",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApiconsultationsC038E8C0"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/POST/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationssessionid4A49A95D": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApiconsultationsC038E8C0"
+    },
+    "PathPart": "{session_id}",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidOPTIONS2ACEC14A": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApiconsultationssessionid4A49A95D"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidGETApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03GETconsultationssessionid45E133EC": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetConsultationFunction9FD1B086",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/GET/consultations/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/GET/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.GET..consultations.{session_id}"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidGETApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03GETconsultationssessionid077DD917": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "GetConsultationFunction9FD1B086",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/GET/consultations/*"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/GET/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.GET..consultations.{session_id}"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidGET707DFEDF": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "GetConsultationFunction9FD1B086",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApiconsultationssessionid4A49A95D"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/GET/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidmessages8A3301C6": {
+   "Type": "AWS::ApiGateway::Resource",
+   "Properties": {
+    "ParentId": {
+     "Ref": "BakenKaigiApiconsultationssessionid4A49A95D"
+    },
+    "PathPart": "messages",
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/messages/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidmessagesOPTIONS0506CDFB": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ],
+    "ResourceId": {
+     "Ref": "BakenKaigiApiconsultationssessionidmessages8A3301C6"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/messages/OPTIONS/Resource"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidmessagesPOSTApiPermissionBakenKaigiApiStackBakenKaigiApi99703A03POSTconsultationssessionidmessagesB9C5CE4D": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "SendMessageFunctionA37DCB9D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/",
+       {
+        "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+       },
+       "/POST/consultations/*/messages"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/messages/POST/ApiPermission.BakenKaigiApiStackBakenKaigiApi99703A03.POST..consultations.{session_id}.messages"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidmessagesPOSTApiPermissionTestBakenKaigiApiStackBakenKaigiApi99703A03POSTconsultationssessionidmessagesF9D46046": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "SendMessageFunctionA37DCB9D",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:ap-northeast-1:",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "BakenKaigiApi9254ECE8"
+       },
+       "/test-invoke-stage/POST/consultations/*/messages"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/messages/POST/ApiPermission.Test.BakenKaigiApiStackBakenKaigiApi99703A03.POST..consultations.{session_id}.messages"
+   }
+  },
+  "BakenKaigiApiconsultationssessionidmessagesPOST66B58069": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "AuthorizationType": "NONE",
+    "HttpMethod": "POST",
+    "Integration": {
+     "IntegrationHttpMethod": "POST",
+     "Type": "AWS_PROXY",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/",
+        {
+         "Fn::GetAtt": [
+          "SendMessageFunctionA37DCB9D",
+          "Arn"
+         ]
+        },
+        "/invocations"
+       ]
+      ]
+     }
+    },
+    "ResourceId": {
+     "Ref": "BakenKaigiApiconsultationssessionidmessages8A3301C6"
+    },
+    "RestApiId": {
+     "Ref": "BakenKaigiApi9254ECE8"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/BakenKaigiApi/Default/consultations/{session_id}/messages/POST/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1WO0W6DMAxFv6XvwVOJ9gF00542raLSXis3eDQDEoQdIYTy71NSprVP99jX9nUJpX6G/Q5nLkzTFb29wHoSNJ3Cmc9rj8OlQVjfcaHpiya23qmXb/dQvwVnZDPu+UjTYDmNRMX6jMwkDFUSxRoOwXQkB2RSFgdYa99TWksaFY62RaEZF1hrYqlGm81/rIzxwYl6pbH3y0BOUveuOgm2+eINamIfJkM58YPk6ptkbvTnbiGZY1T527RvXfsw8xlkDBLVcZGrd08a9iXo3Q9bW0zBiR0I6pv+And1Hw9kAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BakenKaigiApiStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "BakenKaigiApiEndpoint6DAE9AD6": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "BakenKaigiApi9254ECE8"
+      },
+      ".execute-api.ap-northeast-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "BakenKaigiApiDeploymentStageprod5D0FC787"
+      },
+      "/"
+     ]
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

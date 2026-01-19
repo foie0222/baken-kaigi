@@ -1,0 +1,3 @@
+# Lambda Layer dependencies
+# 現在は標準ライブラリのみ使用
+# 将来的に追加する依存関係をここに記載
