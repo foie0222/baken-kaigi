@@ -1,6 +1,7 @@
 """API リクエストユーティリティ."""
 import json
 from typing import Any
+from urllib.parse import unquote
 
 
 def get_path_parameter(event: dict, name: str) -> str | None:
@@ -11,10 +12,14 @@ def get_path_parameter(event: dict, name: str) -> str | None:
         name: パラメータ名
 
     Returns:
-        パラメータ値（存在しない場合はNone）
+        パラメータ値（存在しない場合はNone、URLデコード済み）
     """
     path_params = event.get("pathParameters") or {}
-    return path_params.get(name)
+    value = path_params.get(name)
+    if value is not None:
+        # URLエンコードされている可能性があるのでデコード
+        return unquote(value)
+    return None
 
 
 def get_query_parameter(event: dict, name: str, default: str | None = None) -> str | None:
