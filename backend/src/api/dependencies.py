@@ -1,4 +1,6 @@
 """依存性注入コンテナ."""
+import os
+
 from src.domain.ports import (
     AIClient,
     CartRepository,
@@ -13,11 +15,17 @@ from src.infrastructure import (
 )
 
 
+def _use_dynamodb() -> bool:
+    """DynamoDBを使用するか判定する."""
+    # CART_TABLE_NAME が設定されていればDynamoDBを使用
+    return os.environ.get("CART_TABLE_NAME") is not None
+
+
 class Dependencies:
     """依存性を管理するコンテナ.
 
-    本番環境では環境変数等で実装を切り替える。
-    現在はインメモリ実装を使用。
+    CART_TABLE_NAME 環境変数が設定されている場合はDynamoDB実装を使用。
+    そうでない場合はインメモリ実装を使用（ローカル開発・テスト用）。
     """
 
     _cart_repository: CartRepository | None = None
@@ -29,14 +37,24 @@ class Dependencies:
     def get_cart_repository(cls) -> CartRepository:
         """カートリポジトリを取得する."""
         if cls._cart_repository is None:
-            cls._cart_repository = InMemoryCartRepository()
+            if _use_dynamodb():
+                from src.infrastructure import DynamoDBCartRepository
+
+                cls._cart_repository = DynamoDBCartRepository()
+            else:
+                cls._cart_repository = InMemoryCartRepository()
         return cls._cart_repository
 
     @classmethod
     def get_session_repository(cls) -> ConsultationSessionRepository:
         """セッションリポジトリを取得する."""
         if cls._session_repository is None:
-            cls._session_repository = InMemoryConsultationSessionRepository()
+            if _use_dynamodb():
+                from src.infrastructure import DynamoDBConsultationSessionRepository
+
+                cls._session_repository = DynamoDBConsultationSessionRepository()
+            else:
+                cls._session_repository = InMemoryConsultationSessionRepository()
         return cls._session_repository
 
     @classmethod

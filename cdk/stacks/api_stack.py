@@ -1,8 +1,9 @@
 """馬券会議 API スタック."""
 from pathlib import Path
 
-from aws_cdk import Duration, Stack
+from aws_cdk import Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
+from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -10,7 +11,7 @@ from constructs import Construct
 class BakenKaigiApiStack(Stack):
     """馬券会議 API スタック.
 
-    Lambda + API Gateway でサーバーレス API を構築する。
+    Lambda + API Gateway + DynamoDB でサーバーレス API を構築する。
     """
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
@@ -19,7 +20,57 @@ class BakenKaigiApiStack(Stack):
         # プロジェクトルートディレクトリ
         project_root = Path(__file__).parent.parent.parent
 
-        # Lambda Layer（共通ライブラリ）
+        # ========================================
+        # DynamoDB テーブル
+        # ========================================
+
+        # Cart テーブル
+        cart_table = dynamodb.Table(
+            self,
+            "CartTable",
+            table_name="baken-kaigi-cart",
+            partition_key=dynamodb.Attribute(
+                name="cart_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,  # 開発環境用
+            time_to_live_attribute="ttl",
+        )
+        # user_id での検索用 GSI
+        cart_table.add_global_secondary_index(
+            index_name="user_id-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
+
+        # ConsultationSession テーブル
+        session_table = dynamodb.Table(
+            self,
+            "ConsultationSessionTable",
+            table_name="baken-kaigi-consultation-session",
+            partition_key=dynamodb.Attribute(
+                name="session_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,  # 開発環境用
+            time_to_live_attribute="ttl",
+        )
+        # user_id での検索用 GSI
+        session_table.add_global_secondary_index(
+            index_name="user_id-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
+
+        # ========================================
+        # Lambda Layer
+        # ========================================
         deps_layer = lambda_.LayerVersion(
             self,
             "DepsLayer",
@@ -36,6 +87,9 @@ class BakenKaigiApiStack(Stack):
             "layers": [deps_layer],
             "environment": {
                 "PYTHONPATH": "/var/task:/opt/python",
+                "CART_TABLE_NAME": cart_table.table_name,
+                "SESSION_TABLE_NAME": session_table.table_name,
+                "CODE_VERSION": "4",  # コード更新強制用
             },
         }
 
@@ -209,3 +263,19 @@ class BakenKaigiApiStack(Stack):
         # /consultations/{session_id}/messages
         messages = consultation.add_resource("messages")
         messages.add_method("POST", apigw.LambdaIntegration(send_message_fn))
+
+        # ========================================
+        # DynamoDB アクセス権限
+        # ========================================
+
+        # カート関連 Lambda に Cart テーブルへのアクセス権限を付与
+        cart_functions = [add_to_cart_fn, get_cart_fn, remove_from_cart_fn, clear_cart_fn]
+        for fn in cart_functions:
+            cart_table.grant_read_write_data(fn)
+
+        # 相談関連 Lambda に両テーブルへのアクセス権限を付与
+        # （相談開始時にカートを参照するため）
+        consultation_functions = [start_consultation_fn, send_message_fn, get_consultation_fn]
+        for fn in consultation_functions:
+            cart_table.grant_read_data(fn)
+            session_table.grant_read_write_data(fn)
