@@ -1,9 +1,11 @@
 """馬券会議 API スタック."""
+import os
 from pathlib import Path
 
 from aws_cdk import Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
+from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -14,11 +16,30 @@ class BakenKaigiApiStack(Stack):
     Lambda + API Gateway + DynamoDB でサーバーレス API を構築する。
     """
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        vpc: ec2.IVpc | None = None,
+        jravan_api_url: str | None = None,
+        **kwargs,
+    ) -> None:
+        """スタックを初期化する.
+
+        Args:
+            scope: CDK スコープ
+            construct_id: コンストラクト ID
+            vpc: VPC（JRA-VAN 連携時に必要）
+            jravan_api_url: JRA-VAN API の URL（例: http://10.0.1.100:8000）
+            **kwargs: その他のスタックパラメータ
+        """
         super().__init__(scope, construct_id, **kwargs)
 
         # プロジェクトルートディレクトリ
         project_root = Path(__file__).parent.parent.parent
+
+        # JRA-VAN 連携設定
+        use_jravan = jravan_api_url is not None
 
         # ========================================
         # DynamoDB テーブル
@@ -80,18 +101,35 @@ class BakenKaigiApiStack(Stack):
         )
 
         # 共通Lambda設定
-        lambda_common_props = {
+        lambda_environment = {
+            "PYTHONPATH": "/var/task:/opt/python",
+            "CART_TABLE_NAME": cart_table.table_name,
+            "SESSION_TABLE_NAME": session_table.table_name,
+            "CODE_VERSION": "5",  # コード更新強制用
+        }
+
+        # JRA-VAN 連携時の環境変数を追加
+        if use_jravan:
+            lambda_environment["RACE_DATA_PROVIDER"] = "jravan"
+            lambda_environment["JRAVAN_API_URL"] = jravan_api_url  # type: ignore
+
+        lambda_common_props: dict = {
             "runtime": lambda_.Runtime.PYTHON_3_12,
             "timeout": Duration.seconds(30),
             "memory_size": 256,
             "layers": [deps_layer],
-            "environment": {
-                "PYTHONPATH": "/var/task:/opt/python",
-                "CART_TABLE_NAME": cart_table.table_name,
-                "SESSION_TABLE_NAME": session_table.table_name,
-                "CODE_VERSION": "4",  # コード更新強制用
-            },
+            "environment": lambda_environment,
         }
+
+        # VPC 設定（JRA-VAN 連携時に必要）
+        # Lambda はプライベート（ISOLATED）サブネットに配置
+        # DynamoDB へは VPC Gateway Endpoint 経由でアクセス
+        # EC2 へは VPC 内通信でアクセス
+        if vpc is not None:
+            lambda_common_props["vpc"] = vpc
+            lambda_common_props["vpc_subnets"] = ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+            )
 
         # Lambda関数を作成
         # レースAPI

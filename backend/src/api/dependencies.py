@@ -21,6 +21,11 @@ def _use_dynamodb() -> bool:
     return os.environ.get("CART_TABLE_NAME") is not None
 
 
+def _use_jravan() -> bool:
+    """JRA-VAN Data Lab.を使用するか判定する."""
+    return os.environ.get("RACE_DATA_PROVIDER") == "jravan"
+
+
 class Dependencies:
     """依存性を管理するコンテナ.
 
@@ -61,8 +66,12 @@ class Dependencies:
     def get_race_data_provider(cls) -> RaceDataProvider:
         """レースデータプロバイダを取得する."""
         if cls._race_data_provider is None:
-            # デフォルトはモック実装を使用
-            cls._race_data_provider = MockRaceDataProvider()
+            if _use_jravan():
+                from src.infrastructure.providers import JraVanRaceDataProvider
+
+                cls._race_data_provider = JraVanRaceDataProvider()
+            else:
+                cls._race_data_provider = MockRaceDataProvider()
         return cls._race_data_provider
 
     @classmethod
