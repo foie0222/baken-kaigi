@@ -23,7 +23,7 @@ class BakenKaigiApiStack(Stack):
         deps_layer = lambda_.LayerVersion(
             self,
             "DepsLayer",
-            code=lambda_.Code.from_asset(str(project_root / "lambda_layer")),
+            code=lambda_.Code.from_asset(str(project_root / "cdk" / "lambda_layer")),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
             description="Dependencies layer for baken-kaigi",
         )
@@ -46,8 +46,8 @@ class BakenKaigiApiStack(Stack):
             "GetRacesFunction",
             handler="src.api.handlers.races.get_races",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-get-races",
             description="レース一覧取得",
@@ -59,8 +59,8 @@ class BakenKaigiApiStack(Stack):
             "GetRaceDetailFunction",
             handler="src.api.handlers.races.get_race_detail",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-get-race-detail",
             description="レース詳細取得",
@@ -73,8 +73,8 @@ class BakenKaigiApiStack(Stack):
             "AddToCartFunction",
             handler="src.api.handlers.cart.add_to_cart",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-add-to-cart",
             description="カートに買い目追加",
@@ -86,8 +86,8 @@ class BakenKaigiApiStack(Stack):
             "GetCartFunction",
             handler="src.api.handlers.cart.get_cart",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-get-cart",
             description="カート取得",
@@ -99,8 +99,8 @@ class BakenKaigiApiStack(Stack):
             "RemoveFromCartFunction",
             handler="src.api.handlers.cart.remove_from_cart",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-remove-from-cart",
             description="カートアイテム削除",
@@ -112,8 +112,8 @@ class BakenKaigiApiStack(Stack):
             "ClearCartFunction",
             handler="src.api.handlers.cart.clear_cart",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-clear-cart",
             description="カートクリア",
@@ -126,8 +126,8 @@ class BakenKaigiApiStack(Stack):
             "StartConsultationFunction",
             handler="src.api.handlers.consultation.start_consultation",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-start-consultation",
             description="AI相談開始",
@@ -139,8 +139,8 @@ class BakenKaigiApiStack(Stack):
             "SendMessageFunction",
             handler="src.api.handlers.consultation.send_message",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-send-message",
             description="メッセージ送信",
@@ -152,8 +152,8 @@ class BakenKaigiApiStack(Stack):
             "GetConsultationFunction",
             handler="src.api.handlers.consultation.get_consultation",
             code=lambda_.Code.from_asset(
-                str(project_root),
-                exclude=["cdk", "tests", ".venv", ".git", "__pycache__", "*.pyc"],
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-get-consultation",
             description="相談セッション取得",

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 # cdkディレクトリをパスに追加
-cdk_path = Path(__file__).parent.parent.parent / "cdk"
+cdk_path = Path(__file__).parent.parent.parent.parent / "cdk"
 sys.path.insert(0, str(cdk_path))
 
 

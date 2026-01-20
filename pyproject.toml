@@ -20,8 +20,11 @@ dev = [
     "constructs>=10.0.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["backend/src"]
+
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["backend/tests"]
 pythonpath = ["."]
 
 [tool.mypy]
