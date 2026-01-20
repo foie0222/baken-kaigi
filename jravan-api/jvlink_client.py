@@ -83,11 +83,11 @@ class RunnerInfo:
 class JVLinkClient:
     """JV-Link COM クライアント."""
 
-    def __init__(self, sid: str = ""):
+    def __init__(self, sid: str = "BAKENKAIGI"):
         """初期化.
 
         Args:
-            sid: ソフト ID（登録済みソフトの場合）
+            sid: ソフト ID（任意の英数字文字列、空文字は不可）
         """
         self._sid = sid
         self._jvlink = None
