@@ -1,40 +1,89 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Race } from '../types';
+import { apiClient } from '../api/client';
 
-// モックデータ（後でAPI連携）
-const mockRaces: Race[] = [
-  { id: '1', number: '11R', name: '天皇賞（春）', time: '15:40', course: '芝3200m', condition: '良', venue: '東京', date: '2024-01-18' },
-  { id: '2', number: '10R', name: '駒草特別', time: '15:00', course: '芝1800m', condition: '良', venue: '東京', date: '2024-01-18' },
-  { id: '3', number: '9R', name: '青嵐賞', time: '14:25', course: 'ダ1400m', condition: '良', venue: '東京', date: '2024-01-18' },
-  { id: '4', number: '12R', name: '立夏特別', time: '16:20', course: '芝1400m', condition: '良', venue: '東京', date: '2024-01-18' },
-];
+// 日付ボタン生成
+function generateDateButtons(): { label: string; date: string }[] {
+  const today = new Date();
+  const result = [];
 
-const dates = ['今日 1/18', '明日 1/19', '1/25 (土)', '1/26 (日)'];
-const venues = ['東京', '中山', '京都'];
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+
+    let label: string;
+    if (i === 0) {
+      label = `今日 ${month}/${day}`;
+    } else if (i === 1) {
+      label = `明日 ${month}/${day}`;
+    } else {
+      label = `${month}/${day} (${dayOfWeek})`;
+    }
+
+    const dateStr = d.toISOString().split('T')[0];
+    result.push({ label, date: dateStr });
+  }
+
+  return result;
+}
+
+const dateButtons = generateDateButtons();
 
 export function RacesPage() {
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(0);
-  const [selectedVenue, setSelectedVenue] = useState('東京');
-  const [races, setRaces] = useState<Race[]>(mockRaces);
+  const [selectedDateIdx, setSelectedDateIdx] = useState(0);
+  const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
+  const [races, setRaces] = useState<Race[]>([]);
+  const [venues, setVenues] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchRaces = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const selectedDate = dateButtons[selectedDateIdx].date;
+    const response = await apiClient.getRaces(selectedDate);
+
+    if (response.success && response.data) {
+      setRaces(response.data.races);
+      setVenues(response.data.venues);
+      // 初回は最初の会場を選択
+      if (!selectedVenue && response.data.venues.length > 0) {
+        setSelectedVenue(response.data.venues[0]);
+      }
+    } else {
+      setError(response.error || 'レースの取得に失敗しました');
+      setRaces([]);
+    }
+
+    setLoading(false);
+  }, [selectedDateIdx, selectedVenue]);
 
   useEffect(() => {
-    // TODO: API連携時にsetRacesを使用
-    // 現在はモックデータを使用
-    setRaces(mockRaces);
-  }, [selectedDate, selectedVenue]);
+    fetchRaces();
+  }, [fetchRaces]);
+
+  // 選択された会場でフィルタリング
+  const filteredRaces = selectedVenue
+    ? races.filter((race) => race.venue === selectedVenue)
+    : races;
 
   return (
     <div className="fade-in">
       <div className="race-date-selector">
-        {dates.map((date, index) => (
+        {dateButtons.map((btn, index) => (
           <button
-            key={date}
-            className={`date-btn ${selectedDate === index ? 'active' : ''}`}
-            onClick={() => setSelectedDate(index)}
+            key={btn.date}
+            className={`date-btn ${selectedDateIdx === index ? 'active' : ''}`}
+            onClick={() => setSelectedDateIdx(index)}
           >
-            {date}
+            {btn.label}
           </button>
         ))}
       </div>
@@ -51,13 +100,22 @@ export function RacesPage() {
         ))}
       </div>
 
-      <p className="section-title">本日のレース</p>
+      <p className="section-title">
+        {selectedDateIdx === 0 ? '本日' : dateButtons[selectedDateIdx].label}のレース
+      </p>
 
-      {races.map((race) => (
+      {loading && <div className="loading">読み込み中...</div>}
+      {error && <div className="error">{error}</div>}
+
+      {!loading && !error && filteredRaces.length === 0 && (
+        <div className="no-races">レースがありません</div>
+      )}
+
+      {filteredRaces.map((race) => (
         <div
           key={race.id}
           className="race-card"
-          onClick={() => navigate(`/races/${race.id}`)}
+          onClick={() => navigate(`/races/${encodeURIComponent(race.id)}`)}
         >
           <div className="race-header">
             <span className="race-number">{race.number}</span>
@@ -65,7 +123,7 @@ export function RacesPage() {
           </div>
           <div className="race-name">{race.name}</div>
           <div className="race-info">
-            <span>{race.course}</span>
+            {race.course && <span>{race.course}</span>}
             <span>馬場: {race.condition}</span>
           </div>
         </div>

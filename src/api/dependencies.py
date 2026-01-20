@@ -5,9 +5,11 @@ from src.domain.ports import (
     ConsultationSessionRepository,
     RaceDataProvider,
 )
-from src.infrastructure.repositories import (
+from src.infrastructure import (
     InMemoryCartRepository,
     InMemoryConsultationSessionRepository,
+    MockAIClient,
+    MockRaceDataProvider,
 )
 
 
@@ -41,16 +43,16 @@ class Dependencies:
     def get_race_data_provider(cls) -> RaceDataProvider:
         """レースデータプロバイダを取得する."""
         if cls._race_data_provider is None:
-            # TODO: 実際の実装に置き換える
-            raise NotImplementedError("RaceDataProvider implementation required")
+            # デフォルトはモック実装を使用
+            cls._race_data_provider = MockRaceDataProvider()
         return cls._race_data_provider
 
     @classmethod
     def get_ai_client(cls) -> AIClient:
         """AIクライアントを取得する."""
         if cls._ai_client is None:
-            # TODO: 実際の実装に置き換える
-            raise NotImplementedError("AIClient implementation required")
+            # デフォルトはモック実装を使用
+            cls._ai_client = MockAIClient()
         return cls._ai_client
 
     @classmethod

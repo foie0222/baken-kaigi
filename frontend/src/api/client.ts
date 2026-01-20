@@ -6,7 +6,10 @@ import type {
   ConsultationSession,
   BetType,
   ApiResponse,
+  ApiRacesResponse,
+  ApiRaceDetailResponse,
 } from '../types';
+import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 
 // API ベース URL（環境変数から取得）
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -53,13 +56,36 @@ class ApiClient {
   }
 
   // レース API
-  async getRaces(date?: string): Promise<ApiResponse<Race[]>> {
+  async getRaces(date?: string): Promise<ApiResponse<{ races: Race[]; venues: string[] }>> {
     const params = date ? `?date=${date}` : '';
-    return this.request<Race[]>(`/races${params}`);
+    const response = await this.request<ApiRacesResponse>(`/races${params}`);
+
+    if (!response.success || !response.data) {
+      return { success: false, error: response.error };
+    }
+
+    return {
+      success: true,
+      data: {
+        races: response.data.races.map(mapApiRaceToRace),
+        venues: response.data.venues,
+      },
+    };
   }
 
   async getRaceDetail(raceId: string): Promise<ApiResponse<RaceDetail>> {
-    return this.request<RaceDetail>(`/races/${raceId}`);
+    const response = await this.request<ApiRaceDetailResponse>(
+      `/races/${encodeURIComponent(raceId)}`
+    );
+
+    if (!response.success || !response.data) {
+      return { success: false, error: response.error };
+    }
+
+    return {
+      success: true,
+      data: mapApiRaceDetailToRaceDetail(response.data.race, response.data.runners),
+    };
   }
 
   // カート API

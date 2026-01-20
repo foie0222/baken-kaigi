@@ -1,4 +1,34 @@
-// レース関連
+// レース関連（API形式）
+export interface ApiRace {
+  race_id: string;
+  race_name: string;
+  race_number: number;
+  venue: string;
+  start_time: string;
+  betting_deadline: string;
+  track_condition: string;
+}
+
+export interface ApiRunner {
+  horse_number: number;
+  horse_name: string;
+  jockey_name: string;
+  odds: string;
+  popularity: number;
+}
+
+export interface ApiRacesResponse {
+  races: ApiRace[];
+  venues: string[];
+  target_date: string;
+}
+
+export interface ApiRaceDetailResponse {
+  race: ApiRace;
+  runners: ApiRunner[];
+}
+
+// レース関連（フロントエンド表示用）
 export interface Race {
   id: string;
   number: string;
@@ -21,6 +51,49 @@ export interface Horse {
 
 export interface RaceDetail extends Race {
   horses: Horse[];
+}
+
+// API → フロントエンド 変換関数
+export function mapApiRaceToRace(apiRace: ApiRace): Race {
+  const startTime = new Date(apiRace.start_time);
+  const hours = startTime.getHours().toString().padStart(2, '0');
+  const minutes = startTime.getMinutes().toString().padStart(2, '0');
+
+  return {
+    id: apiRace.race_id,
+    number: `${apiRace.race_number}R`,
+    name: apiRace.race_name,
+    time: `${hours}:${minutes}`,
+    course: '',
+    condition: apiRace.track_condition,
+    venue: apiRace.venue,
+    date: apiRace.start_time.split('T')[0],
+  };
+}
+
+export function mapApiRaceDetailToRaceDetail(
+  apiRace: ApiRace,
+  runners: ApiRunner[]
+): RaceDetail {
+  const race = mapApiRaceToRace(apiRace);
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+    '#F1948A', '#82E0AA', '#F8B500', '#5DADE2', '#AF7AC5',
+    '#48C9B0', '#F9E79F', '#AED6F1',
+  ];
+
+  return {
+    ...race,
+    horses: runners.map((runner) => ({
+      number: runner.horse_number,
+      name: runner.horse_name,
+      jockey: runner.jockey_name,
+      odds: parseFloat(runner.odds),
+      popularity: runner.popularity,
+      color: colors[(runner.horse_number - 1) % colors.length],
+    })),
+  };
 }
 
 // 券種

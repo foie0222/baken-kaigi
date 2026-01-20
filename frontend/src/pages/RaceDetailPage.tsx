@@ -1,33 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
-import type { RaceDetail, BetType, Horse } from '../types';
+import type { RaceDetail, BetType } from '../types';
 import { BetTypeLabels, BetTypeRequiredHorses } from '../types';
-
-// モックデータ
-const mockHorses: Horse[] = [
-  { number: 1, name: 'ディープボンド', jockey: '和田竜二', odds: 5.2, popularity: 2, color: '#c41e3a' },
-  { number: 2, name: 'テーオーロイヤル', jockey: '菱田裕二', odds: 8.5, popularity: 4, color: '#000000' },
-  { number: 3, name: 'タイトルホルダー', jockey: '横山武史', odds: 3.1, popularity: 1, color: '#0066cc' },
-  { number: 4, name: 'ジャスティンパレス', jockey: 'C.ルメール', odds: 6.8, popularity: 3, color: '#ffcc00' },
-  { number: 5, name: 'シルヴァーソニック', jockey: '松山弘平', odds: 15.2, popularity: 6, color: '#008000' },
-  { number: 6, name: 'ブレークアップ', jockey: '川田将雅', odds: 12.4, popularity: 5, color: '#ff6600' },
-  { number: 7, name: 'アスクビクターモア', jockey: '田辺裕信', odds: 18.6, popularity: 7, color: '#9933cc' },
-  { number: 8, name: 'ヒートオンビート', jockey: '坂井瑠星', odds: 35.8, popularity: 8, color: '#ff69b4' },
-];
-
-const mockRaceDetail: RaceDetail = {
-  id: '1',
-  number: '11R',
-  name: '天皇賞（春）',
-  time: '15:40',
-  course: '芝3200m',
-  condition: '良',
-  venue: '東京',
-  date: '2024-01-18',
-  horses: mockHorses,
-};
+import { apiClient } from '../api/client';
 
 const betTypes: BetType[] = ['win', 'place', 'quinella', 'exacta', 'trio', 'trifecta'];
 
@@ -38,16 +15,33 @@ export function RaceDetailPage() {
   const addItem = useCartStore((state) => state.addItem);
   const itemCount = useCartStore((state) => state.getItemCount());
 
-  const [race, setRace] = useState<RaceDetail | null>(mockRaceDetail);
+  const [race, setRace] = useState<RaceDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedHorses, setSelectedHorses] = useState<number[]>([]);
   const [betType, setBetType] = useState<BetType>('quinella');
   const [betAmount, setBetAmount] = useState(1000);
 
-  useEffect(() => {
-    // TODO: API連携時にsetRaceを使用
-    // 現在はモックデータを使用
-    setRace(mockRaceDetail);
+  const fetchRaceDetail = useCallback(async () => {
+    if (!raceId) return;
+
+    setLoading(true);
+    setError(null);
+
+    const response = await apiClient.getRaceDetail(decodeURIComponent(raceId));
+
+    if (response.success && response.data) {
+      setRace(response.data);
+    } else {
+      setError(response.error || 'レース詳細の取得に失敗しました');
+    }
+
+    setLoading(false);
   }, [raceId]);
+
+  useEffect(() => {
+    fetchRaceDetail();
+  }, [fetchRaceDetail]);
 
   const toggleHorse = (number: number) => {
     setSelectedHorses((prev) =>
@@ -98,7 +92,9 @@ export function RaceDetailPage() {
     showToast('カートに追加しました');
   };
 
-  if (!race) return <div>Loading...</div>;
+  if (loading) return <div className="loading">読み込み中...</div>;
+  if (error) return <div className="error">{error}</div>;
+  if (!race) return <div className="no-races">レースが見つかりません</div>;
 
   return (
     <div className="fade-in">
