@@ -29,6 +29,28 @@ VENUE_NAMES = {
 }
 
 
+# トラックコード → トラックタイプ
+TRACK_TYPES = {
+    "00": "",      # 不明
+    "10": "芝",    # 芝・直線
+    "11": "芝",    # 芝・左
+    "12": "芝",    # 芝・右
+    "17": "芝",    # 芝・左内
+    "18": "芝",    # 芝・右内
+    "19": "芝",    # 芝・右外
+    "20": "ダ",    # ダート・直線
+    "21": "ダ",    # ダート・左
+    "22": "ダ",    # ダート・右
+    "23": "ダ",    # ダート・左内
+    "24": "ダ",    # ダート・右外
+    "25": "ダ",    # ダート・外
+    "26": "ダ",    # ダート・内
+    "29": "ダ",    # ダート・その他
+    "51": "障",    # 障害・芝
+    "52": "障",    # 障害・ダート
+}
+
+
 def parse_ra_record(data: str) -> dict | None:
     """RA レコードをパースしてレース情報を返す."""
     try:
@@ -44,6 +66,31 @@ def parse_ra_record(data: str) -> dict | None:
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
         venue_name = VENUE_NAMES.get(jyo_cd, "不明")
 
+        # 距離 (位置 593-597)
+        distance = 0
+        if len(data) > 597:
+            kyori_str = data[593:597]
+            if kyori_str.isdigit():
+                distance = int(kyori_str)
+
+        # トラックコード (位置 507-509)
+        track_type = ""
+        if len(data) > 509:
+            track_cd = data[507:509]
+            track_type = TRACK_TYPES.get(track_cd, "")
+
+        # 発走時刻 (位置 734-738 - HHMM形式)
+        start_hour = 12
+        start_min = 0
+        if len(data) > 738:
+            hasso_str = data[734:738]
+            if hasso_str.isdigit():
+                hh = int(hasso_str[:2])
+                mm = int(hasso_str[2:])
+                if 6 <= hh <= 18 and 0 <= mm <= 59:
+                    start_hour = hh
+                    start_min = mm
+
         return {
             "race_id": race_id,
             "race_date": race_date,
@@ -51,9 +98,9 @@ def parse_ra_record(data: str) -> dict | None:
             "race_number": int(race_num),
             "venue_code": jyo_cd,
             "venue_name": venue_name,
-            "start_time": f"{race_date[:4]}-{race_date[4:6]}-{race_date[6:8]} 12:00",
-            "distance": 0,
-            "track_type": "",
+            "start_time": f"{race_date[:4]}-{race_date[4:6]}-{race_date[6:8]} {start_hour:02d}:{start_min:02d}",
+            "distance": distance,
+            "track_type": track_type,
             "track_condition": "",
             "grade": "",
             "kai": kai,
