@@ -9,6 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Generator
 
+import pythoncom
 import win32com.client
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,8 @@ class JVLinkClient:
     def init(self) -> bool:
         """JV-Link を初期化する."""
         try:
+            # スレッドごとに COM を初期化
+            pythoncom.CoInitialize()
             self._jvlink = win32com.client.Dispatch("JVDTLab.JVLink")
             result = self._jvlink.JVInit(self._sid)
             if result != 0:
@@ -126,6 +129,10 @@ class JVLinkClient:
                 logger.warning(f"Error closing JV-Link: {e}")
             self._jvlink = None
             self._initialized = False
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
 
     def open_realtime(self, data_spec: str) -> int:
         """リアルタイムデータを開く.
@@ -161,6 +168,9 @@ class JVLinkClient:
         # option: 1=通常, 2=今週データ, 3=セットアップ, 4=ダイアログ表示
         result = self._jvlink.JVOpen(data_spec, from_time, 1)
         logger.debug(f"JVOpen({data_spec}, {from_time}) = {result}")
+        # result は (status, count, downloaded, lastupdate) のタプル
+        if isinstance(result, tuple):
+            return result[0]  # status を返す
         return result
 
     def read(self) -> tuple[int, str, str]:
@@ -176,12 +186,15 @@ class JVLinkClient:
         buff = " " * 100000  # 十分なバッファ
         result = self._jvlink.JVRead(buff, len(buff), "")
 
-        # result は (status, name, buff) のタプル
+        # result は (data_length, data, buffer_size, filename) のタプル
+        # data_length: 正=データあり, 0=EOF, -1=ダウンロード中, 負数=エラー
         status = result[0]
-        name = result[1] if len(result) > 1 else ""
-        data = result[2] if len(result) > 2 else ""
+        data = result[1] if len(result) > 1 else ""
 
-        return status, name, data
+        # レコード種別はデータの先頭2文字
+        record_type = data[:2] if data else ""
+
+        return status, record_type, data
 
     def read_all(self) -> Generator[tuple[str, str], None, None]:
         """全データを読み込む.
@@ -189,13 +202,21 @@ class JVLinkClient:
         Yields:
             (record_type, data)
         """
+        import time
+        count = 0
         while True:
             status, record_type, data = self.read()
+            count += 1
+            if count <= 5 or count % 500 == 0:
+                logger.info(f"read_all: count={count}, status={status}, type={record_type}")
             if status == 0:  # EOF
+                logger.info(f"read_all: EOF at {count}")
                 break
             if status == -1:  # ダウンロード中
-                import time
                 time.sleep(0.1)
+                continue
+            if status == -3:  # ファイルダウンロード中
+                time.sleep(0.5)
                 continue
             if status < 0:  # エラー
                 logger.error(f"JVRead error: {status}")
@@ -213,11 +234,14 @@ class JVLinkClient:
         """
         races = []
 
-        # リアルタイムデータを開く
-        result = self.open_realtime("0B12")  # 開催レース一覧
+        # 蓄積データを開く（指定日から検索）
+        from_time = f"{date}000000"
+        result = self.open_setup("RACE", from_time)
         if result < 0:
             logger.error(f"Failed to open race list: {result}")
             return races
+
+        logger.info(f"JVOpen returned: {result} records")
 
         for record_type, data in self.read_all():
             if record_type == "RA":  # レース詳細
@@ -225,6 +249,7 @@ class JVLinkClient:
                 if race and race.race_id.startswith(date):
                     races.append(race)
 
+        # JVClose は呼ばない（サーバー終了時に呼ぶ）
         return races
 
     def get_runners(self, race_id: str) -> list[RunnerInfo]:
@@ -257,8 +282,7 @@ class JVLinkClient:
         JV-Data 仕様書に基づく固定長レコード。
         """
         try:
-            # 固定長レコードのパース（仕様書参照）
-            # 以下は簡略化した例 - 実際は JV-Data 仕様書に従う
+            # 固定長レコードのパース
             record_type = data[0:2]  # レコード種別
             if record_type != "RA":
                 return None
@@ -266,35 +290,27 @@ class JVLinkClient:
             # データ区分
             data_div = data[2:3]
 
-            # レース ID（年+回+日+場所+レース番号）
-            year = data[3:7]
-            kai = data[7:9]
-            day = data[9:11]
-            jyo_cd = data[11:13]  # 場所コード
-            race_num = data[13:15]
+            # [3:11] 作成日時
+            # [11:19] 開催日（YYYYMMDD）
+            race_date = data[11:19]
 
-            race_id = f"{year}{kai}{day}{jyo_cd}{race_num}"
+            # [19:21] 場所コード
+            jyo_cd = data[19:21]
 
-            # レース名（60バイト、Shift_JIS）
-            race_name_raw = data[15:75]
-            race_name = race_name_raw.strip()
+            # [21:23] 開催回
+            kai = data[21:23]
 
-            # 発走時刻
-            hour = data[75:77]
-            minute = data[77:79]
-            start_time_str = f"{year}{kai}{day} {hour}:{minute}"
+            # [23:25] 日目
+            nichiji = data[23:25]
 
-            # 距離
-            distance = int(data[79:83]) if data[79:83].strip() else 0
+            # [25:27] レース番号
+            race_num = data[25:27]
 
-            # トラック種別（1=芝, 2=ダート）
-            track_type_cd = data[83:84]
-            track_type = "芝" if track_type_cd == "1" else "ダート"
+            # レース ID（開催日+場所+回+日目+レース番号）
+            race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
 
-            # 馬場状態
-            track_cond_cd = data[84:85]
-            track_conditions = {"1": "良", "2": "稍重", "3": "重", "4": "不良"}
-            track_condition = track_conditions.get(track_cond_cd, "不明")
+            # レース名は後ろの方にある（仮で空文字）
+            race_name = f"{jyo_cd}場 {int(race_num)}R"
 
             # 場所名
             venue_names = {
@@ -303,6 +319,13 @@ class JVLinkClient:
                 "09": "阪神", "10": "小倉",
             }
             venue_name = venue_names.get(jyo_cd, "不明")
+            race_name = f"{venue_name} {int(race_num)}R"
+
+            # 発走時刻（仮で12:00）
+            year = race_date[:4]
+            month = race_date[4:6]
+            day = race_date[6:8]
+            start_time_str = f"{year}-{month}-{day} 12:00"
 
             return RaceInfo(
                 race_id=race_id,
@@ -310,10 +333,10 @@ class JVLinkClient:
                 race_number=int(race_num),
                 venue=jyo_cd,
                 venue_name=venue_name,
-                start_time=datetime.strptime(start_time_str, "%Y%m%d %H:%M"),
-                distance=distance,
-                track_type=track_type,
-                track_condition=track_condition,
+                start_time=datetime.strptime(start_time_str, "%Y-%m-%d %H:%M"),
+                distance=0,  # 別途パース
+                track_type="",
+                track_condition="",
                 grade="",  # 別途パース
             )
         except Exception as e:
