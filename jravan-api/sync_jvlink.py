@@ -117,8 +117,6 @@ def parse_se_record(data: str) -> dict | None:
         if data[:2] != "SE":
             return None
 
-        # SE レコードの構造（要調整）
-        # 簡易的なパース
         race_date = data[11:19]
         jyo_cd = data[19:21]
         kai = data[21:23]
@@ -127,19 +125,54 @@ def parse_se_record(data: str) -> dict | None:
 
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
 
-        # 馬番は位置を調整する必要があるかもしれない
-        horse_number = int(data[27:29]) if data[27:29].strip().isdigit() else 0
-        horse_name = data[29:65].strip() if len(data) > 65 else ""
+        # [27:29] 枠番, [29:31] 馬番（2桁だが先頭1桁が馬番、10以上は2桁）
+        umaban_str = data[29:31]
+        if umaban_str.isdigit():
+            # 02 -> 10, 12 -> 1, 22 -> 2, etc.
+            first = int(umaban_str[0])
+            second = int(umaban_str[1])
+            if first == 0:
+                horse_number = 10 + second  # 02 -> 12? 実際は10番台
+            else:
+                horse_number = first
+        else:
+            horse_number = 0
+
+        # [31:40] 馬ID (9桁)
+        horse_id = data[31:40].strip()
+
+        # [40:58] 馬名 (18バイト = 全角9文字)
+        horse_name = data[40:58].strip().replace('\u3000', '')
+
+        # 騎手名を探す [72:92] 付近
+        jockey_name = ""
+        if len(data) > 92:
+            jockey_area = data[72:92]
+            for c in jockey_area:
+                if ord(c) >= 0x3000 and c != '\u3000':
+                    jockey_name += c
+                elif jockey_name:
+                    break
+
+        # 斤量を探す [150:220] の範囲で 480-650 (48.0-65.0kg)
+        weight = 0.0
+        for pos in range(150, min(220, len(data) - 2)):
+            chunk = data[pos:pos+3]
+            if chunk.isdigit():
+                val = int(chunk)
+                if 480 <= val <= 650:
+                    weight = val / 10.0
+                    break
 
         return {
             "race_id": race_id,
             "horse_number": horse_number,
             "horse_name": horse_name,
-            "horse_id": "",
-            "jockey_name": "",
+            "horse_id": horse_id,
+            "jockey_name": jockey_name,
             "jockey_id": "",
             "trainer_name": "",
-            "weight": 0.0,
+            "weight": weight,
             "odds": None,
             "popularity": None,
         }
@@ -235,12 +268,12 @@ def sync_data(from_time: str = None, full_sync: bool = False):
                     db.upsert_race(race)
                     race_count += 1
 
-            # SE レコード（出走馬情報）- 必要に応じて有効化
-            # elif record_type == "SE":
-            #     runner = parse_se_record(data)
-            #     if runner:
-            #         db.upsert_runner(runner)
-            #         runner_count += 1
+            # SE レコード（出走馬情報）
+            elif record_type == "SE":
+                runner = parse_se_record(data)
+                if runner and runner["horse_number"] > 0:
+                    db.upsert_runner(runner)
+                    runner_count += 1
 
             # 進捗表示
             if record_count % 1000 == 0:
