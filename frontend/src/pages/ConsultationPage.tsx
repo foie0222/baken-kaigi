@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels } from '../types';
@@ -20,7 +21,7 @@ export function ConsultationPage() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 初期状態をtrueに
   const [sessionId, setSessionId] = useState<string | undefined>();
 
   // 初回ロード時に AI からの初期分析を取得
@@ -33,6 +34,7 @@ export function ConsultationPage() {
           text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
         },
       ]);
+      setIsLoading(false);
       return;
     }
 
@@ -114,13 +116,19 @@ export function ConsultationPage() {
       } else {
         setMessages((prev) => [
           ...prev,
-          { type: 'ai', text: 'エラーが発生しました。もう一度お試しください。' },
+          {
+            type: 'ai',
+            text: '申し訳ございません。分析中に問題が発生しました。\n\n上記のデータを参考に、ご自身でご判断ください。',
+          },
         ]);
       }
     } catch {
       setMessages((prev) => [
         ...prev,
-        { type: 'ai', text: 'エラーが発生しました。もう一度お試しください。' },
+        {
+          type: 'ai',
+          text: '申し訳ございません。通信エラーが発生しました。\n\nしばらく待ってから再度お試しいただくか、上記のデータを参考にご判断ください。',
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -166,20 +174,22 @@ export function ConsultationPage() {
         <div className="chat-messages">
           {messages.map((msg, index) => (
             <div key={index} className={`chat-message ${msg.type}`}>
-              <div className="message-bubble">
-                {msg.text.split('\n').map((line, i) => (
-                  <span key={i}>
-                    {line}
-                    {i < msg.text.split('\n').length - 1 && <br />}
-                  </span>
-                ))}
+              <div className="message-bubble markdown-content">
+                <ReactMarkdown>{msg.text}</ReactMarkdown>
               </div>
             </div>
           ))}
           {isLoading && (
             <div className="chat-message ai">
-              <div className="message-bubble" style={{ opacity: 0.7 }}>
-                考え中...
+              <div className="message-bubble loading-bubble">
+                <span className="loading-dots">
+                  <span>考</span>
+                  <span>え</span>
+                  <span>中</span>
+                  <span className="dot">.</span>
+                  <span className="dot">.</span>
+                  <span className="dot">.</span>
+                </span>
               </div>
             </div>
           )}

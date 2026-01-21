@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/consultation': {
-        target: 'http://localhost:8082',
+        target: 'http://localhost:8084',
         changeOrigin: true,
         rewrite: (path) => '/invocations',
         configure: (proxy) => {
