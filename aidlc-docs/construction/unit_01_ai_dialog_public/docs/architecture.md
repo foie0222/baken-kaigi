@@ -6,6 +6,29 @@
 AI 相談機能には **Amazon Bedrock AgentCore** を採用し、インフラ管理なしでエージェントをデプロイ。
 JRA-VAN Data Lab. 連携は EC2 Windows 上の FastAPI サーバーで実現。
 
+## 現在の実装状態 ✅
+
+> **最終更新**: 2026-01-21
+
+### デプロイ済みリソース
+
+| コンポーネント | リソース | 状態 |
+|----------------|----------|------|
+| フロントエンド | AWS Amplify (`main.d54nb7i3448os.amplifyapp.com`) | ✅ 稼働中 |
+| AgentCore | `baken_kaigi_ai-dfTUpICY2G` | ✅ 稼働中 |
+| API Gateway | `ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com` | ✅ 稼働中 |
+| EC2 Windows | `i-08347ed1e2c4bcc80` (10.0.0.203) | ✅ 稼働中 |
+| Lambda (VPC) | JRA-VAN連携済み | ✅ 稼働中 |
+
+### JRA-VANデータ同期状況
+
+| 日付 | 会場 | 状態 |
+|------|------|------|
+| 2026-01-17 | 中山・京都 | ✅ 同期済み |
+| 2026-01-18 | 中山・京都 | ✅ 同期済み |
+
+---
+
 ## アーキテクチャ図
 
 ```mermaid
@@ -218,19 +241,26 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## 環境変数
 
-### フロントエンド (.env)
+### フロントエンド (Amplify 環境変数)
 
 | 変数名 | 値 | 説明 |
 |--------|-----|------|
-| VITE_API_BASE_URL | https://xxx.execute-api.ap-northeast-1.amazonaws.com/prod | JRA-VAN API URL |
-| VITE_AGENTCORE_ENDPOINT | https://xxx.bedrock-agentcore.amazonaws.com | AgentCore エンドポイント |
+| VITE_API_BASE_URL | `https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod` | JRA-VAN API URL |
+| VITE_AGENTCORE_ENDPOINT | `https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod/api/consultation` | AgentCore エンドポイント |
+
+### Lambda 関数 (VPC 内)
+
+| 変数名 | 値 | 説明 |
+|--------|-----|------|
+| RACE_DATA_PROVIDER | `jravan` | JRA-VANプロバイダを使用 |
+| JRAVAN_API_URL | `http://10.0.0.203:8000` | EC2 Windows FastAPI URL (VPC内部) |
+| CART_TABLE_NAME | `baken-kaigi-cart` | DynamoDB テーブル名 |
 
 ### AgentCore エージェント
 
 | 変数名 | 値 | 説明 |
 |--------|-----|------|
-| JRAVAN_API_URL | https://xxx.execute-api.ap-northeast-1.amazonaws.com/prod | JRA-VAN API URL |
-| CLAUDE_MODEL | claude-sonnet-4-20250514 | 使用する Claude モデル |
+| JRAVAN_API_URL | `https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod` | JRA-VAN API URL (公開エンドポイント) |
 
 ## 将来の拡張
 

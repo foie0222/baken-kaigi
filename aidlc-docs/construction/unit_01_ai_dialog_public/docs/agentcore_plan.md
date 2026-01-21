@@ -4,6 +4,41 @@
 
 馬券会議 AI エージェントを Amazon Bedrock AgentCore にデプロイするための実装計画。
 
+## 現在の実装状態 ✅
+
+> **最終更新**: 2026-01-21
+
+### デプロイ済みリソース
+
+| リソース | 値 |
+|----------|-----|
+| Agent ARN | `arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_ai-dfTUpICY2G` |
+| Memory ARN | `arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:memory/baken_kaigi_ai_mem-ZBXbqoCIfi` |
+| ネットワークモード | PUBLIC |
+| ランタイム | Python 3.12 |
+
+### 実装済みツール
+
+| ツール名 | 説明 | 状態 |
+|----------|------|------|
+| `get_race_runners` | 出走馬一覧取得 | ✅ 動作確認済み |
+| `get_race_info` | レース詳細取得 | ✅ 動作確認済み |
+| `analyze_bet_selection` | 買い目分析 | ✅ 動作確認済み |
+
+### 環境変数
+
+| 変数名 | 値 | 説明 |
+|--------|-----|------|
+| JRAVAN_API_URL | `https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod` | JRA-VAN API（公開エンドポイント） |
+
+### 動作確認済みフロー
+
+1. フロントエンド → AgentCore API → エージェント実行
+2. エージェント → JRA-VAN API → レースデータ取得
+3. Claude による分析 → フロントエンドへ応答
+
+---
+
 ## 技術選定
 
 | 項目 | 選択 | 理由 |
