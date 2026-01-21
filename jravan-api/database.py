@@ -131,6 +131,33 @@ def get_runners_by_race(race_id: str) -> list[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 
+def get_horse_count(race_id: str) -> int:
+    """レースの出走馬数を取得."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "SELECT COUNT(*) as count FROM runners WHERE race_id = ?",
+            (race_id,)
+        )
+        row = cursor.fetchone()
+        return row["count"] if row else 0
+
+
+def get_horse_counts_by_date(date: str) -> dict[str, int]:
+    """指定日のレースごとの出走馬数を取得."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            """
+            SELECT r.race_id, COUNT(ru.id) as count
+            FROM races r
+            LEFT JOIN runners ru ON r.race_id = ru.race_id
+            WHERE r.race_date = ?
+            GROUP BY r.race_id
+            """,
+            (date,)
+        )
+        return {row["race_id"]: row["count"] for row in cursor.fetchall()}
+
+
 def upsert_race(race: dict):
     """レースを追加/更新."""
     with get_db() as conn:

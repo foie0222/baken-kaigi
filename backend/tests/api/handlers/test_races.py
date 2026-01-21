@@ -106,6 +106,41 @@ class TestGetRacesHandler:
         assert body["races"][0]["race_name"] == "1R"
         assert body["races"][1]["race_name"] == "日本ダービー"
 
+    def test_レース一覧にコース情報が含まれる(self) -> None:
+        """レース一覧にtrack_type, distance, horse_countが含まれることを確認."""
+        from src.api.handlers.races import get_races
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060101",
+                race_name="3歳未勝利",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 10, 0),
+                betting_deadline=datetime(2024, 6, 1, 9, 55),
+                track_condition="良",
+                track_type="芝",
+                distance=1600,
+                horse_count=16,
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "queryStringParameters": {"date": "2024-06-01"},
+        }
+
+        response = get_races(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert len(body["races"]) == 1
+        race = body["races"][0]
+        assert race["track_type"] == "芝"
+        assert race["distance"] == 1600
+        assert race["horse_count"] == 16
+
     def test_開催場でフィルタできる(self) -> None:
         """開催場でフィルタできることを確認."""
         from src.api.handlers.races import get_races
@@ -219,3 +254,34 @@ class TestGetRaceDetailHandler:
         response = get_race_detail(event, None)
 
         assert response["statusCode"] == 404
+
+    def test_レース詳細にコース情報が含まれる(self) -> None:
+        """レース詳細にtrack_type, distance, horse_countが含まれることを確認."""
+        from src.api.handlers.races import get_race_detail
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+                track_type="芝",
+                distance=2400,
+                horse_count=18,
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+
+        response = get_race_detail(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["race"]["track_type"] == "芝"
+        assert body["race"]["distance"] == 2400
+        assert body["race"]["horse_count"] == 18

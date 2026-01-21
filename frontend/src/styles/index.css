@@ -245,6 +245,112 @@ main {
     font-size: 12px;
 }
 
+/* New Race Card V2 - JRA風デザイン */
+.race-card-v2 {
+    background: white;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.race-card-v2:active {
+    transform: scale(0.98);
+}
+
+.race-card-v2:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.race-card-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 50px;
+}
+
+.race-number-badge {
+    background: #1a5f2a;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 40px;
+    text-align: center;
+}
+
+.race-start-time {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+.race-card-center {
+    flex: 1;
+    min-width: 0;
+}
+
+.race-name-main {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.race-name-sub {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.race-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 70px;
+}
+
+.track-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.track-badge.turf {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.track-badge.dirt {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.distance-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.horse-count-text {
+    font-size: 12px;
+    color: #666;
+}
+
 /* Race Detail */
 .back-btn {
     display: flex;

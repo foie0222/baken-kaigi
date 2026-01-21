@@ -25,6 +25,9 @@ export interface ApiRace {
   start_time: string;
   betting_deadline: string;
   track_condition: string;
+  track_type?: string;
+  distance?: number;
+  horse_count?: number;
 }
 
 export interface ApiRunner {
@@ -56,6 +59,10 @@ export interface Race {
   condition: string;
   venue: string;
   date: string;
+  // 追加フィールド（モック用）
+  trackType?: string;   // 芝/ダート
+  distance?: number;    // 距離（メートル）
+  horseCount?: number;  // 頭数
 }
 
 export interface Horse {
@@ -86,6 +93,9 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
     condition: apiRace.track_condition,
     venue: apiRace.venue,
     date: apiRace.start_time.split('T')[0],
+    trackType: apiRace.track_type,
+    distance: apiRace.distance,
+    horseCount: apiRace.horse_count,
   };
 }
 

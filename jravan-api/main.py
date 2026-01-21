@@ -63,6 +63,7 @@ class RaceResponse(BaseModel):
     track_type: str
     track_condition: str
     grade: str
+    horse_count: int = 0
 
 
 class RunnerResponse(BaseModel):
@@ -119,6 +120,7 @@ def get_races(
 ):
     """指定日のレース一覧を取得する."""
     races = db.get_races_by_date(date)
+    horse_counts = db.get_horse_counts_by_date(date)
 
     if venue:
         races = [r for r in races if r["venue_code"] == venue]
@@ -136,6 +138,7 @@ def get_races(
             track_type=r["track_type"] or "",
             track_condition=r["track_condition"] or "",
             grade=r["grade"] or "",
+            horse_count=horse_counts.get(r["race_id"], 0),
         )
         for r in races
     ]
@@ -149,6 +152,8 @@ def get_race(race_id: str):
     if not race:
         raise HTTPException(status_code=404, detail="Race not found")
 
+    horse_count = db.get_horse_count(race_id)
+
     return RaceResponse(
         race_id=race["race_id"],
         race_name=race["race_name"],
@@ -161,6 +166,7 @@ def get_race(race_id: str):
         track_type=race["track_type"] or "",
         track_condition=race["track_condition"] or "",
         grade=race["grade"] or "",
+        horse_count=horse_count,
     )
 
 

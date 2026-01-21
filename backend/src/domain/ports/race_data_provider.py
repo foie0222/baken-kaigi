@@ -17,6 +17,9 @@ class RaceData:
     start_time: datetime
     betting_deadline: datetime
     track_condition: str  # 馬場状態
+    track_type: str = ""  # コース種別（芝/ダ/障）
+    distance: int = 0  # 距離（メートル）
+    horse_count: int = 0  # 出走頭数
 
 
 @dataclass(frozen=True)

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Race } from '../types';
 import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
+import { USE_MOCK, getMockRaces, getMockVenues } from '../../mock/races';
 
 // 日付ボタン生成（前週土日 + 次週土日）
 function generateDateButtons(): { label: string; date: string }[] {
@@ -62,6 +63,20 @@ export function RacesPage() {
     setError(null);
 
     const selectedDate = dateButtons[selectedDateIdx].date;
+
+    // モックモードの場合
+    if (USE_MOCK) {
+      const mockRaceList = getMockRaces(undefined, undefined); // 日付フィルタなしで全データ
+      const mockVenueList = getMockVenues();
+      setRaces(mockRaceList);
+      setVenues(mockVenueList);
+      if (!selectedVenue && mockVenueList.length > 0) {
+        setSelectedVenue(mockVenueList[0]);
+      }
+      setLoading(false);
+      return;
+    }
+
     const response = await apiClient.getRaces(selectedDate);
 
     if (response.success && response.data) {
@@ -128,16 +143,33 @@ export function RacesPage() {
       {filteredRaces.map((race) => (
         <div
           key={race.id}
-          className="race-card"
+          className="race-card-v2"
           onClick={() => navigate(`/races/${encodeURIComponent(race.id)}`)}
         >
-          <div className="race-header">
-            <span className="race-number">{race.number}R</span>
-            <span className="race-name">{race.name || `第${race.number}レース`}</span>
+          <div className="race-card-left">
+            <div className="race-number-badge">{race.number}</div>
+            <div className="race-start-time">{race.time}</div>
           </div>
-          <div className="race-info">
-            <span className="race-time">{race.time} 発走</span>
-            {race.condition && <span>馬場: {race.condition}</span>}
+          <div className="race-card-center">
+            <div className="race-name-main">
+              {race.name || `第${race.number}レース`}
+            </div>
+            {race.course && (
+              <div className="race-name-sub">{race.course}</div>
+            )}
+          </div>
+          <div className="race-card-right">
+            {race.trackType && (
+              <span className={`track-badge ${race.trackType === '芝' ? 'turf' : 'dirt'}`}>
+                {race.trackType}
+              </span>
+            )}
+            {race.distance && (
+              <span className="distance-text">{race.distance.toLocaleString()}m</span>
+            )}
+            {race.horseCount && (
+              <span className="horse-count-text">{race.horseCount}頭</span>
+            )}
           </div>
         </div>
       ))}

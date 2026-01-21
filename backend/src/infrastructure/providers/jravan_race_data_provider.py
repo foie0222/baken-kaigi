@@ -163,6 +163,9 @@ class JraVanRaceDataProvider(RaceDataProvider):
             start_time=datetime.fromisoformat(data["start_time"]),
             betting_deadline=datetime.fromisoformat(data["betting_deadline"]),
             track_condition=data["track_condition"],
+            track_type=data.get("track_type", ""),
+            distance=data.get("distance", 0),
+            horse_count=data.get("horse_count", 0),
         )
 
     def _to_runner_data(self, data: dict) -> RunnerData:

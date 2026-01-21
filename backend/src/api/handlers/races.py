@@ -48,6 +48,9 @@ def get_races(event: dict, context: Any) -> dict:
             "start_time": r.start_time.isoformat(),
             "betting_deadline": r.betting_deadline.isoformat(),
             "track_condition": r.track_condition,
+            "track_type": r.track_type,
+            "distance": r.distance,
+            "horse_count": r.horse_count,
         }
         for r in result.races
     ]
@@ -93,6 +96,9 @@ def get_race_detail(event: dict, context: Any) -> dict:
         "start_time": result.race.start_time.isoformat(),
         "betting_deadline": result.race.betting_deadline.isoformat(),
         "track_condition": result.race.track_condition,
+        "track_type": result.race.track_type,
+        "distance": result.race.distance,
+        "horse_count": result.race.horse_count,
     }
 
     runners = [

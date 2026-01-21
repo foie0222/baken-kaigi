@@ -75,6 +75,17 @@ aws ssm send-command \
   --parameters 'commands=["cd C:\\jravan-api; python script.py"]'
 ```
 
+### CDK デプロイ
+
+**重要**: CDKデプロイは必ず `--context jravan=true` を付けて実行すること。
+このフラグがないとLambda関数がVPCなしのモックモードになってしまう。
+
+```bash
+# バックエンドのデプロイ（必須オプション付き）
+cd cdk
+npx cdk deploy --all --context jravan=true --require-approval never
+```
+
 ### API エンドポイント確認
 
 ```bash
