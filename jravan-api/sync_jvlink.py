@@ -132,16 +132,11 @@ def parse_se_record(data: str) -> dict | None:
 
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
 
-        # [27:29] 枠番, [29:31] 馬番（2桁だが先頭1桁が馬番、10以上は2桁）
+        # [29:31] 馬番: 先頭1桁が馬番（0の場合は10）
         umaban_str = data[29:31]
         if umaban_str.isdigit():
-            # 02 -> 10, 12 -> 1, 22 -> 2, etc.
             first = int(umaban_str[0])
-            second = int(umaban_str[1])
-            if first == 0:
-                horse_number = 10 + second  # 02 -> 12? 実際は10番台
-            else:
-                horse_number = first
+            horse_number = 10 if first == 0 else first
         else:
             horse_number = 0
 
