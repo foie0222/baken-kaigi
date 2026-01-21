@@ -7,7 +7,7 @@ export function Header() {
 
   return (
     <header className="app-header">
-      <h1 className="app-title">馬券会議</h1>
+      <h1 className="app-title" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>馬券会議</h1>
       <div className="header-actions">
         <button className="cart-btn" onClick={() => navigate('/cart')}>
           <span className="cart-icon">🛒</span>
