@@ -132,29 +132,23 @@ def parse_se_record(data: str) -> dict | None:
 
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
 
-        # [29:31] 馬番: 先頭1桁が馬番（0の場合は10）
-        umaban_str = data[29:31]
+        # [28:30] 馬番 (2桁)
+        umaban_str = data[28:30]
         if umaban_str.isdigit():
-            first = int(umaban_str[0])
-            horse_number = 10 if first == 0 else first
+            horse_number = int(umaban_str)
         else:
             horse_number = 0
 
-        # [31:40] 馬ID (9桁)
-        horse_id = data[31:40].strip()
+        # [30:39] 馬ID (9桁)
+        horse_id = data[30:39].strip()
 
         # [40:58] 馬名 (18バイト = 全角9文字)
         horse_name = data[40:58].strip().replace('\u3000', '')
 
-        # 騎手名を探す [72:92] 付近
+        # 騎手名 [192:200] (8バイト = 全角4文字)
         jockey_name = ""
-        if len(data) > 92:
-            jockey_area = data[72:92]
-            for c in jockey_area:
-                if ord(c) >= 0x3000 and c != '\u3000':
-                    jockey_name += c
-                elif jockey_name:
-                    break
+        if len(data) > 200:
+            jockey_name = data[192:200].strip().replace('\u3000', '')
 
         # 斤量を探す [150:220] の範囲で 480-650 (48.0-65.0kg)
         weight = 0.0

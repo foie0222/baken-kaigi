@@ -1,33 +1,47 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Race } from '../types';
+import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
 
-// 日付ボタン生成
+// 日付ボタン生成（前週土日 + 次週土日）
 function generateDateButtons(): { label: string; date: string }[] {
   const today = new Date();
-  const result = [];
+  const dayOfWeek = today.getDay(); // 0=日, 1=月, ..., 6=土
+  const result: { label: string; date: string }[] = [];
 
-  for (let i = 0; i < 4; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
+  // 前週の土曜日を計算
+  const lastSat = new Date(today);
+  const daysToLastSat = dayOfWeek === 0 ? 8 : dayOfWeek + 1;
+  lastSat.setDate(today.getDate() - daysToLastSat);
 
-    const month = d.getMonth() + 1;
+  // 前週の日曜日
+  const lastSun = new Date(lastSat);
+  lastSun.setDate(lastSat.getDate() + 1);
+
+  // 次週の土曜日を計算
+  const nextSat = new Date(today);
+  const daysToNextSat = dayOfWeek === 6 ? 7 : 6 - dayOfWeek;
+  nextSat.setDate(today.getDate() + daysToNextSat);
+
+  // 次週の日曜日
+  const nextSun = new Date(nextSat);
+  nextSun.setDate(nextSat.getDate() + 1);
+
+  const formatDate = (d: Date, prefix: string) => {
+    const m = d.getMonth() + 1;
     const day = d.getDate();
-    const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    return {
+      label: `${prefix} ${m}/${day}(${dow})`,
+      date: d.toISOString().split('T')[0],
+    };
+  };
 
-    let label: string;
-    if (i === 0) {
-      label = `今日 ${month}/${day}`;
-    } else if (i === 1) {
-      label = `明日 ${month}/${day}`;
-    } else {
-      label = `${month}/${day} (${dayOfWeek})`;
-    }
-
-    const dateStr = d.toISOString().split('T')[0];
-    result.push({ label, date: dateStr });
-  }
+  result.push(formatDate(lastSat, '前週'));
+  result.push(formatDate(lastSun, '前週'));
+  result.push(formatDate(nextSat, '次週'));
+  result.push(formatDate(nextSun, '次週'));
 
   return result;
 }
@@ -95,13 +109,13 @@ export function RacesPage() {
             className={`venue-tab ${selectedVenue === venue ? 'active' : ''}`}
             onClick={() => setSelectedVenue(venue)}
           >
-            {venue}
+            {getVenueName(venue)}
           </button>
         ))}
       </div>
 
       <p className="section-title">
-        {selectedDateIdx === 0 ? '本日' : dateButtons[selectedDateIdx].label}のレース
+        {dateButtons[selectedDateIdx].label}のレース
       </p>
 
       {loading && <div className="loading">読み込み中...</div>}
