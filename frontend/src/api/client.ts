@@ -13,12 +13,33 @@ import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 
 // API ベース URL（環境変数から取得）
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const AGENTCORE_ENDPOINT = import.meta.env.VITE_AGENTCORE_ENDPOINT || '';
+
+// AgentCore 相談リクエスト/レスポンス型
+export interface AgentCoreConsultationRequest {
+  prompt: string;
+  cart_items: Array<{
+    raceId: string;
+    raceName: string;
+    betType: string;
+    horseNumbers: number[];
+    amount: number;
+  }>;
+  session_id?: string;
+}
+
+export interface AgentCoreConsultationResponse {
+  message: string;
+  session_id: string;
+}
 
 class ApiClient {
   private baseUrl: string;
+  private agentCoreEndpoint: string;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, agentCoreEndpoint: string = '') {
     this.baseUrl = baseUrl;
+    this.agentCoreEndpoint = agentCoreEndpoint;
   }
 
   private async request<T>(
@@ -157,6 +178,52 @@ class ApiClient {
   ): Promise<ApiResponse<ConsultationSession>> {
     return this.request<ConsultationSession>(`/consultations/${sessionId}`);
   }
+
+  // AgentCore 相談 API
+  async consultWithAgent(
+    request: AgentCoreConsultationRequest
+  ): Promise<ApiResponse<AgentCoreConsultationResponse>> {
+    if (!this.agentCoreEndpoint) {
+      return {
+        success: false,
+        error: 'AgentCore endpoint is not configured',
+      };
+    }
+
+    try {
+      const response = await fetch(this.agentCoreEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || `HTTP ${response.status}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // AgentCore が利用可能かどうか
+  isAgentCoreAvailable(): boolean {
+    return !!this.agentCoreEndpoint;
+  }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL);
+export const apiClient = new ApiClient(API_BASE_URL, AGENTCORE_ENDPOINT);

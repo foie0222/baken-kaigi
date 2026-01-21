@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../stores/cartStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels } from '../types';
+import { apiClient } from '../api/client';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -17,24 +18,113 @@ export function ConsultationPage() {
   const showToast = useAppStore((state) => state.showToast);
   const totalAmount = getTotalAmount();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      type: 'ai',
-      text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>();
 
-  const handleQuickReply = (reply: string) => {
-    setMessages((prev) => [
-      ...prev,
-      { type: 'user', text: reply },
-      {
-        type: 'ai',
-        text: `なるほど、「${reply}」ですね。\n\n以下のデータを参考にしてください。最終判断はあなた自身で行いましょう。`,
-      },
-    ]);
+  // 初回ロード時に AI からの初期分析を取得
+  const fetchInitialAnalysis = useCallback(async () => {
+    if (!apiClient.isAgentCoreAvailable()) {
+      // AgentCore が利用不可の場合はフォールバック
+      setMessages([
+        {
+          type: 'ai',
+          text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
+        },
+      ]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiClient.consultWithAgent({
+        prompt: 'カートの買い目を分析してください',
+        cart_items: items.map((item) => ({
+          raceId: item.raceId,
+          raceName: item.raceName,
+          betType: item.betType,
+          horseNumbers: item.horseNumbers,
+          amount: item.amount,
+        })),
+      });
+
+      if (response.success && response.data) {
+        setMessages([{ type: 'ai', text: response.data.message }]);
+        setSessionId(response.data.session_id);
+      } else {
+        // エラー時はフォールバック
+        setMessages([
+          {
+            type: 'ai',
+            text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
+          },
+        ]);
+      }
+    } catch {
+      setMessages([
+        {
+          type: 'ai',
+          text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [items]);
+
+  useEffect(() => {
+    fetchInitialAnalysis();
+  }, [fetchInitialAnalysis]);
+
+  const handleQuickReply = async (reply: string) => {
+    setMessages((prev) => [...prev, { type: 'user', text: reply }]);
     setShowQuickReplies(false);
+
+    if (!apiClient.isAgentCoreAvailable()) {
+      // AgentCore が利用不可の場合はフォールバック
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: 'ai',
+          text: `なるほど、「${reply}」ですね。\n\n以下のデータを参考にしてください。最終判断はあなた自身で行いましょう。`,
+        },
+      ]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiClient.consultWithAgent({
+        prompt: reply,
+        cart_items: items.map((item) => ({
+          raceId: item.raceId,
+          raceName: item.raceName,
+          betType: item.betType,
+          horseNumbers: item.horseNumbers,
+          amount: item.amount,
+        })),
+        session_id: sessionId,
+      });
+
+      if (response.success && response.data) {
+        const data = response.data;
+        setMessages((prev) => [...prev, { type: 'ai', text: data.message }]);
+        setSessionId(data.session_id);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { type: 'ai', text: 'エラーが発生しました。もう一度お試しください。' },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { type: 'ai', text: 'エラーが発生しました。もう一度お試しください。' },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePurchase = () => {
@@ -86,15 +176,23 @@ export function ConsultationPage() {
               </div>
             </div>
           ))}
+          {isLoading && (
+            <div className="chat-message ai">
+              <div className="message-bubble" style={{ opacity: 0.7 }}>
+                考え中...
+              </div>
+            </div>
+          )}
         </div>
 
-        {showQuickReplies && (
+        {showQuickReplies && !isLoading && (
           <div className="quick-replies">
             {quickReplies.map((reply) => (
               <button
                 key={reply}
                 className="quick-reply-btn"
                 onClick={() => handleQuickReply(reply)}
+                disabled={isLoading}
               >
                 {reply}
               </button>
