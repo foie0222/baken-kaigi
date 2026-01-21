@@ -22,3 +22,9 @@ __pycache__/
 
 # CDK
 cdk.out/
+cdk/lambda_layer/python/
+
+# JRA-VAN debug scripts
+jravan-api/analyze_*.py
+jravan-api/check_*.py
+jravan-api/test_*.py
