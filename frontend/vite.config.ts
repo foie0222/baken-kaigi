@@ -9,7 +9,7 @@ export default defineConfig({
       '/api/consultation': {
         target: 'http://localhost:8084',
         changeOrigin: true,
-        rewrite: (path) => '/invocations',
+        rewrite: () => '/invocations',
         configure: (proxy) => {
           proxy.on('proxyReq', (proxyReq) => {
             proxyReq.setHeader('Content-Type', 'application/json');

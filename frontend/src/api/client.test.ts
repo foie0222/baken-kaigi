@@ -26,7 +26,7 @@ describe('ApiClient', () => {
   beforeEach(() => {
     vi.resetModules()
     mockFetch.mockReset()
-    global.fetch = mockFetch
+    globalThis.fetch = mockFetch
   })
 
   afterEach(() => {
