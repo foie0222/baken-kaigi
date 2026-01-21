@@ -6,6 +6,7 @@ from aws_cdk import Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -301,6 +302,49 @@ class BakenKaigiApiStack(Stack):
         # /consultations/{session_id}/messages
         messages = consultation.add_resource("messages")
         messages.add_method("POST", apigw.LambdaIntegration(send_message_fn))
+
+        # ========================================
+        # AgentCore 相談 API
+        # ========================================
+        agentcore_consultation_fn = lambda_.Function(
+            self,
+            "AgentCoreConsultationFunction",
+            handler="agentcore_handler.invoke_agentcore",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-agentcore-consultation",
+            description="AgentCore AI 相談",
+            timeout=Duration.seconds(60),  # AgentCore は時間がかかる場合がある
+            memory_size=256,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "AGENTCORE_AGENT_ARN": "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_ai-dfTUpICY2G",
+            },
+        )
+
+        # AgentCore Runtime への呼び出し権限
+        agentcore_consultation_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock:InvokeAgent",
+                    "bedrock-agentcore:InvokeAgent",
+                    "bedrock-agentcore:Invoke",
+                ],
+                resources=["*"],  # AgentCore ARN を指定
+            )
+        )
+
+        # /api/consultation
+        api_resource = api.root.add_resource("api")
+        consultation_resource = api_resource.add_resource("consultation")
+        consultation_resource.add_method(
+            "POST",
+            apigw.LambdaIntegration(agentcore_consultation_fn)
+        )
 
         # ========================================
         # DynamoDB アクセス権限
