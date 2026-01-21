@@ -30,12 +30,15 @@ function generateDateButtons(): { label: string; date: string }[] {
   nextSun.setDate(nextSat.getDate() + 1);
 
   const formatDate = (d: Date) => {
+    const year = d.getFullYear();
     const m = d.getMonth() + 1;
     const day = d.getDate();
     const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    // ローカル日付を使用（toISOString()はUTCを返すため使わない）
+    const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return {
       label: `${m}/${day}(${dow})`,
-      date: d.toISOString().split('T')[0],
+      date: dateStr,
     };
   };
 
