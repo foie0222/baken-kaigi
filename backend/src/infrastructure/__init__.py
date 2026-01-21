@@ -1,5 +1,5 @@
 """インフラストラクチャ層モジュール."""
-from .clients import MockAIClient
+from .clients import ClaudeAIClient, MockAIClient
 from .providers import MockRaceDataProvider
 from .repositories import (
     DynamoDBCartRepository,
@@ -9,6 +9,7 @@ from .repositories import (
 )
 
 __all__ = [
+    "ClaudeAIClient",
     "DynamoDBCartRepository",
     "DynamoDBConsultationSessionRepository",
     "InMemoryCartRepository",

@@ -26,6 +26,11 @@ def _use_jravan() -> bool:
     return os.environ.get("RACE_DATA_PROVIDER") == "jravan"
 
 
+def _use_claude() -> bool:
+    """Claude APIを使用するか判定する."""
+    return os.environ.get("ANTHROPIC_API_KEY") is not None
+
+
 class Dependencies:
     """依存性を管理するコンテナ.
 
@@ -78,8 +83,12 @@ class Dependencies:
     def get_ai_client(cls) -> AIClient:
         """AIクライアントを取得する."""
         if cls._ai_client is None:
-            # デフォルトはモック実装を使用
-            cls._ai_client = MockAIClient()
+            if _use_claude():
+                from src.infrastructure import ClaudeAIClient
+
+                cls._ai_client = ClaudeAIClient()
+            else:
+                cls._ai_client = MockAIClient()
         return cls._ai_client
 
     @classmethod
