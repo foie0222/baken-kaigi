@@ -115,12 +115,13 @@ export function mapApiRaceDetailToRaceDetail(
 }
 
 // 券種
-export type BetType = 'win' | 'place' | 'quinella' | 'exacta' | 'trio' | 'trifecta';
+export type BetType = 'win' | 'place' | 'quinella' | 'quinella_place' | 'exacta' | 'trio' | 'trifecta';
 
 export const BetTypeLabels: Record<BetType, string> = {
   win: '単勝',
   place: '複勝',
   quinella: '馬連',
+  quinella_place: 'ワイド',
   exacta: '馬単',
   trio: '三連複',
   trifecta: '三連単',
@@ -130,6 +131,7 @@ export const BetTypeRequiredHorses: Record<BetType, number> = {
   win: 1,
   place: 1,
   quinella: 2,
+  quinella_place: 2,
   exacta: 2,
   trio: 3,
   trifecta: 3,

@@ -6,7 +6,7 @@ import type { RaceDetail, BetType } from '../types';
 import { BetTypeLabels, BetTypeRequiredHorses } from '../types';
 import { apiClient } from '../api/client';
 
-const betTypes: BetType[] = ['win', 'place', 'quinella', 'exacta', 'trio', 'trifecta'];
+const betTypes: BetType[] = ['win', 'place', 'quinella', 'quinella_place', 'exacta', 'trio', 'trifecta'];
 
 export function RaceDetailPage() {
   const { raceId } = useParams<{ raceId: string }>();
