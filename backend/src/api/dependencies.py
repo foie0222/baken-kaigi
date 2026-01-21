@@ -84,7 +84,7 @@ class Dependencies:
         """AIクライアントを取得する."""
         if cls._ai_client is None:
             if _use_claude():
-                from src.infrastructure import ClaudeAIClient
+                from src.infrastructure.clients.claude_ai_client import ClaudeAIClient
 
                 cls._ai_client = ClaudeAIClient()
             else:
