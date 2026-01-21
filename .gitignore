@@ -28,3 +28,10 @@ cdk/lambda_layer/python/
 jravan-api/analyze_*.py
 jravan-api/check_*.py
 jravan-api/test_*.py
+
+# Bedrock AgentCore
+.bedrock_agentcore/
+.bedrock_agentcore.yaml
+
+# uv lock file
+uv.lock
