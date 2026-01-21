@@ -132,16 +132,13 @@ export function RacesPage() {
           onClick={() => navigate(`/races/${encodeURIComponent(race.id)}`)}
         >
           <div className="race-header">
-            <span className="race-number">{race.number}</span>
-            <span className="race-time">{race.time} 発走</span>
+            <span className="race-number">{race.number}R</span>
+            <span className="race-name">{race.name || `第${race.number}レース`}</span>
           </div>
-          <div className="race-name">{race.name}</div>
-          {(race.course || race.condition) && (
-            <div className="race-info">
-              {race.course && <span>{race.course}</span>}
-              {race.condition && <span>馬場: {race.condition}</span>}
-            </div>
-          )}
+          <div className="race-info">
+            <span className="race-time">{race.time} 発走</span>
+            {race.condition && <span>馬場: {race.condition}</span>}
+          </div>
         </div>
       ))}
     </div>

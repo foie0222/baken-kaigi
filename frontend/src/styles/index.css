@@ -205,8 +205,8 @@ main {
 
 .race-header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 8px;
 }
 
@@ -217,11 +217,19 @@ main {
     border-radius: 4px;
     font-size: 13px;
     font-weight: 700;
+    flex-shrink: 0;
 }
 
 .race-time {
     color: #666;
     font-size: 13px;
+}
+
+.race-header .race-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+    flex: 1;
 }
 
 .race-name {
