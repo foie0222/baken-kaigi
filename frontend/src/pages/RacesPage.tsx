@@ -28,20 +28,20 @@ function generateDateButtons(): { label: string; date: string }[] {
   const nextSun = new Date(nextSat);
   nextSun.setDate(nextSat.getDate() + 1);
 
-  const formatDate = (d: Date, prefix: string) => {
+  const formatDate = (d: Date) => {
     const m = d.getMonth() + 1;
     const day = d.getDate();
     const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
     return {
-      label: `${prefix} ${m}/${day}(${dow})`,
+      label: `${m}/${day}(${dow})`,
       date: d.toISOString().split('T')[0],
     };
   };
 
-  result.push(formatDate(lastSat, '前週'));
-  result.push(formatDate(lastSun, '前週'));
-  result.push(formatDate(nextSat, '次週'));
-  result.push(formatDate(nextSun, '次週'));
+  result.push(formatDate(lastSat));
+  result.push(formatDate(lastSun));
+  result.push(formatDate(nextSat));
+  result.push(formatDate(nextSun));
 
   return result;
 }
