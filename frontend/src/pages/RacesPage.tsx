@@ -136,10 +136,12 @@ export function RacesPage() {
             <span className="race-time">{race.time} 発走</span>
           </div>
           <div className="race-name">{race.name}</div>
-          <div className="race-info">
-            {race.course && <span>{race.course}</span>}
-            <span>馬場: {race.condition}</span>
-          </div>
+          {(race.course || race.condition) && (
+            <div className="race-info">
+              {race.course && <span>{race.course}</span>}
+              {race.condition && <span>馬場: {race.condition}</span>}
+            </div>
+          )}
         </div>
       ))}
     </div>

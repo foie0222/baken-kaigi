@@ -106,9 +106,9 @@ export function RaceDetailPage() {
         <span className="race-number">{race.venue} {race.number}</span>
         <div className="race-name">{race.name}</div>
         <div className="race-conditions">
-          <span className="condition-tag">{race.course}</span>
-          <span className="condition-tag">馬場: {race.condition}</span>
-          <span className="condition-tag">{race.time} 発走</span>
+          {race.course && <span className="condition-tag">{race.course}</span>}
+          {race.condition && <span className="condition-tag">馬場: {race.condition}</span>}
+          {race.time && <span className="condition-tag">{race.time} 発走</span>}
         </div>
       </div>
 
