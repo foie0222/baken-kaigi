@@ -177,6 +177,85 @@ def parse_se_record(data: str) -> dict | None:
         return None
 
 
+def parse_o1_record(data: str) -> list[dict] | None:
+    """O1 レコードをパースして単勝オッズ情報のリストを返す.
+
+    O1レコード構造:
+    - [0:2]   RecordType: 'O1'
+    - [11:19] RaceDate
+    - [19:21] JyoCode
+    - [21:23] Kai
+    - [23:25] Nichiji
+    - [25:27] RaceNum
+    - [27:35] Header/Padding (8 bytes)
+    - [35+]   各馬のオッズ情報 (8 bytes each):
+              - [0:2] UmaBan (馬番)
+              - [2:6] Odds (オッズ × 10)
+              - [6:8] Ninki (人気)
+    """
+    try:
+        if data[:2] != "O1":
+            return None
+
+        race_date = data[11:19]
+        jyo_cd = data[19:21]
+        kai = data[21:23]
+        nichiji = data[23:25]
+        race_num = data[25:27]
+
+        race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
+
+        odds_list = []
+
+        # 位置 35 から 8 バイトずつ読み込み（最大18頭）
+        for i in range(18):
+            start = 35 + i * 8
+            end = start + 8
+
+            if end > len(data):
+                break
+
+            chunk = data[start:end]
+
+            # 馬番 (2 bytes)
+            umaban_str = chunk[0:2]
+            if not umaban_str.isdigit():
+                continue
+
+            horse_number = int(umaban_str)
+            if horse_number < 1 or horse_number > 18:
+                continue
+
+            # オッズ (4 bytes) - 値は × 10 で格納
+            odds_str = chunk[2:6]
+            if not odds_str.isdigit():
+                continue
+
+            odds = int(odds_str) / 10.0
+
+            # 人気 (2 bytes)
+            ninki_str = chunk[6:8]
+            if not ninki_str.isdigit():
+                continue
+
+            popularity = int(ninki_str)
+            if popularity < 1 or popularity > 18:
+                continue
+
+            odds_list.append({
+                "race_id": race_id,
+                "horse_number": horse_number,
+                "odds": odds,
+                "popularity": popularity,
+            })
+
+        return odds_list if odds_list else None
+
+    except Exception as e:
+        logger.error(f"Failed to parse O1 record: {e}")
+        return None
+
+
 def sync_data(from_time: str = None, full_sync: bool = False):
     """JV-Link からデータを読み込んで SQLite に保存."""
 
@@ -230,7 +309,11 @@ def sync_data(from_time: str = None, full_sync: bool = False):
         # データ読み込み
         race_count = 0
         runner_count = 0
+        odds_count = 0
         record_count = 0
+
+        # O1 データを一時保存（SE レコードより先に来ることがあるため）
+        pending_odds = []
 
         while True:
             r = jv.JVRead("", 100000, "")
@@ -271,16 +354,33 @@ def sync_data(from_time: str = None, full_sync: bool = False):
                     db.upsert_runner(runner)
                     runner_count += 1
 
+            # O1 レコード（単勝オッズ情報）- 後で適用するため一時保存
+            elif record_type == "O1":
+                odds_list = parse_o1_record(data)
+                if odds_list:
+                    pending_odds.extend(odds_list)
+
             # 進捗表示
             if record_count % 1000 == 0:
                 logger.info(f"Processed {record_count} records, {race_count} races")
+
+        # オッズデータを適用（全ての SE レコード処理後）
+        logger.info(f"Applying {len(pending_odds)} odds entries...")
+        for odds_info in pending_odds:
+            db.update_runner_odds(
+                odds_info["race_id"],
+                odds_info["horse_number"],
+                odds_info["odds"],
+                odds_info["popularity"]
+            )
+            odds_count += 1
 
         # 同期状態を更新
         if last_timestamp:
             db.update_sync_status(last_timestamp, record_count)
 
         jv.JVClose()
-        logger.info(f"Sync completed: {record_count} records, {race_count} races, {runner_count} runners")
+        logger.info(f"Sync completed: {record_count} records, {race_count} races, {runner_count} runners, {odds_count} odds")
         return True
 
     except Exception as e:

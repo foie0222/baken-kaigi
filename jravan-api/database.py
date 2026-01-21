@@ -203,6 +203,19 @@ def upsert_runner(runner: dict):
         )
 
 
+def update_runner_odds(race_id: str, horse_number: int, odds: float, popularity: int):
+    """出走馬のオッズと人気を更新."""
+    with get_db() as conn:
+        conn.execute(
+            """
+            UPDATE runners
+            SET odds = ?, popularity = ?
+            WHERE race_id = ? AND horse_number = ?
+            """,
+            (odds, popularity, race_id, horse_number)
+        )
+
+
 def get_sync_status() -> dict:
     """同期状態を取得."""
     with get_db() as conn:
