@@ -109,8 +109,24 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         # レスポンスを処理
         result = _handle_response(response)
 
+        # message を文字列に変換
+        message = result.get("message", "応答を取得できませんでした")
+        if isinstance(message, dict):
+            # AgentCore の応答形式: {"role": "assistant", "content": [{"text": "..."}]}
+            content = message.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                first_content = content[0]
+                if isinstance(first_content, dict) and "text" in first_content:
+                    message = first_content["text"]
+                elif isinstance(first_content, str):
+                    message = first_content
+                else:
+                    message = str(first_content)
+            else:
+                message = str(message)
+
         return _make_response({
-            "message": result.get("message", "応答を取得できませんでした"),
+            "message": message,
             "session_id": result.get("session_id", session_id),
         })
 
