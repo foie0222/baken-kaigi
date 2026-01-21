@@ -19,7 +19,7 @@ export function RaceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedHorses, setSelectedHorses] = useState<number[]>([]);
-  const [betType, setBetType] = useState<BetType>('quinella');
+  const [betType, setBetType] = useState<BetType>('win');
   const [betAmount, setBetAmount] = useState(1000);
 
   const fetchRaceDetail = useCallback(async () => {
