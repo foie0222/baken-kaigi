@@ -73,12 +73,12 @@ def parse_ra_record(data: str) -> dict | None:
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
         venue_name = VENUE_NAMES.get(jyo_cd, "不明")
 
-        # 距離 (位置 593-597)
+        # 距離 (位置 558-562) - 実際のRAレコード解析により特定
         distance = 0
-        if len(data) > 597:
-            kyori_str = data[593:597]
-            if kyori_str.isdigit():
-                distance = int(kyori_str)
+        if len(data) > 562:
+            kyori_str = data[558:562]
+            if kyori_str.strip().isdigit():
+                distance = int(kyori_str.strip())
 
         # トラックコード (位置 507-509)
         track_type = ""
