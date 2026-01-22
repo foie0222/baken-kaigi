@@ -157,13 +157,24 @@ class JraVanRaceDataProvider(RaceDataProvider):
 
     def _to_race_data(self, data: dict) -> RaceData:
         """API レスポンスを RaceData に変換する."""
+        # start_time / betting_deadline が None の場合はダミー値を使用
+        start_time = (
+            datetime.fromisoformat(data["start_time"])
+            if data.get("start_time")
+            else datetime.now()
+        )
+        betting_deadline = (
+            datetime.fromisoformat(data["betting_deadline"])
+            if data.get("betting_deadline")
+            else start_time
+        )
         return RaceData(
             race_id=data["race_id"],
             race_name=data["race_name"],
             race_number=data["race_number"],
             venue=data["venue"],
-            start_time=datetime.fromisoformat(data["start_time"]),
-            betting_deadline=datetime.fromisoformat(data["betting_deadline"]),
+            start_time=start_time,
+            betting_deadline=betting_deadline,
             track_condition=data["track_condition"],
             track_type=data.get("track_type", ""),
             distance=data.get("distance", 0),
