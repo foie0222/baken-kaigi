@@ -1,0 +1,128 @@
+name: バグ報告
+description: バグ・不具合の報告
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        バグ報告ありがとうございます。
+        以下のテンプレートに沿って記載してください。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 発生しているバグの概要を簡潔に記載してください
+      placeholder: |
+        例: 日付選択時にエラーが発生する
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: 再現手順
+      description: バグを再現する手順を記載してください
+      placeholder: |
+        1. トップページを開く
+        2. 日付選択で「2025/01/01」を選択
+        3. 「レース一覧」ボタンをクリック
+        4. エラーが発生する
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期待する動作
+      description: 本来どのように動作すべきかを記載してください
+      placeholder: |
+        例: 選択した日付のレース一覧が表示される
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 実際の動作
+      description: 実際に発生している動作を記載してください（エラーメッセージ、スクリーンショットなど）
+      placeholder: |
+        例: 「TypeError: Cannot read property 'xxx' of undefined」が発生する
+
+        ```
+        エラーログ
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: 影響範囲
+      description: |
+        関連するファイルパス、コード箇所があれば記載してください
+      placeholder: |
+        **ファイル**: `frontend/src/components/DatePicker.tsx`
+
+        ```typescript
+        // 問題のあるコード（推測）
+        ```
+    validations:
+      required: false
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 環境
+      description: バグが発生した環境を選択してください
+      options:
+        - 本番環境
+        - 開発環境（ローカル）
+        - 両方
+    validations:
+      required: true
+
+  - type: textarea
+    id: browser-info
+    attributes:
+      label: ブラウザ・OS情報
+      description: 使用しているブラウザとOS情報を記載してください
+      placeholder: |
+        - ブラウザ: Chrome 120
+        - OS: macOS 14.0
+    validations:
+      required: false
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 修正タスク
+      description: 修正に必要なタスクをチェックリストで記載してください（わかる範囲で）
+      placeholder: |
+        - [ ] 原因調査
+        - [ ] 修正実装
+        - [ ] テスト追加
+        - [ ] 動作確認
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      description: バグが修正されたとみなす条件を記載してください
+      placeholder: |
+        - [ ] 日付選択時にエラーが発生しない
+        - [ ] 選択した日付のレース一覧が表示される
+        - [ ] 既存のテストが通る
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 補足情報
+      description: その他補足があれば記載してください（スクリーンショット、ログなど）
+    validations:
+      required: false
