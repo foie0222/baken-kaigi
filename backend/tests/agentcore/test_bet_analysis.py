@@ -8,20 +8,13 @@ import pytest
 # agentcoreモジュールをインポートできるようにパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
-# strandsモジュールがない環境ではスキップ
-try:
-    from tools.bet_analysis import (
-        _calculate_expected_value,
-        _estimate_win_probability,
-        _analyze_weaknesses,
-        _calculate_torigami_risk,
-        analyze_bet_selection,
-    )
-    HAS_STRANDS = True
-except ImportError:
-    HAS_STRANDS = False
-
-pytestmark = pytest.mark.skipif(not HAS_STRANDS, reason="strands module not available")
+from tools.bet_analysis import (
+    _calculate_expected_value,
+    _estimate_win_probability,
+    _analyze_weaknesses,
+    _calculate_torigami_risk,
+    analyze_bet_selection,
+)
 
 
 class TestEstimateWinProbability:
