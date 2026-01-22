@@ -16,6 +16,22 @@ export function getVenueName(code: string): string {
   return VenueNames[code] || code;
 }
 
+// JRA公式の枠色（帽色）
+export const WakuColors: Record<number, { background: string; text: string }> = {
+  1: { background: '#FFFFFF', text: '#000000' }, // 白枠 → 文字は黒
+  2: { background: '#000000', text: '#FFFFFF' }, // 黒枠 → 文字は白
+  3: { background: '#E8384F', text: '#FFFFFF' }, // 赤枠
+  4: { background: '#1E90FF', text: '#FFFFFF' }, // 青枠
+  5: { background: '#FFD700', text: '#000000' }, // 黄枠 → 文字は黒
+  6: { background: '#2E8B57', text: '#FFFFFF' }, // 緑枠
+  7: { background: '#FF8C00', text: '#FFFFFF' }, // 橙枠
+  8: { background: '#FF69B4', text: '#FFFFFF' }, // 桃枠
+};
+
+export function getWakuColor(wakuBan: number): { background: string; text: string } {
+  return WakuColors[wakuBan] || { background: '#CCCCCC', text: '#000000' };
+}
+
 // レース関連（API形式）
 export interface ApiRace {
   race_id: string;
@@ -32,6 +48,7 @@ export interface ApiRace {
 
 export interface ApiRunner {
   horse_number: number;
+  waku_ban: number;
   horse_name: string;
   jockey_name: string;
   odds: string;
@@ -67,11 +84,13 @@ export interface Race {
 
 export interface Horse {
   number: number;
+  wakuBan: number;
   name: string;
   jockey: string;
   odds: number;
   popularity: number;
   color: string;
+  textColor: string;
 }
 
 export interface RaceDetail extends Race {
@@ -104,23 +123,22 @@ export function mapApiRaceDetailToRaceDetail(
   runners: ApiRunner[]
 ): RaceDetail {
   const race = mapApiRaceToRace(apiRace);
-  const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-    '#F1948A', '#82E0AA', '#F8B500', '#5DADE2', '#AF7AC5',
-    '#48C9B0', '#F9E79F', '#AED6F1',
-  ];
 
   return {
     ...race,
-    horses: runners.map((runner) => ({
-      number: runner.horse_number,
-      name: runner.horse_name,
-      jockey: runner.jockey_name,
-      odds: parseFloat(runner.odds),
-      popularity: runner.popularity,
-      color: colors[(runner.horse_number - 1) % colors.length],
-    })),
+    horses: runners.map((runner) => {
+      const wakuColor = getWakuColor(runner.waku_ban);
+      return {
+        number: runner.horse_number,
+        wakuBan: runner.waku_ban,
+        name: runner.horse_name,
+        jockey: runner.jockey_name,
+        odds: parseFloat(runner.odds),
+        popularity: runner.popularity,
+        color: wakuColor.background,
+        textColor: wakuColor.text,
+      };
+    }),
   };
 }
 

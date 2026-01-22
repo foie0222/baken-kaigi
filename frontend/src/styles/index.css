@@ -455,6 +455,8 @@ main {
     font-weight: 700;
     font-size: 13px;
     color: white;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
 }
 
 .horse-info {

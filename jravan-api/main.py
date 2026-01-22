@@ -69,6 +69,7 @@ class RaceResponse(BaseModel):
 class RunnerResponse(BaseModel):
     """出走馬情報レスポンス."""
     horse_number: int
+    waku_ban: int
     horse_name: str
     horse_id: str
     jockey_name: str
@@ -178,6 +179,7 @@ def get_runners(race_id: str):
     return [
         RunnerResponse(
             horse_number=r["horse_number"],
+            waku_ban=r.get("waku_ban") or 0,
             horse_name=r["horse_name"],
             horse_id=r["horse_id"] or "",
             jockey_name=r["jockey_name"] or "",
