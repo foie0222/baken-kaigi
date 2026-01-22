@@ -1,4 +1,5 @@
 """モックレースデータプロバイダー."""
+import hashlib
 from datetime import date, datetime, timedelta
 
 from src.domain.identifiers import RaceId
@@ -11,6 +12,15 @@ from src.domain.ports import (
     RunnerData,
     WeightData,
 )
+
+
+def _stable_hash(s: str) -> int:
+    """文字列から安定したハッシュ値を返す.
+
+    Python の組み込み hash() はセッション間でランダム化されるため、
+    hashlib を使用して再現可能なハッシュ値を得る。
+    """
+    return int(hashlib.md5(s.encode()).hexdigest(), 16)
 
 
 class MockRaceDataProvider(RaceDataProvider):
@@ -186,7 +196,7 @@ class MockRaceDataProvider(RaceDataProvider):
         # 出走馬を生成（8〜18頭）
         import random
 
-        random.seed(hash(race_id_str) % (2**32))
+        random.seed(_stable_hash(race_id_str) % (2**32))
         num_runners = random.randint(8, 18)
 
         # 枠番を計算（JRA方式）
@@ -212,9 +222,9 @@ class MockRaceDataProvider(RaceDataProvider):
             runner = RunnerData(
                 horse_number=i,
                 horse_name=horse_name,
-                horse_id=f"horse_{hash(horse_name) % 10000:04d}",
+                horse_id=f"horse_{_stable_hash(horse_name) % 10000:04d}",
                 jockey_name=jockey_name,
-                jockey_id=f"jockey_{hash(jockey_name) % 1000:03d}",
+                jockey_id=f"jockey_{_stable_hash(jockey_name) % 1000:03d}",
                 odds=odds_str,
                 popularity=i,
                 waku_ban=waku_assignments[i - 1],
@@ -291,7 +301,7 @@ class MockRaceDataProvider(RaceDataProvider):
         """馬の過去成績を取得する."""
         import random
 
-        random.seed(hash(horse_id) % (2**32))
+        random.seed(_stable_hash(horse_id) % (2**32))
 
         performances = []
         base_date = datetime.now()
@@ -332,7 +342,7 @@ class MockRaceDataProvider(RaceDataProvider):
         """騎手のコース成績を取得する."""
         import random
 
-        random.seed(hash(f"{jockey_id}_{course}") % (2**32))
+        random.seed(_stable_hash(f"{jockey_id}_{course}") % (2**32))
 
         # 騎手名を特定
         jockey_index = int(jockey_id.split("_")[1]) % len(self.JOCKEY_NAMES)
@@ -357,7 +367,7 @@ class MockRaceDataProvider(RaceDataProvider):
         """馬の血統情報を取得する."""
         import random
 
-        random.seed(hash(horse_id) % (2**32))
+        random.seed(_stable_hash(horse_id) % (2**32))
 
         # 馬名を生成（horse_idから推定）
         horse_index = int(horse_id.split("_")[1]) % len(self.HORSE_NAMES)
@@ -379,7 +389,7 @@ class MockRaceDataProvider(RaceDataProvider):
         """馬の体重履歴を取得する."""
         import random
 
-        random.seed(hash(horse_id) % (2**32))
+        random.seed(_stable_hash(horse_id) % (2**32))
 
         weights = []
         base_weight = random.randint(440, 520)
@@ -401,7 +411,7 @@ class MockRaceDataProvider(RaceDataProvider):
         import random
 
         race_id_str = str(race_id)
-        random.seed(hash(race_id_str) % (2**32))
+        random.seed(_stable_hash(race_id_str) % (2**32))
 
         # 出走馬リストを取得
         runners = self.get_runners(race_id)
@@ -424,7 +434,7 @@ class MockRaceDataProvider(RaceDataProvider):
         """レースデータを生成する."""
         import random
 
-        random.seed(hash(race_id) % (2**32))
+        random.seed(_stable_hash(race_id) % (2**32))
 
         # レース名を決定
         if race_number <= 4:

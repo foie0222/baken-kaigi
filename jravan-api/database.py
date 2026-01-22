@@ -13,20 +13,11 @@ import pg8000
 logger = logging.getLogger(__name__)
 
 # PC-KEIBA Database 接続設定
-# パスワードは環境変数で必ず設定すること（デフォルト値なし）
-_password = os.environ.get("PCKEIBA_PASSWORD")
-if _password is None:
-    raise EnvironmentError(
-        "PCKEIBA_PASSWORD environment variable is required. "
-        "Please set it before running the application."
-    )
-
 DB_CONFIG = {
     "host": os.environ.get("PCKEIBA_HOST", "localhost"),
     "port": int(os.environ.get("PCKEIBA_PORT", "5432")),
     "database": os.environ.get("PCKEIBA_DATABASE", "postgres"),
     "user": os.environ.get("PCKEIBA_USER", "postgres"),
-    "password": _password,
 }
 
 # 競馬場コード → 名前のマッピング
@@ -40,6 +31,13 @@ VENUE_CODE_MAP = {
 @contextmanager
 def get_db():
     """DB 接続のコンテキストマネージャー."""
+    password = os.environ.get("PCKEIBA_PASSWORD")
+    if password is None:
+        raise EnvironmentError(
+            "PCKEIBA_PASSWORD environment variable is required. "
+            "Please set it before running the application."
+        )
+
     conn = None
     try:
         conn = pg8000.connect(
@@ -47,7 +45,7 @@ def get_db():
             port=DB_CONFIG["port"],
             database=DB_CONFIG["database"],
             user=DB_CONFIG["user"],
-            password=DB_CONFIG["password"],
+            password=password,
         )
         yield conn
     except Exception as e:
@@ -334,8 +332,11 @@ def get_horse_weight_history(horse_id: str, limit: int = 5) -> list[dict]:
         for row in rows:
             try:
                 weight = int(row["weight"]) if row["weight"] else 0
-                weight_diff_str = row["weight_diff"] or "0"
-                weight_diff = int(weight_diff_str) if str(weight_diff_str).lstrip("-").isdigit() else 0
+                weight_diff_str = str(row["weight_diff"] or "0").strip()
+                try:
+                    weight_diff = int(weight_diff_str)
+                except (ValueError, TypeError):
+                    weight_diff = 0
                 results.append({
                     "weight": weight,
                     "weight_diff": weight_diff,
@@ -373,8 +374,11 @@ def get_race_weights(race_id: str) -> list[dict]:
             try:
                 horse_number = int(row["horse_number"]) if row["horse_number"] else 0
                 weight = int(row["weight"]) if row["weight"] else 0
-                weight_diff_str = row["weight_diff"] or "0"
-                weight_diff = int(weight_diff_str) if str(weight_diff_str).lstrip("-").isdigit() else 0
+                weight_diff_str = str(row["weight_diff"] or "0").strip()
+                try:
+                    weight_diff = int(weight_diff_str)
+                except (ValueError, TypeError):
+                    weight_diff = 0
                 results.append({
                     "horse_number": horse_number,
                     "weight": weight,
