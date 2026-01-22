@@ -112,7 +112,6 @@ def _analyze_weaknesses(
         return weaknesses
 
     popularities = [h.get("popularity") or 99 for h in selected_horses]
-    odds_list = [h.get("odds") or 0 for h in selected_horses]
 
     # 1. 人気馬偏重チェック
     popular_count = sum(1 for p in popularities if p <= 3)
@@ -134,7 +133,6 @@ def _analyze_weaknesses(
     for h in selected_horses:
         pop = h.get("popularity") or 0
         if pop >= total_runners and total_runners > 0:
-            odds = h.get("odds") or 0
             prob = _estimate_win_probability(pop)
             weaknesses.append(
                 f"{h.get('horse_number')}番 {h.get('horse_name')}は最下位人気。"
@@ -181,6 +179,7 @@ def _calculate_torigami_risk(
             "risk_level": "不明",
             "estimated_min_return": 0,
             "is_torigami_likely": False,
+            "reason": None,
         }
 
     # 単勝・複勝の場合は最低オッズで計算
@@ -199,6 +198,7 @@ def _calculate_torigami_risk(
             "risk_level": risk_level,
             "estimated_min_return": estimated_return,
             "is_torigami_likely": is_torigami,
+            "reason": "低オッズ" if is_torigami else None,
         }
 
     # 三連系の場合は人気馬の組み合わせで判断
@@ -226,6 +226,7 @@ def _calculate_torigami_risk(
         "risk_level": "低",
         "estimated_min_return": None,
         "is_torigami_likely": False,
+        "reason": None,
     }
 
 
@@ -259,7 +260,7 @@ def _analyze_bet_selection_impl(
     # 人気馬の判定（3番人気以内）
     popular_horses = [h for h in selected_horses if (h.get("popularity") or 99) <= 3]
     # 穴馬の判定（10番人気以下）
-    longshot_horses = [h for h in selected_horses if (h.get("popularity") or 0) >= 10]
+    longshot_horses = [h for h in selected_horses if (h.get("popularity") or 99) >= 10]
 
     # 各馬の期待値分析
     horse_analysis = []

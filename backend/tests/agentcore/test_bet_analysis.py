@@ -3,8 +3,6 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 # agentcoreモジュールをインポートできるようにパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
@@ -28,7 +26,7 @@ class TestEstimateWinProbability:
         prob = _estimate_win_probability(10)
         assert prob == 0.02
 
-    def test_16番人気の勝率は約0点3パーセント(self):
+    def test_16番人気の勝率は約0_3パーセント(self):
         prob = _estimate_win_probability(16)
         assert prob == 0.003
 
