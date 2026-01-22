@@ -20,10 +20,6 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
-    rules: {
-      // データフェッチ用のuseEffect内でのsetState呼び出しを許可
-      'react-hooks/set-state-in-effect': 'off',
-    },
   },
   // テストファイル用の設定（react-refreshを無効化）
   {

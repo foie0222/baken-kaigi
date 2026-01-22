@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Race } from '../types';
 import { getVenueName } from '../types';
@@ -61,45 +61,59 @@ export function RacesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRaces = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const selectedDate = dateButtons[selectedDateIdx].date;
-
-    // モックモードの場合
-    if (USE_MOCK) {
-      const mockRaceList = getMockRaces(undefined, undefined); // 日付フィルタなしで全データ
-      const mockVenueList = getMockVenues();
-      setRaces(mockRaceList);
-      setVenues(mockVenueList);
-      if (!selectedVenue && mockVenueList.length > 0) {
-        setSelectedVenue(mockVenueList[0]);
-      }
-      setLoading(false);
-      return;
-    }
-
-    const response = await apiClient.getRaces(selectedDate);
-
-    if (response.success && response.data) {
-      setRaces(response.data.races);
-      setVenues(response.data.venues);
-      // 初回は最初の会場を選択
-      if (!selectedVenue && response.data.venues.length > 0) {
-        setSelectedVenue(response.data.venues[0]);
-      }
-    } else {
-      setError(response.error || 'レースの取得に失敗しました');
-      setRaces([]);
-    }
-
-    setLoading(false);
-  }, [selectedDateIdx, selectedVenue]);
+  // 初回会場選択のためのref（無限ループ防止）
+  const isInitialVenueSet = useRef(false);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchRaces = async () => {
+      setLoading(true);
+      setError(null);
+
+      const selectedDate = dateButtons[selectedDateIdx].date;
+
+      // モックモードの場合
+      if (USE_MOCK) {
+        const mockRaceList = getMockRaces(undefined, undefined);
+        const mockVenueList = getMockVenues();
+        if (!isMounted) return;
+        setRaces(mockRaceList);
+        setVenues(mockVenueList);
+        if (!isInitialVenueSet.current && mockVenueList.length > 0) {
+          setSelectedVenue(mockVenueList[0]);
+          isInitialVenueSet.current = true;
+        }
+        setLoading(false);
+        return;
+      }
+
+      const response = await apiClient.getRaces(selectedDate);
+
+      if (!isMounted) return;
+
+      if (response.success && response.data) {
+        setRaces(response.data.races);
+        setVenues(response.data.venues);
+        // 初回のみ最初の会場を選択
+        if (!isInitialVenueSet.current && response.data.venues.length > 0) {
+          setSelectedVenue(response.data.venues[0]);
+          isInitialVenueSet.current = true;
+        }
+      } else {
+        setError(response.error || 'レースの取得に失敗しました');
+        setRaces([]);
+      }
+
+      setLoading(false);
+    };
+
     fetchRaces();
-  }, [fetchRaces]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDateIdx]);
 
   // 選択された会場でフィルタリング
   const filteredRaces = selectedVenue

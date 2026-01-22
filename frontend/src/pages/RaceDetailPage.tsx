@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
@@ -22,26 +22,34 @@ export function RaceDetailPage() {
   const [betType, setBetType] = useState<BetType>('win');
   const [betAmount, setBetAmount] = useState(1000);
 
-  const fetchRaceDetail = useCallback(async () => {
+  useEffect(() => {
     if (!raceId) return;
 
-    setLoading(true);
-    setError(null);
+    let isMounted = true;
 
-    const response = await apiClient.getRaceDetail(decodeURIComponent(raceId));
+    const fetchRaceDetail = async () => {
+      setLoading(true);
+      setError(null);
 
-    if (response.success && response.data) {
-      setRace(response.data);
-    } else {
-      setError(response.error || 'レース詳細の取得に失敗しました');
-    }
+      const response = await apiClient.getRaceDetail(decodeURIComponent(raceId));
 
-    setLoading(false);
-  }, [raceId]);
+      if (!isMounted) return;
 
-  useEffect(() => {
+      if (response.success && response.data) {
+        setRace(response.data);
+      } else {
+        setError(response.error || 'レース詳細の取得に失敗しました');
+      }
+
+      setLoading(false);
+    };
+
     fetchRaceDetail();
-  }, [fetchRaceDetail]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [raceId]);
 
   const toggleHorse = (number: number) => {
     setSelectedHorses((prev) =>

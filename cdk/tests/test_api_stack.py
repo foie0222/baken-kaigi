@@ -4,9 +4,8 @@ from pathlib import Path
 
 import pytest
 
-# cdkディレクトリをパスに追加
-cdk_path = Path(__file__).parent.parent.parent.parent / "cdk"
-sys.path.insert(0, str(cdk_path))
+# プロジェクトルート（cdk/）をパスに追加
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture
