@@ -50,6 +50,18 @@ class MockRaceDataProvider(RaceDataProvider):
         """騎手のコース成績を取得する."""
         return None
 
+    def get_pedigree(self, horse_id: str):
+        """馬の血統情報を取得する."""
+        return None
+
+    def get_weight_history(self, horse_id: str, limit: int = 5):
+        """馬の体重履歴を取得する."""
+        return []
+
+    def get_race_weights(self, race_id: RaceId):
+        """レースの馬体重情報を取得する."""
+        return {}
+
 
 class TestRaceDataProviderInterface:
     """RaceDataProviderインターフェースのテスト."""
