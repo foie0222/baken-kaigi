@@ -35,3 +35,11 @@ jravan-api/test_*.py
 
 # uv lock file
 uv.lock
+
+# Git worktrees
+/.bare/
+/main/
+/feature-*/
+/fix-*/
+/docs-*/
+/chore-*/
