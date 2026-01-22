@@ -167,6 +167,7 @@ class TestPedigreeInterface:
         provider = MockRaceDataProvider()
         pedigree = PedigreeData(
             horse_id="horse1",
+            horse_name="テストホース",
             sire_name="ディープインパクト",
             dam_name="マイママ",
             broodmare_sire="サンデーサイレンス",
@@ -177,6 +178,7 @@ class TestPedigreeInterface:
 
         assert result is not None
         assert result.horse_id == "horse1"
+        assert result.horse_name == "テストホース"
         assert result.sire_name == "ディープインパクト"
         assert result.dam_name == "マイママ"
         assert result.broodmare_sire == "サンデーサイレンス"
