@@ -4,10 +4,12 @@ from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
 from .race_data_provider import (
     JockeyStatsData,
+    PedigreeData,
     PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
+    WeightData,
 )
 
 __all__ = [
@@ -18,8 +20,10 @@ __all__ = [
     "CartRepository",
     "ConsultationSessionRepository",
     "JockeyStatsData",
+    "PedigreeData",
     "PerformanceData",
     "RaceData",
     "RaceDataProvider",
     "RunnerData",
+    "WeightData",
 ]

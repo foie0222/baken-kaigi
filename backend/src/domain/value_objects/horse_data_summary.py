@@ -15,6 +15,9 @@ class HorseDataSummary:
     track_suitability: str  # 馬場適性コメント
     current_odds: str  # 現在のオッズ
     popularity: int  # 人気順
+    pedigree: str | None = None        # "父:〇〇 母父:△△"
+    weight_trend: str | None = None    # "増加傾向" / "安定" / "減少傾向"
+    weight_current: int | None = None  # 現在の馬体重
 
     def __post_init__(self) -> None:
         """バリデーション."""
