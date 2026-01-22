@@ -105,23 +105,32 @@ npx cdk deploy --all --context jravan=true --require-approval never
 
 JRA-VAN API のコードを EC2 に反映する手順:
 
+**注意**: EC2 には Git がインストールされていないため、SSM 経由で直接ファイルを送信する。
+
 ```bash
 # 1. インスタンスID確認
 INSTANCE_ID=$(aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=*jravan*" \
   --query 'Reservations[].Instances[].InstanceId' --output text)
 
-# 2. コード更新コマンド送信
+# 2. ファイルをBase64エンコードしてSSM経由で送信
+FILE_B64=$(base64 jravan-api/sync_jvlink.py | tr -d '\n')
 aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunPowerShellScript" \
-  --parameters 'commands=["cd C:\\jravan-api; git pull"]'
+  --parameters "commands=[\"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('$FILE_B64')) | Out-File -FilePath C:\\jravan-api\\sync_jvlink.py -Encoding UTF8 -Force\"]"
 
-# 3. データ再同期が必要な場合
+# 3. データ再同期（差分）
 aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunPowerShellScript" \
   --parameters 'commands=["cd C:\\jravan-api; python sync_jvlink.py"]'
+
+# 4. データ再同期（指定日から）
+aws ssm send-command \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name "AWS-RunPowerShellScript" \
+  --parameters 'commands=["cd C:\\jravan-api; python sync_jvlink.py --from 20260101"]'
 ```
 
 ### デプロイ後の確認
