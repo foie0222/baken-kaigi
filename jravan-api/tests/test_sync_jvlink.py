@@ -433,3 +433,143 @@ class TestParseRaRecordConditionName:
 
         assert result is not None
         assert result["race_name"] == "京成杯"  # 条件名ではなく本題が使用される
+
+
+class TestParseRaRecordAdvancedConditions:
+    """1勝クラス以上および障害レースのテスト.
+
+    1勝クラス以上は JyokenCd が位置 520-523 に格納される（005=1勝, 010=2勝, 016=3勝）。
+    障害レースは SyubetuCd が 18 または 19。
+    """
+
+    def _build_ra_record_advanced(
+        self,
+        venue_code: str = "06",
+        race_num: str = "06",
+        distance: str = "1800",
+        syubetu_cd: str = "14",
+        jyoken_cd_primary: str = "000",  # 位置 516-519
+        jyoken_cd_secondary: str = "005",  # 位置 520-523
+    ) -> str:
+        """1勝クラス以上用のRAレコードを生成."""
+        data = "RA" + "0" * 9  # [0:11]
+        data += "20260118"     # [11:19] 開催日
+        data += venue_code     # [19:21] 場所コード
+        data += "01"           # [21:23] 開催回
+        data += "07"           # [23:25] 日目
+        data += race_num       # [25:27] レース番号
+        data += "0" * 5        # [27:32] パディング
+        # レース名フィールド [32:92] - 60バイト（全角スペースで埋める）
+        data += "\u3000" * 60
+        data += "0" * 415      # [92:507] パディング
+        data += syubetu_cd     # [507:509] 種別コード（馬齢条件）
+        data += "0" * 7        # [509:516] パディング
+        data += jyoken_cd_primary   # [516:519] 条件コード（主: 未勝利/新馬用）
+        data += "0"            # [519:520] パディング
+        data += jyoken_cd_secondary # [520:523] 条件コード（副: 1勝以上用）
+        data += "0" * 35       # [523:558] パディング
+        data += distance       # [558:562] 距離
+        data += "0" * 172      # [562:734] パディング
+        data += "1255"         # [734:738] 発走時刻
+        data += "0" * 395      # [738:1133] パディング
+        return data
+
+    def test_4歳以上1勝クラスが正しく生成される_位置520(self):
+        """JyokenCdが位置520-523にある場合（1勝クラス）."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="14",           # 4歳以上
+            jyoken_cd_primary="000",   # 位置516-519: 空
+            jyoken_cd_secondary="005", # 位置520-523: 1勝クラス
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "4歳以上1勝クラス"
+
+    def test_4歳以上2勝クラスが正しく生成される_位置520(self):
+        """JyokenCdが位置520-523にある場合（2勝クラス）."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="14",           # 4歳以上
+            jyoken_cd_primary="000",   # 位置516-519: 空
+            jyoken_cd_secondary="010", # 位置520-523: 2勝クラス
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "4歳以上2勝クラス"
+
+    def test_4歳以上3勝クラスが正しく生成される_位置520(self):
+        """JyokenCdが位置520-523にある場合（3勝クラス）."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="14",           # 4歳以上
+            jyoken_cd_primary="000",   # 位置516-519: 空
+            jyoken_cd_secondary="016", # 位置520-523: 3勝クラス
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "4歳以上3勝クラス"
+
+    def test_4歳以上1勝クラス_050形式(self):
+        """JyokenCd='050'形式（実際のデータで観測）."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="14",           # 4歳以上
+            jyoken_cd_primary="000",   # 位置516-519: 空
+            jyoken_cd_secondary="050", # 位置520-523: 1勝クラス（050形式）
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "4歳以上1勝クラス"
+
+    def test_4歳以上2勝クラス_100形式(self):
+        """JyokenCd='100'形式（実際のデータで観測）."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="14",           # 4歳以上
+            jyoken_cd_primary="000",   # 位置516-519: 空
+            jyoken_cd_secondary="100", # 位置520-523: 2勝クラス（100形式）
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "4歳以上2勝クラス"
+
+    def test_障害レースが正しく生成される(self):
+        """障害レース（SyubetuCd=18）の場合."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="18",           # 障害
+            jyoken_cd_primary="000",
+            jyoken_cd_secondary="000",
+            distance="2880",
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "障害"
+
+    def test_障害未勝利レースが正しく生成される(self):
+        """障害未勝利レース."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_advanced(
+            syubetu_cd="19",           # 障害
+            jyoken_cd_primary="703",   # 未勝利
+            jyoken_cd_secondary="000",
+            distance="2880",
+        )
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "障害未勝利"
