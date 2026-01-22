@@ -13,7 +13,7 @@ from tools.bet_analysis import (
     _estimate_win_probability,
     _analyze_weaknesses,
     _calculate_torigami_risk,
-    analyze_bet_selection,
+    _analyze_bet_selection_impl,
 )
 
 
@@ -49,7 +49,7 @@ class TestCalculateExpectedValue:
     def test_低オッズ高人気で割高(self):
         # 1番人気（勝率33%）でオッズ1.5倍 → 期待値 0.495
         result = _calculate_expected_value(1.5, 1)
-        assert result["expected_return"] == 0.5  # 1.5 * 0.33 ≈ 0.495 → 0.5
+        assert result["expected_return"] == 0.49  # 1.5 * 0.33 = 0.495 → round(0.495, 2) = 0.49
         assert result["value_rating"] == "割高"
 
     def test_適正オッズ(self):
@@ -136,7 +136,7 @@ class TestAnalyzeBetSelection:
         runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 10.0} for i in range(1, 17)]
         runners[15]["odds"] = 444.9  # 16番人気のオッズを実例に合わせる
 
-        result = analyze_bet_selection.fn(
+        result = _analyze_bet_selection_impl(
             race_id="test",
             bet_type="win",
             horse_numbers=[16],
@@ -157,7 +157,7 @@ class TestAnalyzeBetSelection:
         """人気馬中心の三連複のテスト."""
         runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 2.0} for i in range(1, 17)]
 
-        result = analyze_bet_selection.fn(
+        result = _analyze_bet_selection_impl(
             race_id="test",
             bet_type="trio",
             horse_numbers=[1, 2, 3],

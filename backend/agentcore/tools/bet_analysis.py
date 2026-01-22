@@ -229,26 +229,14 @@ def _calculate_torigami_risk(
     }
 
 
-@tool
-def analyze_bet_selection(
+def _analyze_bet_selection_impl(
     race_id: str,
     bet_type: str,
     horse_numbers: list[int],
     amount: int,
     runners_data: list[dict],
 ) -> dict:
-    """買い目を分析し、データに基づくフィードバックを生成する.
-
-    Args:
-        race_id: レースID
-        bet_type: 券種 (win, place, quinella, quinella_place, exacta, trio, trifecta)
-        horse_numbers: 選択した馬番のリスト
-        amount: 掛け金
-        runners_data: 出走馬データ
-
-    Returns:
-        分析結果（選択馬のオッズ、人気、期待値、弱点など）
-    """
+    """買い目分析の実装（テスト用に公開）."""
     selected_horses = [
         r for r in runners_data if r.get("horse_number") in horse_numbers
     ]
@@ -313,6 +301,31 @@ def analyze_bet_selection(
         "amount": amount,
         "amount_feedback": amount_feedback,
     }
+
+
+@tool
+def analyze_bet_selection(
+    race_id: str,
+    bet_type: str,
+    horse_numbers: list[int],
+    amount: int,
+    runners_data: list[dict],
+) -> dict:
+    """買い目を分析し、データに基づくフィードバックを生成する.
+
+    Args:
+        race_id: レースID
+        bet_type: 券種 (win, place, quinella, quinella_place, exacta, trio, trifecta)
+        horse_numbers: 選択した馬番のリスト
+        amount: 掛け金
+        runners_data: 出走馬データ
+
+    Returns:
+        分析結果（選択馬のオッズ、人気、期待値、弱点など）
+    """
+    return _analyze_bet_selection_impl(
+        race_id, bet_type, horse_numbers, amount, runners_data
+    )
 
 
 def _generate_amount_feedback(amount: int) -> dict:
