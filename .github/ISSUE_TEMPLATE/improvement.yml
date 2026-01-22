@@ -1,0 +1,132 @@
+name: 改善提案
+description: リファクタリング、パフォーマンス改善、コード品質向上など
+title: "refactor: "
+labels: ["improvement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        改善提案ありがとうございます。
+        以下のテンプレートに沿って記載してください。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 改善したい内容の概要を簡潔に記載してください
+      placeholder: |
+        例: APIクライアントの共通処理を抽出してDRY原則に従う
+    validations:
+      required: true
+
+  - type: dropdown
+    id: improvement-type
+    attributes:
+      label: 改善の種類
+      description: 改善の種類を選択してください
+      options:
+        - リファクタリング
+        - パフォーマンス改善
+        - コード品質向上
+        - テスト追加・改善
+        - ドキュメント改善
+        - セキュリティ改善
+        - その他
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-state
+    attributes:
+      label: 現状の問題点
+      description: 現在の状態と問題点を記載してください
+      placeholder: |
+        **ファイル**: `frontend/src/api/client.ts`
+
+        ```typescript
+        // 現在のコード
+        ```
+
+        **問題点**:
+        - 同じ処理が複数箇所に散在している
+        - エラーハンドリングが統一されていない
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: 提案する改善案
+      description: どのように改善すべきか記載してください
+      placeholder: |
+        ## 改善方針
+
+        1. 共通処理を抽出
+        2. エラーハンドリングを統一
+        3. 型定義を改善
+
+        ## 改善後のイメージ
+
+        ```typescript
+        // 改善後のコード例
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: 期待される効果
+      description: この改善によってどのような効果が得られるか記載してください
+      placeholder: |
+        - コードの重複削減
+        - 保守性の向上
+        - テストしやすくなる
+        - パフォーマンス向上（〇〇ms → △△ms）
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: リスク・考慮事項
+      description: この改善に伴うリスクや注意点があれば記載してください
+      placeholder: |
+        - 影響範囲が広い
+        - 既存のテストの修正が必要
+        - 後方互換性の考慮が必要
+    validations:
+      required: false
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: タスク
+      description: 改善に必要なタスクをチェックリストで記載してください
+      placeholder: |
+        - [ ] 共通処理の抽出
+        - [ ] 既存コードの修正
+        - [ ] テストの修正・追加
+        - [ ] 動作確認
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      description: この改善が完了したとみなす条件を記載してください
+      placeholder: |
+        - [ ] 既存のテストが全て通る
+        - [ ] 新しいテストが追加されている
+        - [ ] コードの重複がなくなっている
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 補足情報
+      description: その他補足があれば記載してください
+    validations:
+      required: false
