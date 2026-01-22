@@ -13,12 +13,20 @@ import pg8000
 logger = logging.getLogger(__name__)
 
 # PC-KEIBA Database 接続設定
+# パスワードは環境変数で必ず設定すること（デフォルト値なし）
+_password = os.environ.get("PCKEIBA_PASSWORD")
+if _password is None:
+    raise EnvironmentError(
+        "PCKEIBA_PASSWORD environment variable is required. "
+        "Please set it before running the application."
+    )
+
 DB_CONFIG = {
     "host": os.environ.get("PCKEIBA_HOST", "localhost"),
     "port": int(os.environ.get("PCKEIBA_PORT", "5432")),
     "database": os.environ.get("PCKEIBA_DATABASE", "postgres"),
     "user": os.environ.get("PCKEIBA_USER", "postgres"),
-    "password": os.environ.get("PCKEIBA_PASSWORD", "postgres"),
+    "password": _password,
 }
 
 # 競馬場コード → 名前のマッピング
@@ -91,14 +99,49 @@ def _parse_race_id(race_id: str) -> tuple[str, str, str, str]:
     return kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango
 
 
+def _validate_date(date: str) -> tuple[str, str]:
+    """日付文字列を検証して (kaisai_nen, kaisai_tsukihi) を返す.
+
+    Args:
+        date: 日付（YYYYMMDD形式）
+
+    Returns:
+        (kaisai_nen, kaisai_tsukihi) のタプル
+
+    Raises:
+        TypeError: dateが文字列でない場合
+        ValueError: dateが8桁でない、または不正な日付の場合
+    """
+    if not isinstance(date, str):
+        raise TypeError("date must be a str in YYYYMMDD format")
+
+    date_str = date.strip()
+
+    if len(date_str) != 8 or not date_str.isdigit():
+        raise ValueError("date must be an 8-digit string in YYYYMMDD format")
+
+    # 実在する日付かを検証
+    try:
+        datetime.strptime(date_str, "%Y%m%d")
+    except ValueError as exc:
+        raise ValueError(
+            "date must represent a valid calendar date in YYYYMMDD format"
+        ) from exc
+
+    return date_str[:4], date_str[4:8]
+
+
 def get_races_by_date(date: str) -> list[dict]:
     """指定日のレース一覧を取得.
 
     Args:
         date: 日付（YYYYMMDD形式）
+
+    Raises:
+        TypeError: dateが文字列でない場合
+        ValueError: dateが不正な形式の場合
     """
-    kaisai_nen = date[:4]
-    kaisai_tsukihi = date[4:8]
+    kaisai_nen, kaisai_tsukihi = _validate_date(date)
 
     with get_db() as conn:
         cur = conn.cursor()
@@ -217,9 +260,13 @@ def get_horse_count(race_id: str) -> int:
 
 
 def get_horse_counts_by_date(date: str) -> dict[str, int]:
-    """指定日のレースごとの出走馬数を取得."""
-    kaisai_nen = date[:4]
-    kaisai_tsukihi = date[4:8]
+    """指定日のレースごとの出走馬数を取得.
+
+    Raises:
+        TypeError: dateが文字列でない場合
+        ValueError: dateが不正な形式の場合
+    """
+    kaisai_nen, kaisai_tsukihi = _validate_date(date)
 
     with get_db() as conn:
         cur = conn.cursor()
@@ -400,8 +447,14 @@ def _to_race_dict(row: dict) -> dict:
             hour = int(hasso_jikoku[:2])
             minute = int(hasso_jikoku[2:4])
             start_time = f"{kaisai_nen}-{kaisai_tsukihi[:2]}-{kaisai_tsukihi[2:]}T{hour:02d}:{minute:02d}:00"
-        except (ValueError, IndexError):
-            pass
+        except (ValueError, IndexError) as exc:
+            # 発走時刻の形式が不正な場合はログに記録し、開始時刻は未設定（None）のままとする
+            logger.warning(
+                "Invalid hasso_jikoku format: %s (race_id=%s): %s",
+                hasso_jikoku,
+                race_id,
+                exc,
+            )
 
     # 距離
     try:

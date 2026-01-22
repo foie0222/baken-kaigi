@@ -159,8 +159,14 @@ def get_races(
         if r["start_time"]:
             try:
                 start_time = datetime.fromisoformat(r["start_time"])
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as exc:
+                # 不正な開始時刻は None として扱い、詳細をログに記録する
+                logger.warning(
+                    "Invalid start_time format for race_id=%s: %r (%s)",
+                    r.get("race_id"),
+                    r.get("start_time"),
+                    exc,
+                )
 
         result.append(RaceResponse(
             race_id=r["race_id"],
@@ -194,8 +200,14 @@ def get_race(race_id: str):
     if race["start_time"]:
         try:
             start_time = datetime.fromisoformat(race["start_time"])
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as exc:
+            # 不正な開始時刻は None として扱い、詳細をログに記録する
+            logger.warning(
+                "Invalid start_time format for race_id=%s: %r (%s)",
+                race.get("race_id"),
+                race.get("start_time"),
+                exc,
+            )
 
     return RaceResponse(
         race_id=race["race_id"],
