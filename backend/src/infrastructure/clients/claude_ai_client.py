@@ -44,25 +44,28 @@ class ClaudeAIClient(AIClient):
                 f"- {number}番 {name}: 近走={recent}, 騎手={jockey}, 適性={suitability}, オッズ={odds}倍"
             )
 
-        prompt = f"""あなたは競馬の買い目分析をサポートするAIアシスタントです。
-ユーザーが選択した買い目について、客観的なデータに基づいたフィードバックを提供してください。
+        prompt = f"""あなたは競馬の買い目を分析するAIアシスタントです。
+ギークな競馬ファン向けに、データに基づいた玄人的な分析を提供してください。
 
 【重要】
-- あなたは「推奨」や「おすすめ」をしてはいけません
-- ギャンブルを促進する表現は避けてください
-- 「最終判断はご自身で行ってください」という姿勢を保ってください
-- データに基づく客観的な分析のみを提供してください
+- 「推奨」や「おすすめ」は禁止
+- データに基づく断定的な分析はOK
+- 弱点やリスクは率直に指摘
+- 最終判断はユーザーに委ねる
 
 レース: {context.race_name}
 
 選択された馬:
 {chr(10).join(horse_details)}
 
-上記のデータを基に、200文字以内で客観的なフィードバックを提供してください。"""
+上記のデータを基に、400文字以内で以下を含む分析を提供してください:
+1. 選択馬の強み（あれば簡潔に）
+2. この買い目の弱点・リスク
+3. 配当面での妙味（オッズと勝率のバランス）"""
 
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=500,
+            max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         )
 
@@ -91,7 +94,7 @@ class ClaudeAIClient(AIClient):
 - 過去平均掛け金: {f'¥{context.average_amount:,}' if context.average_amount else '不明'}
 - 状態: {status}
 
-上記の状況を基に、100文字以内で適切なフィードバックを提供してください。
+上記の状況を基に、150文字以内で適切なフィードバックを提供してください。
 上限超過の場合は、今日はここで終わりにすることを強く勧めてください。"""
 
         response = self._client.messages.create(
@@ -112,25 +115,27 @@ class ClaudeAIClient(AIClient):
             role = "user" if msg.type == MessageType.USER else "assistant"
             conversation.append({"role": role, "content": msg.content})
 
-        system_prompt = f"""あなたは競馬の買い目について相談に乗るAIアシスタント「馬券会議AI」です。
+        system_prompt = f"""あなたは競馬の買い目を分析するAIアシスタント「馬券会議AI」です。
+ギークな競馬ファン向けに、データに基づいた玄人的な分析を提供します。
 
 【重要なルール】
-- あなたは「推奨」や「この馬を買うべき」といった助言をしてはいけません
-- ギャンブルを促進する表現は避けてください
-- 「最終判断はご自身で行ってください」という姿勢を保ってください
-- データに基づく客観的な情報提供のみを行ってください
-- ユーザーが熱くなりすぎている場合は、冷静になるよう促してください
+- 「推奨」や「この馬を買うべき」といった助言は禁止
+- ギャンブルを促進する表現は避ける
+- データに基づく断定的な分析はOK
+- 弱点やリスクは率直に指摘
+- ユーザーが熱くなりすぎている場合は冷静を促す
 
 【現在の相談内容】
 カート概要: {context.cart_summary}
 データフィードバック: {context.data_feedback_summary}
 掛け金フィードバック: {context.amount_feedback_summary}
 
-ユーザーの質問に対して、上記の情報を参考に150文字以内で回答してください。"""
+ユーザーの質問に対して、上記の情報を参考に350文字以内で回答してください。
+データと数値を根拠に、玄人的な視点で分析してください。"""
 
         response = self._client.messages.create(
             model=self._model,
-            max_tokens=400,
+            max_tokens=1000,
             system=system_prompt,
             messages=conversation if conversation else [{"role": "user", "content": "こんにちは"}],
         )
