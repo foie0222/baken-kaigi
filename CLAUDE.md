@@ -194,8 +194,8 @@ baken-kaigi/
 ├── .bare/              # bare リポジトリ（実体）
 ├── .git                # bare リポジトリへの参照ファイル
 ├── main/               # main ブランチの worktree
-├── feature/xxx/        # feature ブランチの worktree
-└── docs/xxx/           # docs ブランチの worktree
+├── feature-xxx/        # feature ブランチの worktree
+└── docs-xxx/           # docs ブランチの worktree
 ```
 
 #### 基本操作
@@ -208,7 +208,7 @@ git worktree list
 git worktree add <フォルダ名> -b <ブランチ名>
 
 # 例: feature/add-new-api ブランチで作業開始
-git worktree add feature/add-new-api -b feature/add-new-api
+git worktree add feature-add-new-api -b feature/add-new-api
 
 # 既存のリモートブランチから worktree を作成
 git worktree add <フォルダ名> <ブランチ名>
@@ -225,10 +225,10 @@ git branch -d <ブランチ名>
 
 ```bash
 # 1. 新機能開発用の worktree を作成
-git worktree add feature/add-new-feature -b feature/add-new-feature
+git worktree add feature-add-new-feature -b feature/add-new-feature
 
 # 2. そのフォルダに移動して開発
-cd feature/add-new-feature
+cd feature-add-new-feature
 # ... 開発作業 ...
 
 # 3. コミット・プッシュ
@@ -240,8 +240,8 @@ git push -u origin feature/add-new-feature
 gh pr create --title "feat: 新機能追加" --body "説明"
 
 # 5. マージ後、worktree を削除
-cd ../..
-git worktree remove feature/add-new-feature
+cd ..
+git worktree remove feature-add-new-feature
 git branch -d feature/add-new-feature
 ```
 
@@ -253,7 +253,7 @@ git branch -d feature/add-new-feature
 
 #### 注意事項
 
-- worktree フォルダは `.gitignore` で除外済み（`main/` 以外）
+- worktree フォルダは `.gitignore` で除外済み
 - `main/` フォルダは常に最新の main ブランチを反映
 - PR マージ後は不要な worktree を削除してクリーンに保つ
 
