@@ -75,6 +75,21 @@ aws ssm send-command \
   --parameters 'commands=["cd C:\\jravan-api; python script.py"]'
 ```
 
+### デプロイ前チェック
+
+**重要**: デプロイ前には必ずチェックスクリプトを実行すること。
+
+```bash
+# デプロイ前チェック（テスト・リント・CDK Synth）
+./scripts/pre-deploy-check.sh
+```
+
+このスクリプトは以下を自動実行します:
+1. バックエンドテスト (`pytest`)
+2. フロントエンドリント (`npm run lint`)
+3. フロントエンドテスト (`npm run test:run`)
+4. CDK Synth 確認
+
 ### CDK デプロイ
 
 **重要**: CDKデプロイは必ず `--context jravan=true` を付けて実行すること。
@@ -86,12 +101,60 @@ cd cdk
 npx cdk deploy --all --context jravan=true --require-approval never
 ```
 
+### EC2 コード更新
+
+JRA-VAN API のコードを EC2 に反映する手順:
+
+```bash
+# 1. インスタンスID確認
+INSTANCE_ID=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=*jravan*" \
+  --query 'Reservations[].Instances[].InstanceId' --output text)
+
+# 2. コード更新コマンド送信
+aws ssm send-command \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name "AWS-RunPowerShellScript" \
+  --parameters 'commands=["cd C:\\jravan-api; git pull"]'
+
+# 3. データ再同期が必要な場合
+aws ssm send-command \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name "AWS-RunPowerShellScript" \
+  --parameters 'commands=["cd C:\\jravan-api; python sync_jvlink.py"]'
+```
+
+### デプロイ後の確認
+
+1. **ブラウザでの動作確認** - 必ず本番環境で意図した修正が反映されていることを確認
+2. **レース情報の確認** - レース名・距離・コース情報が正しく表示されること
+3. **エラーログの確認** - CloudWatch Logs でエラーが発生していないこと
+
 ### API エンドポイント確認
 
 ```bash
 # API Gateway エンドポイント確認
 aws apigateway get-rest-apis --query 'items[?name==`baken-kaigi`].id' --output text
 ```
+
+## CI/CD
+
+### GitHub Actions
+
+プッシュ・PR 時に自動でテストが実行されます:
+
+- **frontend-test**: リント、型チェック、テスト
+- **backend-test**: pytest によるテスト
+- **cdk-synth**: CDK 構文チェック
+
+### Amplify
+
+フロントエンドは Amplify でホスティングされています。
+`main` ブランチへのプッシュで自動デプロイが実行されます。
+
+デプロイ前に以下が自動実行されます:
+- `npm run lint`
+- `npm run test:run`
 
 ## Git 管理
 

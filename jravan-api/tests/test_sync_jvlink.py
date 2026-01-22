@@ -144,3 +144,112 @@ class TestParseRaRecord:
 
         assert result is not None
         assert result["distance"] == 2400
+
+
+class TestParseRaRecordRaceName:
+    """RA レコードのレース名パーステスト.
+
+    レース名は位置 32-92 に格納される（60バイト）。
+    特別レース名が設定されている場合はそれを使用し、
+    空の場合は「{場所名} {R}R」形式のデフォルト名を使用する。
+    """
+
+    def _build_ra_record_with_name(
+        self,
+        race_name: str,
+        venue_code: str = "06",
+        race_num: str = "11",
+        distance: str = "1200",
+    ) -> str:
+        """指定したレース名を持つRAレコードを生成する."""
+        data = "RA" + "0" * 9  # [0:11]
+        data += "20260117"     # [11:19] 開催日
+        data += venue_code     # [19:21] 場所コード
+        data += "01"           # [21:23] 開催回
+        data += "06"           # [23:25] 日目
+        data += race_num       # [25:27] レース番号
+        data += "0" * 5        # [27:32] パディング
+        # レース名フィールド [32:92] - 60バイト
+        name_field = race_name.ljust(60, "\u3000")[:60]  # 全角スペースでパディング
+        data += name_field
+        data += "0" * 415      # [92:507] パディング
+        data += "11"           # [507:509] トラックコード
+        data += "0" * 49       # [509:558] パディング
+        data += distance       # [558:562] 距離
+        data += "0" * 172      # [562:734] パディング
+        data += "1545"         # [734:738] 発走時刻
+        data += "0" * 395      # [738:1133] パディング
+        return data
+
+    def test_特別レース名が正しくパースされる(self):
+        """特別レース名（カーバンクルステークス）が正しく取得される."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_with_name("カーバンクルステークス")
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "カーバンクルステークス"
+
+    def test_日経新春杯のレース名が正しくパースされる(self):
+        """日経新春杯のレース名が正しく取得される."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_with_name("日経新春杯", venue_code="08", distance="2400")
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "日経新春杯"
+
+    def test_レース名が空の場合はデフォルト形式になる(self):
+        """レース名フィールドが空の場合は「場所名 R」形式になる."""
+        from sync_jvlink import parse_ra_record
+
+        # 全角スペースのみのレース名
+        data = self._build_ra_record_with_name("")
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "中山 11R"
+
+    def test_全角スペースのみの場合はデフォルト形式になる(self):
+        """レース名フィールドが全角スペースのみの場合もデフォルト形式になる."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_with_name("\u3000\u3000\u3000\u3000\u3000")
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "中山 11R"
+
+    def test_東京競馬場のデフォルトレース名(self):
+        """東京競馬場のデフォルトレース名が正しい."""
+        from sync_jvlink import parse_ra_record
+
+        data = self._build_ra_record_with_name("", venue_code="05", race_num="01")
+        result = parse_ra_record(data)
+
+        assert result is not None
+        assert result["race_name"] == "東京 1R"
+
+    def test_複数レース名の一貫性(self):
+        """複数の特別レース名が正しくパースされる."""
+        from sync_jvlink import parse_ra_record
+
+        test_cases = [
+            ("愛知杯", "07", "2000"),
+            ("京成杯", "06", "2000"),
+            ("フェアリーステークス", "06", "1600"),
+        ]
+
+        for race_name, venue_code, distance in test_cases:
+            data = self._build_ra_record_with_name(
+                race_name, venue_code=venue_code, distance=distance
+            )
+            result = parse_ra_record(data)
+
+            assert result is not None, f"レース {race_name} のパースに失敗"
+            assert result["race_name"] == race_name, (
+                f"レース名が一致しない: expected={race_name}, "
+                f"actual={result['race_name']}"
+            )
