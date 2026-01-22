@@ -104,6 +104,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
     runners = [
         {
             "horse_number": r.horse_number,
+            "waku_ban": r.waku_ban,
             "horse_name": r.horse_name,
             "jockey_name": r.jockey_name,
             "odds": r.odds,

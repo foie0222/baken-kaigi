@@ -141,7 +141,7 @@ export function RaceDetailPage() {
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
-            <div className="horse-number" style={{ background: horse.color }}>
+            <div className="horse-number" style={{ background: horse.color, color: horse.textColor }}>
               {horse.number}
             </div>
             <div className="horse-info">

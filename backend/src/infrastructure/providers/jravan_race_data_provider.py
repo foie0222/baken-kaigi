@@ -178,6 +178,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             jockey_id=data["jockey_id"],
             odds=data["odds"],
             popularity=data["popularity"],
+            waku_ban=data.get("waku_ban", 0),
         )
 
     def _to_performance_data(self, data: dict) -> PerformanceData:

@@ -145,6 +145,9 @@ class MockRaceDataProvider(RaceDataProvider):
         random.seed(hash(race_id_str) % (2**32))
         num_runners = random.randint(8, 18)
 
+        # 枠番を計算（JRA方式）
+        waku_assignments = self._calculate_waku_assignments(num_runners)
+
         runners = []
         used_names = set()
 
@@ -170,6 +173,7 @@ class MockRaceDataProvider(RaceDataProvider):
                 jockey_id=f"jockey_{hash(jockey_name) % 1000:03d}",
                 odds=odds_str,
                 popularity=i,
+                waku_ban=waku_assignments[i - 1],
             )
             runners.append(runner)
 
@@ -184,6 +188,7 @@ class MockRaceDataProvider(RaceDataProvider):
                 jockey_id=r.jockey_id,
                 odds=r.odds,
                 popularity=idx + 1,
+                waku_ban=r.waku_ban,
             )
             for idx, r in enumerate(runners)
         ]
@@ -193,6 +198,50 @@ class MockRaceDataProvider(RaceDataProvider):
 
         self._runners[race_id_str] = runners
         return runners
+
+    def _calculate_waku_assignments(self, num_runners: int) -> list[int]:
+        """馬番に対する枠番を計算する（JRA方式）.
+
+        JRAの枠番割り当てルール:
+        - 8頭以下: 馬番=枠番
+        - 9頭以上: 8枠に均等に割り当て、後ろの枠から複数頭になる
+        """
+        if num_runners <= 8:
+            return list(range(1, num_runners + 1))
+
+        # 9頭以上の場合
+        waku_assignments = []
+        extra_horses = num_runners - 8  # 8枠を超える馬の数
+
+        for horse_num in range(1, num_runners + 1):
+            if num_runners <= 16:
+                # 9-16頭: 後ろの枠から2頭ずつ
+                if horse_num <= (8 - extra_horses):
+                    waku = horse_num
+                else:
+                    waku = 8 - ((num_runners - horse_num) // 2)
+            else:
+                # 17-18頭: より複雑な割り当て
+                if horse_num == 1:
+                    waku = 1
+                elif horse_num == 2:
+                    waku = 2
+                elif horse_num <= 4:
+                    waku = 3
+                elif horse_num <= 6:
+                    waku = 4
+                elif horse_num <= 8:
+                    waku = 5
+                elif horse_num <= 11:
+                    waku = 6
+                elif horse_num <= 14:
+                    waku = 7
+                else:
+                    waku = 8
+
+            waku_assignments.append(waku)
+
+        return waku_assignments
 
     def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
         """馬の過去成績を取得する."""

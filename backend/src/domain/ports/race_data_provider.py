@@ -33,6 +33,7 @@ class RunnerData:
     jockey_id: str
     odds: str
     popularity: int
+    waku_ban: int = 0  # 枠番（1-8）
 
 
 @dataclass(frozen=True)

@@ -62,6 +62,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 race_id TEXT NOT NULL,
                 horse_number INTEGER,
+                waku_ban INTEGER,
                 horse_name TEXT,
                 horse_id TEXT,
                 jockey_name TEXT,
@@ -210,14 +211,15 @@ def upsert_runner(runner: dict):
         conn.execute(
             """
             INSERT INTO runners (
-                race_id, horse_number, horse_name, horse_id,
+                race_id, horse_number, waku_ban, horse_name, horse_id,
                 jockey_name, jockey_id, trainer_name, weight,
                 odds, popularity
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 runner["race_id"],
                 runner["horse_number"],
+                runner.get("waku_ban", 0),
                 runner["horse_name"],
                 runner["horse_id"],
                 runner["jockey_name"],

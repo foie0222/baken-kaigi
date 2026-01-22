@@ -140,6 +140,13 @@ def parse_se_record(data: str) -> dict | None:
 
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
 
+        # [27:28] 枠番 (1桁)
+        waku_str = data[27:28]
+        if waku_str.isdigit():
+            waku_ban = int(waku_str)
+        else:
+            waku_ban = 0
+
         # [28:30] 馬番 (2桁)
         umaban_str = data[28:30]
         if umaban_str.isdigit():
@@ -171,6 +178,7 @@ def parse_se_record(data: str) -> dict | None:
         return {
             "race_id": race_id,
             "horse_number": horse_number,
+            "waku_ban": waku_ban,
             "horse_name": horse_name,
             "horse_id": horse_id,
             "jockey_name": jockey_name,

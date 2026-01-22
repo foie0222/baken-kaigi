@@ -88,6 +88,7 @@ describe('mapApiRaceDetailToRaceDetail', () => {
   const mockRunners: ApiRunner[] = [
     {
       horse_number: 1,
+      waku_ban: 1,
       horse_name: 'テストホース1',
       jockey_name: 'テストジョッキー1',
       odds: '3.5',
@@ -95,6 +96,7 @@ describe('mapApiRaceDetailToRaceDetail', () => {
     },
     {
       horse_number: 2,
+      waku_ban: 2,
       horse_name: 'テストホース2',
       jockey_name: 'テストジョッキー2',
       odds: '8.0',
