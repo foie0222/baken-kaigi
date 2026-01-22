@@ -183,14 +183,79 @@ CI 成功確認（Frontend Tests / Backend Tests / CDK Synth Check）
 マージ → 自動デプロイ
 ```
 
-```bash
-# 新機能開発の例
-git checkout -b feature/add-new-feature
-# ... 開発 ...
-git push -u origin feature/add-new-feature
-gh pr create --title "feat: 新機能追加" --body "説明"
-# CI が全て成功してからマージ
+### Git Worktree によるブランチ管理
+
+このリポジトリでは `git worktree` を使用して、ブランチごとに別フォルダで並行作業ができます。
+
+#### ディレクトリ構成
+
 ```
+baken-kaigi/
+├── .bare/              # bare リポジトリ（実体）
+├── .git                # bare リポジトリへの参照ファイル
+├── main/               # main ブランチの worktree
+├── feature-xxx/        # feature ブランチの worktree
+└── docs-xxx/           # docs ブランチの worktree
+```
+
+#### 基本操作
+
+```bash
+# 現在の worktree 一覧を確認
+git worktree list
+
+# 新しいブランチで worktree を作成
+git worktree add <フォルダ名> -b <ブランチ名>
+
+# 例: feature/add-new-api ブランチで作業開始
+git worktree add feature-add-new-api -b feature/add-new-api
+
+# 既存のリモートブランチから worktree を作成
+git worktree add <フォルダ名> <ブランチ名>
+
+# worktree の削除（ブランチは残る）
+git worktree remove <フォルダ名>
+
+# worktree とブランチ両方を削除
+git worktree remove <フォルダ名>
+git branch -d <ブランチ名>
+```
+
+#### 開発フロー
+
+```bash
+# 1. 新機能開発用の worktree を作成
+git worktree add feature-add-new-feature -b feature/add-new-feature
+
+# 2. そのフォルダに移動して開発
+cd feature-add-new-feature
+# ... 開発作業 ...
+
+# 3. コミット・プッシュ
+git add .
+git commit -m "feat: 新機能追加"
+git push -u origin feature/add-new-feature
+
+# 4. PR 作成
+gh pr create --title "feat: 新機能追加" --body "説明"
+
+# 5. マージ後、worktree を削除
+cd ..
+git worktree remove feature-add-new-feature
+git branch -d feature/add-new-feature
+```
+
+#### メリット
+
+- **並行作業**: 複数のブランチで同時に作業可能（ブランチ切り替え不要）
+- **コンテキスト保持**: 各ブランチの作業状態がそのまま保存される
+- **IDE 対応**: 各 worktree を別ウィンドウで開ける
+
+#### 注意事項
+
+- worktree フォルダは `.gitignore` で除外済み
+- `main/` フォルダは常に最新の main ブランチを反映
+- PR マージ後は不要な worktree を削除してクリーンに保つ
 
 ### コミットメッセージ
 
