@@ -158,6 +158,31 @@ aws apigateway get-rest-apis --query 'items[?name==`baken-kaigi`].id' --output t
 
 ## Git 管理
 
+### ブランチ運用ルール
+
+**重要**: `main` ブランチへの直接 push は禁止（運用ルール）
+
+```
+feature ブランチ作成
+    ↓
+開発・コミット
+    ↓
+PR 作成
+    ↓
+CI 成功確認（Frontend Tests / Backend Tests / CDK Synth Check）
+    ↓
+マージ → 自動デプロイ
+```
+
+```bash
+# 新機能開発の例
+git checkout -b feature/add-new-feature
+# ... 開発 ...
+git push -u origin feature/add-new-feature
+gh pr create --title "feat: 新機能追加" --body "説明"
+# CI が全て成功してからマージ
+```
+
 ### コミットメッセージ
 
 プレフィックスを付けて、変更内容を明確に記載する。
