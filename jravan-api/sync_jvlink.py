@@ -57,7 +57,7 @@ TRACK_TYPES = {
     "53": "障",    # 障害・その他
 }
 
-# 種別コード → 馬齢条件
+# 種別コード → 馬齢条件 (位置 507-509)
 SYUBETU_CODES = {
     "11": "2歳",
     "12": "3歳",
@@ -158,10 +158,11 @@ def parse_ra_record(data: str) -> dict | None:
             if kyori_str.strip().isdigit():
                 distance = int(kyori_str.strip())
 
-        # トラックコード (位置 507-509)
+        # トラックコード (位置 566-568)
+        # 10-19: 芝、20-29: ダート、51-53: 障害
         track_type = ""
-        if len(data) > 509:
-            track_cd = data[507:509]
+        if len(data) > 568:
+            track_cd = data[566:568]
             track_type = TRACK_TYPES.get(track_cd, "")
 
         # 発走時刻 (位置 734-738 - HHMM形式)

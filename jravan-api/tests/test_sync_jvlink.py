@@ -17,8 +17,9 @@ class TestParseRaRecord:
     - [21:23]   開催回
     - [23:25]   日目
     - [25:27]   レース番号
-    - [507:509] トラックコード
+    - [507:509] 種別コード（馬齢条件）
     - [558:562] 距離（メートル）
+    - [566:568] トラックコード
     - [734:738] 発走時刻（HHMM）
     """
 
@@ -34,10 +35,12 @@ class TestParseRaRecord:
         data += "06"           # [23:25] 日目
         data += "11"           # [25:27] レース番号
         data += "0" * 480      # [27:507] パディング
-        data += "11"           # [507:509] トラックコード（芝・左）
+        data += "12"           # [507:509] 種別コード（3歳）
         data += "0" * 49       # [509:558] パディング
         data += "1200"         # [558:562] 距離 1200m
-        data += "0" * 172      # [562:734] パディング
+        data += "0" * 4        # [562:566] パディング
+        data += "11"           # [566:568] トラックコード（芝・左）
+        data += "0" * 166      # [568:734] パディング
         data += "1545"         # [734:738] 発走時刻
         data += "0" * 395      # [738:1133] パディング
 
@@ -59,10 +62,12 @@ class TestParseRaRecord:
         data += "06"
         data += "11"           # 11R
         data += "0" * 480
-        data += "11"           # 芝
+        data += "12"           # [507:509] 種別コード
         data += "0" * 49
         data += "1200"         # 距離 1200m
-        data += "0" * 172
+        data += "0" * 4        # [562:566] パディング
+        data += "11"           # [566:568] トラックコード（芝）
+        data += "0" * 166
         data += "1545"
         data += "0" * 395
 
@@ -85,10 +90,12 @@ class TestParseRaRecord:
         data += "06"
         data += "01"           # 1R
         data += "0" * 480
-        data += "22"           # ダート・右
+        data += "12"           # [507:509] 種別コード
         data += "0" * 49
         data += "1000"         # 距離 1000m
-        data += "0" * 172
+        data += "0" * 4        # [562:566] パディング
+        data += "22"           # [566:568] トラックコード（ダート・右）
+        data += "0" * 166
         data += "1005"
         data += "0" * 395
 
@@ -109,10 +116,12 @@ class TestParseRaRecord:
         data += "06"
         data += "11"
         data += "0" * 480
-        data += "12"           # 芝・右
+        data += "13"           # [507:509] 種別コード
         data += "0" * 49
         data += "3600"         # 距離 3600m
-        data += "0" * 172
+        data += "0" * 4        # [562:566] パディング
+        data += "12"           # [566:568] トラックコード（芝・右）
+        data += "0" * 166
         data += "1540"
         data += "0" * 395
 
@@ -133,10 +142,12 @@ class TestParseRaRecord:
         data += "07"
         data += "11"
         data += "0" * 480
-        data += "12"           # 芝
+        data += "13"           # [507:509] 種別コード
         data += "0" * 49
         data += "2400"         # 距離 2400m
-        data += "0" * 172
+        data += "0" * 4        # [562:566] パディング
+        data += "12"           # [566:568] トラックコード（芝）
+        data += "0" * 166
         data += "1530"
         data += "0" * 395
 
@@ -162,6 +173,7 @@ class TestParseRaRecordRaceName:
         distance: str = "1200",
         syubetu_cd: str = "12",  # 種別コード（馬齢条件）: 12=3歳
         jyoken_cd: str = "999",  # 条件コード（クラス）: 999=オープン
+        track_cd: str = "12",    # トラックコード: 12=芝・右
     ) -> str:
         """指定したレース名を持つRAレコードを生成する.
 
@@ -172,6 +184,7 @@ class TestParseRaRecordRaceName:
             distance: 距離（メートル）
             syubetu_cd: 種別コード（馬齢条件）11=2歳, 12=3歳, 13=3歳以上, 14=4歳以上
             jyoken_cd: 条件コード 701=新馬, 703=未勝利, 704=1勝, 705=2勝, 706=3勝, 999=オープン
+            track_cd: トラックコード 10-19=芝, 20-29=ダート, 51-53=障害
         """
         data = "RA" + "0" * 9  # [0:11]
         data += "20260117"     # [11:19] 開催日
@@ -189,7 +202,9 @@ class TestParseRaRecordRaceName:
         data += jyoken_cd      # [516:519] 条件コード（クラス）
         data += "0" * 39       # [519:558] パディング
         data += distance       # [558:562] 距離
-        data += "0" * 172      # [562:734] パディング
+        data += "0" * 4        # [562:566] パディング
+        data += track_cd       # [566:568] トラックコード
+        data += "0" * 166      # [568:734] パディング
         data += "1545"         # [734:738] 発走時刻
         data += "0" * 395      # [738:1133] パディング
         return data
@@ -291,6 +306,7 @@ class TestParseRaRecordConditionName:
         distance: str = "1200",
         syubetu_cd: str = "12",
         jyoken_cd: str = "703",
+        track_cd: str = "12",  # デフォルト: 芝・右
     ) -> str:
         """条件戦用のRAレコードを生成する（本題は空）."""
         data = "RA" + "0" * 9  # [0:11]
@@ -308,7 +324,9 @@ class TestParseRaRecordConditionName:
         data += jyoken_cd      # [516:519] 条件コード（クラス）
         data += "0" * 39       # [519:558] パディング
         data += distance       # [558:562] 距離
-        data += "0" * 172      # [562:734] パディング
+        data += "0" * 4        # [562:566] パディング
+        data += track_cd       # [566:568] トラックコード
+        data += "0" * 166      # [568:734] パディング
         data += "1005"         # [734:738] 発走時刻
         data += "0" * 395      # [738:1133] パディング
         return data
@@ -320,11 +338,13 @@ class TestParseRaRecordConditionName:
         data = self._build_ra_record_for_condition(
             syubetu_cd="12",  # 3歳
             jyoken_cd="703",  # 未勝利
+            track_cd="12",    # 芝・右
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "3歳未勝利"
+        assert result["track_type"] == "芝"
 
     def test_3歳新馬が正しく生成される(self):
         """SyubetuCd=12, JyokenCd=701 で「3歳新馬」が生成される."""
@@ -333,11 +353,13 @@ class TestParseRaRecordConditionName:
         data = self._build_ra_record_for_condition(
             syubetu_cd="12",  # 3歳
             jyoken_cd="701",  # 新馬
+            track_cd="22",    # ダート・右
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "3歳新馬"
+        assert result["track_type"] == "ダ"
 
     def test_2歳未勝利が正しく生成される(self):
         """SyubetuCd=11, JyokenCd=703 で「2歳未勝利」が生成される."""
@@ -346,11 +368,13 @@ class TestParseRaRecordConditionName:
         data = self._build_ra_record_for_condition(
             syubetu_cd="11",  # 2歳
             jyoken_cd="703",  # 未勝利
+            track_cd="12",    # 芝・右
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "2歳未勝利"
+        assert result["track_type"] == "芝"
 
     def test_4歳以上1勝クラスが正しく生成される(self):
         """SyubetuCd=14, JyokenCd=704 で「4歳以上1勝クラス」が生成される."""
@@ -359,11 +383,13 @@ class TestParseRaRecordConditionName:
         data = self._build_ra_record_for_condition(
             syubetu_cd="14",  # 4歳以上
             jyoken_cd="704",  # 1勝クラス
+            track_cd="24",    # ダート・右外
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "4歳以上1勝クラス"
+        assert result["track_type"] == "ダ"
 
     def test_3歳以上2勝クラスが正しく生成される(self):
         """SyubetuCd=13, JyokenCd=705 で「3歳以上2勝クラス」が生成される."""
@@ -372,11 +398,13 @@ class TestParseRaRecordConditionName:
         data = self._build_ra_record_for_condition(
             syubetu_cd="13",  # 3歳以上
             jyoken_cd="705",  # 2勝クラス
+            track_cd="18",    # 芝・右内
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "3歳以上2勝クラス"
+        assert result["track_type"] == "芝"
 
     def test_3歳以上3勝クラスが正しく生成される(self):
         """SyubetuCd=13, JyokenCd=706 で「3歳以上3勝クラス」が生成される."""
@@ -385,24 +413,28 @@ class TestParseRaRecordConditionName:
         data = self._build_ra_record_for_condition(
             syubetu_cd="13",  # 3歳以上
             jyoken_cd="706",  # 3勝クラス
+            track_cd="17",    # 芝・左内
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "3歳以上3勝クラス"
+        assert result["track_type"] == "芝"
 
-    def test_オープンクラスは種別名のみ表示しない(self):
-        """JyokenCd=999（オープン）の場合は「オープン」のみになる."""
+    def test_オープンクラスは種別名とオープンが表示される(self):
+        """JyokenCd=999（オープン）の場合は「種別名+オープン」が表示される."""
         from sync_jvlink import parse_ra_record
 
         data = self._build_ra_record_for_condition(
             syubetu_cd="13",  # 3歳以上
             jyoken_cd="999",  # オープン
+            track_cd="52",    # 障害・ダート
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "3歳以上オープン"
+        assert result["track_type"] == "障"
 
     def test_本題がある場合は条件名より優先される(self):
         """本題（特別レース名）がある場合はそれが使用される."""
@@ -424,8 +456,10 @@ class TestParseRaRecordConditionName:
         data += "0" * 7
         data += "999"          # JyokenCd: オープン
         data += "0" * 39
-        data += "2000"
-        data += "0" * 172
+        data += "2000"         # [558:562] 距離
+        data += "0" * 4        # [562:566] パディング
+        data += "17"           # [566:568] トラックコード（芝・左内）
+        data += "0" * 166      # [568:734] パディング
         data += "1530"
         data += "0" * 395
 
@@ -433,6 +467,7 @@ class TestParseRaRecordConditionName:
 
         assert result is not None
         assert result["race_name"] == "京成杯"  # 条件名ではなく本題が使用される
+        assert result["track_type"] == "芝"
 
 
 class TestParseRaRecordAdvancedConditions:
@@ -450,6 +485,7 @@ class TestParseRaRecordAdvancedConditions:
         syubetu_cd: str = "14",
         jyoken_cd_primary: str = "000",  # 位置 516-519
         jyoken_cd_secondary: str = "005",  # 位置 520-523
+        track_cd: str = "24",  # トラックコード: ダート・右外
     ) -> str:
         """1勝クラス以上用のRAレコードを生成."""
         data = "RA" + "0" * 9  # [0:11]
@@ -469,7 +505,9 @@ class TestParseRaRecordAdvancedConditions:
         data += jyoken_cd_secondary # [520:523] 条件コード（副: 1勝以上用）
         data += "0" * 35       # [523:558] パディング
         data += distance       # [558:562] 距離
-        data += "0" * 172      # [562:734] パディング
+        data += "0" * 4        # [562:566] パディング
+        data += track_cd       # [566:568] トラックコード
+        data += "0" * 166      # [568:734] パディング
         data += "1255"         # [734:738] 発走時刻
         data += "0" * 395      # [738:1133] パディング
         return data
@@ -553,11 +591,13 @@ class TestParseRaRecordAdvancedConditions:
             jyoken_cd_primary="000",
             jyoken_cd_secondary="000",
             distance="2880",
+            track_cd="52",             # 障害・ダート
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "障害"
+        assert result["track_type"] == "障"
 
     def test_障害未勝利レースが正しく生成される(self):
         """障害未勝利レース."""
@@ -568,8 +608,10 @@ class TestParseRaRecordAdvancedConditions:
             jyoken_cd_primary="703",   # 未勝利
             jyoken_cd_secondary="000",
             distance="2880",
+            track_cd="52",             # 障害・ダート
         )
         result = parse_ra_record(data)
 
         assert result is not None
         assert result["race_name"] == "障害未勝利"
+        assert result["track_type"] == "障"
