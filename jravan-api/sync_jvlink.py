@@ -73,6 +73,14 @@ def parse_ra_record(data: str) -> dict | None:
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
         venue_name = VENUE_NAMES.get(jyo_cd, "不明")
 
+        # レース名 (位置 32-92) - 日本語レース名
+        race_name = f"{venue_name} {int(race_num)}R"  # デフォルト
+        if len(data) > 92:
+            # 全角スペース(U+3000)を除去してレース名を取得
+            raw_name = data[32:92].strip().replace('\u3000', '')
+            if raw_name:
+                race_name = raw_name
+
         # 距離 (位置 558-562) - 実際のRAレコード解析により特定
         distance = 0
         if len(data) > 562:
@@ -101,7 +109,7 @@ def parse_ra_record(data: str) -> dict | None:
         return {
             "race_id": race_id,
             "race_date": race_date,
-            "race_name": f"{venue_name} {int(race_num)}R",
+            "race_name": race_name,
             "race_number": int(race_num),
             "venue_code": jyo_cd,
             "venue_name": venue_name,
