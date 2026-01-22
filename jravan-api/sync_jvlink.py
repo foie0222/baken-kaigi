@@ -57,6 +57,29 @@ TRACK_TYPES = {
     "53": "障",    # 障害・その他
 }
 
+# 種別コード → 馬齢条件
+SYUBETU_CODES = {
+    "11": "2歳",
+    "12": "3歳",
+    "13": "3歳以上",
+    "14": "4歳以上",
+    "18": "",        # 障害
+    "19": "",        # 障害
+    "99": "",        # その他
+}
+
+# 条件コード → クラス名
+JYOKEN_CODES = {
+    "701": "新馬",
+    "702": "新馬",
+    "703": "未勝利",
+    "704": "1勝クラス",
+    "705": "2勝クラス",
+    "706": "3勝クラス",
+    "999": "オープン",
+    "700": "オープン",
+}
+
 
 def parse_ra_record(data: str) -> dict | None:
     """RA レコードをパースしてレース情報を返す."""
@@ -73,13 +96,30 @@ def parse_ra_record(data: str) -> dict | None:
         race_id = f"{race_date}{jyo_cd}{kai}{nichiji}{race_num}"
         venue_name = VENUE_NAMES.get(jyo_cd, "不明")
 
-        # レース名 (位置 32-92) - 日本語レース名
+        # レース名 (位置 32-92) - 本題（特別レース名）
         race_name = f"{venue_name} {int(race_num)}R"  # デフォルト
         if len(data) > 92:
             # 全角スペース(U+3000)を除去してレース名を取得
-            raw_name = data[32:92].strip().replace('\u3000', '')
-            if raw_name:
-                race_name = raw_name
+            hondai = data[32:92].strip().replace('\u3000', '')
+            if hondai:
+                race_name = hondai
+            elif len(data) > 519:
+                # 本題が空の場合（一般条件戦）は条件コードからレース名を生成
+                # SyubetuCd (種別コード) - 位置 507-509: 馬齢条件
+                syubetu_cd = data[507:509]
+                syubetu_name = SYUBETU_CODES.get(syubetu_cd, "")
+
+                # JyokenCd (条件コード) - 位置 516-519: クラス条件
+                jyoken_cd = data[516:519]
+                jyoken_name = JYOKEN_CODES.get(jyoken_cd, "")
+
+                # 馬齢 + クラス でレース名を生成
+                if syubetu_name and jyoken_name:
+                    race_name = f"{syubetu_name}{jyoken_name}"
+                elif jyoken_name:
+                    race_name = jyoken_name
+                elif syubetu_name:
+                    race_name = f"{syubetu_name}条件"
 
         # 距離 (位置 558-562) - 実際のRAレコード解析により特定
         distance = 0
