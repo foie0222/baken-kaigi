@@ -180,8 +180,73 @@ PR 作成
     ↓
 CI 成功確認（Frontend Tests / Backend Tests / CDK Synth Check）
     ↓
+Copilot レビューコメント対応
+    ↓
 マージ → 自動デプロイ
 ```
+
+### PR レビューコメント対応
+
+PR には GitHub Copilot による自動レビューが入ります。コメントが付いた場合は以下の手順で対応すること。
+
+#### 1. コメント確認
+
+```bash
+# レビューコメントを確認
+gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments --jq '.[] | {id, path, body}'
+```
+
+#### 2. 修正が必要か判断
+
+- 指摘内容が妥当であれば修正を実施
+- 対応不要と判断した場合は理由を返信
+
+#### 3. 修正をコミット・プッシュ
+
+```bash
+git add <修正ファイル>
+git commit -m "fix: Copilotレビュー指摘対応"
+git push
+```
+
+#### 4. コメントに返信
+
+```bash
+gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments/<コメントID>/replies \
+  -X POST \
+  -f body='修正しました。〜〜'
+```
+
+#### 5. スレッドを解決
+
+```bash
+# スレッドIDを取得
+gh api graphql -f query='
+query {
+  repository(owner: "foie0222", name: "baken-kaigi") {
+    pullRequest(number: <PR番号>) {
+      reviewThreads(first: 10) {
+        nodes {
+          id
+          isResolved
+        }
+      }
+    }
+  }
+}'
+
+# スレッドを解決
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "<スレッドID>"}) {
+    thread {
+      isResolved
+    }
+  }
+}'
+```
+
+**重要**: ブランチ保護ルールにより、全てのコメントを解決しないとマージできません。
 
 ### Git Worktree によるブランチ管理
 

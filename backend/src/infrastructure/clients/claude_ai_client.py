@@ -6,6 +6,7 @@ import anthropic
 
 from src.domain.entities import Message
 from src.domain.enums import MessageType
+from agentcore.prompts.consultation import COMMON_RULES
 from src.domain.ports import (
     AIClient,
     AmountFeedbackContext,
@@ -48,10 +49,7 @@ class ClaudeAIClient(AIClient):
 ギークな競馬ファン向けに、データに基づいた玄人的な分析を提供してください。
 
 【重要】
-- 「推奨」や「おすすめ」は禁止
-- データに基づく断定的な分析はOK
-- 弱点やリスクは率直に指摘
-- 最終判断はユーザーに委ねる
+{COMMON_RULES}
 
 レース: {context.race_name}
 
@@ -119,10 +117,7 @@ class ClaudeAIClient(AIClient):
 ギークな競馬ファン向けに、データに基づいた玄人的な分析を提供します。
 
 【重要なルール】
-- 「推奨」や「この馬を買うべき」といった助言は禁止
-- ギャンブルを促進する表現は避ける
-- データに基づく断定的な分析はOK
-- 弱点やリスクは率直に指摘
+{COMMON_RULES}
 - ユーザーが熱くなりすぎている場合は冷静を促す
 
 【現在の相談内容】
