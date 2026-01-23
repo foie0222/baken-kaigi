@@ -103,7 +103,7 @@ class TestAnalyzePastRaceTrends:
         }
         mock_get.return_value = mock_response
 
-        result = analyze_past_race_trends.func(
+        result = analyze_past_race_trends(
             race_id="202601050811",
             track_type="芝",
             distance=1600,
@@ -123,7 +123,7 @@ class TestAnalyzePastRaceTrends:
         mock_response.status_code = 404
         mock_get.return_value = mock_response
 
-        result = analyze_past_race_trends.func(
+        result = analyze_past_race_trends(
             race_id="202601050811",
             track_type="芝",
             distance=1600,
@@ -138,7 +138,7 @@ class TestAnalyzePastRaceTrends:
         import requests as real_requests
         mock_get.side_effect = real_requests.RequestException("Connection error")
 
-        result = analyze_past_race_trends.func(
+        result = analyze_past_race_trends(
             race_id="202601050811",
             track_type="芝",
             distance=1600,
