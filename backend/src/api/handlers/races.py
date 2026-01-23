@@ -95,6 +95,20 @@ def get_race_detail(event: dict, context: Any) -> dict:
     if result is None:
         return not_found_response("Race")
 
+    # JRAチェックサムを取得
+    jra_checksum = None
+    if result.race.kaisai_kai and result.race.kaisai_nichime:
+        try:
+            kaisai_nichime_int = int(result.race.kaisai_nichime)
+            jra_checksum = provider.get_jra_checksum(
+                venue_code=result.race.venue,
+                kaisai_kai=result.race.kaisai_kai,
+                kaisai_nichime=kaisai_nichime_int,
+                race_number=result.race.race_number,
+            )
+        except (ValueError, TypeError):
+            pass
+
     # レスポンス構築
     race = {
         "race_id": result.race.race_id,
@@ -114,6 +128,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
         # JRA出馬表URL生成用
         "kaisai_kai": result.race.kaisai_kai,
         "kaisai_nichime": result.race.kaisai_nichime,
+        "jra_checksum": jra_checksum,
     }
 
     # 馬体重情報を取得

@@ -144,3 +144,24 @@ class RaceDataProvider(ABC):
             馬番をキーとした馬体重データの辞書
         """
         pass
+
+    @abstractmethod
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        """JRA出馬表URLのチェックサムを取得する.
+
+        Args:
+            venue_code: 競馬場コード（01-10）
+            kaisai_kai: 回次（01-05）
+            kaisai_nichime: 日目（1-12）
+            race_number: レース番号（1-12）
+
+        Returns:
+            チェックサム値（0-255）、データがない場合はNone
+        """
+        pass

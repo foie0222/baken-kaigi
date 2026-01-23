@@ -120,6 +120,18 @@ class RaceWeightResponse(BaseModel):
     weight_diff: int            # 前走比増減
 
 
+class JraChecksumResponse(BaseModel):
+    """JRAチェックサムレスポンス."""
+    checksum: int | None
+
+
+class JraChecksumSaveRequest(BaseModel):
+    """JRAチェックサム保存リクエスト."""
+    venue_code: str             # 競馬場コード (01-10)
+    kaisai_kai: str             # 回次 (01-05)
+    base_value: int             # 1日目1Rのbase値
+
+
 # ========================================
 # エンドポイント
 # ========================================
@@ -318,6 +330,29 @@ def get_race_weights(race_id: str):
         )
         for w in weights
     ]
+
+
+@app.get("/jra-checksum", response_model=JraChecksumResponse)
+def get_jra_checksum(
+    venue_code: str = Query(..., description="競馬場コード（01-10）"),
+    kaisai_kai: str = Query(..., description="回次（01-05）"),
+    kaisai_nichime: int = Query(..., description="日目（1-12）"),
+    race_number: int = Query(..., description="レース番号（1-12）"),
+):
+    """JRA出馬表URLのチェックサムを取得する."""
+    checksum = db.get_jra_checksum(venue_code, kaisai_kai, kaisai_nichime, race_number)
+    return JraChecksumResponse(checksum=checksum)
+
+
+@app.post("/jra-checksum")
+def save_jra_checksum(request: JraChecksumSaveRequest):
+    """JRA出馬表URLのbase_valueを保存する（管理用）."""
+    db.save_jra_checksum(
+        request.venue_code,
+        request.kaisai_kai,
+        request.base_value,
+    )
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":

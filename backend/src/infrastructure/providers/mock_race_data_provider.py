@@ -428,6 +428,17 @@ class MockRaceDataProvider(RaceDataProvider):
 
         return weights
 
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        """JRA出馬表URLのチェックサムを取得する（モック実装）."""
+        # モックでは常にNoneを返す（JRA URLは生成されない）
+        return None
+
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int
     ) -> RaceData:

@@ -298,6 +298,36 @@ class JraVanRaceDataProvider(RaceDataProvider):
             weight_diff=data["weight_diff"],
         )
 
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        """JRA出馬表URLのチェックサムを取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/jra-checksum",
+                params={
+                    "venue_code": venue_code,
+                    "kaisai_kai": kaisai_kai,
+                    "kaisai_nichime": kaisai_nichime,
+                    "race_number": race_number,
+                },
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return data.get("checksum")
+        except requests.RequestException as e:
+            logger.warning(
+                f"Could not get JRA checksum for {venue_code}/{kaisai_kai}: {e}"
+            )
+            return None
+
 
 class JraVanApiError(Exception):
     """JRA-VAN API エラー."""

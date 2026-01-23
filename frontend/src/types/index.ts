@@ -51,6 +51,7 @@ export interface ApiRace {
   // JRA出馬表URL生成用
   kaisai_kai?: string;
   kaisai_nichime?: string;
+  jra_checksum?: number | null;
 }
 
 export interface ApiRunner {
@@ -119,6 +120,7 @@ export interface Race {
   // JRA出馬表URL生成用
   kaisaiKai?: string;         // 回次（01, 02など）
   kaisaiNichime?: string;     // 日目（01, 02など）
+  jraChecksum?: number | null; // JRA URL用チェックサム
 }
 
 export interface Horse {
@@ -167,6 +169,7 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
     // JRA出馬表URL生成用
     kaisaiKai: apiRace.kaisai_kai,
     kaisaiNichime: apiRace.kaisai_nichime,
+    jraChecksum: apiRace.jra_checksum,
   };
 }
 
