@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from ..entities import CartItem
-from ..ports import AIClient, BetFeedbackContext, RaceDataProvider
+from ..ports import AIClient, BetFeedbackContext, RaceDataProvider, WeightData
 from ..value_objects import AmountFeedback, DataFeedback, HorseDataSummary, Money
 
 
@@ -28,6 +28,9 @@ class FeedbackGenerator:
             # レースと出走馬の情報を取得
             runners = self._race_data_provider.get_runners(item.race_id)
             selected_numbers = item.get_selected_numbers().to_list()
+
+            # レースの馬体重情報を取得（馬番 -> WeightData）
+            race_weights = self._race_data_provider.get_race_weights(item.race_id)
 
             horse_summaries = []
             horse_names = []
@@ -56,6 +59,20 @@ class FeedbackGenerator:
                         else "データなし"
                     )
 
+                    # 血統情報を取得
+                    pedigree_data = self._race_data_provider.get_pedigree(runner.horse_id)
+                    pedigree = self._format_pedigree(pedigree_data) if pedigree_data else None
+
+                    # 馬体重を取得
+                    weight_data = race_weights.get(runner.horse_number)
+                    weight_current = weight_data.weight if weight_data else None
+
+                    # 馬体重の傾向を取得
+                    weight_history = self._race_data_provider.get_weight_history(
+                        runner.horse_id, limit=5
+                    )
+                    weight_trend = self._calculate_weight_trend(weight_history)
+
                     summary = HorseDataSummary(
                         horse_number=runner.horse_number,
                         horse_name=runner.horse_name,
@@ -64,6 +81,9 @@ class FeedbackGenerator:
                         track_suitability="",  # AIが生成
                         current_odds=runner.odds,
                         popularity=runner.popularity,
+                        pedigree=pedigree,
+                        weight_trend=weight_trend,
+                        weight_current=weight_current,
                     )
                     horse_summaries.append(summary)
                     horse_names.append(runner.horse_name)
@@ -113,3 +133,42 @@ class FeedbackGenerator:
             return "データなし"
         positions = [str(p.finish_position) for p in performances]
         return "-".join(positions)
+
+    def _format_pedigree(self, pedigree_data) -> str | None:
+        """血統情報を "父:〇〇 母父:△△" 形式にフォーマットする."""
+        if not pedigree_data:
+            return None
+
+        sire = pedigree_data.sire_name.strip() if pedigree_data.sire_name else None
+        broodmare_sire = pedigree_data.broodmare_sire.strip() if pedigree_data.broodmare_sire else None
+
+        if not sire and not broodmare_sire:
+            return None
+
+        parts = []
+        if sire:
+            parts.append(f"父:{sire}")
+        if broodmare_sire:
+            parts.append(f"母父:{broodmare_sire}")
+
+        return " ".join(parts) if parts else None
+
+    def _calculate_weight_trend(self, weight_history: list[WeightData]) -> str | None:
+        """馬体重履歴から傾向を判定する.
+
+        Returns:
+            "増加傾向" / "安定" / "減少傾向" / None
+        """
+        if not weight_history or len(weight_history) < 2:
+            return None
+
+        # 直近の増減を集計
+        total_diff = sum(w.weight_diff for w in weight_history)
+        avg_diff = total_diff / len(weight_history)
+
+        if avg_diff > 2:
+            return "増加傾向"
+        elif avg_diff < -2:
+            return "減少傾向"
+        else:
+            return "安定"
