@@ -446,7 +446,7 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> list[date]:
         """開催日一覧を取得する（モック実装）.
 
-        モックでは直近の土日を返す。
+        モックでは前週と次週の土日（最大4日）を返す。
         """
         today = date.today()
         # 直近の土曜日を計算

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import type { Race, RaceGrade } from '../types';
 import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
-import { USE_MOCK, getMockRaces, getMockVenues } from '../../mock/races';
 
 // グレードバッジのCSSクラスを取得
 function getGradeBadgeClass(grade: RaceGrade | undefined): string {
@@ -82,12 +81,37 @@ function selectDisplayDates(dates: string[]): string[] {
   if (sortedDates.includes(todayStr)) {
     // 今日を含む週末を取得
     const todayDate = new Date(todayStr);
-    const weekend = sortedDates.filter(d => {
+    const weekend = sortedDates.filter((d: string) => {
       const diff = Math.abs(new Date(d).getTime() - todayDate.getTime());
       return diff <= 2 * 24 * 60 * 60 * 1000; // 2日以内
     });
     if (weekend.length > 0) {
-      return weekend.slice(0, 2);
+      // today を必ず含める形で 2 日分を選択する
+      if (weekend.length <= 2) {
+        return weekend;
+      }
+
+      const todayIndex = weekend.indexOf(todayStr);
+      // 理論上は必ず含まれるが、安全のためフォールバックを用意
+      if (todayIndex === -1) {
+        return weekend.slice(0, 2);
+      }
+
+      // today 以外の中から、today に最も近い 1 日を選択
+      const nearest = weekend
+        .filter((d: string) => d !== todayStr)
+        .map((d: string) => ({
+          date: d,
+          diff: Math.abs(new Date(d).getTime() - todayDate.getTime()),
+        }))
+        .sort((a, b) => a.diff - b.diff)[0]?.date;
+
+      if (!nearest) {
+        return [todayStr];
+      }
+
+      // 返却時は日付昇順に並べる
+      return [todayStr, nearest].sort();
     }
   }
 
@@ -131,29 +155,6 @@ export function RacesPage() {
     const fetchDates = async () => {
       setDatesLoading(true);
 
-      // モックモードの場合は固定の週末を返す
-      if (USE_MOCK) {
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        // 直近の土曜日
-        const sat = new Date(today);
-        sat.setDate(today.getDate() - (dayOfWeek === 0 ? 1 : dayOfWeek) + 6 - 7);
-        const sun = new Date(sat);
-        sun.setDate(sat.getDate() + 1);
-
-        const formatDate = (d: Date) => {
-          const year = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${year}-${m}-${day}`;
-        };
-
-        if (!isMounted) return;
-        setDateButtons([formatDate(sat), formatDate(sun)]);
-        setDatesLoading(false);
-        return;
-      }
-
       const { from, to } = getSearchRange();
       const response = await apiClient.getRaceDates(from, to);
 
@@ -187,6 +188,19 @@ export function RacesPage() {
     };
   }, []);
 
+  // 開催日がない場合のローディング解除
+  useEffect(() => {
+    if (!datesLoading && dateButtons.length === 0) {
+      // 非同期でローディング解除（同期的なsetState呼び出しを回避）
+      const resetLoading = async () => {
+        setLoading(false);
+        setRaces([]);
+        setVenues([]);
+      };
+      resetLoading();
+    }
+  }, [datesLoading, dateButtons.length]);
+
   // レース一覧を取得
   useEffect(() => {
     if (dateButtons.length === 0 || selectedDateIdx >= dateButtons.length) {
@@ -199,21 +213,6 @@ export function RacesPage() {
     const fetchRaces = async () => {
       setLoading(true);
       setError(null);
-
-      // モックモードの場合
-      if (USE_MOCK) {
-        const mockRaceList = getMockRaces(undefined, undefined);
-        const mockVenueList = getMockVenues();
-        if (!isMounted) return;
-        setRaces(mockRaceList);
-        setVenues(mockVenueList);
-        if (!isInitialVenueSet.current && mockVenueList.length > 0) {
-          setSelectedVenue(mockVenueList[0]);
-          isInitialVenueSet.current = true;
-        }
-        setLoading(false);
-        return;
-      }
 
       const response = await apiClient.getRaces(selectedDate);
 
