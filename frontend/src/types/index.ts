@@ -44,6 +44,10 @@ export interface ApiRace {
   track_type?: string;
   distance?: number;
   horse_count?: number;
+  // 条件フィールド
+  grade_class?: string;
+  age_condition?: string;
+  is_obstacle?: boolean;
 }
 
 export interface ApiRunner {
@@ -129,6 +133,10 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
     trackType: apiRace.track_type,
     distance: apiRace.distance,
     horseCount: apiRace.horse_count,
+    // 条件フィールド
+    gradeClass: apiRace.grade_class as RaceGrade | undefined,
+    ageCondition: apiRace.age_condition,
+    isObstacle: apiRace.is_obstacle,
   };
 }
 

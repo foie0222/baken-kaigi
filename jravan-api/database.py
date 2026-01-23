@@ -469,7 +469,15 @@ def _to_race_dict(row: dict) -> dict:
 
     # トラックコードの解釈
     track_code = row.get("track_code", "") or ""
-    track_type = "芝" if track_code.startswith("1") else "ダート" if track_code.startswith("2") else ""
+    is_obstacle = track_code.startswith("3")  # 3x = 障害
+    if track_code.startswith("1"):
+        track_type = "芝"
+    elif track_code.startswith("2"):
+        track_type = "ダート"
+    elif is_obstacle:
+        track_type = "障害"
+    else:
+        track_type = ""
 
     # 馬場状態コードの解釈（芝/ダートで分岐）
     if track_code.startswith("1"):
@@ -479,23 +487,44 @@ def _to_race_dict(row: dict) -> dict:
     baba_map = {"1": "良", "2": "稍重", "3": "重", "4": "不良"}
     track_condition = baba_map.get(baba_cd, "")
 
+    # 競走種別コード（年齢条件）の解釈
+    shubetsu_code = (row.get("kyoso_shubetsu_code", "") or "").strip()
+    age_condition_map = {
+        "11": "2歳",
+        "12": "3歳",
+        "13": "3歳以上",
+        "14": "4歳以上",
+    }
+    age_condition = age_condition_map.get(shubetsu_code, "")
+
+    # 競走条件コード（クラス）の解釈
+    joken_code = (row.get("kyoso_joken_code", "") or "").strip()
+    grade_class_map = {
+        "701": "新馬",
+        "702": "未出走",
+        "703": "未勝利",
+        "005": "1勝",
+        "010": "2勝",
+        "016": "3勝",
+        "999": "OP",
+    }
+    grade_class = grade_class_map.get(joken_code, "")
+
+    # グレードコードの解釈（重賞・リステッドはgrade_classを上書き）
+    grade_cd = row.get("grade_code", "") or ""
+    grade_code_map = {"A": "G1", "B": "G2", "C": "G3", "D": "L"}
+    if grade_cd in grade_code_map:
+        grade_class = grade_code_map[grade_cd]
+
     # レース名の組み立て
     race_name = (row.get("kyosomei_hondai", "") or "").strip()
     subtitle = (row.get("kyosomei_fukudai", "") or "").strip()
 
     # 本題が空の場合は種別・条件コードから生成
     if not race_name:
-        race_name = _build_race_name_from_codes(
-            row.get("kyoso_shubetsu_code", ""),
-            row.get("kyoso_joken_code", ""),
-        )
+        race_name = _build_race_name_from_codes(shubetsu_code, joken_code)
 
     full_race_name = f"{race_name} {subtitle}".strip() if subtitle else race_name
-
-    # グレードコードの解釈
-    grade_cd = row.get("grade_code", "") or ""
-    grade_map = {"A": "G1", "B": "G2", "C": "G3", "D": "リステッド", "E": "オープン"}
-    grade = grade_map.get(grade_cd, "")
 
     # 発走時刻
     hasso_jikoku = row.get("hasso_jikoku", "") or ""
@@ -531,7 +560,10 @@ def _to_race_dict(row: dict) -> dict:
         "distance": distance,
         "track_type": track_type,
         "track_condition": track_condition,
-        "grade": grade,
+        # 条件フィールド
+        "grade_class": grade_class,       # クラス（新馬、未勝利、1勝、G3など）
+        "age_condition": age_condition,   # 年齢条件（3歳、4歳以上など）
+        "is_obstacle": is_obstacle,       # 障害レース
     }
 
 
