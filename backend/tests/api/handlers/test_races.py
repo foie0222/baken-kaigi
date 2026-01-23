@@ -152,6 +152,83 @@ class TestGetRacesHandler:
         assert race["distance"] == 1600
         assert race["horse_count"] == 16
 
+    def test_レース一覧に条件情報が含まれる(self) -> None:
+        """レース一覧にgrade_class, age_condition, is_obstacleが含まれることを確認."""
+        from src.api.handlers.races import get_races
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060101",
+                race_name="3歳未勝利",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 10, 0),
+                betting_deadline=datetime(2024, 6, 1, 9, 55),
+                track_condition="良",
+                grade_class="未勝利",
+                age_condition="3歳",
+                is_obstacle=False,
+            )
+        )
+        provider.add_race(
+            RaceData(
+                race_id="2024060102",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+                grade_class="G1",
+                age_condition="3歳",
+                is_obstacle=False,
+            )
+        )
+        provider.add_race(
+            RaceData(
+                race_id="2024060103",
+                race_name="障害未勝利",
+                race_number=4,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 11, 35),
+                betting_deadline=datetime(2024, 6, 1, 11, 30),
+                track_condition="良",
+                grade_class="未勝利",
+                age_condition="4歳以上",
+                is_obstacle=True,
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "queryStringParameters": {"date": "2024-06-01"},
+        }
+
+        response = get_races(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert len(body["races"]) == 3
+
+        # 未勝利レース
+        race1 = body["races"][0]
+        assert race1["grade_class"] == "未勝利"
+        assert race1["age_condition"] == "3歳"
+        assert race1["is_obstacle"] is False
+
+        # G1レース
+        race2 = body["races"][2]
+        assert race2["grade_class"] == "G1"
+        assert race2["age_condition"] == "3歳"
+        assert race2["is_obstacle"] is False
+
+        # 障害レース
+        race3 = body["races"][1]
+        assert race3["grade_class"] == "未勝利"
+        assert race3["age_condition"] == "4歳以上"
+        assert race3["is_obstacle"] is True
+
     def test_開催場でフィルタできる(self) -> None:
         """開催場でフィルタできることを確認."""
         from src.api.handlers.races import get_races
@@ -296,3 +373,69 @@ class TestGetRaceDetailHandler:
         assert body["race"]["track_type"] == "芝"
         assert body["race"]["distance"] == 2400
         assert body["race"]["horse_count"] == 18
+
+    def test_レース詳細に条件情報が含まれる(self) -> None:
+        """レース詳細にgrade_class, age_condition, is_obstacleが含まれることを確認."""
+        from src.api.handlers.races import get_race_detail
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+                grade_class="G1",
+                age_condition="3歳",
+                is_obstacle=False,
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+
+        response = get_race_detail(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["race"]["grade_class"] == "G1"
+        assert body["race"]["age_condition"] == "3歳"
+        assert body["race"]["is_obstacle"] is False
+
+    def test_障害レースの詳細が正しく取得できる(self) -> None:
+        """障害レースの詳細が正しく取得できることを確認."""
+        from src.api.handlers.races import get_race_detail
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060104",
+                race_name="障害オープン",
+                race_number=4,
+                venue="中山",
+                start_time=datetime(2024, 6, 1, 11, 35),
+                betting_deadline=datetime(2024, 6, 1, 11, 30),
+                track_condition="良",
+                track_type="障害",
+                distance=3350,
+                horse_count=14,
+                grade_class="OP",
+                age_condition="4歳以上",
+                is_obstacle=True,
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060104"}}
+
+        response = get_race_detail(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["race"]["grade_class"] == "OP"
+        assert body["race"]["age_condition"] == "4歳以上"
+        assert body["race"]["is_obstacle"] is True
+        assert body["race"]["track_type"] == "障害"

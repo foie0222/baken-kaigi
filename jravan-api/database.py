@@ -27,6 +27,29 @@ VENUE_CODE_MAP = {
     "09": "阪神", "10": "小倉",
 }
 
+# 競走種別コード → 年齢条件のマッピング（共通定数）
+AGE_CONDITION_MAP = {
+    "11": "2歳",
+    "12": "3歳",
+    "13": "3歳以上",
+    "14": "4歳以上",
+}
+
+# 競走条件コード → クラスのマッピング（共通定数）
+# 表示用とAPI用で異なる場合は display/api を分けて定義
+RACE_CLASS_MAP = {
+    "701": {"api": "新馬", "display": "新馬"},
+    "702": {"api": "未出走", "display": "未出走"},
+    "703": {"api": "未勝利", "display": "未勝利"},
+    "005": {"api": "1勝", "display": "1勝クラス"},
+    "010": {"api": "2勝", "display": "2勝クラス"},
+    "016": {"api": "3勝", "display": "3勝クラス"},
+    "999": {"api": "OP", "display": "オープン"},
+}
+
+# グレードコード → クラス名のマッピング（重賞・リステッド）
+GRADE_CODE_MAP = {"A": "G1", "B": "G2", "C": "G3", "D": "L", "E": "OP"}
+
 
 @contextmanager
 def get_db():
@@ -422,27 +445,10 @@ def _build_race_name_from_codes(shubetsu_code: str, joken_code: str) -> str:
     Returns:
         生成されたレース名（例: "3歳未勝利"）
     """
-    # 競走種別コード（馬齢条件）のマッピング
-    shubetsu_map = {
-        "11": "2歳",
-        "12": "3歳",
-        "13": "3歳以上",
-        "14": "4歳以上",
-    }
-
-    # 競走条件コードのマッピング
-    joken_map = {
-        "701": "新馬",
-        "702": "未出走",
-        "703": "未勝利",
-        "005": "1勝クラス",
-        "010": "2勝クラス",
-        "016": "3勝クラス",
-        "999": "オープン",
-    }
-
-    shubetsu = shubetsu_map.get((shubetsu_code or "").strip(), "")
-    joken = joken_map.get((joken_code or "").strip(), "")
+    # モジュール定数を使用（表示用の値を取得）
+    shubetsu = AGE_CONDITION_MAP.get((shubetsu_code or "").strip(), "")
+    class_info = RACE_CLASS_MAP.get((joken_code or "").strip(), {})
+    joken = class_info.get("display", "") if class_info else ""
 
     if shubetsu and joken:
         return f"{shubetsu}{joken}"
@@ -487,34 +493,19 @@ def _to_race_dict(row: dict) -> dict:
     baba_map = {"1": "良", "2": "稍重", "3": "重", "4": "不良"}
     track_condition = baba_map.get(baba_cd, "")
 
-    # 競走種別コード（年齢条件）の解釈
+    # 競走種別コード（年齢条件）の解釈 - モジュール定数を使用
     shubetsu_code = (row.get("kyoso_shubetsu_code", "") or "").strip()
-    age_condition_map = {
-        "11": "2歳",
-        "12": "3歳",
-        "13": "3歳以上",
-        "14": "4歳以上",
-    }
-    age_condition = age_condition_map.get(shubetsu_code, "")
+    age_condition = AGE_CONDITION_MAP.get(shubetsu_code, "")
 
-    # 競走条件コード（クラス）の解釈
+    # 競走条件コード（クラス）の解釈 - モジュール定数を使用
     joken_code = (row.get("kyoso_joken_code", "") or "").strip()
-    grade_class_map = {
-        "701": "新馬",
-        "702": "未出走",
-        "703": "未勝利",
-        "005": "1勝",
-        "010": "2勝",
-        "016": "3勝",
-        "999": "OP",
-    }
-    grade_class = grade_class_map.get(joken_code, "")
+    class_info = RACE_CLASS_MAP.get(joken_code, {})
+    grade_class = class_info.get("api", "") if class_info else ""
 
-    # グレードコードの解釈（重賞・リステッドはgrade_classを上書き）
+    # グレードコードの解釈（重賞・リステッドはgrade_classを上書き）- モジュール定数を使用
     grade_cd = row.get("grade_code", "") or ""
-    grade_code_map = {"A": "G1", "B": "G2", "C": "G3", "D": "L"}
-    if grade_cd in grade_code_map:
-        grade_class = grade_code_map[grade_cd]
+    if grade_cd in GRADE_CODE_MAP:
+        grade_class = GRADE_CODE_MAP[grade_cd]
 
     # レース名の組み立て
     race_name = (row.get("kyosomei_hondai", "") or "").strip()
@@ -561,6 +552,7 @@ def _to_race_dict(row: dict) -> dict:
         "track_type": track_type,
         "track_condition": track_condition,
         # 条件フィールド
+        "grade": grade_class,             # 互換性維持用のグレード（従来フィールド）
         "grade_class": grade_class,       # クラス（新馬、未勝利、1勝、G3など）
         "age_condition": age_condition,   # 年齢条件（3歳、4歳以上など）
         "is_obstacle": is_obstacle,       # 障害レース
