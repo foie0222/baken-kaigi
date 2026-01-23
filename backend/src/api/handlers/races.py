@@ -1,8 +1,11 @@
 """レースAPI ハンドラー."""
+import logging
 from datetime import date, datetime
 from typing import Any
 
 from src.api.dependencies import Dependencies
+
+logger = logging.getLogger(__name__)
 from src.api.request import get_path_parameter, get_query_parameter
 from src.api.response import bad_request_response, not_found_response, success_response
 from src.application.use_cases import GetRaceDetailUseCase, GetRaceListUseCase
@@ -106,8 +109,12 @@ def get_race_detail(event: dict, context: Any) -> dict:
                 kaisai_nichime=kaisai_nichime_int,
                 race_number=result.race.race_number,
             )
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.warning(
+                "Failed to get JRA checksum for race %s: %s",
+                race_id_str,
+                e,
+            )
 
     # レスポンス構築
     race = {

@@ -23,14 +23,18 @@ const betTypes: BetType[] = ['win', 'place', 'quinella', 'quinella_place', 'exac
  *     - F3: チェックサム（16進数2桁、大文字）
  */
 function buildJraShutsubaUrl(race: RaceDetail): string | null {
-  // 必要なフィールドがない場合はnullを返す（チェックサム必須）
+  // 必要なフィールドがない・空文字の場合はnullを返す（チェックサム必須）
   if (!race.kaisaiKai || !race.kaisaiNichime || race.jraChecksum == null) {
     return null;
   }
 
   // race.id から日付を取得（形式: YYYYMMDD_XX_RR）
-  const datePart = race.id.split('_')[0]; // "20260124"
-  const year = datePart.slice(0, 4);      // "2026"
+  const dateMatch = /^(\d{8})_/.exec(race.id);
+  if (!dateMatch) {
+    return null;
+  }
+  const datePart = dateMatch[1]; // "20260124"
+  const year = datePart.slice(0, 4); // "2026"
 
   // race.number から数字部分を取得（形式: "8R" → "08"）
   const raceNum = race.number.replace('R', '').padStart(2, '0');
@@ -156,21 +160,24 @@ export function RaceDetailPage() {
       <div className="race-detail-header">
         <div className="race-header-top">
           <span className="race-number">{race.venue} {race.number}</span>
-          {buildJraShutsubaUrl(race) && (
-            <a
-              href={buildJraShutsubaUrl(race)!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="jra-link-btn"
-            >
-              <span>出馬表</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-              </svg>
-            </a>
-          )}
+          {(() => {
+            const jraUrl = buildJraShutsubaUrl(race);
+            return jraUrl && (
+              <a
+                href={jraUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="jra-link-btn"
+              >
+                <span>出馬表</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            );
+          })()}
         </div>
         <div className="race-name">{race.name}</div>
         <div className="race-conditions">

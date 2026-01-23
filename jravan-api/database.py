@@ -638,7 +638,7 @@ def check_connection() -> bool:
         return False
 
 
-def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: int) -> int:
+def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: int) -> int | None:
     """JRA出馬表URLのチェックサムを計算する.
 
     計算式:
@@ -653,8 +653,14 @@ def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: in
         race_number: レース番号（1-12）
 
     Returns:
-        チェックサム値（0-255）
+        チェックサム値（0-255）、不正な入力の場合はNone
     """
+    # 入力値のバリデーション
+    if not (1 <= kaisai_nichime <= 12):
+        return None
+    if not (1 <= race_number <= 12):
+        return None
+
     # 1R のチェックサム
     checksum_1r = (base_value + (kaisai_nichime - 1) * 48) % 256
 
@@ -679,7 +685,8 @@ def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: in
     if race_number == 12:
         return (checksum_11r + 181) % 256
 
-    return 0
+    # ここには到達しないはず（バリデーションで弾かれる）
+    return None
 
 
 def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race_number: int) -> int | None:

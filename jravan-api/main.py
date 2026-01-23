@@ -336,11 +336,44 @@ def get_race_weights(race_id: str):
 def get_jra_checksum(
     venue_code: str = Query(..., description="競馬場コード（01-10）"),
     kaisai_kai: str = Query(..., description="回次（01-05）"),
-    kaisai_nichime: int = Query(..., description="日目（1-12）"),
-    race_number: int = Query(..., description="レース番号（1-12）"),
+    kaisai_nichime: int = Query(..., ge=1, le=12, description="日目（1-12）"),
+    race_number: int = Query(..., ge=1, le=12, description="レース番号（1-12）"),
 ):
     """JRA出馬表URLのチェックサムを取得する."""
-    checksum = db.get_jra_checksum(venue_code, kaisai_kai, kaisai_nichime, race_number)
+    # venue_code のバリデーション（01-10の2桁数字）
+    if not venue_code.isdigit() or len(venue_code) != 2:
+        raise HTTPException(
+            status_code=400,
+            detail="venue_code は 01〜10 の2桁数値文字列で指定してください。",
+        )
+    venue_code_int = int(venue_code)
+    if venue_code_int < 1 or venue_code_int > 10:
+        raise HTTPException(
+            status_code=400,
+            detail="venue_code は 01〜10 の範囲で指定してください。",
+        )
+
+    # kaisai_kai のバリデーション（01-05の2桁数字）
+    if not kaisai_kai.isdigit() or len(kaisai_kai) != 2:
+        raise HTTPException(
+            status_code=400,
+            detail="kaisai_kai は 01〜05 の2桁数値文字列で指定してください。",
+        )
+    kaisai_kai_int = int(kaisai_kai)
+    if kaisai_kai_int < 1 or kaisai_kai_int > 5:
+        raise HTTPException(
+            status_code=400,
+            detail="kaisai_kai は 01〜05 の範囲で指定してください。",
+        )
+
+    try:
+        checksum = db.get_jra_checksum(venue_code, kaisai_kai, kaisai_nichime, race_number)
+    except Exception:
+        logger.exception("Failed to get JRA checksum from database")
+        raise HTTPException(
+            status_code=500,
+            detail="データベースから JRA チェックサムを取得できませんでした。",
+        )
     return JraChecksumResponse(checksum=checksum)
 
 
