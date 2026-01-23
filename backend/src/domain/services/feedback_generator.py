@@ -29,7 +29,7 @@ class FeedbackGenerator:
         feedbacks = []
 
         for item in cart_items:
-            # レース情報を取得（ループ外で1回だけ）
+            # このカートアイテムに対するレース情報を取得
             race_data = self._race_data_provider.get_race(item.race_id)
             course = f"{race_data.venue}" if race_data else ""
 
@@ -40,18 +40,8 @@ class FeedbackGenerator:
             # レースの馬体重情報を取得（馬番 -> WeightData）
             race_weights = self._race_data_provider.get_race_weights(item.race_id)
 
-            # 選択馬のhorse_idを収集してバッチ取得の準備
+            # 選択馬のみを抽出
             selected_runners = [r for r in runners if r.horse_number in selected_numbers]
-            horse_ids = [r.horse_id for r in selected_runners]
-
-            # 血統情報をバッチ取得（現状APIが個別取得のみ対応のため、一括で取得してキャッシュ）
-            pedigree_cache: dict[str, PedigreeData | None] = {}
-            weight_history_cache: dict[str, list[WeightData]] = {}
-            for horse_id in horse_ids:
-                pedigree_cache[horse_id] = self._race_data_provider.get_pedigree(horse_id)
-                weight_history_cache[horse_id] = self._race_data_provider.get_weight_history(
-                    horse_id, limit=WEIGHT_HISTORY_LIMIT
-                )
 
             horse_summaries = []
             horse_names = []
@@ -77,16 +67,18 @@ class FeedbackGenerator:
                     else "データなし"
                 )
 
-                # 血統情報を取得（キャッシュから）
-                pedigree_data = pedigree_cache.get(runner.horse_id)
+                # 血統情報を取得
+                pedigree_data = self._race_data_provider.get_pedigree(runner.horse_id)
                 pedigree = self._format_pedigree(pedigree_data)
 
                 # 馬体重を取得
                 weight_data = race_weights.get(runner.horse_number)
                 weight_current = weight_data.weight if weight_data else None
 
-                # 馬体重の傾向を取得（キャッシュから）
-                weight_history = weight_history_cache.get(runner.horse_id, [])
+                # 馬体重の傾向を取得
+                weight_history = self._race_data_provider.get_weight_history(
+                    runner.horse_id, limit=WEIGHT_HISTORY_LIMIT
+                )
                 weight_trend = self._calculate_weight_trend(weight_history)
 
                 summary = HorseDataSummary(
