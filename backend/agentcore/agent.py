@@ -13,12 +13,13 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 from tools.race_data import get_race_info, get_race_runners
 from tools.bet_analysis import analyze_bet_selection
+from tools.historical_analysis import analyze_past_race_trends
 from prompts.consultation import SYSTEM_PROMPT
 
 # エージェント初期化
 agent = Agent(
     system_prompt=SYSTEM_PROMPT,
-    tools=[get_race_runners, get_race_info, analyze_bet_selection],
+    tools=[get_race_runners, get_race_info, analyze_bet_selection, analyze_past_race_trends],
 )
 
 # AgentCore アプリ初期化

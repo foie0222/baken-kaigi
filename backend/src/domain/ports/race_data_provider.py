@@ -88,6 +88,31 @@ class WeightData:
     weight_diff: int     # 前走比増減
 
 
+@dataclass(frozen=True)
+class PopularityStats:
+    """人気別統計データ."""
+
+    popularity: int
+    total_runs: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+
+
+@dataclass(frozen=True)
+class PastRaceStats:
+    """過去レース統計."""
+
+    total_races: int
+    popularity_stats: list[PopularityStats]
+    avg_win_payout: float | None
+    avg_place_payout: float | None
+    track_type: str
+    distance: int
+    grade_class: str | None
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -180,5 +205,26 @@ class RaceDataProvider(ABC):
 
         Returns:
             開催日のリスト（降順）
+        """
+        pass
+
+    @abstractmethod
+    def get_past_race_stats(
+        self,
+        track_type: str,
+        distance: int,
+        grade_class: str | None = None,
+        limit: int = 100
+    ) -> PastRaceStats | None:
+        """過去の同条件レース統計を取得する.
+
+        Args:
+            track_type: トラック種別（芝、ダート、障害）
+            distance: 距離（メートル）
+            grade_class: グレードクラス（省略可）
+            limit: 集計対象レース数
+
+        Returns:
+            過去レース統計、データがない場合はNone
         """
         pass

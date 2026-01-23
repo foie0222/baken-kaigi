@@ -13,8 +13,10 @@ from urllib3.util.retry import Retry
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     JockeyStatsData,
+    PastRaceStats,
     PedigreeData,
     PerformanceData,
+    PopularityStats,
     RaceData,
     RaceDataProvider,
     RunnerData,
@@ -357,6 +359,68 @@ class JraVanRaceDataProvider(RaceDataProvider):
         except requests.RequestException as e:
             logger.warning(f"Could not get race dates: {e}")
             return []
+
+    def get_past_race_stats(
+        self,
+        track_type: str,
+        distance: int,
+        grade_class: str | None = None,
+        limit: int = 100
+    ) -> PastRaceStats | None:
+        """過去の同条件レース統計を取得する."""
+        try:
+            # トラック種別をコードに変換
+            track_code = self._to_track_code(track_type)
+
+            response = self._session.get(
+                f"{self._base_url}/statistics/past-races",
+                params={
+                    "track_code": track_code,
+                    "distance": distance,
+                    "grade_code": grade_class,
+                    "limit": limit,
+                },
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_past_stats_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get past race stats: {e}")
+            return None
+
+    def _to_track_code(self, track_type: str) -> str:
+        """トラック種別をAPIのtrack_codeに変換する."""
+        track_map = {
+            "芝": "1",
+            "ダート": "2",
+            "ダ": "2",
+            "障害": "3",
+        }
+        return track_map.get(track_type, "1")
+
+    def _to_past_stats_data(self, data: dict) -> PastRaceStats:
+        """APIレスポンスをPastRaceStatsに変換する."""
+        return PastRaceStats(
+            total_races=data["total_races"],
+            popularity_stats=[
+                PopularityStats(
+                    popularity=stat["popularity"],
+                    total_runs=stat["total_runs"],
+                    wins=stat["wins"],
+                    places=stat["places"],
+                    win_rate=stat["win_rate"],
+                    place_rate=stat["place_rate"],
+                )
+                for stat in data["popularity_stats"]
+            ],
+            avg_win_payout=data.get("avg_win_payout"),
+            avg_place_payout=data.get("avg_place_payout"),
+            track_type=data["conditions"]["track_code"],
+            distance=data["conditions"]["distance"],
+            grade_class=data["conditions"].get("grade_code"),
+        )
 
 
 class JraVanApiError(Exception):
