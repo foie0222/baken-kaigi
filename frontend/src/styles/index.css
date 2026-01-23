@@ -440,9 +440,30 @@ main {
     margin-bottom: 16px;
 }
 
-.race-detail-header .race-number {
+.race-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 8px;
+}
+
+.race-detail-header .race-number {
     display: inline-block;
+}
+
+.jra-link-btn {
+    background: linear-gradient(135deg, #2e7d32, #4caf50);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.jra-link-btn:hover {
+    opacity: 0.9;
 }
 
 .race-detail-header .race-name {

@@ -111,7 +111,17 @@ export function RaceDetailPage() {
       </button>
 
       <div className="race-detail-header">
-        <span className="race-number">{race.venue} {race.number}</span>
+        <div className="race-header-top">
+          <span className="race-number">{race.venue} {race.number}</span>
+          <a
+            href={`https://www.jra.go.jp/keiba/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="jra-link-btn"
+          >
+            JRA公式で見る →
+          </a>
+        </div>
         <div className="race-name">{race.name}</div>
         <div className="race-conditions">
           {race.course && <span className="condition-tag">{race.course}</span>}
