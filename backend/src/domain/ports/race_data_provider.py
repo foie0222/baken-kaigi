@@ -24,6 +24,9 @@ class RaceData:
     grade_class: str = ""  # クラス（新馬、未勝利、1勝、2勝、3勝、OP、L、G3、G2、G1）
     age_condition: str = ""  # 年齢条件（3歳、4歳以上など）
     is_obstacle: bool = False  # 障害レース
+    # JRA出馬表URL生成用
+    kaisai_kai: str = ""  # 回次（01, 02など）
+    kaisai_nichime: str = ""  # 日目（01, 02など）
 
 
 @dataclass(frozen=True)
@@ -139,5 +142,26 @@ class RaceDataProvider(ABC):
 
         Returns:
             馬番をキーとした馬体重データの辞書
+        """
+        pass
+
+    @abstractmethod
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        """JRA出馬表URLのチェックサムを取得する.
+
+        Args:
+            venue_code: 競馬場コード（01-10）
+            kaisai_kai: 回次（01-05）
+            kaisai_nichime: 日目（1-12）
+            race_number: レース番号（1-12）
+
+        Returns:
+            チェックサム値（0-255）、データがない場合はNone
         """
         pass

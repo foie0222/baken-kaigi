@@ -68,6 +68,15 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
         return self._race_weights.get(str(race_id), {})
 
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        return None
+
 
 @pytest.fixture(autouse=True)
 def reset_dependencies():

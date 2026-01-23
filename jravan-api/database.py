@@ -182,7 +182,9 @@ def get_races_by_date(date: str) -> list[dict]:
                 hasso_jikoku,
                 shusso_tosu,
                 kyoso_shubetsu_code,
-                kyoso_joken_code
+                kyoso_joken_code,
+                kaisai_kai,
+                kaisai_nichime
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
             ORDER BY keibajo_code, race_bango::integer
@@ -220,7 +222,9 @@ def get_race_by_id(race_id: str) -> dict | None:
                 hasso_jikoku,
                 shusso_tosu,
                 kyoso_shubetsu_code,
-                kyoso_joken_code
+                kyoso_joken_code,
+                kaisai_kai,
+                kaisai_nichime
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
@@ -540,6 +544,10 @@ def _to_race_dict(row: dict) -> dict:
     except (ValueError, TypeError):
         distance = 0
 
+    # 回次・日目（JRA出馬表URL生成用）
+    kaisai_kai = (row.get("kaisai_kai", "") or "").strip()
+    kaisai_nichime = (row.get("kaisai_nichime", "") or "").strip()
+
     return {
         "race_id": race_id,
         "race_date": f"{kaisai_nen}{kaisai_tsukihi}",
@@ -556,6 +564,9 @@ def _to_race_dict(row: dict) -> dict:
         "grade_class": grade_class,       # クラス（新馬、未勝利、1勝、G3など）
         "age_condition": age_condition,   # 年齢条件（3歳、4歳以上など）
         "is_obstacle": is_obstacle,       # 障害レース
+        # JRA出馬表URL生成用
+        "kaisai_kai": kaisai_kai,         # 回次（01, 02など）
+        "kaisai_nichime": kaisai_nichime, # 日目（01, 02など）
     }
 
 
@@ -625,6 +636,109 @@ def check_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connection check failed: {e}")
         return False
+
+
+def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: int) -> int | None:
+    """JRA出馬表URLのチェックサムを計算する.
+
+    計算式:
+    - 1R = (base_value + (日目-1) × 48) mod 256
+    - 2R-9R = (1R + 181 × (レース番号-1)) mod 256
+    - 10R = (9R + 245) mod 256
+    - 11R, 12R = (前レース + 181) mod 256
+
+    Args:
+        base_value: その競馬場・回次の1日目1Rのbase値
+        kaisai_nichime: 日目（1-12）
+        race_number: レース番号（1-12）
+
+    Returns:
+        チェックサム値（0-255）、不正な入力の場合はNone
+    """
+    # 入力値のバリデーション
+    if not (1 <= kaisai_nichime <= 12):
+        return None
+    if not (1 <= race_number <= 12):
+        return None
+
+    # 1R のチェックサム
+    checksum_1r = (base_value + (kaisai_nichime - 1) * 48) % 256
+
+    if race_number == 1:
+        return checksum_1r
+
+    # 2R-9R
+    if 2 <= race_number <= 9:
+        return (checksum_1r + 181 * (race_number - 1)) % 256
+
+    # 10R = 9R + 245
+    checksum_9r = (checksum_1r + 181 * 8) % 256
+    if race_number == 10:
+        return (checksum_9r + 245) % 256
+
+    # 11R, 12R
+    checksum_10r = (checksum_9r + 245) % 256
+    if race_number == 11:
+        return (checksum_10r + 181) % 256
+
+    checksum_11r = (checksum_10r + 181) % 256
+    if race_number == 12:
+        return (checksum_11r + 181) % 256
+
+    # ここには到達しないはず（バリデーションで弾かれる）
+    return None
+
+
+def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race_number: int) -> int | None:
+    """JRA出馬表URLのチェックサムを取得する.
+
+    Args:
+        venue_code: 競馬場コード（01-10）
+        kaisai_kai: 回次（01-05）
+        kaisai_nichime: 日目（1-12）
+        race_number: レース番号（1-12）
+
+    Returns:
+        チェックサム値（0-255）、データがない場合はNone
+    """
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT base_value
+            FROM jra_url_checksums
+            WHERE venue_code = %s AND kaisai_kai = %s
+        """, (venue_code, kaisai_kai))
+        row = cur.fetchone()
+
+        if row is None:
+            return None
+
+        base_value = row[0]
+        return calculate_jra_checksum(base_value, kaisai_nichime, race_number)
+
+
+def save_jra_checksum(venue_code: str, kaisai_kai: str, base_value: int) -> bool:
+    """JRA出馬表URLのbase_valueを保存する.
+
+    Args:
+        venue_code: 競馬場コード（01-10）
+        kaisai_kai: 回次（01-05）
+        base_value: 1日目1Rのbase値
+
+    Returns:
+        成功時True
+    """
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO jra_url_checksums (venue_code, kaisai_kai, base_value, updated_at)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (venue_code, kaisai_kai) DO UPDATE
+            SET base_value = EXCLUDED.base_value,
+                updated_at = CURRENT_TIMESTAMP
+        """, (venue_code, kaisai_kai, base_value))
+        conn.commit()
+        return True
 
 
 if __name__ == "__main__":

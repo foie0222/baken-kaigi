@@ -440,9 +440,33 @@ main {
     margin-bottom: 16px;
 }
 
-.race-detail-header .race-number {
+.race-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 8px;
+}
+
+.race-detail-header .race-number {
     display: inline-block;
+}
+
+.jra-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #4caf50;
+    color: white;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.jra-link-btn svg {
+    flex-shrink: 0;
 }
 
 .race-detail-header .race-name {

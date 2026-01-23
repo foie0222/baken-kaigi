@@ -48,6 +48,10 @@ export interface ApiRace {
   grade_class?: string;
   age_condition?: string;
   is_obstacle?: boolean;
+  // JRA出馬表URL生成用
+  kaisai_kai?: string;
+  kaisai_nichime?: string;
+  jra_checksum?: number | null;
 }
 
 export interface ApiRunner {
@@ -113,6 +117,10 @@ export interface Race {
   isSpecialEntry?: boolean;   // 指定レース
   isObstacle?: boolean;       // 障害レース
   purse?: number;             // 本賞金（万円）
+  // JRA出馬表URL生成用
+  kaisaiKai?: string;         // 回次（01, 02など）
+  kaisaiNichime?: string;     // 日目（01, 02など）
+  jraChecksum?: number | null; // JRA URL用チェックサム
 }
 
 export interface Horse {
@@ -158,6 +166,10 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
     gradeClass: toRaceGrade(apiRace.grade_class),
     ageCondition: apiRace.age_condition,
     isObstacle: apiRace.is_obstacle,
+    // JRA出馬表URL生成用
+    kaisaiKai: apiRace.kaisai_kai,
+    kaisaiNichime: apiRace.kaisai_nichime,
+    jraChecksum: apiRace.jra_checksum,
   };
 }
 

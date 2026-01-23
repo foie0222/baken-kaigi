@@ -69,6 +69,9 @@ class RaceResponse(BaseModel):
     grade_class: str = ""      # クラス（新馬、未勝利、1勝、G3など）
     age_condition: str = ""    # 年齢条件（3歳、4歳以上など）
     is_obstacle: bool = False  # 障害レース
+    # JRA出馬表URL生成用
+    kaisai_kai: str = ""       # 回次（01, 02など）
+    kaisai_nichime: str = ""   # 日目（01, 02など）
 
 
 class RunnerResponse(BaseModel):
@@ -115,6 +118,18 @@ class RaceWeightResponse(BaseModel):
     horse_number: int
     weight: int                 # 馬体重(kg)
     weight_diff: int            # 前走比増減
+
+
+class JraChecksumResponse(BaseModel):
+    """JRAチェックサムレスポンス."""
+    checksum: int | None
+
+
+class JraChecksumSaveRequest(BaseModel):
+    """JRAチェックサム保存リクエスト."""
+    venue_code: str             # 競馬場コード (01-10)
+    kaisai_kai: str             # 回次 (01-05)
+    base_value: int             # 1日目1Rのbase値
 
 
 # ========================================
@@ -189,6 +204,9 @@ def get_races(
             grade_class=r.get("grade_class") or "",
             age_condition=r.get("age_condition") or "",
             is_obstacle=r.get("is_obstacle", False),
+            # JRA出馬表URL生成用
+            kaisai_kai=r.get("kaisai_kai") or "",
+            kaisai_nichime=r.get("kaisai_nichime") or "",
         ))
 
     return result
@@ -234,6 +252,9 @@ def get_race(race_id: str):
         grade_class=race.get("grade_class") or "",
         age_condition=race.get("age_condition") or "",
         is_obstacle=race.get("is_obstacle", False),
+        # JRA出馬表URL生成用
+        kaisai_kai=race.get("kaisai_kai") or "",
+        kaisai_nichime=race.get("kaisai_nichime") or "",
     )
 
 
@@ -309,6 +330,62 @@ def get_race_weights(race_id: str):
         )
         for w in weights
     ]
+
+
+@app.get("/jra-checksum", response_model=JraChecksumResponse)
+def get_jra_checksum(
+    venue_code: str = Query(..., description="競馬場コード（01-10）"),
+    kaisai_kai: str = Query(..., description="回次（01-05）"),
+    kaisai_nichime: int = Query(..., ge=1, le=12, description="日目（1-12）"),
+    race_number: int = Query(..., ge=1, le=12, description="レース番号（1-12）"),
+):
+    """JRA出馬表URLのチェックサムを取得する."""
+    # venue_code のバリデーション（01-10の2桁数字）
+    if not venue_code.isdigit() or len(venue_code) != 2:
+        raise HTTPException(
+            status_code=400,
+            detail="venue_code は 01〜10 の2桁数値文字列で指定してください。",
+        )
+    venue_code_int = int(venue_code)
+    if venue_code_int < 1 or venue_code_int > 10:
+        raise HTTPException(
+            status_code=400,
+            detail="venue_code は 01〜10 の範囲で指定してください。",
+        )
+
+    # kaisai_kai のバリデーション（01-05の2桁数字）
+    if not kaisai_kai.isdigit() or len(kaisai_kai) != 2:
+        raise HTTPException(
+            status_code=400,
+            detail="kaisai_kai は 01〜05 の2桁数値文字列で指定してください。",
+        )
+    kaisai_kai_int = int(kaisai_kai)
+    if kaisai_kai_int < 1 or kaisai_kai_int > 5:
+        raise HTTPException(
+            status_code=400,
+            detail="kaisai_kai は 01〜05 の範囲で指定してください。",
+        )
+
+    try:
+        checksum = db.get_jra_checksum(venue_code, kaisai_kai, kaisai_nichime, race_number)
+    except Exception:
+        logger.exception("Failed to get JRA checksum from database")
+        raise HTTPException(
+            status_code=500,
+            detail="データベースから JRA チェックサムを取得できませんでした。",
+        )
+    return JraChecksumResponse(checksum=checksum)
+
+
+@app.post("/jra-checksum")
+def save_jra_checksum(request: JraChecksumSaveRequest):
+    """JRA出馬表URLのbase_valueを保存する（管理用）."""
+    db.save_jra_checksum(
+        request.venue_code,
+        request.kaisai_kai,
+        request.base_value,
+    )
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":

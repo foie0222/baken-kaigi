@@ -84,6 +84,16 @@ class MockRaceDataProvider(RaceDataProvider):
         """レースの馬体重情報を取得する."""
         return self._race_weights.get(str(race_id), {})
 
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        """JRA出馬表URLのチェックサムを取得する（モック実装）."""
+        return None
+
 
 class TestRaceDataProviderInterface:
     """RaceDataProviderインターフェースのテスト."""

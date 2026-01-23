@@ -1,8 +1,11 @@
 """レースAPI ハンドラー."""
+import logging
 from datetime import date, datetime
 from typing import Any
 
 from src.api.dependencies import Dependencies
+
+logger = logging.getLogger(__name__)
 from src.api.request import get_path_parameter, get_query_parameter
 from src.api.response import bad_request_response, not_found_response, success_response
 from src.application.use_cases import GetRaceDetailUseCase, GetRaceListUseCase
@@ -55,6 +58,9 @@ def get_races(event: dict, context: Any) -> dict:
             "grade_class": r.grade_class,
             "age_condition": r.age_condition,
             "is_obstacle": r.is_obstacle,
+            # JRA出馬表URL生成用
+            "kaisai_kai": r.kaisai_kai,
+            "kaisai_nichime": r.kaisai_nichime,
         }
         for r in result.races
     ]
@@ -92,6 +98,24 @@ def get_race_detail(event: dict, context: Any) -> dict:
     if result is None:
         return not_found_response("Race")
 
+    # JRAチェックサムを取得
+    jra_checksum = None
+    if result.race.kaisai_kai and result.race.kaisai_nichime:
+        try:
+            kaisai_nichime_int = int(result.race.kaisai_nichime)
+            jra_checksum = provider.get_jra_checksum(
+                venue_code=result.race.venue,
+                kaisai_kai=result.race.kaisai_kai,
+                kaisai_nichime=kaisai_nichime_int,
+                race_number=result.race.race_number,
+            )
+        except (ValueError, TypeError) as e:
+            logger.warning(
+                "Failed to get JRA checksum for race %s: %s",
+                race_id_str,
+                e,
+            )
+
     # レスポンス構築
     race = {
         "race_id": result.race.race_id,
@@ -108,6 +132,10 @@ def get_race_detail(event: dict, context: Any) -> dict:
         "grade_class": result.race.grade_class,
         "age_condition": result.race.age_condition,
         "is_obstacle": result.race.is_obstacle,
+        # JRA出馬表URL生成用
+        "kaisai_kai": result.race.kaisai_kai,
+        "kaisai_nichime": result.race.kaisai_nichime,
+        "jra_checksum": jra_checksum,
     }
 
     # 馬体重情報を取得

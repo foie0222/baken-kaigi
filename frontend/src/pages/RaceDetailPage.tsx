@@ -5,6 +5,7 @@ import { useCartStore } from '../stores/cartStore';
 import type { RaceDetail, BetType } from '../types';
 import { BetTypeLabels, BetTypeRequiredHorses } from '../types';
 import { apiClient } from '../api/client';
+import { buildJraShutsubaUrl } from '../utils/jraUrl';
 
 const betTypes: BetType[] = ['win', 'place', 'quinella', 'quinella_place', 'exacta', 'trio', 'trifecta'];
 
@@ -111,7 +112,27 @@ export function RaceDetailPage() {
       </button>
 
       <div className="race-detail-header">
-        <span className="race-number">{race.venue} {race.number}</span>
+        <div className="race-header-top">
+          <span className="race-number">{race.venue} {race.number}</span>
+          {(() => {
+            const jraUrl = buildJraShutsubaUrl(race);
+            return jraUrl && (
+              <a
+                href={jraUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="jra-link-btn"
+              >
+                <span>出馬表</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            );
+          })()}
+        </div>
         <div className="race-name">{race.name}</div>
         <div className="race-conditions">
           {race.course && <span className="condition-tag">{race.course}</span>}
