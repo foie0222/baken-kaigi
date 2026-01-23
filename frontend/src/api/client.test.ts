@@ -277,4 +277,54 @@ describe('ApiClient', () => {
       expect(race?.condition).toBe('稍重')
     })
   })
+
+  describe('getRaceDates', () => {
+    it('開催日一覧を取得できる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          dates: ['2024-06-01', '2024-06-02'],
+        }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getRaceDates()
+
+      expect(result.success).toBe(true)
+      expect(result.data).toHaveLength(2)
+      expect(result.data).toContain('2024-06-01')
+      expect(result.data).toContain('2024-06-02')
+    })
+
+    it('期間を指定して開催日一覧を取得できる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          dates: ['2024-06-01', '2024-06-02'],
+        }),
+      })
+
+      const client = await getApiClient()
+      await client.getRaceDates('2024-06-01', '2024-06-30')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/race-dates?from=2024-06-01&to=2024-06-30',
+        expect.any(Object)
+      )
+    })
+
+    it('APIエラー時にエラーを返す', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Internal Server Error' }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getRaceDates()
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Internal Server Error')
+    })
+  })
 })

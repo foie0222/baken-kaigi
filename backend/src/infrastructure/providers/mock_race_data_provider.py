@@ -439,6 +439,38 @@ class MockRaceDataProvider(RaceDataProvider):
         # モックでは常にNoneを返す（JRA URLは生成されない）
         return None
 
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        """開催日一覧を取得する（モック実装）.
+
+        モックでは直近の土日を返す。
+        """
+        today = date.today()
+        # 直近の土曜日を計算
+        days_since_saturday = (today.weekday() + 2) % 7
+        last_saturday = today - timedelta(days=days_since_saturday)
+        last_sunday = last_saturday + timedelta(days=1)
+
+        # 次の土曜日
+        days_until_saturday = (5 - today.weekday()) % 7
+        if days_until_saturday == 0:
+            days_until_saturday = 7
+        next_saturday = today + timedelta(days=days_until_saturday)
+        next_sunday = next_saturday + timedelta(days=1)
+
+        dates = [next_sunday, next_saturday, last_sunday, last_saturday]
+
+        # フィルタリング
+        if from_date:
+            dates = [d for d in dates if d >= from_date]
+        if to_date:
+            dates = [d for d in dates if d <= to_date]
+
+        return sorted(dates, reverse=True)
+
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int
     ) -> RaceData:

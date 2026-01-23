@@ -12,6 +12,46 @@ from src.application.use_cases import GetRaceDetailUseCase, GetRaceListUseCase
 from src.domain.identifiers import RaceId
 
 
+def get_race_dates(event: dict, context: Any) -> dict:
+    """開催日一覧を取得する.
+
+    GET /race-dates?from=2024-06-01&to=2024-06-30
+
+    Query Parameters:
+        from: 開始日（オプション、YYYY-MM-DD形式）
+        to: 終了日（オプション、YYYY-MM-DD形式）
+
+    Returns:
+        開催日一覧
+    """
+    # パラメータ取得
+    from_str = get_query_parameter(event, "from")
+    to_str = get_query_parameter(event, "to")
+
+    from_date: date | None = None
+    to_date: date | None = None
+
+    if from_str:
+        try:
+            from_date = datetime.strptime(from_str, "%Y-%m-%d").date()
+        except ValueError:
+            return bad_request_response("Invalid from date format. Use YYYY-MM-DD")
+
+    if to_str:
+        try:
+            to_date = datetime.strptime(to_str, "%Y-%m-%d").date()
+        except ValueError:
+            return bad_request_response("Invalid to date format. Use YYYY-MM-DD")
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    dates = provider.get_race_dates(from_date, to_date)
+
+    return success_response({
+        "dates": [d.isoformat() for d in dates],
+    })
+
+
 def get_races(event: dict, context: Any) -> dict:
     """レース一覧を取得する.
 

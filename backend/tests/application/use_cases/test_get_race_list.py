@@ -69,6 +69,18 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> int | None:
         return None
 
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        dates = list(self._races_by_date.keys())
+        if from_date:
+            dates = [d for d in dates if d >= from_date]
+        if to_date:
+            dates = [d for d in dates if d <= to_date]
+        return sorted(dates, reverse=True)
+
 
 class TestGetRaceListUseCase:
     """GetRaceListUseCaseの単体テスト."""

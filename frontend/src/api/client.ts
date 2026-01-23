@@ -109,6 +109,25 @@ class ApiClient {
     };
   }
 
+  async getRaceDates(from?: string, to?: string): Promise<ApiResponse<string[]>> {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const queryString = params.toString();
+    const response = await this.request<{ dates: string[] }>(
+      `/race-dates${queryString ? `?${queryString}` : ''}`
+    );
+
+    if (!response.success || !response.data) {
+      return { success: false, error: response.error };
+    }
+
+    return {
+      success: true,
+      data: response.data.dates,
+    };
+  }
+
   // カート API
   async getCart(cartId: string): Promise<ApiResponse<Cart>> {
     return this.request<Cart>(`/cart/${cartId}`);

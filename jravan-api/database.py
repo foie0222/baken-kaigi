@@ -439,6 +439,42 @@ def get_sync_status() -> dict:
         }
 
 
+def get_race_dates(from_date: str | None = None, to_date: str | None = None) -> list[str]:
+    """開催日一覧を取得.
+
+    Args:
+        from_date: 開始日（YYYYMMDD形式、省略時は制限なし）
+        to_date: 終了日（YYYYMMDD形式、省略時は制限なし）
+
+    Returns:
+        開催日のリスト（YYYYMMDD形式、降順）
+    """
+    with get_db() as conn:
+        cur = conn.cursor()
+
+        # 基本クエリ
+        query = """
+            SELECT DISTINCT kaisai_nen || kaisai_tsukihi as race_date
+            FROM jvd_ra
+            WHERE 1=1
+        """
+        params: list[str] = []
+
+        if from_date:
+            query += " AND kaisai_nen || kaisai_tsukihi >= %s"
+            params.append(from_date)
+
+        if to_date:
+            query += " AND kaisai_nen || kaisai_tsukihi <= %s"
+            params.append(to_date)
+
+        query += " ORDER BY race_date DESC"
+
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        return [row[0] for row in rows]
+
+
 def _build_race_name_from_codes(shubetsu_code: str, joken_code: str) -> str:
     """競走種別コードと条件コードからレース名を生成する.
 

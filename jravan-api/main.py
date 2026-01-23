@@ -160,6 +160,15 @@ def get_sync_status():
     )
 
 
+@app.get("/race-dates", response_model=list[str])
+def get_race_dates(
+    from_date: str | None = Query(None, description="開始日（YYYYMMDD）"),
+    to_date: str | None = Query(None, description="終了日（YYYYMMDD）"),
+):
+    """開催日一覧を取得する."""
+    return db.get_race_dates(from_date, to_date)
+
+
 @app.get("/races", response_model=list[RaceResponse])
 def get_races(
     date: str = Query(..., description="日付（YYYYMMDD）"),
