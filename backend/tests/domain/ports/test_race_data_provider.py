@@ -94,6 +94,19 @@ class MockRaceDataProvider(RaceDataProvider):
         """JRA出馬表URLのチェックサムを取得する（モック実装）."""
         return None
 
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        """開催日一覧を取得する."""
+        dates = list(self._races_by_date.keys())
+        if from_date:
+            dates = [d for d in dates if d >= from_date]
+        if to_date:
+            dates = [d for d in dates if d <= to_date]
+        return sorted(dates, reverse=True)
+
 
 class TestRaceDataProviderInterface:
     """RaceDataProviderインターフェースのテスト."""

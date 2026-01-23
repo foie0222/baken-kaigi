@@ -165,3 +165,20 @@ class RaceDataProvider(ABC):
             チェックサム値（0-255）、データがない場合はNone
         """
         pass
+
+    @abstractmethod
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        """開催日一覧を取得する.
+
+        Args:
+            from_date: 開始日（省略時は制限なし）
+            to_date: 終了日（省略時は制限なし）
+
+        Returns:
+            開催日のリスト（降順）
+        """
+        pass

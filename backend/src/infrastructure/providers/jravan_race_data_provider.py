@@ -329,6 +329,36 @@ class JraVanRaceDataProvider(RaceDataProvider):
             return None
 
 
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        """開催日一覧を取得する."""
+        try:
+            params = {}
+            if from_date:
+                params["from_date"] = from_date.strftime("%Y%m%d")
+            if to_date:
+                params["to_date"] = to_date.strftime("%Y%m%d")
+
+            response = self._session.get(
+                f"{self._base_url}/race-dates",
+                params=params,
+                timeout=self._timeout,
+            )
+            response.raise_for_status()
+
+            dates_data = response.json()
+            return [
+                datetime.strptime(d, "%Y%m%d").date()
+                for d in dates_data
+            ]
+        except requests.RequestException as e:
+            logger.warning(f"Could not get race dates: {e}")
+            return []
+
+
 class JraVanApiError(Exception):
     """JRA-VAN API エラー."""
 

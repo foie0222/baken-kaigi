@@ -160,6 +160,19 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        get_race_dates_fn = lambda_.Function(
+            self,
+            "GetRaceDatesFunction",
+            handler="src.api.handlers.races.get_race_dates",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-race-dates",
+            description="開催日一覧取得",
+            **lambda_common_props,
+        )
+
         # カートAPI
         add_to_cart_fn = lambda_.Function(
             self,
@@ -267,6 +280,10 @@ class BakenKaigiApiStack(Stack):
         )
 
         # エンドポイント定義
+        # /race-dates
+        race_dates = api.root.add_resource("race-dates")
+        race_dates.add_method("GET", apigw.LambdaIntegration(get_race_dates_fn))
+
         # /races
         races = api.root.add_resource("races")
         races.add_method("GET", apigw.LambdaIntegration(get_races_fn))

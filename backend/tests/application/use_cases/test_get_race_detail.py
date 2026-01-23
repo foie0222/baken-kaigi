@@ -65,6 +65,13 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> int | None:
         return None
 
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        return []
+
 
 class TestGetRaceDetailUseCase:
     """GetRaceDetailUseCaseの単体テスト."""

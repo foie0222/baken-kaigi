@@ -77,6 +77,18 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> int | None:
         return None
 
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        dates = list(self._races_by_date.keys())
+        if from_date:
+            dates = [d for d in dates if d >= from_date]
+        if to_date:
+            dates = [d for d in dates if d <= to_date]
+        return sorted(dates, reverse=True)
+
 
 @pytest.fixture(autouse=True)
 def reset_dependencies():
@@ -561,3 +573,114 @@ class TestGetRaceDetailHandler:
         runner = body["runners"][0]
         assert "weight" not in runner
         assert "weight_diff" not in runner
+
+
+class TestGetRaceDatesHandler:
+    """GET /race-dates ハンドラーのテスト."""
+
+    def test_開催日一覧を取得できる(self) -> None:
+        """開催日一覧を取得できることを確認."""
+        from src.api.handlers.races import get_race_dates
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060101",
+                race_name="1R",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 10, 0),
+                betting_deadline=datetime(2024, 6, 1, 9, 55),
+                track_condition="良",
+            )
+        )
+        provider.add_race(
+            RaceData(
+                race_id="2024060201",
+                race_name="1R",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 6, 2, 10, 0),
+                betting_deadline=datetime(2024, 6, 2, 9, 55),
+                track_condition="良",
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": None}
+
+        response = get_race_dates(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert len(body["dates"]) == 2
+        # 降順で返される
+        assert "2024-06-02" in body["dates"]
+        assert "2024-06-01" in body["dates"]
+
+    def test_期間指定で開催日をフィルタできる(self) -> None:
+        """from/toパラメータで開催日をフィルタできることを確認."""
+        from src.api.handlers.races import get_race_dates
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024053101",
+                race_name="1R",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 5, 31, 10, 0),
+                betting_deadline=datetime(2024, 5, 31, 9, 55),
+                track_condition="良",
+            )
+        )
+        provider.add_race(
+            RaceData(
+                race_id="2024060101",
+                race_name="1R",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 10, 0),
+                betting_deadline=datetime(2024, 6, 1, 9, 55),
+                track_condition="良",
+            )
+        )
+        provider.add_race(
+            RaceData(
+                race_id="2024060201",
+                race_name="1R",
+                race_number=1,
+                venue="東京",
+                start_time=datetime(2024, 6, 2, 10, 0),
+                betting_deadline=datetime(2024, 6, 2, 9, 55),
+                track_condition="良",
+            )
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "queryStringParameters": {"from": "2024-06-01", "to": "2024-06-02"}
+        }
+
+        response = get_race_dates(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert len(body["dates"]) == 2
+        assert "2024-06-01" in body["dates"]
+        assert "2024-06-02" in body["dates"]
+        # 範囲外の日付は含まれない
+        assert "2024-05-31" not in body["dates"]
+
+    def test_不正な日付形式でエラー(self) -> None:
+        """不正な日付形式でエラーになることを確認."""
+        from src.api.handlers.races import get_race_dates
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {"from": "invalid-date"}}
+
+        response = get_race_dates(event, None)
+
+        assert response["statusCode"] == 400

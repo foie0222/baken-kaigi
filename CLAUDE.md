@@ -349,6 +349,77 @@ test: レース取得APIのテストを追加
 
 修正後は AWS クラウド上の環境をブラウザで開き、実際に意図した修正がなされたか動作確認すること。
 
+### ローカル開発環境
+
+フロントエンドの変更はローカルで起動して動作確認、バックエンドの変更は CDK デプロイしてから確認する。
+
+#### フロントエンドのローカル起動
+
+```bash
+# フロントエンドディレクトリに移動
+cd frontend
+
+# 依存関係のインストール（初回のみ）
+npm install
+
+# 開発サーバー起動
+npm run dev
+```
+
+ブラウザで `http://localhost:5173/` にアクセスして動作確認。
+
+#### 本番 API への接続設定
+
+ローカルのフロントエンドから本番（デプロイ済み）のバックエンド API に接続するには、`.env` ファイルを設定する。
+
+```bash
+# frontend/.env
+VITE_API_BASE_URL=https://<API_GATEWAY_ID>.execute-api.ap-northeast-1.amazonaws.com/prod
+```
+
+API Gateway ID の確認方法:
+
+```bash
+aws apigateway get-rest-apis --query 'items[?name==`baken-kaigi-api`].id' --output text
+```
+
+#### バックエンドの変更確認
+
+バックエンドの変更は CDK デプロイ後にローカルフロントエンドから動作確認する。
+
+```bash
+# 1. バックエンドテスト実行
+cd backend
+pytest
+
+# 2. CDK デプロイ
+cd ../cdk
+npx cdk deploy --all --context jravan=true --require-approval never
+
+# 3. ローカルフロントエンドで動作確認
+cd ../frontend
+npm run dev
+# ブラウザで http://localhost:5173/ を開いて確認
+```
+
+#### 開発フロー例
+
+1. **フロントエンドのみの変更**
+   - `npm run dev` でローカル起動
+   - `.env` で本番 API に接続
+   - ブラウザで動作確認
+   - `npm run lint && npm run typecheck && npm test` で検証
+
+2. **バックエンドのみの変更**
+   - `pytest` でテスト実行
+   - CDK デプロイ
+   - ローカルフロントエンドまたは本番サイトで動作確認
+
+3. **フロントエンド + バックエンド両方の変更**
+   - バックエンドを先にテスト・デプロイ
+   - その後フロントエンドをローカルで動作確認
+   - 最後に PR 作成・マージで本番反映
+
 ## 注意事項
 
 - セキュリティを最優先にしたコーディング（IAM最小権限原則、シークレット管理など）

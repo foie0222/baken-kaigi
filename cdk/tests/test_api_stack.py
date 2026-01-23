@@ -25,8 +25,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が10個作成されること."""
-        template.resource_count_is("AWS::Lambda::Function", 10)
+        """Lambda関数が11個作成されること."""
+        template.resource_count_is("AWS::Lambda::Function", 11)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること."""
@@ -86,6 +86,16 @@ class TestApiStack:
             {
                 "FunctionName": "baken-kaigi-get-race-detail",
                 "Handler": "src.api.handlers.races.get_race_detail",
+            },
+        )
+
+    def test_get_race_dates_endpoint(self, template):
+        """GET /race-dates エンドポイントが存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-race-dates",
+                "Handler": "src.api.handlers.races.get_race_dates",
             },
         )
 

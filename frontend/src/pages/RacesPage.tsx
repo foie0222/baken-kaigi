@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import type { Race, RaceGrade } from '../types';
 import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
-import { USE_MOCK, getMockRaces, getMockVenues } from '../../mock/races';
 
 // グレードバッジのCSSクラスを取得
 function getGradeBadgeClass(grade: RaceGrade | undefined): string {
@@ -31,88 +30,189 @@ function getGradeBadgeText(grade: RaceGrade | undefined): string {
   }
 }
 
-// 日付ボタン生成（前週土日 + 次週土日）
-function generateDateButtons(): { label: string; date: string }[] {
+// 日付を表示用にフォーマット
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+  return `${m}/${day}(${dow})`;
+}
+
+// 今日の日付を YYYY-MM-DD 形式で取得
+function getTodayDateStr(): string {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0=日, 1=月, ..., 6=土
-  const result: { label: string; date: string }[] = [];
+  const year = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${year}-${m}-${d}`;
+}
 
-  // 前週の土曜日を計算
-  const lastSat = new Date(today);
-  const daysToLastSat = dayOfWeek === 0 ? 8 : dayOfWeek + 1;
-  lastSat.setDate(today.getDate() - daysToLastSat);
-
-  // 前週の日曜日
-  const lastSun = new Date(lastSat);
-  lastSun.setDate(lastSat.getDate() + 1);
-
-  // 次週の土曜日を計算
-  const nextSat = new Date(today);
-  const daysToNextSat = dayOfWeek === 6 ? 7 : 6 - dayOfWeek;
-  nextSat.setDate(today.getDate() + daysToNextSat);
-
-  // 次週の日曜日
-  const nextSun = new Date(nextSat);
-  nextSun.setDate(nextSat.getDate() + 1);
+// 検索範囲を計算（前後2週間）
+function getSearchRange(): { from: string; to: string } {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(today.getDate() - 14);
+  const to = new Date(today);
+  to.setDate(today.getDate() + 14);
 
   const formatDate = (d: Date) => {
     const year = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
-    const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-    // ローカル日付を使用（toISOString()はUTCを返すため使わない）
-    const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return {
-      label: `${m}/${day}(${dow})`,
-      date: dateStr,
-    };
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${m}-${day}`;
   };
 
-  result.push(formatDate(lastSat));
-  result.push(formatDate(lastSun));
-  result.push(formatDate(nextSat));
-  result.push(formatDate(nextSun));
-
-  return result;
+  return { from: formatDate(from), to: formatDate(to) };
 }
 
-const dateButtons = generateDateButtons();
+// 表示する日付を選択（金〜日: 次の週末、月〜木: 前の週末）
+function selectDisplayDates(dates: string[]): string[] {
+  if (dates.length === 0) return [];
+
+  const today = new Date();
+  const todayStr = getTodayDateStr();
+  const dayOfWeek = today.getDay(); // 0=日, 1=月, ..., 6=土
+
+  // 日付を Date オブジェクトに変換してソート
+  const sortedDates = [...dates].sort();
+
+  // 今日の開催があれば、その週末を表示
+  if (sortedDates.includes(todayStr)) {
+    // 今日を含む週末を取得
+    const todayDate = new Date(todayStr);
+    const weekend = sortedDates.filter((d: string) => {
+      const diff = Math.abs(new Date(d).getTime() - todayDate.getTime());
+      return diff <= 2 * 24 * 60 * 60 * 1000; // 2日以内
+    });
+    if (weekend.length > 0) {
+      // today を必ず含める形で 2 日分を選択する
+      if (weekend.length <= 2) {
+        return weekend;
+      }
+
+      const todayIndex = weekend.indexOf(todayStr);
+      // 理論上は必ず含まれるが、安全のためフォールバックを用意
+      if (todayIndex === -1) {
+        return weekend.slice(0, 2);
+      }
+
+      // today 以外の中から、today に最も近い 1 日を選択
+      const nearest = weekend
+        .filter((d: string) => d !== todayStr)
+        .map((d: string) => ({
+          date: d,
+          diff: Math.abs(new Date(d).getTime() - todayDate.getTime()),
+        }))
+        .sort((a, b) => a.diff - b.diff)[0]?.date;
+
+      if (!nearest) {
+        return [todayStr];
+      }
+
+      // 返却時は日付昇順に並べる
+      return [todayStr, nearest].sort();
+    }
+  }
+
+  // 金〜日: 次の週末（今日以降の直近2日）
+  if (dayOfWeek >= 5 || dayOfWeek === 0) {
+    const futureDates = sortedDates.filter(d => d >= todayStr);
+    if (futureDates.length > 0) {
+      return futureDates.slice(0, 2);
+    }
+  }
+
+  // 月〜木: 前の週末（今日以前の直近2日）
+  const pastDates = sortedDates.filter(d => d <= todayStr).reverse();
+  if (pastDates.length > 0) {
+    return pastDates.slice(0, 2).reverse();
+  }
+
+  // フォールバック: 最も近い日付
+  return sortedDates.slice(0, 2);
+}
 
 export function RacesPage() {
   const navigate = useNavigate();
+  const [dateButtons, setDateButtons] = useState<string[]>([]);
   const [selectedDateIdx, setSelectedDateIdx] = useState(0);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
   const [venues, setVenues] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [datesLoading, setDatesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // 初回会場選択のためのref（無限ループ防止）
   const isInitialVenueSet = useRef(false);
+  const isInitialDateSet = useRef(false);
 
+  // 開催日一覧を取得
   useEffect(() => {
     let isMounted = true;
+
+    const fetchDates = async () => {
+      setDatesLoading(true);
+
+      const { from, to } = getSearchRange();
+      const response = await apiClient.getRaceDates(from, to);
+
+      if (!isMounted) return;
+
+      if (response.success && response.data) {
+        const displayDates = selectDisplayDates(response.data);
+        setDateButtons(displayDates);
+
+        // 今日の日付がある場合は選択
+        if (!isInitialDateSet.current && displayDates.length > 0) {
+          const todayStr = getTodayDateStr();
+          const todayIdx = displayDates.indexOf(todayStr);
+          if (todayIdx >= 0) {
+            setSelectedDateIdx(todayIdx);
+          }
+          isInitialDateSet.current = true;
+        }
+      } else {
+        // エラー時はフォールバックで空配列
+        setDateButtons([]);
+      }
+
+      setDatesLoading(false);
+    };
+
+    fetchDates();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 開催日がない場合のローディング解除
+  useEffect(() => {
+    if (!datesLoading && dateButtons.length === 0) {
+      // 非同期でローディング解除（同期的なsetState呼び出しを回避）
+      const resetLoading = async () => {
+        setLoading(false);
+        setRaces([]);
+        setVenues([]);
+      };
+      resetLoading();
+    }
+  }, [datesLoading, dateButtons.length]);
+
+  // レース一覧を取得
+  useEffect(() => {
+    if (dateButtons.length === 0 || selectedDateIdx >= dateButtons.length) {
+      return;
+    }
+
+    let isMounted = true;
+    const selectedDate = dateButtons[selectedDateIdx];
 
     const fetchRaces = async () => {
       setLoading(true);
       setError(null);
-
-      const selectedDate = dateButtons[selectedDateIdx].date;
-
-      // モックモードの場合
-      if (USE_MOCK) {
-        const mockRaceList = getMockRaces(undefined, undefined);
-        const mockVenueList = getMockVenues();
-        if (!isMounted) return;
-        setRaces(mockRaceList);
-        setVenues(mockVenueList);
-        if (!isInitialVenueSet.current && mockVenueList.length > 0) {
-          setSelectedVenue(mockVenueList[0]);
-          isInitialVenueSet.current = true;
-        }
-        setLoading(false);
-        return;
-      }
 
       const response = await apiClient.getRaces(selectedDate);
 
@@ -139,25 +239,35 @@ export function RacesPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedDateIdx]);
+  }, [selectedDateIdx, dateButtons]);
 
   // 選択された会場でフィルタリング
   const filteredRaces = selectedVenue
     ? races.filter((race) => race.venue === selectedVenue)
     : races;
 
+  const selectedDateLabel = dateButtons[selectedDateIdx]
+    ? formatDateLabel(dateButtons[selectedDateIdx])
+    : '';
+
   return (
     <div className="fade-in">
       <div className="race-date-selector">
-        {dateButtons.map((btn, index) => (
-          <button
-            key={btn.date}
-            className={`date-btn ${selectedDateIdx === index ? 'active' : ''}`}
-            onClick={() => setSelectedDateIdx(index)}
-          >
-            {btn.label}
-          </button>
-        ))}
+        {datesLoading ? (
+          <span className="loading-text">日程を読み込み中...</span>
+        ) : dateButtons.length === 0 ? (
+          <span className="no-dates-text">開催日がありません</span>
+        ) : (
+          dateButtons.map((dateStr, index) => (
+            <button
+              key={dateStr}
+              className={`date-btn ${selectedDateIdx === index ? 'active' : ''}`}
+              onClick={() => setSelectedDateIdx(index)}
+            >
+              {formatDateLabel(dateStr)}
+            </button>
+          ))
+        )}
       </div>
 
       <div className="venue-tabs">
@@ -173,7 +283,7 @@ export function RacesPage() {
       </div>
 
       <p className="section-title">
-        {dateButtons[selectedDateIdx].label}のレース
+        {selectedDateLabel ? `${selectedDateLabel}のレース` : 'レース'}
       </p>
 
       {loading && <div className="loading">読み込み中...</div>}
