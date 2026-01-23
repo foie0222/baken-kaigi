@@ -14,10 +14,12 @@ from src.domain.ports import (
     ConsultationContext,
     ConsultationSessionRepository,
     JockeyStatsData,
+    PedigreeData,
     PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
+    WeightData,
 )
 from src.domain.value_objects import BetSelection, HorseNumbers, Money
 
@@ -94,6 +96,15 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def get_jockey_stats(self, jockey_id: str, course: str) -> JockeyStatsData | None:
         return None
+
+    def get_pedigree(self, horse_id: str) -> PedigreeData | None:
+        return None
+
+    def get_weight_history(self, horse_id: str, limit: int = 5) -> list[WeightData]:
+        return []
+
+    def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
+        return {}
 
 
 class MockAIClient(AIClient):

@@ -4,7 +4,13 @@ from datetime import date, datetime
 import pytest
 
 from src.domain.identifiers import RaceId
-from src.domain.ports import RaceData, RaceDataProvider, RunnerData
+from src.domain.ports import (
+    PedigreeData,
+    RaceData,
+    RaceDataProvider,
+    RunnerData,
+    WeightData,
+)
 
 
 class MockRaceDataProvider(RaceDataProvider):
@@ -14,6 +20,9 @@ class MockRaceDataProvider(RaceDataProvider):
         self._races: dict[str, RaceData] = {}
         self._races_by_date: dict[date, list[RaceData]] = {}
         self._runners: dict[str, list[RunnerData]] = {}
+        self._pedigrees: dict[str, PedigreeData] = {}
+        self._weight_histories: dict[str, list[WeightData]] = {}
+        self._race_weights: dict[str, dict[int, WeightData]] = {}
 
     def add_race(self, race: RaceData) -> None:
         """テスト用にレースを追加."""
@@ -26,6 +35,18 @@ class MockRaceDataProvider(RaceDataProvider):
     def add_runners(self, race_id: str, runners: list[RunnerData]) -> None:
         """テスト用に出走馬を追加."""
         self._runners[race_id] = runners
+
+    def add_pedigree(self, horse_id: str, pedigree: PedigreeData) -> None:
+        """テスト用に血統情報を追加."""
+        self._pedigrees[horse_id] = pedigree
+
+    def add_weight_history(self, horse_id: str, weights: list[WeightData]) -> None:
+        """テスト用に馬体重履歴を追加."""
+        self._weight_histories[horse_id] = weights
+
+    def add_race_weights(self, race_id: str, weights: dict[int, WeightData]) -> None:
+        """テスト用にレースの馬体重情報を追加."""
+        self._race_weights[race_id] = weights
 
     def get_race(self, race_id: RaceId) -> RaceData | None:
         """レース情報を取得する."""
@@ -49,6 +70,19 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_jockey_stats(self, jockey_id: str, course: str):
         """騎手のコース成績を取得する."""
         return None
+
+    def get_pedigree(self, horse_id: str) -> PedigreeData | None:
+        """馬の血統情報を取得する."""
+        return self._pedigrees.get(horse_id)
+
+    def get_weight_history(self, horse_id: str, limit: int = 5) -> list[WeightData]:
+        """馬の体重履歴を取得する."""
+        weights = self._weight_histories.get(horse_id, [])
+        return weights[:limit]
+
+    def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
+        """レースの馬体重情報を取得する."""
+        return self._race_weights.get(str(race_id), {})
 
 
 class TestRaceDataProviderInterface:
@@ -123,3 +157,112 @@ class TestRaceDataProviderInterface:
         races = provider.get_races_by_date(target_date)
 
         assert races == []
+
+
+class TestPedigreeInterface:
+    """get_pedigreeインターフェースのテスト."""
+
+    def test_get_pedigreeで血統情報を取得できる(self) -> None:
+        """get_pedigreeで血統情報を取得できることを確認."""
+        provider = MockRaceDataProvider()
+        pedigree = PedigreeData(
+            horse_id="horse1",
+            horse_name="テストホース",
+            sire_name="ディープインパクト",
+            dam_name="マイママ",
+            broodmare_sire="サンデーサイレンス",
+        )
+        provider.add_pedigree("horse1", pedigree)
+
+        result = provider.get_pedigree("horse1")
+
+        assert result is not None
+        assert result.horse_id == "horse1"
+        assert result.horse_name == "テストホース"
+        assert result.sire_name == "ディープインパクト"
+        assert result.dam_name == "マイママ"
+        assert result.broodmare_sire == "サンデーサイレンス"
+
+    def test_get_pedigreeで存在しない馬はNone(self) -> None:
+        """get_pedigreeで存在しない馬はNoneが返ることを確認."""
+        provider = MockRaceDataProvider()
+
+        result = provider.get_pedigree("nonexistent")
+
+        assert result is None
+
+
+class TestWeightHistoryInterface:
+    """get_weight_historyインターフェースのテスト."""
+
+    def test_get_weight_historyで馬体重履歴を取得できる(self) -> None:
+        """get_weight_historyで馬体重履歴を取得できることを確認."""
+        provider = MockRaceDataProvider()
+        weights = [
+            WeightData(weight=480, weight_diff=2),
+            WeightData(weight=478, weight_diff=-4),
+            WeightData(weight=482, weight_diff=0),
+        ]
+        provider.add_weight_history("horse1", weights)
+
+        result = provider.get_weight_history("horse1")
+
+        assert len(result) == 3
+        assert result[0].weight == 480
+        assert result[0].weight_diff == 2
+        assert result[1].weight == 478
+        assert result[1].weight_diff == -4
+
+    def test_get_weight_historyでlimit指定できる(self) -> None:
+        """get_weight_historyでlimitを指定して件数を制限できることを確認."""
+        provider = MockRaceDataProvider()
+        weights = [
+            WeightData(weight=480, weight_diff=2),
+            WeightData(weight=478, weight_diff=-4),
+            WeightData(weight=482, weight_diff=0),
+            WeightData(weight=484, weight_diff=2),
+            WeightData(weight=486, weight_diff=2),
+        ]
+        provider.add_weight_history("horse1", weights)
+
+        result = provider.get_weight_history("horse1", limit=3)
+
+        assert len(result) == 3
+
+    def test_get_weight_historyで存在しない馬は空リスト(self) -> None:
+        """get_weight_historyで存在しない馬は空リストが返ることを確認."""
+        provider = MockRaceDataProvider()
+
+        result = provider.get_weight_history("nonexistent")
+
+        assert result == []
+
+
+class TestRaceWeightsInterface:
+    """get_race_weightsインターフェースのテスト."""
+
+    def test_get_race_weightsでレースの馬体重を取得できる(self) -> None:
+        """get_race_weightsでレースの馬体重情報を取得できることを確認."""
+        provider = MockRaceDataProvider()
+        race_weights = {
+            1: WeightData(weight=480, weight_diff=2),
+            2: WeightData(weight=456, weight_diff=-4),
+            3: WeightData(weight=502, weight_diff=0),
+        }
+        provider.add_race_weights("2024060111", race_weights)
+
+        result = provider.get_race_weights(RaceId("2024060111"))
+
+        assert len(result) == 3
+        assert result[1].weight == 480
+        assert result[1].weight_diff == 2
+        assert result[2].weight == 456
+        assert result[3].weight == 502
+
+    def test_get_race_weightsで存在しないレースは空辞書(self) -> None:
+        """get_race_weightsで存在しないレースは空辞書が返ることを確認."""
+        provider = MockRaceDataProvider()
+
+        result = provider.get_race_weights(RaceId("nonexistent"))
+
+        assert result == {}

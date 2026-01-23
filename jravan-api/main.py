@@ -1,7 +1,6 @@
 """JRA-VAN FastAPI サーバー.
 
-SQLite から読み込んでレース情報を返す。
-データは sync_jvlink.py で事前に同期しておく。
+PC-KEIBA Database (PostgreSQL) からレース情報を提供する。
 """
 import logging
 from datetime import datetime
@@ -18,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="JRA-VAN API",
-    description="JV-Link データを提供する API（SQLite ベース）",
-    version="2.0.0",
+    description="PC-KEIBA Database からレースデータを提供する API",
+    version="3.0.0",
 )
 
 # CORS 設定
@@ -33,9 +32,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    """アプリケーション起動時に DB を初期化."""
-    db.init_db()
-    logger.info("Database initialized")
+    """アプリケーション起動時に DB 接続を確認."""
+    if db.check_connection():
+        logger.info("PC-KEIBA Database connected")
+    else:
+        logger.error("Failed to connect to PC-KEIBA Database")
 
 
 # ========================================
@@ -57,8 +58,8 @@ class RaceResponse(BaseModel):
     race_number: int
     venue: str
     venue_name: str
-    start_time: datetime
-    betting_deadline: datetime
+    start_time: datetime | None
+    betting_deadline: datetime | None
     distance: int
     track_type: str
     track_condition: str
@@ -87,6 +88,31 @@ class SyncStatusResponse(BaseModel):
     record_count: int
 
 
+class PedigreeResponse(BaseModel):
+    """血統情報レスポンス."""
+    horse_id: str
+    horse_name: str | None
+    sire_name: str | None       # 父
+    dam_name: str | None        # 母
+    broodmare_sire: str | None  # 母父
+
+
+class WeightResponse(BaseModel):
+    """馬体重レスポンス."""
+    weight: int                 # 馬体重(kg)
+    weight_diff: int            # 前走比増減
+    race_id: str | None = None
+    race_date: str | None = None
+    race_name: str | None = None
+
+
+class RaceWeightResponse(BaseModel):
+    """レースの馬体重レスポンス."""
+    horse_number: int
+    weight: int                 # 馬体重(kg)
+    weight_diff: int            # 前走比増減
+
+
 # ========================================
 # エンドポイント
 # ========================================
@@ -95,10 +121,11 @@ class SyncStatusResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 def health_check():
     """ヘルスチェック."""
-    sync_status = db.get_sync_status()
+    connected = db.check_connection()
+    sync_status = db.get_sync_status() if connected else {}
     return HealthResponse(
-        status="ok",
-        database=str(db.DB_PATH),
+        status="ok" if connected else "error",
+        database="PC-KEIBA PostgreSQL",
         last_sync=sync_status.get("last_sync_at"),
     )
 
@@ -126,23 +153,37 @@ def get_races(
     if venue:
         races = [r for r in races if r["venue_code"] == venue]
 
-    return [
-        RaceResponse(
+    result = []
+    for r in races:
+        start_time = None
+        if r["start_time"]:
+            try:
+                start_time = datetime.fromisoformat(r["start_time"])
+            except (ValueError, TypeError) as exc:
+                # 不正な開始時刻は None として扱い、詳細をログに記録する
+                logger.warning(
+                    "Invalid start_time format for race_id=%s: %r (%s)",
+                    r.get("race_id"),
+                    r.get("start_time"),
+                    exc,
+                )
+
+        result.append(RaceResponse(
             race_id=r["race_id"],
             race_name=r["race_name"],
             race_number=r["race_number"],
             venue=r["venue_code"],
             venue_name=r["venue_name"],
-            start_time=datetime.fromisoformat(r["start_time"]) if r["start_time"] else datetime.now(),
-            betting_deadline=datetime.fromisoformat(r["start_time"]) if r["start_time"] else datetime.now(),
+            start_time=start_time,
+            betting_deadline=start_time,
             distance=r["distance"] or 0,
             track_type=r["track_type"] or "",
             track_condition=r["track_condition"] or "",
             grade=r["grade"] or "",
             horse_count=horse_counts.get(r["race_id"], 0),
-        )
-        for r in races
-    ]
+        ))
+
+    return result
 
 
 @app.get("/races/{race_id}", response_model=RaceResponse)
@@ -155,14 +196,27 @@ def get_race(race_id: str):
 
     horse_count = db.get_horse_count(race_id)
 
+    start_time = None
+    if race["start_time"]:
+        try:
+            start_time = datetime.fromisoformat(race["start_time"])
+        except (ValueError, TypeError) as exc:
+            # 不正な開始時刻は None として扱い、詳細をログに記録する
+            logger.warning(
+                "Invalid start_time format for race_id=%s: %r (%s)",
+                race.get("race_id"),
+                race.get("start_time"),
+                exc,
+            )
+
     return RaceResponse(
         race_id=race["race_id"],
         race_name=race["race_name"],
         race_number=race["race_number"],
         venue=race["venue_code"],
         venue_name=race["venue_name"],
-        start_time=datetime.fromisoformat(race["start_time"]) if race["start_time"] else datetime.now(),
-        betting_deadline=datetime.fromisoformat(race["start_time"]) if race["start_time"] else datetime.now(),
+        start_time=start_time,
+        betting_deadline=start_time,
         distance=race["distance"] or 0,
         track_type=race["track_type"] or "",
         track_condition=race["track_condition"] or "",
@@ -186,10 +240,62 @@ def get_runners(race_id: str):
             jockey_id=r["jockey_id"] or "",
             trainer_name=r["trainer_name"] or "",
             weight=r["weight"] or 0.0,
-            odds=r["odds"],
-            popularity=r["popularity"],
+            odds=r.get("odds"),
+            popularity=r.get("popularity"),
         )
         for r in runners
+    ]
+
+
+@app.get("/horses/{horse_id}/pedigree", response_model=PedigreeResponse)
+def get_pedigree(horse_id: str):
+    """馬の血統情報を取得する."""
+    pedigree = db.get_horse_pedigree(horse_id)
+
+    if not pedigree:
+        raise HTTPException(status_code=404, detail="Horse not found")
+
+    return PedigreeResponse(
+        horse_id=pedigree["horse_id"],
+        horse_name=pedigree.get("horse_name"),
+        sire_name=pedigree.get("sire_name"),
+        dam_name=pedigree.get("dam_name"),
+        broodmare_sire=pedigree.get("broodmare_sire"),
+    )
+
+
+@app.get("/horses/{horse_id}/weights", response_model=list[WeightResponse])
+def get_weight_history(
+    horse_id: str,
+    limit: int = Query(5, description="取得件数"),
+):
+    """馬の体重履歴を取得する."""
+    weights = db.get_horse_weight_history(horse_id, limit)
+
+    return [
+        WeightResponse(
+            weight=w["weight"],
+            weight_diff=w["weight_diff"],
+            race_id=w.get("race_id"),
+            race_date=w.get("race_date"),
+            race_name=w.get("race_name"),
+        )
+        for w in weights
+    ]
+
+
+@app.get("/races/{race_id}/weights", response_model=list[RaceWeightResponse])
+def get_race_weights(race_id: str):
+    """レースの馬体重情報を取得する."""
+    weights = db.get_race_weights(race_id)
+
+    return [
+        RaceWeightResponse(
+            horse_number=w["horse_number"],
+            weight=w["weight"],
+            weight_diff=w["weight_diff"],
+        )
+        for w in weights
     ]
 
 

@@ -1,64 +1,40 @@
 # JRA-VAN FastAPI サーバー
 
-JV-Link を呼び出して JRA データを提供する FastAPI サーバー。
-EC2 Windows 上で動作させ、Lambda からの HTTP リクエストを処理する。
+PC-KEIBA Database (PostgreSQL) からレースデータを提供する FastAPI サーバー。
 
 ## 前提条件
 
-- Windows Server 2022
-- Python 3.11 (32bit) ← **32bit 必須**
-- JV-Link インストール済み
-- 利用キー設定済み
+- Python 3.11+
+- PC-KEIBA Database がインストール・設定済み
+- PostgreSQL サーバーが稼働中
 
-## EC2 へのデプロイ手順
+## セットアップ
 
-### 1. Fleet Manager で EC2 に接続
+### 1. 依存パッケージのインストール
 
-AWS Console → Systems Manager → Fleet Manager → インスタンス選択 → Connect with Remote Desktop
-
-### 2. ファイルを EC2 に転送
-
-PowerShell で以下を実行:
-
-```powershell
-# 作業ディレクトリ作成
-New-Item -ItemType Directory -Force -Path C:\jravan-api
-
-# GitHub からクローン（Git がある場合）
-cd C:\
-git clone https://github.com/your-repo/baken-kaigi.git
-Copy-Item -Path C:\baken-kaigi\jravan-api\* -Destination C:\jravan-api\ -Recurse
-
-# または手動でファイルをコピー
-```
-
-### 3. 依存パッケージのインストール
-
-```powershell
-cd C:\jravan-api
+```bash
 pip install -r requirements.txt
 ```
 
-### 4. 動作確認
+### 2. 環境変数の設定
 
-```powershell
+```bash
+# PC-KEIBA Database 接続設定
+export PCKEIBA_HOST=localhost
+export PCKEIBA_PORT=5432
+export PCKEIBA_DATABASE=jvd_db
+export PCKEIBA_USER=postgres
+export PCKEIBA_PASSWORD=your_password
+```
+
+### 3. 動作確認
+
+```bash
 # サーバー起動
 python main.py
 
 # 別ターミナルでテスト
-Invoke-WebRequest -Uri "http://localhost:8000/health" -UseBasicParsing
-```
-
-### 5. Windows サービスとして登録
-
-```powershell
-# NSSM でサービス化
-nssm install JraVanApi "C:\Users\Administrator\AppData\Local\Programs\Python\Python311-32\python.exe" "-m uvicorn main:app --host 0.0.0.0 --port 8000"
-nssm set JraVanApi AppDirectory "C:\jravan-api"
-nssm start JraVanApi
-
-# サービス状態確認
-Get-Service JraVanApi
+curl http://localhost:8000/health
 ```
 
 ## API エンドポイント
@@ -66,46 +42,59 @@ Get-Service JraVanApi
 | メソッド | パス | 説明 |
 |---------|------|------|
 | GET | `/health` | ヘルスチェック |
+| GET | `/sync-status` | データベース状態 |
 | GET | `/races?date=YYYYMMDD` | レース一覧 |
 | GET | `/races/{race_id}` | レース詳細 |
-| GET | `/races/{race_id}/runners` | 出走馬情報 |
-| GET | `/horses/{horse_id}/performances` | 過去成績 |
-| GET | `/jockeys/{jockey_id}/stats?course=xxx` | 騎手成績 |
+| GET | `/races/{race_id}/runners` | 出走馬情報（オッズ含む） |
+| GET | `/races/{race_id}/weights` | レースの馬体重 |
+| GET | `/horses/{horse_id}/pedigree` | 血統情報 |
+| GET | `/horses/{horse_id}/weights` | 馬体重履歴 |
 
-## 注意事項
+## PC-KEIBA Database テーブル構造
 
-### 初回データダウンロード
+主要テーブル:
 
-JV-Link は初回起動時に大量のデータをダウンロードします。
-これには数時間かかる場合があります。
+| テーブル | 内容 |
+|----------|------|
+| `jvd_ra` | レース詳細 |
+| `jvd_se` | 出走馬情報 |
+| `jvd_um` | 馬マスタ（血統） |
+| `jvd_o1` | 単勝・複勝オッズ |
+| `jvd_hr` | 払戻情報 |
 
-```
-セットアップデータ: 約 2-3GB
-所要時間: 1-3 時間（回線速度による）
-```
+### 血統カラム (jvd_um)
 
-### データ更新
-
-- レースデータ: 毎週更新
-- リアルタイムデータ: レース当日に更新
-
-### トラブルシューティング
-
-**JV-Link 初期化エラー**
-- 利用キーが正しく設定されているか確認
-- 32bit Python を使用しているか確認
-
-**COM オブジェクト作成エラー**
-- JV-Link が正しくインストールされているか確認
-- pywin32 がインストールされているか確認
+| カラム | 内容 |
+|--------|------|
+| `ketto_joho_01b` | 父 |
+| `ketto_joho_02b` | 母 |
+| `ketto_joho_05b` | 母父 |
 
 ## ファイル構成
 
 ```
-C:\jravan-api\
+jravan-api/
 ├── main.py              # FastAPI エントリポイント
-├── jvlink_client.py     # JV-Link COM ラッパー
+├── database.py          # PostgreSQL データアクセス層
 ├── requirements.txt     # Python 依存パッケージ
-├── run.bat              # 起動スクリプト
+├── run.bat              # 起動スクリプト（Windows用）
 └── README.md            # このファイル
 ```
+
+## Windows サービスとして登録 (EC2)
+
+```powershell
+# NSSM でサービス化
+nssm install JraVanApi "python.exe" "-m uvicorn main:app --host 0.0.0.0 --port 8000"
+nssm set JraVanApi AppDirectory "C:\jravan-api"
+nssm set JraVanApi AppEnvironmentExtra PCKEIBA_PASSWORD=your_password
+nssm start JraVanApi
+
+# サービス状態確認
+Get-Service JraVanApi
+```
+
+## データ更新
+
+PC-KEIBA Database のデータ更新は PC-KEIBA アプリケーションから行います。
+JV-Link を通じてデータを取得・更新してください。

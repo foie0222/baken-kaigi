@@ -13,10 +13,12 @@ from urllib3.util.retry import Retry
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     JockeyStatsData,
+    PedigreeData,
     PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
+    WeightData,
 )
 
 logger = logging.getLogger(__name__)
@@ -155,13 +157,24 @@ class JraVanRaceDataProvider(RaceDataProvider):
 
     def _to_race_data(self, data: dict) -> RaceData:
         """API レスポンスを RaceData に変換する."""
+        # start_time / betting_deadline が None の場合はダミー値を使用
+        start_time = (
+            datetime.fromisoformat(data["start_time"])
+            if data.get("start_time")
+            else datetime.now()
+        )
+        betting_deadline = (
+            datetime.fromisoformat(data["betting_deadline"])
+            if data.get("betting_deadline")
+            else start_time
+        )
         return RaceData(
             race_id=data["race_id"],
             race_name=data["race_name"],
             race_number=data["race_number"],
             venue=data["venue"],
-            start_time=datetime.fromisoformat(data["start_time"]),
-            betting_deadline=datetime.fromisoformat(data["betting_deadline"]),
+            start_time=start_time,
+            betting_deadline=betting_deadline,
             track_condition=data["track_condition"],
             track_type=data.get("track_type", ""),
             distance=data.get("distance", 0),
@@ -203,6 +216,79 @@ class JraVanRaceDataProvider(RaceDataProvider):
             wins=data["wins"],
             win_rate=data["win_rate"],
             place_rate=data["place_rate"],
+        )
+
+    def get_pedigree(self, horse_id: str) -> PedigreeData | None:
+        """馬の血統情報を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/horses/{horse_id}/pedigree",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_pedigree_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get pedigree for horse {horse_id}: {e}")
+            return None
+
+    def get_weight_history(self, horse_id: str, limit: int = 5) -> list[WeightData]:
+        """馬の体重履歴を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/horses/{horse_id}/weights",
+                params={"limit": limit},
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+
+            weights_data = response.json()
+            return [self._to_weight_data(w) for w in weights_data]
+        except requests.RequestException as e:
+            logger.warning(f"Could not get weight history for horse {horse_id}: {e}")
+            return []
+
+    def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
+        """レースの馬体重情報を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/races/{race_id.value}/weights",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return {}
+            response.raise_for_status()
+
+            weights_data = response.json()
+            return {
+                w["horse_number"]: WeightData(
+                    weight=w["weight"],
+                    weight_diff=w["weight_diff"],
+                )
+                for w in weights_data
+            }
+        except requests.RequestException as e:
+            logger.warning(f"Could not get race weights for {race_id}: {e}")
+            return {}
+
+    def _to_pedigree_data(self, data: dict) -> PedigreeData:
+        """API レスポンスを PedigreeData に変換する."""
+        return PedigreeData(
+            horse_id=data["horse_id"],
+            horse_name=data.get("horse_name"),
+            sire_name=data.get("sire_name"),
+            dam_name=data.get("dam_name"),
+            broodmare_sire=data.get("broodmare_sire"),
+        )
+
+    def _to_weight_data(self, data: dict) -> WeightData:
+        """API レスポンスを WeightData に変換する."""
+        return WeightData(
+            weight=data["weight"],
+            weight_diff=data["weight_diff"],
         )
 
 

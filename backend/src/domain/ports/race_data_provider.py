@@ -62,6 +62,25 @@ class JockeyStatsData:
     place_rate: float
 
 
+@dataclass(frozen=True)
+class PedigreeData:
+    """血統情報."""
+
+    horse_id: str
+    horse_name: str | None
+    sire_name: str | None       # 父
+    dam_name: str | None        # 母
+    broodmare_sire: str | None  # 母父
+
+
+@dataclass(frozen=True)
+class WeightData:
+    """馬体重データ."""
+
+    weight: int          # 馬体重(kg)
+    weight_diff: int     # 前走比増減
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -98,4 +117,23 @@ class RaceDataProvider(ABC):
     @abstractmethod
     def get_jockey_stats(self, jockey_id: str, course: str) -> JockeyStatsData | None:
         """騎手のコース成績を取得する."""
+        pass
+
+    @abstractmethod
+    def get_pedigree(self, horse_id: str) -> PedigreeData | None:
+        """馬の血統情報を取得する."""
+        pass
+
+    @abstractmethod
+    def get_weight_history(self, horse_id: str, limit: int = 5) -> list[WeightData]:
+        """馬の体重履歴を取得する."""
+        pass
+
+    @abstractmethod
+    def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
+        """レースの馬体重情報を取得する.
+
+        Returns:
+            馬番をキーとした馬体重データの辞書
+        """
         pass

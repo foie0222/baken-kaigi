@@ -7,10 +7,12 @@ import pytest
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     JockeyStatsData,
+    PedigreeData,
     PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
+    WeightData,
 )
 
 
@@ -48,6 +50,15 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def get_jockey_stats(self, jockey_id: str, course: str) -> JockeyStatsData | None:
         return None
+
+    def get_pedigree(self, horse_id: str) -> PedigreeData | None:
+        return None
+
+    def get_weight_history(self, horse_id: str, limit: int = 5) -> list[WeightData]:
+        return []
+
+    def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
+        return {}
 
 
 class TestGetRaceListUseCase:
