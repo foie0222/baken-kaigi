@@ -66,6 +66,12 @@ export interface ApiRaceDetailResponse {
   runners: ApiRunner[];
 }
 
+// レースクラス
+export type RaceGrade = '新馬' | '未勝利' | '1勝' | '2勝' | '3勝' | 'OP' | 'L' | 'G3' | 'G2' | 'G1';
+
+// 斤量条件
+export type WeightType = '定量' | '別定' | 'ハンデ' | '馬齢';
+
 // レース関連（フロントエンド表示用）
 export interface Race {
   id: string;
@@ -80,6 +86,14 @@ export interface Race {
   trackType?: string;   // 芝/ダート
   distance?: number;    // 距離（メートル）
   horseCount?: number;  // 頭数
+  // 条件フィールド
+  gradeClass?: RaceGrade;     // クラス（新馬、未勝利、1勝、2勝、オープン、G3など）
+  ageCondition?: string;      // 年齢条件（3歳、4歳以上、3歳以上など）
+  sexCondition?: string;      // 性別条件（牝、牡牝など）
+  weightType?: WeightType;    // 斤量条件（定量、別定、ハンデ）
+  isSpecialEntry?: boolean;   // 指定レース
+  isObstacle?: boolean;       // 障害レース
+  purse?: number;             // 本賞金（万円）
 }
 
 export interface Horse {
