@@ -158,8 +158,8 @@ def get_races_by_date(date: str) -> list[dict]:
                 babajotai_code_dirt,
                 hasso_jikoku,
                 shusso_tosu,
-                syubetu_code,
-                jyoken_code_1
+                kyoso_shubetsu_code,
+                kyoso_joken_code
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
             ORDER BY keibajo_code, race_bango::integer
@@ -196,8 +196,8 @@ def get_race_by_id(race_id: str) -> dict | None:
                 babajotai_code_dirt,
                 hasso_jikoku,
                 shusso_tosu,
-                syubetu_code,
-                jyoken_code_1
+                kyoso_shubetsu_code,
+                kyoso_joken_code
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
@@ -412,47 +412,44 @@ def get_sync_status() -> dict:
         }
 
 
-def _build_race_name_from_codes(syubetu_code: str, jyoken_code: str) -> str:
-    """種別コードと条件コードからレース名を生成する.
+def _build_race_name_from_codes(shubetsu_code: str, joken_code: str) -> str:
+    """競走種別コードと条件コードからレース名を生成する.
 
     Args:
-        syubetu_code: 種別コード（馬齢条件）
-        jyoken_code: 条件コード（クラス条件）
+        shubetsu_code: 競走種別コード（11=2歳, 12=3歳, 13=3歳以上, 14=4歳以上）
+        joken_code: 競走条件コード（701=新馬, 703=未勝利, 005=1勝クラス, etc）
 
     Returns:
         生成されたレース名（例: "3歳未勝利"）
     """
-    # 種別コード（馬齢条件）のマッピング
-    syubetu_map = {
+    # 競走種別コード（馬齢条件）のマッピング
+    shubetsu_map = {
         "11": "2歳",
         "12": "3歳",
         "13": "3歳以上",
         "14": "4歳以上",
     }
 
-    # 条件コード（クラス条件）のマッピング
-    jyoken_map = {
+    # 競走条件コードのマッピング
+    joken_map = {
         "701": "新馬",
+        "702": "未出走",
         "703": "未勝利",
-        "704": "1勝クラス",
-        "705": "2勝クラス",
-        "706": "3勝クラス",
+        "005": "1勝クラス",
+        "010": "2勝クラス",
+        "016": "3勝クラス",
         "999": "オープン",
-        # 旧表記との互換性
-        "005": "500万下",
-        "010": "1000万下",
-        "016": "1600万下",
     }
 
-    syubetu = syubetu_map.get((syubetu_code or "").strip(), "")
-    jyoken = jyoken_map.get((jyoken_code or "").strip(), "")
+    shubetsu = shubetsu_map.get((shubetsu_code or "").strip(), "")
+    joken = joken_map.get((joken_code or "").strip(), "")
 
-    if syubetu and jyoken:
-        return f"{syubetu}{jyoken}"
-    elif jyoken:
-        return jyoken
-    elif syubetu:
-        return syubetu
+    if shubetsu and joken:
+        return f"{shubetsu}{joken}"
+    elif joken:
+        return joken
+    elif shubetsu:
+        return shubetsu
     else:
         return ""
 
@@ -489,8 +486,8 @@ def _to_race_dict(row: dict) -> dict:
     # 本題が空の場合は種別・条件コードから生成
     if not race_name:
         race_name = _build_race_name_from_codes(
-            row.get("syubetu_code", ""),
-            row.get("jyoken_code_1", ""),
+            row.get("kyoso_shubetsu_code", ""),
+            row.get("kyoso_joken_code", ""),
         )
 
     full_race_name = f"{race_name} {subtitle}".strip() if subtitle else race_name
