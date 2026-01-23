@@ -2,8 +2,12 @@
 from datetime import datetime
 
 from ..entities import CartItem
-from ..ports import AIClient, BetFeedbackContext, RaceDataProvider, WeightData
+from ..ports import AIClient, BetFeedbackContext, PedigreeData, RaceDataProvider, WeightData
 from ..value_objects import AmountFeedback, DataFeedback, HorseDataSummary, Money
+
+# 馬体重傾向判定の定数
+WEIGHT_HISTORY_LIMIT = 5  # 傾向判定に使用する直近レース数
+WEIGHT_TREND_THRESHOLD = 2  # この値(kg)を超えると増加/減少傾向と判定
 
 
 class FeedbackGenerator:
@@ -25,12 +29,29 @@ class FeedbackGenerator:
         feedbacks = []
 
         for item in cart_items:
-            # レースと出走馬の情報を取得
+            # レース情報を取得（ループ外で1回だけ）
+            race_data = self._race_data_provider.get_race(item.race_id)
+            course = f"{race_data.venue}" if race_data else ""
+
+            # 出走馬情報を取得
             runners = self._race_data_provider.get_runners(item.race_id)
             selected_numbers = item.get_selected_numbers().to_list()
 
             # レースの馬体重情報を取得（馬番 -> WeightData）
             race_weights = self._race_data_provider.get_race_weights(item.race_id)
+
+            # 選択馬のhorse_idを収集してバッチ取得の準備
+            selected_runners = [r for r in runners if r.horse_number in selected_numbers]
+            horse_ids = [r.horse_id for r in selected_runners]
+
+            # 血統情報をバッチ取得（現状APIが個別取得のみ対応のため、一括で取得してキャッシュ）
+            pedigree_cache: dict[str, PedigreeData | None] = {}
+            weight_history_cache: dict[str, list[WeightData]] = {}
+            for horse_id in horse_ids:
+                pedigree_cache[horse_id] = self._race_data_provider.get_pedigree(horse_id)
+                weight_history_cache[horse_id] = self._race_data_provider.get_weight_history(
+                    horse_id, limit=WEIGHT_HISTORY_LIMIT
+                )
 
             horse_summaries = []
             horse_names = []
@@ -39,58 +60,53 @@ class FeedbackGenerator:
             track_suitability = []
             current_odds = []
 
-            for runner in runners:
-                if runner.horse_number in selected_numbers:
-                    # 過去成績を取得
-                    past_perf = self._race_data_provider.get_past_performance(
-                        runner.horse_id
-                    )
-                    recent = self._format_recent_results(past_perf[:5]) if past_perf else "データなし"
+            for runner in selected_runners:
+                # 過去成績を取得
+                past_perf = self._race_data_provider.get_past_performance(
+                    runner.horse_id
+                )
+                recent = self._format_recent_results(past_perf[:5]) if past_perf else "データなし"
 
-                    # 騎手成績を取得
-                    race_data = self._race_data_provider.get_race(item.race_id)
-                    course = f"{race_data.venue}" if race_data else ""
-                    jockey_data = self._race_data_provider.get_jockey_stats(
-                        runner.jockey_id, course
-                    )
-                    jockey_stat = (
-                        f"勝率{jockey_data.win_rate*100:.1f}%"
-                        if jockey_data
-                        else "データなし"
-                    )
+                # 騎手成績を取得
+                jockey_data = self._race_data_provider.get_jockey_stats(
+                    runner.jockey_id, course
+                )
+                jockey_stat = (
+                    f"勝率{jockey_data.win_rate*100:.1f}%"
+                    if jockey_data
+                    else "データなし"
+                )
 
-                    # 血統情報を取得
-                    pedigree_data = self._race_data_provider.get_pedigree(runner.horse_id)
-                    pedigree = self._format_pedigree(pedigree_data) if pedigree_data else None
+                # 血統情報を取得（キャッシュから）
+                pedigree_data = pedigree_cache.get(runner.horse_id)
+                pedigree = self._format_pedigree(pedigree_data)
 
-                    # 馬体重を取得
-                    weight_data = race_weights.get(runner.horse_number)
-                    weight_current = weight_data.weight if weight_data else None
+                # 馬体重を取得
+                weight_data = race_weights.get(runner.horse_number)
+                weight_current = weight_data.weight if weight_data else None
 
-                    # 馬体重の傾向を取得
-                    weight_history = self._race_data_provider.get_weight_history(
-                        runner.horse_id, limit=5
-                    )
-                    weight_trend = self._calculate_weight_trend(weight_history)
+                # 馬体重の傾向を取得（キャッシュから）
+                weight_history = weight_history_cache.get(runner.horse_id, [])
+                weight_trend = self._calculate_weight_trend(weight_history)
 
-                    summary = HorseDataSummary(
-                        horse_number=runner.horse_number,
-                        horse_name=runner.horse_name,
-                        recent_results=recent,
-                        jockey_stats=jockey_stat,
-                        track_suitability="",  # AIが生成
-                        current_odds=runner.odds,
-                        popularity=runner.popularity,
-                        pedigree=pedigree,
-                        weight_trend=weight_trend,
-                        weight_current=weight_current,
-                    )
-                    horse_summaries.append(summary)
-                    horse_names.append(runner.horse_name)
-                    recent_results.append(recent)
-                    jockey_stats.append(jockey_stat)
-                    track_suitability.append("")
-                    current_odds.append(runner.odds)
+                summary = HorseDataSummary(
+                    horse_number=runner.horse_number,
+                    horse_name=runner.horse_name,
+                    recent_results=recent,
+                    jockey_stats=jockey_stat,
+                    track_suitability="",  # AIが生成
+                    current_odds=runner.odds,
+                    popularity=runner.popularity,
+                    pedigree=pedigree,
+                    weight_trend=weight_trend,
+                    weight_current=weight_current,
+                )
+                horse_summaries.append(summary)
+                horse_names.append(runner.horse_name)
+                recent_results.append(recent)
+                jockey_stats.append(jockey_stat)
+                track_suitability.append("")
+                current_odds.append(runner.odds)
 
             # AIでフィードバックコメントを生成
             context = BetFeedbackContext(
@@ -134,7 +150,7 @@ class FeedbackGenerator:
         positions = [str(p.finish_position) for p in performances]
         return "-".join(positions)
 
-    def _format_pedigree(self, pedigree_data) -> str | None:
+    def _format_pedigree(self, pedigree_data: PedigreeData | None) -> str | None:
         """血統情報を "父:〇〇 母父:△△" 形式にフォーマットする."""
         if not pedigree_data:
             return None
@@ -166,9 +182,9 @@ class FeedbackGenerator:
         total_diff = sum(w.weight_diff for w in weight_history)
         avg_diff = total_diff / len(weight_history)
 
-        if avg_diff > 2:
+        if avg_diff > WEIGHT_TREND_THRESHOLD:
             return "増加傾向"
-        elif avg_diff < -2:
+        elif avg_diff < -WEIGHT_TREND_THRESHOLD:
             return "減少傾向"
         else:
             return "安定"
