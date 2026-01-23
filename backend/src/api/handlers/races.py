@@ -109,8 +109,12 @@ def get_race_detail(event: dict, context: Any) -> dict:
         "is_obstacle": result.race.is_obstacle,
     }
 
-    runners = [
-        {
+    # 馬体重情報を取得
+    race_weights = provider.get_race_weights(RaceId(race_id_str))
+
+    runners = []
+    for r in result.runners:
+        runner_dict = {
             "horse_number": r.horse_number,
             "waku_ban": r.waku_ban,
             "horse_name": r.horse_name,
@@ -118,7 +122,11 @@ def get_race_detail(event: dict, context: Any) -> dict:
             "odds": r.odds,
             "popularity": r.popularity,
         }
-        for r in result.runners
-    ]
+        # 馬体重を追加（存在する場合）
+        weight_data = race_weights.get(r.horse_number)
+        if weight_data:
+            runner_dict["weight"] = weight_data.weight
+            runner_dict["weight_diff"] = weight_data.weight_diff
+        runners.append(runner_dict)
 
     return success_response({"race": race, "runners": runners})
