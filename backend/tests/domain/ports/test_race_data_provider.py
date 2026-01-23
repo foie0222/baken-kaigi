@@ -5,7 +5,9 @@ import pytest
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    PastRaceStats,
     PedigreeData,
+    PopularityStats,
     RaceData,
     RaceDataProvider,
     RunnerData,
@@ -106,6 +108,33 @@ class MockRaceDataProvider(RaceDataProvider):
         if to_date:
             dates = [d for d in dates if d <= to_date]
         return sorted(dates, reverse=True)
+
+    def get_past_race_stats(
+        self,
+        track_type: str,
+        distance: int,
+        grade_class: str | None = None,
+        limit: int = 100
+    ) -> PastRaceStats | None:
+        """過去の同条件レース統計を取得する（モック実装）."""
+        return PastRaceStats(
+            total_races=limit,
+            popularity_stats=[
+                PopularityStats(
+                    popularity=1,
+                    total_runs=100,
+                    wins=33,
+                    places=60,
+                    win_rate=33.0,
+                    place_rate=60.0,
+                ),
+            ],
+            avg_win_payout=350.0,
+            avg_place_payout=150.0,
+            track_type=track_type,
+            distance=distance,
+            grade_class=grade_class,
+        )
 
 
 class TestRaceDataProviderInterface:

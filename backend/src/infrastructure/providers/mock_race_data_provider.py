@@ -5,8 +5,10 @@ from datetime import date, datetime, timedelta
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     JockeyStatsData,
+    PastRaceStats,
     PedigreeData,
     PerformanceData,
+    PopularityStats,
     RaceData,
     RaceDataProvider,
     RunnerData,
@@ -470,6 +472,44 @@ class MockRaceDataProvider(RaceDataProvider):
             dates = [d for d in dates if d <= to_date]
 
         return sorted(dates, reverse=True)
+
+    def get_past_race_stats(
+        self,
+        track_type: str,
+        distance: int,
+        grade_class: str | None = None,
+        limit: int = 100
+    ) -> PastRaceStats | None:
+        """過去の同条件レース統計を取得する（モック実装）."""
+        import random
+
+        random.seed(_stable_hash(f"{track_type}_{distance}_{grade_class}") % (2**32))
+
+        # モックデータを生成
+        popularity_stats = []
+        for pop in range(1, 19):
+            total_runs = random.randint(50, 100)
+            wins = int(total_runs * (0.35 - pop * 0.02) if pop <= 5 else total_runs * 0.02)
+            places = int(total_runs * (0.60 - pop * 0.03) if pop <= 10 else total_runs * 0.10)
+
+            popularity_stats.append(PopularityStats(
+                popularity=pop,
+                total_runs=total_runs,
+                wins=max(wins, 0),
+                places=max(places, 0),
+                win_rate=round(max(wins, 0) / total_runs * 100, 1) if total_runs > 0 else 0,
+                place_rate=round(max(places, 0) / total_runs * 100, 1) if total_runs > 0 else 0,
+            ))
+
+        return PastRaceStats(
+            total_races=limit,
+            popularity_stats=popularity_stats,
+            avg_win_payout=random.uniform(300, 500),
+            avg_place_payout=random.uniform(150, 250),
+            track_type=track_type,
+            distance=distance,
+            grade_class=grade_class,
+        )
 
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int

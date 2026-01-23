@@ -132,6 +132,25 @@ class JraChecksumSaveRequest(BaseModel):
     base_value: int             # 1日目1Rのbase値
 
 
+class PopularityStatResponse(BaseModel):
+    """人気別統計レスポンス."""
+    popularity: int
+    total_runs: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+
+
+class PastStatsResponse(BaseModel):
+    """過去統計レスポンス."""
+    total_races: int
+    popularity_stats: list[PopularityStatResponse]
+    avg_win_payout: float | None
+    avg_place_payout: float | None
+    conditions: dict
+
+
 # ========================================
 # エンドポイント
 # ========================================
@@ -395,6 +414,48 @@ def save_jra_checksum(request: JraChecksumSaveRequest):
         request.base_value,
     )
     return {"status": "ok"}
+
+
+@app.get("/statistics/past-races", response_model=PastStatsResponse)
+def get_past_race_stats(
+    track_code: str = Query(..., description='トラックコード（"1": 芝コース, "2": ダートコース, "3": 障害コース）'),
+    distance: int = Query(..., description="距離（メートル）"),
+    grade_code: str | None = Query(None, description="グレードコード"),
+    limit: int = Query(100, ge=10, le=500, description="集計対象レース数"),
+):
+    """過去の同コース・同距離のレース統計を取得."""
+    try:
+        stats = db.get_past_race_statistics(
+            track_code=track_code,
+            distance=distance,
+            grade_code=grade_code,
+            limit_races=limit
+        )
+
+        if not stats:
+            raise HTTPException(
+                status_code=404,
+                detail="統計データが見つかりませんでした"
+            )
+
+        return PastStatsResponse(
+            total_races=stats["total_races"],
+            popularity_stats=[
+                PopularityStatResponse(**stat)
+                for stat in stats["popularity_stats"]
+            ],
+            avg_win_payout=stats["avg_win_payout"],
+            avg_place_payout=stats["avg_place_payout"],
+            conditions=stats["conditions"],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get past statistics")
+        raise HTTPException(
+            status_code=500,
+            detail="統計データの取得に失敗しました"
+        )
 
 
 if __name__ == "__main__":
