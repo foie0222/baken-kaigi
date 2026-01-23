@@ -86,7 +86,8 @@ def get_race_detail(event: dict, context: Any) -> dict:
     # ユースケース実行
     provider = Dependencies.get_race_data_provider()
     use_case = GetRaceDetailUseCase(provider)
-    result = use_case.execute(RaceId(race_id_str))
+    race_id = RaceId(race_id_str)
+    result = use_case.execute(race_id)
 
     if result is None:
         return not_found_response("Race")
@@ -110,7 +111,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
     }
 
     # 馬体重情報を取得
-    race_weights = provider.get_race_weights(RaceId(race_id_str))
+    race_weights = provider.get_race_weights(race_id)
 
     runners = []
     for r in result.runners:

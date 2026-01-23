@@ -210,6 +210,56 @@ describe('mapApiRaceDetailToRaceDetail', () => {
     expect(typeof detail.horses[0].odds).toBe('number')
     expect(detail.horses[0].odds).toBe(3.5)
   })
+
+  it('馬体重データが存在する場合、正しく変換される', () => {
+    const runnersWithWeight: ApiRunner[] = [
+      {
+        horse_number: 1,
+        waku_ban: 1,
+        horse_name: 'テストホース1',
+        jockey_name: 'テストジョッキー1',
+        odds: '3.5',
+        popularity: 1,
+        weight: 480,
+        weight_diff: 4,
+      },
+      {
+        horse_number: 2,
+        waku_ban: 2,
+        horse_name: 'テストホース2',
+        jockey_name: 'テストジョッキー2',
+        odds: '8.0',
+        popularity: 3,
+        weight: 456,
+        weight_diff: -2,
+      },
+    ]
+
+    const detail = mapApiRaceDetailToRaceDetail(mockApiRace, runnersWithWeight)
+
+    expect(detail.horses[0].weight).toBe(480)
+    expect(detail.horses[0].weightDiff).toBe(4)
+    expect(detail.horses[1].weight).toBe(456)
+    expect(detail.horses[1].weightDiff).toBe(-2)
+  })
+
+  it('馬体重データが存在しない場合、undefined として扱われる', () => {
+    const runnersWithoutWeight: ApiRunner[] = [
+      {
+        horse_number: 1,
+        waku_ban: 1,
+        horse_name: 'テストホース1',
+        jockey_name: 'テストジョッキー1',
+        odds: '3.5',
+        popularity: 1,
+      },
+    ]
+
+    const detail = mapApiRaceDetailToRaceDetail(mockApiRace, runnersWithoutWeight)
+
+    expect(detail.horses[0].weight).toBeUndefined()
+    expect(detail.horses[0].weightDiff).toBeUndefined()
+  })
 })
 
 describe('BetTypeLabels', () => {
