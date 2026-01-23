@@ -183,6 +183,9 @@ class JraVanRaceDataProvider(RaceDataProvider):
             grade_class=data.get("grade_class", ""),
             age_condition=data.get("age_condition", ""),
             is_obstacle=data.get("is_obstacle", False),
+            # JRA出馬表URL生成用
+            kaisai_kai=data.get("kaisai_kai", ""),
+            kaisai_nichime=data.get("kaisai_nichime", ""),
         )
 
     def _to_runner_data(self, data: dict) -> RunnerData:

@@ -55,6 +55,9 @@ def get_races(event: dict, context: Any) -> dict:
             "grade_class": r.grade_class,
             "age_condition": r.age_condition,
             "is_obstacle": r.is_obstacle,
+            # JRA出馬表URL生成用
+            "kaisai_kai": r.kaisai_kai,
+            "kaisai_nichime": r.kaisai_nichime,
         }
         for r in result.races
     ]
@@ -108,6 +111,9 @@ def get_race_detail(event: dict, context: Any) -> dict:
         "grade_class": result.race.grade_class,
         "age_condition": result.race.age_condition,
         "is_obstacle": result.race.is_obstacle,
+        # JRA出馬表URL生成用
+        "kaisai_kai": result.race.kaisai_kai,
+        "kaisai_nichime": result.race.kaisai_nichime,
     }
 
     # 馬体重情報を取得

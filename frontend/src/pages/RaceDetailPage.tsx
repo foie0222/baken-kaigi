@@ -8,6 +8,35 @@ import { apiClient } from '../api/client';
 
 const betTypes: BetType[] = ['win', 'place', 'quinella', 'quinella_place', 'exacta', 'trio', 'trifecta'];
 
+/**
+ * JRA公式出馬表URLを生成する
+ * URL形式: https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde{kaisai_kai}{venue}{year}{kaisai_nichime}{race_number}{kaisai_nichime}{date}/F3
+ */
+function buildJraShutsubaUrl(race: RaceDetail): string | null {
+  // 必要なフィールドがない場合はnullを返す
+  if (!race.kaisaiKai || !race.kaisaiNichime) {
+    return null;
+  }
+
+  // race.id から日付を取得（形式: YYYYMMDD_XX_RR）
+  const datePart = race.id.split('_')[0]; // "20260124"
+  const year = datePart.slice(0, 4);      // "2026"
+
+  // race.number から数字部分を取得（形式: "8R" → "08"）
+  const raceNum = race.number.replace('R', '').padStart(2, '0');
+
+  // 競馬場コード（venue）
+  const venue = race.venue.padStart(2, '0');
+
+  // kaisai_kai, kaisai_nichime（2桁にパディング）
+  const kaisaiKai = race.kaisaiKai.padStart(2, '0');
+  const kaisaiNichime = race.kaisaiNichime.padStart(2, '0');
+
+  // URL組み立て
+  const cname = `pw01dde${kaisaiKai}${venue}${year}${kaisaiNichime}${raceNum}${kaisaiNichime}${datePart}`;
+  return `https://www.jra.go.jp/JRADB/accessD.html?CNAME=${cname}/F3`;
+}
+
 export function RaceDetailPage() {
   const { raceId } = useParams<{ raceId: string }>();
   const navigate = useNavigate();
@@ -114,12 +143,12 @@ export function RaceDetailPage() {
         <div className="race-header-top">
           <span className="race-number">{race.venue} {race.number}</span>
           <a
-            href={`https://www.jra.go.jp/keiba/`}
+            href={buildJraShutsubaUrl(race) || 'https://www.jra.go.jp/keiba/'}
             target="_blank"
             rel="noopener noreferrer"
             className="jra-link-btn"
           >
-            JRA公式で見る →
+            JRA出馬表 →
           </a>
         </div>
         <div className="race-name">{race.name}</div>

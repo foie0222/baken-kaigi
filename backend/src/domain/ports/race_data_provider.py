@@ -24,6 +24,9 @@ class RaceData:
     grade_class: str = ""  # クラス（新馬、未勝利、1勝、2勝、3勝、OP、L、G3、G2、G1）
     age_condition: str = ""  # 年齢条件（3歳、4歳以上など）
     is_obstacle: bool = False  # 障害レース
+    # JRA出馬表URL生成用
+    kaisai_kai: str = ""  # 回次（01, 02など）
+    kaisai_nichime: str = ""  # 日目（01, 02など）
 
 
 @dataclass(frozen=True)

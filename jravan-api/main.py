@@ -69,6 +69,9 @@ class RaceResponse(BaseModel):
     grade_class: str = ""      # クラス（新馬、未勝利、1勝、G3など）
     age_condition: str = ""    # 年齢条件（3歳、4歳以上など）
     is_obstacle: bool = False  # 障害レース
+    # JRA出馬表URL生成用
+    kaisai_kai: str = ""       # 回次（01, 02など）
+    kaisai_nichime: str = ""   # 日目（01, 02など）
 
 
 class RunnerResponse(BaseModel):
@@ -189,6 +192,9 @@ def get_races(
             grade_class=r.get("grade_class") or "",
             age_condition=r.get("age_condition") or "",
             is_obstacle=r.get("is_obstacle", False),
+            # JRA出馬表URL生成用
+            kaisai_kai=r.get("kaisai_kai") or "",
+            kaisai_nichime=r.get("kaisai_nichime") or "",
         ))
 
     return result
@@ -234,6 +240,9 @@ def get_race(race_id: str):
         grade_class=race.get("grade_class") or "",
         age_condition=race.get("age_condition") or "",
         is_obstacle=race.get("is_obstacle", False),
+        # JRA出馬表URL生成用
+        kaisai_kai=race.get("kaisai_kai") or "",
+        kaisai_nichime=race.get("kaisai_nichime") or "",
     )
 
 

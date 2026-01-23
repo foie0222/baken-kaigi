@@ -182,7 +182,9 @@ def get_races_by_date(date: str) -> list[dict]:
                 hasso_jikoku,
                 shusso_tosu,
                 kyoso_shubetsu_code,
-                kyoso_joken_code
+                kyoso_joken_code,
+                kaisai_kai,
+                kaisai_nichime
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
             ORDER BY keibajo_code, race_bango::integer
@@ -220,7 +222,9 @@ def get_race_by_id(race_id: str) -> dict | None:
                 hasso_jikoku,
                 shusso_tosu,
                 kyoso_shubetsu_code,
-                kyoso_joken_code
+                kyoso_joken_code,
+                kaisai_kai,
+                kaisai_nichime
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
@@ -540,6 +544,10 @@ def _to_race_dict(row: dict) -> dict:
     except (ValueError, TypeError):
         distance = 0
 
+    # 回次・日目（JRA出馬表URL生成用）
+    kaisai_kai = (row.get("kaisai_kai", "") or "").strip()
+    kaisai_nichime = (row.get("kaisai_nichime", "") or "").strip()
+
     return {
         "race_id": race_id,
         "race_date": f"{kaisai_nen}{kaisai_tsukihi}",
@@ -556,6 +564,9 @@ def _to_race_dict(row: dict) -> dict:
         "grade_class": grade_class,       # クラス（新馬、未勝利、1勝、G3など）
         "age_condition": age_condition,   # 年齢条件（3歳、4歳以上など）
         "is_obstacle": is_obstacle,       # 障害レース
+        # JRA出馬表URL生成用
+        "kaisai_kai": kaisai_kai,         # 回次（01, 02など）
+        "kaisai_nichime": kaisai_nichime, # 日目（01, 02など）
     }
 
 
