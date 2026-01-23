@@ -370,8 +370,8 @@ main {
 }
 
 .grade-badge.g1 {
-    background: linear-gradient(135deg, #d4af37, #f4d03f);
-    color: #1a1a1a;
+    background: linear-gradient(135deg, #1a5fb4, #3584e4);
+    color: white;
 }
 
 .grade-badge.g2 {
@@ -380,7 +380,7 @@ main {
 }
 
 .grade-badge.g3 {
-    background: linear-gradient(135deg, #2980b9, #3498db);
+    background: linear-gradient(135deg, #26a269, #33d17a);
     color: white;
 }
 
