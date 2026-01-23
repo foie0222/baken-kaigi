@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.infrastructure.providers.jravan_race_data_provider import (
     JraVanRaceDataProvider,
 )

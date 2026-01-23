@@ -402,6 +402,11 @@ class JraVanRaceDataProvider(RaceDataProvider):
 
     def _to_past_stats_data(self, data: dict) -> PastRaceStats:
         """APIレスポンスをPastRaceStatsに変換する."""
+        # track_codeを日本語表記に変換
+        track_code = data["conditions"]["track_code"]
+        track_type_map = {"1": "芝", "2": "ダート", "3": "障害"}
+        track_type = track_type_map.get(track_code, track_code)
+
         return PastRaceStats(
             total_races=data["total_races"],
             popularity_stats=[
@@ -417,7 +422,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             ],
             avg_win_payout=data.get("avg_win_payout"),
             avg_place_payout=data.get("avg_place_payout"),
-            track_type=data["conditions"]["track_code"],
+            track_type=track_type,
             distance=data["conditions"]["distance"],
             grade_class=data["conditions"].get("grade_code"),
         )

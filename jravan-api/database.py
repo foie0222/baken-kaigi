@@ -786,7 +786,7 @@ def get_past_race_statistics(
     """過去の同コース・同距離のレース統計を取得.
 
     Args:
-        track_code: トラックコード（01-04: 1x=芝, 2x=ダート）
+        track_code: トラックコード（"1": 芝コース, "2": ダートコース, "3": 障害コース。内部的には track_code LIKE '<code>%' でフィルタ）
         distance: 距離（メートル）
         grade_code: グレードコード（省略可）
         limit_races: 集計対象レース数
@@ -903,8 +903,8 @@ def get_past_race_statistics(
             return {
                 "total_races": total_races,
                 "popularity_stats": popularity_stats,
-                "avg_win_payout": None,  # TODO: jvd_hrテーブルから集計
-                "avg_place_payout": None,  # TODO: jvd_hrテーブルから集計
+                "avg_win_payout": None,
+                "avg_place_payout": None,
                 "conditions": {
                     "track_code": track_code,
                     "distance": distance,

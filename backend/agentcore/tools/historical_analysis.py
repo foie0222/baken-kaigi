@@ -16,6 +16,13 @@ JRAVAN_API_URL = os.environ.get(
     "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
 )
 
+# 定数定義
+DEFAULT_PAST_RACES_LIMIT = 100  # 集計対象レース数のデフォルト値
+API_TIMEOUT_SECONDS = 30  # API呼び出しのタイムアウト秒数
+TOP_POPULARITY_DISPLAY_COUNT = 5  # 表示する人気順位の上限
+SOLID_RACE_WIN_RATE_THRESHOLD = 35  # 堅いレースと判定する1番人気勝率の閾値
+UPSET_RACE_WIN_RATE_THRESHOLD = 20  # 荒れやすいレースと判定する1番人気勝率の閾値
+
 
 @tool
 def analyze_past_race_trends(
@@ -48,9 +55,9 @@ def analyze_past_race_trends(
                 "track_code": track_code,
                 "distance": distance,
                 "grade_code": grade_class if grade_class else None,
-                "limit": 100,
+                "limit": DEFAULT_PAST_RACES_LIMIT,
             },
-            timeout=30,
+            timeout=API_TIMEOUT_SECONDS,
         )
 
         if response.status_code == 404:
@@ -97,7 +104,7 @@ def analyze_past_race_trends(
                     "place_rate": f"{stat['place_rate']:.1f}%",
                     "sample_size": stat["total_runs"],
                 }
-                for stat in popularity_stats[:5]  # 上位5人気まで
+                for stat in popularity_stats[:TOP_POPULARITY_DISPLAY_COUNT]
             ],
         }
     except requests.RequestException as e:
@@ -127,9 +134,9 @@ def _analyze_race_tendency(first_pop_stats: dict | None) -> str:
     win_rate = first_pop_stats.get("win_rate", 0)
 
     # 1番人気勝率で判定
-    if win_rate >= 35:
+    if win_rate >= SOLID_RACE_WIN_RATE_THRESHOLD:
         return "堅いレース（1番人気が好走しやすい）"
-    elif win_rate <= 20:
+    elif win_rate <= UPSET_RACE_WIN_RATE_THRESHOLD:
         return "荒れやすいレース（人気薄が好走しやすい）"
     else:
         return "標準的なレース"

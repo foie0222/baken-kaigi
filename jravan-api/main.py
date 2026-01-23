@@ -418,7 +418,7 @@ def save_jra_checksum(request: JraChecksumSaveRequest):
 
 @app.get("/statistics/past-races", response_model=PastStatsResponse)
 def get_past_race_stats(
-    track_code: str = Query(..., description="トラックコード（01-04: 1x=芝, 2x=ダート）"),
+    track_code: str = Query(..., description='トラックコード（"1": 芝コース, "2": ダートコース, "3": 障害コース）'),
     distance: int = Query(..., description="距離（メートル）"),
     grade_code: str | None = Query(None, description="グレードコード"),
     limit: int = Query(100, ge=10, le=500, description="集計対象レース数"),
