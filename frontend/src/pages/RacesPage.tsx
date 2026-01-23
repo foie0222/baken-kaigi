@@ -1,9 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Race } from '../types';
+import type { Race, RaceGrade } from '../types';
 import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
 import { USE_MOCK, getMockRaces, getMockVenues } from '../../mock/races';
+
+// グレードバッジのCSSクラスを取得
+function getGradeBadgeClass(grade: RaceGrade | undefined): string {
+  if (!grade) return '';
+  switch (grade) {
+    case 'G1': return 'grade-badge g1';
+    case 'G2': return 'grade-badge g2';
+    case 'G3': return 'grade-badge g3';
+    case 'L': return 'grade-badge listed';
+    case 'OP': return 'grade-badge open';
+    default: return '';
+  }
+}
+
+// グレードバッジの表示テキストを取得
+function getGradeBadgeText(grade: RaceGrade | undefined): string {
+  if (!grade) return '';
+  switch (grade) {
+    case 'G1': return 'GⅠ';
+    case 'G2': return 'GⅡ';
+    case 'G3': return 'GⅢ';
+    case 'L': return 'L';
+    case 'OP': return 'OP';
+    default: return '';
+  }
+}
 
 // 日付ボタン生成（前週土日 + 次週土日）
 function generateDateButtons(): { label: string; date: string }[] {
@@ -157,39 +183,64 @@ export function RacesPage() {
         <div className="no-races">レースがありません</div>
       )}
 
-      {filteredRaces.map((race) => (
-        <div
-          key={race.id}
-          className="race-card-v2"
-          onClick={() => navigate(`/races/${encodeURIComponent(race.id)}`)}
-        >
-          <div className="race-card-left">
-            <div className="race-number-badge">{race.number}</div>
-            <div className="race-start-time">{race.time}</div>
-          </div>
-          <div className="race-card-center">
-            <div className="race-name-main">
-              {race.name || `第${race.number}レース`}
+      {filteredRaces.map((race) => {
+        const gradeBadgeClass = getGradeBadgeClass(race.gradeClass);
+        const gradeBadgeText = getGradeBadgeText(race.gradeClass);
+        const showGradeBadge = gradeBadgeClass && gradeBadgeText;
+
+        return (
+          <div
+            key={race.id}
+            className="race-card-v2"
+            onClick={() => navigate(`/races/${encodeURIComponent(race.id)}`)}
+          >
+            <div className="race-card-left">
+              <div className="race-number-badge">{race.number}</div>
+              <div className="race-start-time">{race.time}</div>
             </div>
-            {race.course && (
-              <div className="race-name-sub">{race.course}</div>
-            )}
+            <div className="race-card-center">
+              <div className="race-name-main">
+                {showGradeBadge && (
+                  <span className={gradeBadgeClass} style={{ marginRight: '6px' }}>
+                    {gradeBadgeText}
+                  </span>
+                )}
+                {race.name || `第${race.number}レース`}
+              </div>
+              <div className="race-conditions-row">
+                {race.isObstacle && (
+                  <span className="grade-badge obstacle">障害</span>
+                )}
+                {race.ageCondition && (
+                  <span className="condition-chip">{race.ageCondition}</span>
+                )}
+                {race.sexCondition === '牝' && (
+                  <span className="condition-chip female">牝馬限定</span>
+                )}
+                {race.weightType === 'ハンデ' && (
+                  <span className="condition-chip handicap">ハンデ</span>
+                )}
+                {race.gradeClass && !showGradeBadge && (
+                  <span className="condition-chip">{race.gradeClass}</span>
+                )}
+              </div>
+            </div>
+            <div className="race-card-right">
+              {race.trackType && (
+                <span className={`track-badge ${race.trackType === '芝' ? 'turf' : 'dirt'}`}>
+                  {race.trackType}
+                </span>
+              )}
+              {race.distance && (
+                <span className="distance-text">{race.distance.toLocaleString()}m</span>
+              )}
+              {race.horseCount && (
+                <span className="horse-count-text">{race.horseCount}頭</span>
+              )}
+            </div>
           </div>
-          <div className="race-card-right">
-            {race.trackType && (
-              <span className={`track-badge ${race.trackType === '芝' ? 'turf' : 'dirt'}`}>
-                {race.trackType}
-              </span>
-            )}
-            {race.distance && (
-              <span className="distance-text">{race.distance.toLocaleString()}m</span>
-            )}
-            {race.horseCount && (
-              <span className="horse-count-text">{race.horseCount}頭</span>
-            )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

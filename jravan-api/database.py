@@ -157,7 +157,9 @@ def get_races_by_date(date: str) -> list[dict]:
                 babajotai_code_shiba,
                 babajotai_code_dirt,
                 hasso_jikoku,
-                shusso_tosu
+                shusso_tosu,
+                kyoso_shubetsu_code,
+                kyoso_joken_code
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
             ORDER BY keibajo_code, race_bango::integer
@@ -193,7 +195,9 @@ def get_race_by_id(race_id: str) -> dict | None:
                 babajotai_code_shiba,
                 babajotai_code_dirt,
                 hasso_jikoku,
-                shusso_tosu
+                shusso_tosu,
+                kyoso_shubetsu_code,
+                kyoso_joken_code
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
@@ -408,6 +412,48 @@ def get_sync_status() -> dict:
         }
 
 
+def _build_race_name_from_codes(shubetsu_code: str, joken_code: str) -> str:
+    """競走種別コードと条件コードからレース名を生成する.
+
+    Args:
+        shubetsu_code: 競走種別コード（11=2歳, 12=3歳, 13=3歳以上, 14=4歳以上）
+        joken_code: 競走条件コード（701=新馬, 703=未勝利, 005=1勝クラス, etc）
+
+    Returns:
+        生成されたレース名（例: "3歳未勝利"）
+    """
+    # 競走種別コード（馬齢条件）のマッピング
+    shubetsu_map = {
+        "11": "2歳",
+        "12": "3歳",
+        "13": "3歳以上",
+        "14": "4歳以上",
+    }
+
+    # 競走条件コードのマッピング
+    joken_map = {
+        "701": "新馬",
+        "702": "未出走",
+        "703": "未勝利",
+        "005": "1勝クラス",
+        "010": "2勝クラス",
+        "016": "3勝クラス",
+        "999": "オープン",
+    }
+
+    shubetsu = shubetsu_map.get((shubetsu_code or "").strip(), "")
+    joken = joken_map.get((joken_code or "").strip(), "")
+
+    if shubetsu and joken:
+        return f"{shubetsu}{joken}"
+    elif joken:
+        return joken
+    elif shubetsu:
+        return shubetsu
+    else:
+        return ""
+
+
 def _to_race_dict(row: dict) -> dict:
     """jvd_ra の行をレース辞書に変換."""
     if not row:
@@ -436,6 +482,14 @@ def _to_race_dict(row: dict) -> dict:
     # レース名の組み立て
     race_name = (row.get("kyosomei_hondai", "") or "").strip()
     subtitle = (row.get("kyosomei_fukudai", "") or "").strip()
+
+    # 本題が空の場合は種別・条件コードから生成
+    if not race_name:
+        race_name = _build_race_name_from_codes(
+            row.get("kyoso_shubetsu_code", ""),
+            row.get("kyoso_joken_code", ""),
+        )
+
     full_race_name = f"{race_name} {subtitle}".strip() if subtitle else race_name
 
     # グレードコードの解釈
