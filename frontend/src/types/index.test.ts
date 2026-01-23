@@ -6,6 +6,7 @@ import {
   mapApiRaceDetailToRaceDetail,
   BetTypeLabels,
   BetTypeRequiredHorses,
+  toRaceGrade,
 } from './index'
 import type { ApiRace, ApiRunner } from './index'
 
@@ -71,6 +72,79 @@ describe('mapApiRaceToRace', () => {
 
     expect(mapApiRaceToRace(firstRace).number).toBe('1R')
     expect(mapApiRaceToRace(lastRace).number).toBe('12R')
+  })
+
+  it('条件フィールドが正しくマッピングされる', () => {
+    const raceWithConditions: ApiRace = {
+      ...mockApiRace,
+      grade_class: '未勝利',
+      age_condition: '3歳',
+      is_obstacle: false,
+    }
+
+    const race = mapApiRaceToRace(raceWithConditions)
+
+    expect(race.gradeClass).toBe('未勝利')
+    expect(race.ageCondition).toBe('3歳')
+    expect(race.isObstacle).toBe(false)
+  })
+
+  it('G1レースの条件フィールドが正しくマッピングされる', () => {
+    const g1Race: ApiRace = {
+      ...mockApiRace,
+      race_name: '日本ダービー',
+      grade_class: 'G1',
+      age_condition: '3歳',
+      is_obstacle: false,
+    }
+
+    const race = mapApiRaceToRace(g1Race)
+
+    expect(race.gradeClass).toBe('G1')
+    expect(race.ageCondition).toBe('3歳')
+    expect(race.isObstacle).toBe(false)
+  })
+
+  it('障害レースの場合 trackType は undefined になる', () => {
+    const obstacleRace: ApiRace = {
+      ...mockApiRace,
+      race_name: '障害オープン',
+      track_type: '障害',
+      grade_class: 'OP',
+      age_condition: '4歳以上',
+      is_obstacle: true,
+    }
+
+    const race = mapApiRaceToRace(obstacleRace)
+
+    expect(race.trackType).toBeUndefined()
+    expect(race.gradeClass).toBe('OP')
+    expect(race.ageCondition).toBe('4歳以上')
+    expect(race.isObstacle).toBe(true)
+  })
+
+  it('通常レースの場合 trackType はそのまま返される', () => {
+    const normalRace: ApiRace = {
+      ...mockApiRace,
+      track_type: '芝',
+      is_obstacle: false,
+    }
+
+    const race = mapApiRaceToRace(normalRace)
+
+    expect(race.trackType).toBe('芝')
+    expect(race.isObstacle).toBe(false)
+  })
+
+  it('不正な grade_class は undefined になる', () => {
+    const invalidGradeRace: ApiRace = {
+      ...mockApiRace,
+      grade_class: 'invalid_grade',
+    }
+
+    const race = mapApiRaceToRace(invalidGradeRace)
+
+    expect(race.gradeClass).toBeUndefined()
   })
 })
 
@@ -165,5 +239,35 @@ describe('BetTypeRequiredHorses', () => {
   it('三連複・三連単は3頭必要', () => {
     expect(BetTypeRequiredHorses.trio).toBe(3)
     expect(BetTypeRequiredHorses.trifecta).toBe(3)
+  })
+})
+
+describe('toRaceGrade', () => {
+  it('有効な RaceGrade 値を返す', () => {
+    expect(toRaceGrade('新馬')).toBe('新馬')
+    expect(toRaceGrade('未出走')).toBe('未出走')
+    expect(toRaceGrade('未勝利')).toBe('未勝利')
+    expect(toRaceGrade('1勝')).toBe('1勝')
+    expect(toRaceGrade('2勝')).toBe('2勝')
+    expect(toRaceGrade('3勝')).toBe('3勝')
+    expect(toRaceGrade('OP')).toBe('OP')
+    expect(toRaceGrade('L')).toBe('L')
+    expect(toRaceGrade('G3')).toBe('G3')
+    expect(toRaceGrade('G2')).toBe('G2')
+    expect(toRaceGrade('G1')).toBe('G1')
+  })
+
+  it('空文字は undefined を返す', () => {
+    expect(toRaceGrade('')).toBeUndefined()
+  })
+
+  it('不正な値は undefined を返す', () => {
+    expect(toRaceGrade('invalid')).toBeUndefined()
+    expect(toRaceGrade('オープン')).toBeUndefined() // OP以外は無効
+    expect(toRaceGrade('1勝クラス')).toBeUndefined() // 1勝以外は無効
+  })
+
+  it('undefined は undefined を返す', () => {
+    expect(toRaceGrade(undefined)).toBeUndefined()
   })
 })

@@ -179,6 +179,10 @@ class JraVanRaceDataProvider(RaceDataProvider):
             track_type=data.get("track_type", ""),
             distance=data.get("distance", 0),
             horse_count=data.get("horse_count", 0),
+            # 条件フィールド
+            grade_class=data.get("grade_class", ""),
+            age_condition=data.get("age_condition", ""),
+            is_obstacle=data.get("is_obstacle", False),
         )
 
     def _to_runner_data(self, data: dict) -> RunnerData:

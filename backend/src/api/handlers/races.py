@@ -51,6 +51,10 @@ def get_races(event: dict, context: Any) -> dict:
             "track_type": r.track_type,
             "distance": r.distance,
             "horse_count": r.horse_count,
+            # 条件フィールド
+            "grade_class": r.grade_class,
+            "age_condition": r.age_condition,
+            "is_obstacle": r.is_obstacle,
         }
         for r in result.races
     ]
@@ -99,6 +103,10 @@ def get_race_detail(event: dict, context: Any) -> dict:
         "track_type": result.race.track_type,
         "distance": result.race.distance,
         "horse_count": result.race.horse_count,
+        # 条件フィールド
+        "grade_class": result.race.grade_class,
+        "age_condition": result.race.age_condition,
+        "is_obstacle": result.race.is_obstacle,
     }
 
     runners = [

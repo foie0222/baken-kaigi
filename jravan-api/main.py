@@ -65,6 +65,10 @@ class RaceResponse(BaseModel):
     track_condition: str
     grade: str
     horse_count: int = 0
+    # 条件フィールド
+    grade_class: str = ""      # クラス（新馬、未勝利、1勝、G3など）
+    age_condition: str = ""    # 年齢条件（3歳、4歳以上など）
+    is_obstacle: bool = False  # 障害レース
 
 
 class RunnerResponse(BaseModel):
@@ -181,6 +185,10 @@ def get_races(
             track_condition=r["track_condition"] or "",
             grade=r["grade"] or "",
             horse_count=horse_counts.get(r["race_id"], 0),
+            # 条件フィールド
+            grade_class=r.get("grade_class") or "",
+            age_condition=r.get("age_condition") or "",
+            is_obstacle=r.get("is_obstacle", False),
         ))
 
     return result
@@ -222,6 +230,10 @@ def get_race(race_id: str):
         track_condition=race["track_condition"] or "",
         grade=race["grade"] or "",
         horse_count=horse_count,
+        # 条件フィールド
+        grade_class=race.get("grade_class") or "",
+        age_condition=race.get("age_condition") or "",
+        is_obstacle=race.get("is_obstacle", False),
     )
 
 

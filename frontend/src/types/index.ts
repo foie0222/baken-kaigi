@@ -44,6 +44,10 @@ export interface ApiRace {
   track_type?: string;
   distance?: number;
   horse_count?: number;
+  // 条件フィールド
+  grade_class?: string;
+  age_condition?: string;
+  is_obstacle?: boolean;
 }
 
 export interface ApiRunner {
@@ -67,7 +71,20 @@ export interface ApiRaceDetailResponse {
 }
 
 // レースクラス
-export type RaceGrade = '新馬' | '未勝利' | '1勝' | '2勝' | '3勝' | 'OP' | 'L' | 'G3' | 'G2' | 'G1';
+export type RaceGrade = '新馬' | '未出走' | '未勝利' | '1勝' | '2勝' | '3勝' | 'OP' | 'L' | 'G3' | 'G2' | 'G1';
+
+// RaceGrade の許容値セット（バリデーション用）
+const VALID_RACE_GRADES: ReadonlySet<string> = new Set([
+  '新馬', '未出走', '未勝利', '1勝', '2勝', '3勝', 'OP', 'L', 'G3', 'G2', 'G1'
+]);
+
+// 文字列を RaceGrade に安全に変換（不正値は undefined）
+export function toRaceGrade(value: string | undefined): RaceGrade | undefined {
+  if (!value || !VALID_RACE_GRADES.has(value)) {
+    return undefined;
+  }
+  return value as RaceGrade;
+}
 
 // 斤量条件
 export type WeightType = '定量' | '別定' | 'ハンデ' | '馬齢';
@@ -117,6 +134,10 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
   const hours = startTime.getHours().toString().padStart(2, '0');
   const minutes = startTime.getMinutes().toString().padStart(2, '0');
 
+  // 障害レースの場合は trackType を undefined にして表示用に正規化
+  // （フロントエンドでは芝/ダートのバッジ表示がされるため、障害は別扱い）
+  const trackType = apiRace.is_obstacle ? undefined : apiRace.track_type;
+
   return {
     id: apiRace.race_id,
     number: `${apiRace.race_number}R`,
@@ -126,9 +147,13 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
     condition: apiRace.track_condition,
     venue: apiRace.venue,
     date: apiRace.start_time.split('T')[0],
-    trackType: apiRace.track_type,
+    trackType,
     distance: apiRace.distance,
     horseCount: apiRace.horse_count,
+    // 条件フィールド（バリデーション付き）
+    gradeClass: toRaceGrade(apiRace.grade_class),
+    ageCondition: apiRace.age_condition,
+    isObstacle: apiRace.is_obstacle,
   };
 }
 

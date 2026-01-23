@@ -20,6 +20,10 @@ class RaceData:
     track_type: str = ""  # コース種別（芝/ダ/障）
     distance: int = 0  # 距離（メートル）
     horse_count: int = 0  # 出走頭数
+    # 条件フィールド
+    grade_class: str = ""  # クラス（新馬、未勝利、1勝、2勝、3勝、OP、L、G3、G2、G1）
+    age_condition: str = ""  # 年齢条件（3歳、4歳以上など）
+    is_obstacle: bool = False  # 障害レース
 
 
 @dataclass(frozen=True)
