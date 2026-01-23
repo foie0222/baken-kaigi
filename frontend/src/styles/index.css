@@ -351,6 +351,74 @@ main {
     color: #666;
 }
 
+/* Race Condition Tags */
+.race-conditions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.grade-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.grade-badge.g1 {
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    color: #1a1a1a;
+}
+
+.grade-badge.g2 {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    color: white;
+}
+
+.grade-badge.g3 {
+    background: linear-gradient(135deg, #2980b9, #3498db);
+    color: white;
+}
+
+.grade-badge.listed {
+    background: #9b59b6;
+    color: white;
+}
+
+.grade-badge.open {
+    background: #34495e;
+    color: white;
+}
+
+.grade-badge.obstacle {
+    background: #795548;
+    color: white;
+}
+
+.condition-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    background: #f0f0f0;
+    color: #666;
+}
+
+.condition-chip.female {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.condition-chip.handicap {
+    background: #fff3e0;
+    color: #e65100;
+}
+
 /* Race Detail */
 .back-btn {
     display: flex;
