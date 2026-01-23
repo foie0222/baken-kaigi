@@ -57,6 +57,8 @@ export interface ApiRunner {
   jockey_name: string;
   odds: string;
   popularity: number;
+  weight?: number;       // 馬体重(kg)
+  weight_diff?: number;  // 前走比増減
 }
 
 export interface ApiRacesResponse {
@@ -122,6 +124,8 @@ export interface Horse {
   popularity: number;
   color: string;
   textColor: string;
+  weight?: number;      // 馬体重(kg)
+  weightDiff?: number;  // 前走比増減
 }
 
 export interface RaceDetail extends Race {
@@ -176,6 +180,8 @@ export function mapApiRaceDetailToRaceDetail(
         popularity: runner.popularity,
         color: wakuColor.background,
         textColor: wakuColor.text,
+        weight: runner.weight,
+        weightDiff: runner.weight_diff,
       };
     }),
   };

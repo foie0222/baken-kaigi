@@ -86,7 +86,8 @@ def get_race_detail(event: dict, context: Any) -> dict:
     # ユースケース実行
     provider = Dependencies.get_race_data_provider()
     use_case = GetRaceDetailUseCase(provider)
-    result = use_case.execute(RaceId(race_id_str))
+    race_id = RaceId(race_id_str)
+    result = use_case.execute(race_id)
 
     if result is None:
         return not_found_response("Race")
@@ -109,8 +110,12 @@ def get_race_detail(event: dict, context: Any) -> dict:
         "is_obstacle": result.race.is_obstacle,
     }
 
-    runners = [
-        {
+    # 馬体重情報を取得
+    race_weights = provider.get_race_weights(race_id)
+
+    runners = []
+    for r in result.runners:
+        runner_dict = {
             "horse_number": r.horse_number,
             "waku_ban": r.waku_ban,
             "horse_name": r.horse_name,
@@ -118,7 +123,11 @@ def get_race_detail(event: dict, context: Any) -> dict:
             "odds": r.odds,
             "popularity": r.popularity,
         }
-        for r in result.runners
-    ]
+        # 馬体重を追加（存在する場合）
+        weight_data = race_weights.get(r.horse_number)
+        if weight_data:
+            runner_dict["weight"] = weight_data.weight
+            runner_dict["weight_diff"] = weight_data.weight_diff
+        runners.append(runner_dict)
 
     return success_response({"race": race, "runners": runners})

@@ -24,6 +24,7 @@ class MockRaceDataProvider(RaceDataProvider):
         self._races: dict[str, RaceData] = {}
         self._races_by_date: dict[date, list[RaceData]] = {}
         self._runners: dict[str, list[RunnerData]] = {}
+        self._race_weights: dict[str, dict[int, WeightData]] = {}
 
     def add_race(self, race: RaceData) -> None:
         self._races[race.race_id] = race
@@ -34,6 +35,9 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def add_runners(self, race_id: str, runners: list[RunnerData]) -> None:
         self._runners[race_id] = runners
+
+    def add_race_weights(self, race_id: str, weights: dict[int, WeightData]) -> None:
+        self._race_weights[race_id] = weights
 
     def get_race(self, race_id: RaceId) -> RaceData | None:
         return self._races.get(str(race_id))
@@ -62,7 +66,7 @@ class MockRaceDataProvider(RaceDataProvider):
         return []
 
     def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
-        return {}
+        return self._race_weights.get(str(race_id), {})
 
 
 @pytest.fixture(autouse=True)
@@ -439,3 +443,112 @@ class TestGetRaceDetailHandler:
         assert body["race"]["age_condition"] == "4歳以上"
         assert body["race"]["is_obstacle"] is True
         assert body["race"]["track_type"] == "障害"
+
+    def test_レース詳細に馬体重が含まれる(self) -> None:
+        """馬体重データが存在する場合、レスポンスにweight, weight_diffが含まれることを確認."""
+        from src.api.handlers.races import get_race_detail
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+            )
+        )
+        provider.add_runners(
+            "2024060111",
+            [
+                RunnerData(
+                    horse_number=1,
+                    horse_name="ダノンデサイル",
+                    horse_id="horse1",
+                    jockey_name="横山武史",
+                    jockey_id="jockey1",
+                    odds="3.5",
+                    popularity=1,
+                ),
+                RunnerData(
+                    horse_number=2,
+                    horse_name="レガレイラ",
+                    horse_id="horse2",
+                    jockey_name="北村宏司",
+                    jockey_id="jockey2",
+                    odds="5.0",
+                    popularity=2,
+                ),
+            ],
+        )
+        provider.add_race_weights(
+            "2024060111",
+            {
+                1: WeightData(weight=480, weight_diff=4),
+                2: WeightData(weight=456, weight_diff=-2),
+            },
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+
+        response = get_race_detail(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert len(body["runners"]) == 2
+
+        runner1 = body["runners"][0]
+        assert runner1["weight"] == 480
+        assert runner1["weight_diff"] == 4
+
+        runner2 = body["runners"][1]
+        assert runner2["weight"] == 456
+        assert runner2["weight_diff"] == -2
+
+    def test_馬体重データがない場合はweightフィールドが含まれない(self) -> None:
+        """馬体重データが存在しない場合、レスポンスにweightフィールドが含まれないことを確認."""
+        from src.api.handlers.races import get_race_detail
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+            )
+        )
+        provider.add_runners(
+            "2024060111",
+            [
+                RunnerData(
+                    horse_number=1,
+                    horse_name="ダノンデサイル",
+                    horse_id="horse1",
+                    jockey_name="横山武史",
+                    jockey_id="jockey1",
+                    odds="3.5",
+                    popularity=1,
+                ),
+            ],
+        )
+        # 馬体重データを設定しない
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+
+        response = get_race_detail(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert len(body["runners"]) == 1
+
+        runner = body["runners"][0]
+        assert "weight" not in runner
+        assert "weight_diff" not in runner
