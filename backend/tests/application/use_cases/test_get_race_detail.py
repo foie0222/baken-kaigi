@@ -56,6 +56,15 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_race_weights(self, race_id: RaceId) -> dict[int, WeightData]:
         return {}
 
+    def get_jra_checksum(
+        self,
+        venue_code: str,
+        kaisai_kai: str,
+        kaisai_nichime: int,
+        race_number: int,
+    ) -> int | None:
+        return None
+
 
 class TestGetRaceDetailUseCase:
     """GetRaceDetailUseCaseの単体テスト."""
