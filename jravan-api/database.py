@@ -846,14 +846,13 @@ def get_past_race_statistics(
 
             total_races = len(races)
 
-            # 人気別統計を集計（仮定: jvd_seに着順カラムがない場合は後で調整）
-            # 注: 着順カラム名は実際のスキーマ確認後に修正が必要
+            # 人気別統計を集計（kakutei_chakujun: 確定着順）
             stats_query = """
                 SELECT
                     se.tansho_ninkijun AS popularity,
                     COUNT(*) AS total_runs,
-                    0 AS wins,
-                    0 AS places
+                    SUM(CASE WHEN se.kakutei_chakujun = '1' THEN 1 ELSE 0 END) AS wins,
+                    SUM(CASE WHEN se.kakutei_chakujun IN ('1', '2', '3') THEN 1 ELSE 0 END) AS places
                 FROM jvd_se se
                 WHERE (se.kaisai_nen, se.kaisai_tsukihi, se.keibajo_code, se.race_bango) IN (
                     SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
