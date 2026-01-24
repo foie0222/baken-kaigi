@@ -87,12 +87,35 @@ export function CartPage() {
 
       {items.length > 0 ? (
         <>
+          {/* 今月の状況（モック - 将来的にはログイン時のみ表示） */}
+          <div className="spending-status">
+            <div className="spending-status-title">
+              <span>📊</span>
+              <span>今月の状況</span>
+            </div>
+            <div className="spending-status-row">
+              <span>使用済み</span>
+              <span>¥0</span>
+            </div>
+            <div className="spending-status-row">
+              <span>今回の購入</span>
+              <span>¥{totalAmount.toLocaleString()}</span>
+            </div>
+            <div className="spending-status-row highlight">
+              <span>残り許容負け額</span>
+              <span>ログインして設定</span>
+            </div>
+          </div>
+
           <button className="add-more-btn" onClick={() => navigate('/')}>
             ＋ 別のレースの買い目を追加
           </button>
-          <button className="ai-consult-btn" onClick={handleConsult}>
-            🤖 まとめてAIに相談する
+          <button className="btn-ai-confirm" onClick={handleConsult}>
+            AIと一緒に確認する →
           </button>
+          <p className="ai-guide-text">
+            ※ 購入前にAIが買い目を一緒に確認します
+          </p>
         </>
       ) : (
         <button

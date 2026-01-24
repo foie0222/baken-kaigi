@@ -356,20 +356,23 @@ export function RaceDetailPage() {
         )}
 
         <button
-          className="ai-consult-btn"
+          className="btn-add-cart-subtle"
           onClick={handleAddToCart}
           disabled={betCount === 0}
         >
-          🛒 カートに追加
+          カートに追加
         </button>
+        <p className="ai-guide-text">
+          ※ カートに追加後、AIと一緒に買い目を確認できます
+        </p>
 
         {itemCount > 0 && (
           <button
-            className="btn-secondary"
-            style={{ marginTop: 12, width: '100%' }}
+            className="btn-ai-confirm"
+            style={{ marginTop: 12 }}
             onClick={() => navigate('/cart')}
           >
-            カートを確認する（{itemCount}件）
+            AIと一緒に確認する（{itemCount}件） →
           </button>
         )}
       </div>
