@@ -1,0 +1,183 @@
+.horse-checkbox-list {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.horse-checkbox-list .horse-list-header {
+  display: grid;
+  padding: 10px 8px;
+  background: #f8f9fa;
+  font-size: 11px;
+  color: #888;
+  font-weight: 600;
+}
+
+.horse-checkbox-list .horse-item {
+  display: grid;
+  padding: 0;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  min-height: 52px;
+  position: relative;
+}
+
+.horse-checkbox-list .horse-item.selected {
+  background: #f0f9f1;
+}
+
+/* 列数に応じたグリッド設定 */
+.horse-checkbox-list.cols-1 .horse-list-header,
+.horse-checkbox-list.cols-1 .horse-item {
+  grid-template-columns: 40px 1fr 48px 44px;
+}
+
+.horse-checkbox-list.cols-2 .horse-list-header,
+.horse-checkbox-list.cols-2 .horse-item {
+  grid-template-columns: 40px 1fr 48px 76px;
+}
+
+.horse-checkbox-list.cols-3 .horse-list-header,
+.horse-checkbox-list.cols-3 .horse-item {
+  grid-template-columns: 40px 1fr 48px 108px;
+}
+
+.horse-checkbox-list .horse-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 auto;
+}
+
+.horse-checkbox-list .horse-info {
+  padding: 6px 4px;
+  overflow: hidden;
+}
+
+.horse-checkbox-list .horse-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.horse-checkbox-list .horse-jockey {
+  font-size: 10px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.horse-checkbox-list .horse-odds {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a5f2a;
+  text-align: right;
+  padding-right: 4px;
+}
+
+/* ヘッダーのチェックボックス列ラベル */
+.header-checkboxes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.header-checkbox-label {
+  width: 28px;
+  text-align: center;
+  font-size: 10px;
+  color: #666;
+  font-weight: 600;
+}
+
+.header-checkbox-label.col-1 { color: #e53935; }
+.header-checkbox-label.col-2 { color: #1e88e5; }
+.header-checkbox-label.col-3 { color: #43a047; }
+.header-checkbox-label.col-axis { color: #ff6b35; }
+.header-checkbox-label.col-partner { color: #1a5f2a; }
+
+/* チェックボックスエリア */
+.horse-checkboxes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.checkbox-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.checkbox-col input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.checkbox-col input[type="checkbox"]:checked {
+  background: #1a5f2a;
+  border-color: #1a5f2a;
+}
+
+.checkbox-col input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.checkbox-col input[type="checkbox"]:active {
+  transform: scale(0.95);
+}
+
+/* 列ごとの色分け */
+.checkbox-col.col-1 input[type="checkbox"]:checked {
+  background: #e53935;
+  border-color: #e53935;
+}
+.checkbox-col.col-2 input[type="checkbox"]:checked {
+  background: #1e88e5;
+  border-color: #1e88e5;
+}
+.checkbox-col.col-3 input[type="checkbox"]:checked {
+  background: #43a047;
+  border-color: #43a047;
+}
+
+/* 軸/相手 */
+.checkbox-col.col-axis input[type="checkbox"]:checked {
+  background: #ff6b35;
+  border-color: #ff6b35;
+}
+.checkbox-col.col-partner input[type="checkbox"]:checked {
+  background: #1a5f2a;
+  border-color: #1a5f2a;
+}
+
+/* 通常モードは単一チェック */
+.checkbox-col.col-single input[type="checkbox"]:checked {
+  background: #1a5f2a;
+  border-color: #1a5f2a;
+}
