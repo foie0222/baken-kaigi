@@ -153,6 +153,50 @@ describe('cartStore', () => {
     })
   })
 
+  describe('updateItemAmount', () => {
+    it('アイテムの金額を更新できる', () => {
+      useCartStore.getState().addItem(createMockCartItem({ amount: 1000 }))
+      const itemId = useCartStore.getState().items[0].id
+
+      useCartStore.getState().updateItemAmount(itemId, 2000)
+
+      const state = useCartStore.getState()
+      expect(state.items[0].amount).toBe(2000)
+    })
+
+    it('存在しないIDでは何も変更しない', () => {
+      useCartStore.getState().addItem(createMockCartItem({ amount: 1000 }))
+
+      useCartStore.getState().updateItemAmount('non_existent_id', 2000)
+
+      const state = useCartStore.getState()
+      expect(state.items[0].amount).toBe(1000)
+    })
+
+    it('特定のアイテムのみ金額が更新される', () => {
+      useCartStore.getState().addItem(createMockCartItem({ amount: 1000 }))
+      useCartStore.getState().addItem(createMockCartItem({ amount: 1500 }))
+      const itemId = useCartStore.getState().items[0].id
+
+      useCartStore.getState().updateItemAmount(itemId, 3000)
+
+      const state = useCartStore.getState()
+      expect(state.items[0].amount).toBe(3000)
+      expect(state.items[1].amount).toBe(1500)
+    })
+
+    it('合計金額も正しく再計算される', () => {
+      useCartStore.getState().addItem(createMockCartItem({ amount: 1000 }))
+      useCartStore.getState().addItem(createMockCartItem({ amount: 2000 }))
+      const itemId = useCartStore.getState().items[0].id
+
+      useCartStore.getState().updateItemAmount(itemId, 5000)
+
+      const total = useCartStore.getState().getTotalAmount()
+      expect(total).toBe(7000) // 5000 + 2000
+    })
+  })
+
   describe('様々な券種', () => {
     it('単勝を追加できる', () => {
       useCartStore.getState().addItem(

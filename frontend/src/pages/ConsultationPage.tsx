@@ -1,10 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels } from '../types';
 import { apiClient } from '../api/client';
+import { ConfirmModal } from '../components/common/ConfirmModal';
+import { BottomSheet } from '../components/common/BottomSheet';
+import {
+  calculateTrigaramiRisk,
+  getTrigaramiRiskLabel,
+} from '../utils/betAnalysis';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -13,21 +19,50 @@ interface ChatMessage {
 
 const quickReplies = ['過去の成績', '騎手', 'オッズ', '直感'];
 
+// アイテムごとの暫定オッズを生成（実際はAPIから取得予定）
+const generateMockOdds = (itemId: string): number => {
+  // itemIdをシードとして一貫した値を返す
+  const hash = itemId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return Number(((hash % 250) / 10 + 5).toFixed(1));
+};
+
 export function ConsultationPage() {
   const navigate = useNavigate();
-  const { items, getTotalAmount, clearCart } = useCartStore();
+  const { items, getTotalAmount, clearCart, removeItem, updateItemAmount } =
+    useCartStore();
   const showToast = useAppStore((state) => state.showToast);
   const totalAmount = getTotalAmount();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
-  const [isLoading, setIsLoading] = useState(true); // 初期状態をtrueに
+  const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | undefined>();
+
+  // 購入確認モーダル
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+
+  // 削除確認モーダル
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // 金額編集シート
+  const [editTarget, setEditTarget] = useState<{
+    id: string;
+    amount: number;
+  } | null>(null);
+  const [editAmount, setEditAmount] = useState(0);
+
+  // アイテムごとのオッズをメモ化
+  const itemOdds = useMemo(() => {
+    const odds: Record<string, number> = {};
+    items.forEach((item) => {
+      odds[item.id] = generateMockOdds(item.id);
+    });
+    return odds;
+  }, [items]);
 
   // 初回ロード時に AI からの初期分析を取得
   const fetchInitialAnalysis = useCallback(async () => {
     if (!apiClient.isAgentCoreAvailable()) {
-      // AgentCore が利用不可の場合はフォールバック
       setMessages([
         {
           type: 'ai',
@@ -55,7 +90,6 @@ export function ConsultationPage() {
         setMessages([{ type: 'ai', text: response.data.message }]);
         setSessionId(response.data.session_id);
       } else {
-        // エラー時はフォールバック
         setMessages([
           {
             type: 'ai',
@@ -84,7 +118,6 @@ export function ConsultationPage() {
     setShowQuickReplies(false);
 
     if (!apiClient.isAgentCoreAvailable()) {
-      // AgentCore が利用不可の場合はフォールバック
       setMessages((prev) => [
         ...prev,
         {
@@ -136,12 +169,48 @@ export function ConsultationPage() {
   };
 
   const handlePurchase = () => {
-    alert(
-      `${items.length}件の馬券を購入しました！\n\n合計: ¥${totalAmount.toLocaleString()}`
-    );
+    setShowPurchaseModal(true);
+  };
+
+  const confirmPurchase = () => {
+    setShowPurchaseModal(false);
     clearCart();
     showToast('購入が完了しました');
     navigate('/');
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    setDeleteTarget(itemId);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      removeItem(deleteTarget);
+      setDeleteTarget(null);
+      showToast('買い目を削除しました');
+
+      // 全て削除した場合はカートに戻る
+      if (items.length <= 1) {
+        navigate('/cart');
+      }
+    }
+  };
+
+  const handleEditAmount = (itemId: string, currentAmount: number) => {
+    setEditTarget({ id: itemId, amount: currentAmount });
+    setEditAmount(currentAmount);
+  };
+
+  const confirmEditAmount = () => {
+    if (editTarget && editAmount >= 100) {
+      updateItemAmount(editTarget.id, editAmount);
+      setEditTarget(null);
+      showToast('金額を変更しました');
+    }
+  };
+
+  const adjustEditAmount = (delta: number) => {
+    setEditAmount((prev) => Math.max(100, prev + delta));
   };
 
   // モックデータフィードバック生成
@@ -155,6 +224,11 @@ export function ConsultationPage() {
     ];
     return analyses[Math.floor(Math.random() * analyses.length)];
   };
+
+  // 削除対象のアイテム情報
+  const deleteTargetItem = deleteTarget
+    ? items.find((item) => item.id === deleteTarget)
+    : null;
 
   return (
     <div className="fade-in">
@@ -213,64 +287,145 @@ export function ConsultationPage() {
         <div className="data-feedback">
           <div className="feedback-title">📊 買い目データフィードバック</div>
 
-          {items.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                background: 'white',
-                border: '1px solid #e0e0e0',
-                borderRadius: 10,
-                marginBottom: 12,
-                overflow: 'hidden',
-              }}
-            >
+          {items.map((item) => {
+            const odds = itemOdds[item.id];
+            const betCount = item.horseNumbers.length;
+            const risk = calculateTrigaramiRisk(odds, betCount);
+            const riskLabel = getTrigaramiRiskLabel(risk);
+
+            return (
               <div
+                key={item.id}
                 style={{
-                  background: '#f8f8f8',
-                  padding: 12,
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                  alignItems: 'center',
-                  borderBottom: '1px solid #e0e0e0',
+                  background: 'white',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: 10,
+                  marginBottom: 12,
+                  overflow: 'hidden',
                 }}
               >
-                <span style={{ fontWeight: 700, color: '#1a5f2a' }}>
-                  {item.raceVenue} {item.raceNumber}
-                </span>
-                <span
+                <div
                   style={{
-                    background: '#1a5f2a',
-                    color: 'white',
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 600,
+                    background: '#f8f8f8',
+                    padding: 12,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    alignItems: 'center',
+                    borderBottom: '1px solid #e0e0e0',
                   }}
                 >
-                  {BetTypeLabels[item.betType]} {item.horseNumbers.join('-')}
-                </span>
-                <span style={{ marginLeft: 'auto', fontSize: 13, color: '#666' }}>
-                  予想オッズ {(Math.random() * 30 + 5).toFixed(1)}倍
-                </span>
-              </div>
-              {item.horseNumbers.map((num) => (
-                <div key={num} className="feedback-item" style={{ padding: '10px 12px' }}>
-                  <span className="feedback-label">{num}番</span>
-                  <span className="feedback-value">{generateMockFeedback()}</span>
+                  <span style={{ fontWeight: 700, color: '#1a5f2a' }}>
+                    {item.raceVenue} {item.raceNumber}
+                  </span>
+                  <span
+                    style={{
+                      background: '#1a5f2a',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {BetTypeLabels[item.betType]} {item.horseNumbers.join('-')}
+                  </span>
+                  <span
+                    className="risk-badge"
+                    style={{
+                      background: riskLabel.color,
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {riskLabel.label}
+                  </span>
+                  <span
+                    style={{ marginLeft: 'auto', fontSize: 13, color: '#666' }}
+                  >
+                    予想オッズ {odds}倍
+                  </span>
                 </div>
-              ))}
-              <div className="feedback-item" style={{ padding: '10px 12px' }}>
-                <span className="feedback-label">掛け金</span>
-                <span className="feedback-value">¥{item.amount.toLocaleString()}</span>
+                {item.horseNumbers.map((num) => (
+                  <div
+                    key={num}
+                    className="feedback-item"
+                    style={{ padding: '10px 12px' }}
+                  >
+                    <span className="feedback-label">{num}番</span>
+                    <span className="feedback-value">
+                      {generateMockFeedback()}
+                    </span>
+                  </div>
+                ))}
+                <div
+                  className="feedback-item"
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    <span className="feedback-label">掛け金</span>
+                    <span className="feedback-value">
+                      ¥{item.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="item-action-btn"
+                      onClick={() => handleEditAmount(item.id, item.amount)}
+                      style={{
+                        background: '#f5f5f5',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        color: '#666',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      金額変更
+                    </button>
+                    <button
+                      className="item-action-btn delete"
+                      onClick={() => handleDeleteItem(item.id)}
+                      style={{
+                        background: '#ffebee',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '6px 12px',
+                        fontSize: 12,
+                        color: '#d32f2f',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: '2px solid #e0e0e0' }}>
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 16,
+              borderTop: '2px solid #e0e0e0',
+            }}
+          >
             <div className="feedback-item" style={{ fontSize: 16 }}>
               <span className="feedback-label">合計掛け金</span>
-              <span className="feedback-value" style={{ fontSize: 18, color: '#1a5f2a' }}>
+              <span
+                className="feedback-value"
+                style={{ fontSize: 18, color: '#1a5f2a' }}
+              >
                 ¥{totalAmount.toLocaleString()}
               </span>
             </div>
@@ -278,7 +433,11 @@ export function ConsultationPage() {
         </div>
 
         <div className="action-buttons">
-          <button className="btn-primary" onClick={handlePurchase}>
+          <button
+            className="btn-primary"
+            onClick={handlePurchase}
+            disabled={items.length === 0}
+          >
             購入する
           </button>
           <button className="btn-secondary" onClick={() => navigate('/cart')}>
@@ -286,6 +445,185 @@ export function ConsultationPage() {
           </button>
         </div>
       </div>
+
+      {/* 購入確認モーダル */}
+      <ConfirmModal
+        isOpen={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        onConfirm={confirmPurchase}
+        title="購入確認"
+        confirmText="購入する"
+        cancelText="キャンセル"
+      >
+        <div className="purchase-summary">
+          <p style={{ marginBottom: 16 }}>
+            以下の内容で馬券を購入します。よろしいですか？
+          </p>
+          <div
+            style={{
+              background: '#f8f8f8',
+              padding: 16,
+              borderRadius: 8,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: 8,
+              }}
+            >
+              <span>買い目数</span>
+              <span style={{ fontWeight: 600 }}>{items.length}件</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: 18,
+                fontWeight: 700,
+                color: '#1a5f2a',
+              }}
+            >
+              <span>合計金額</span>
+              <span>¥{totalAmount.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </ConfirmModal>
+
+      {/* 削除確認モーダル */}
+      <ConfirmModal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="削除確認"
+        confirmText="削除する"
+        cancelText="キャンセル"
+        confirmVariant="danger"
+      >
+        <p>
+          {deleteTargetItem && (
+            <>
+              <strong>
+                {deleteTargetItem.raceVenue} {deleteTargetItem.raceNumber}
+              </strong>
+              <br />
+              {BetTypeLabels[deleteTargetItem.betType]}{' '}
+              {deleteTargetItem.horseNumbers.join('-')}
+              <br />
+              <br />
+            </>
+          )}
+          この買い目を削除しますか？
+        </p>
+      </ConfirmModal>
+
+      {/* 金額編集シート */}
+      <BottomSheet
+        isOpen={editTarget !== null}
+        onClose={() => setEditTarget(null)}
+        title="掛け金の変更"
+      >
+        <div style={{ padding: '8px 0' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 16,
+              marginBottom: 24,
+            }}
+          >
+            <button
+              onClick={() => adjustEditAmount(-100)}
+              disabled={editAmount <= 100}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                border: 'none',
+                background: editAmount <= 100 ? '#e0e0e0' : '#1a5f2a',
+                color: 'white',
+                fontSize: 24,
+                cursor: editAmount <= 100 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              −
+            </button>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 700,
+                minWidth: 150,
+                textAlign: 'center',
+              }}
+            >
+              ¥{editAmount.toLocaleString()}
+            </div>
+            <button
+              onClick={() => adjustEditAmount(100)}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                border: 'none',
+                background: '#1a5f2a',
+                color: 'white',
+                fontSize: 24,
+                cursor: 'pointer',
+              }}
+            >
+              +
+            </button>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              justifyContent: 'center',
+              marginBottom: 24,
+            }}
+          >
+            {[500, 1000, 5000, 10000].map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setEditAmount(amount)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 20,
+                  border:
+                    editAmount === amount
+                      ? '2px solid #1a5f2a'
+                      : '1px solid #ddd',
+                  background: editAmount === amount ? '#e8f5e9' : 'white',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                ¥{amount.toLocaleString()}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={confirmEditAmount}
+            style={{
+              width: '100%',
+              padding: 14,
+              borderRadius: 10,
+              border: 'none',
+              background: '#1a5f2a',
+              color: 'white',
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            変更を確定
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
