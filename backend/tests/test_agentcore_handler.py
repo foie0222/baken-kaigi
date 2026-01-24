@@ -87,6 +87,77 @@ class TestUnwrapNestedJson:
 class TestHandleResponse:
     """_handle_response 関数のテスト."""
 
+    def test_handle_streaming_body(self):
+        """StreamingBody を正しく読み取れる."""
+        from agentcore_handler import _handle_response
+
+        # StreamingBody をシミュレートするモック
+        mock_streaming_body = MagicMock()
+        mock_streaming_body.read.return_value = b'{"message": "streaming response", "session_id": "test-123"}'
+
+        response = {
+            "contentType": "application/json",
+            "response": mock_streaming_body,
+        }
+        result = _handle_response(response)
+
+        assert result["message"] == "streaming response"
+        assert result["session_id"] == "test-123"
+        mock_streaming_body.read.assert_called_once()
+        mock_streaming_body.close.assert_called_once()
+
+    def test_handle_streaming_body_with_nested_json(self):
+        """StreamingBody 内のネストされたJSONを展開できる."""
+        from agentcore_handler import _handle_response
+
+        inner = json.dumps({"message": "nested message", "session_id": "nested-456"})
+        outer = json.dumps({"message": inner})
+
+        mock_streaming_body = MagicMock()
+        mock_streaming_body.read.return_value = outer.encode("utf-8")
+
+        response = {
+            "contentType": "application/json",
+            "response": mock_streaming_body,
+        }
+        result = _handle_response(response)
+
+        assert result["message"] == "nested message"
+        assert result["session_id"] == "nested-456"
+
+    def test_handle_streaming_body_read_error(self):
+        """StreamingBody 読み取りエラー時はエラーメッセージを返す."""
+        from agentcore_handler import _handle_response
+
+        mock_streaming_body = MagicMock()
+        mock_streaming_body.read.side_effect = OSError("Connection reset")
+
+        response = {
+            "contentType": "application/json",
+            "response": mock_streaming_body,
+        }
+        result = _handle_response(response)
+
+        assert result["message"] == "応答を取得できませんでした"
+        mock_streaming_body.close.assert_called_once()
+
+    def test_handle_streaming_body_decode_error(self):
+        """StreamingBody デコードエラー時はエラーメッセージを返す."""
+        from agentcore_handler import _handle_response
+
+        mock_streaming_body = MagicMock()
+        # 不正なUTF-8バイト列
+        mock_streaming_body.read.return_value = b'\x80\x81\x82'
+
+        response = {
+            "contentType": "application/json",
+            "response": mock_streaming_body,
+        }
+        result = _handle_response(response)
+
+        assert result["message"] == "応答を取得できませんでした"
+        mock_streaming_body.close.assert_called_once()
+
     def test_handle_dict_event(self):
         """辞書イベントを処理できる."""
         from agentcore_handler import _handle_response

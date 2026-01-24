@@ -169,8 +169,12 @@ def _handle_response(response: dict) -> dict:
         try:
             raw_bytes = resp_obj.read()
             decoded_content = raw_bytes.decode("utf-8")
-        except Exception as e:
-            logger.error("StreamingBody read error: %s", e)
+        except (OSError, IOError, UnicodeDecodeError) as e:
+            logger.exception("StreamingBody read error: %s", e)
+        finally:
+            # HTTPコネクションをプールに戻すためクローズ
+            if hasattr(resp_obj, 'close'):
+                resp_obj.close()
 
     # EventStream の場合は iterate して収集
     elif resp_obj is not None:
