@@ -52,6 +52,7 @@ cd backend && pytest
 
 - `main` への直接 push 禁止
 - feature ブランチ → PR → レビュー対応 → マージ
+- `git worktree` で作業ディレクトリを分離して並行作業
 - 詳細: `.claude/docs/git-workflow.md`
 
 ## 動作確認
