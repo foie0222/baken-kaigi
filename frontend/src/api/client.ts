@@ -45,24 +45,30 @@ class ApiClient {
     this.apiKey = apiKey;
   }
 
+  /**
+   * 共通ヘッダーを生成する（API Key含む）
+   */
+  private createHeaders(additionalHeaders: HeadersInit = {}): HeadersInit {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(additionalHeaders as Record<string, string>),
+    };
+
+    if (this.apiKey) {
+      headers['x-api-key'] = this.apiKey;
+    }
+
+    return headers;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      };
-
-      // API Keyが設定されている場合は追加
-      if (this.apiKey) {
-        (headers as Record<string, string>)['x-api-key'] = this.apiKey;
-      }
-
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        headers,
+        headers: this.createHeaders(options.headers),
       });
 
       const data = await response.json();
@@ -220,18 +226,9 @@ class ApiClient {
     }
 
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-
-      // API Keyが設定されている場合は追加
-      if (this.apiKey) {
-        (headers as Record<string, string>)['x-api-key'] = this.apiKey;
-      }
-
       const response = await fetch(this.agentCoreEndpoint, {
         method: 'POST',
-        headers,
+        headers: this.createHeaders(),
         body: JSON.stringify(request),
       });
 

@@ -34,9 +34,10 @@ describe('ApiClient', () => {
   })
 
   // モジュールを動的にインポートしてApiClientを取得
-  async function getApiClient(baseUrl = 'http://localhost:3000', agentCoreEndpoint = '') {
+  async function getApiClient(baseUrl = 'http://localhost:3000', agentCoreEndpoint = '', apiKey = '') {
     vi.stubEnv('VITE_API_BASE_URL', baseUrl)
     vi.stubEnv('VITE_AGENTCORE_ENDPOINT', agentCoreEndpoint)
+    vi.stubEnv('VITE_API_KEY', apiKey)
 
     // モジュールキャッシュをクリアして再インポート
     const { apiClient } = await import('./client')
@@ -275,6 +276,73 @@ describe('ApiClient', () => {
       expect(race?.name).toBe('第1レース')
       expect(race?.time).toBe('15:30')
       expect(race?.condition).toBe('稍重')
+    })
+  })
+
+  describe('API Key認証', () => {
+    it('API Keyが設定されている場合、x-api-keyヘッダーが送信される', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          races: [mockApiRace],
+          venues: ['東京'],
+          target_date: '2024-01-01',
+        }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '', 'test-api-key')
+      await client.getRaces()
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'x-api-key': 'test-api-key',
+          }),
+        })
+      )
+    })
+
+    it('API Keyが空文字列の場合、x-api-keyヘッダーが送信されない', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          races: [mockApiRace],
+          venues: ['東京'],
+          target_date: '2024-01-01',
+        }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '', '')
+      await client.getRaces()
+
+      const callArgs = mockFetch.mock.calls[0][1]
+      expect(callArgs.headers['x-api-key']).toBeUndefined()
+    })
+
+    it('consultWithAgentでもAPI Keyヘッダーが送信される', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'AIからの応答',
+          session_id: 'session_123',
+        }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation', 'test-api-key')
+      await client.consultWithAgent({
+        prompt: 'テスト',
+        cart_items: [],
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'x-api-key': 'test-api-key',
+          }),
+        })
+      )
     })
   })
 
