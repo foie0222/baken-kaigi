@@ -3,15 +3,10 @@
 JRA-VAN API を呼び出してレース・馬データを取得する。
 """
 
-import os
-
 import requests
 from strands import tool
 
-JRAVAN_API_URL = os.environ.get(
-    "JRAVAN_API_URL",
-    "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
-)
+from .jravan_client import get_api_url, get_headers
 
 
 @tool
@@ -26,7 +21,8 @@ def get_race_runners(race_id: str) -> dict:
     """
     try:
         response = requests.get(
-            f"{JRAVAN_API_URL}/races/{race_id}",
+            f"{get_api_url()}/races/{race_id}",
+            headers=get_headers(),
             timeout=10,
         )
         response.raise_for_status()
@@ -49,7 +45,8 @@ def get_race_info(race_id: str) -> dict:
     """
     try:
         response = requests.get(
-            f"{JRAVAN_API_URL}/races/{race_id}",
+            f"{get_api_url()}/races/{race_id}",
+            headers=get_headers(),
             timeout=10,
         )
         response.raise_for_status()

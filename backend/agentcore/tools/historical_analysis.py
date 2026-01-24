@@ -4,17 +4,13 @@
 """
 
 import logging
-import os
 
 import requests
 from strands import tool
 
-logger = logging.getLogger(__name__)
+from .jravan_client import get_api_url, get_headers
 
-JRAVAN_API_URL = os.environ.get(
-    "JRAVAN_API_URL",
-    "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
-)
+logger = logging.getLogger(__name__)
 
 # 定数定義
 DEFAULT_PAST_RACES_LIMIT = 100  # 集計対象レース数のデフォルト値
@@ -50,13 +46,14 @@ def analyze_past_race_trends(
         track_code = _to_track_code(track_type)
 
         response = requests.get(
-            f"{JRAVAN_API_URL}/statistics/past-races",
+            f"{get_api_url()}/statistics/past-races",
             params={
                 "track_code": track_code,
                 "distance": distance,
                 "grade_code": grade_class if grade_class else None,
                 "limit": DEFAULT_PAST_RACES_LIMIT,
             },
+            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -198,8 +195,9 @@ def analyze_jockey_course_stats(
             params["keibajo_code"] = keibajo_code
 
         response = requests.get(
-            f"{JRAVAN_API_URL}/statistics/jockey-course",
+            f"{get_api_url()}/statistics/jockey-course",
             params=params,
+            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -304,13 +302,14 @@ def analyze_bet_roi(
         track_code = _to_track_code(track_type)
 
         response = requests.get(
-            f"{JRAVAN_API_URL}/statistics/popularity-payout",
+            f"{get_api_url()}/statistics/popularity-payout",
             params={
                 "track_code": track_code,
                 "distance": distance,
                 "popularity": popularity,
                 "limit": DEFAULT_PAST_RACES_LIMIT,
             },
+            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 

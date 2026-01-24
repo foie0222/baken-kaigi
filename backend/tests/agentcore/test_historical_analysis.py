@@ -23,6 +23,13 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
+@pytest.fixture(autouse=True)
+def mock_get_headers():
+    """全テストで get_headers をモック化してboto3呼び出しを防ぐ."""
+    with patch("tools.historical_analysis.get_headers", return_value={"x-api-key": "test-key"}):
+        yield
+
+
 class TestToTrackCode:
     """トラックコード変換のテスト."""
 

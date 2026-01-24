@@ -3,15 +3,11 @@
 レースの展開を予想し、脚質と展開の相性を分析する。
 """
 
-import os
-
 import requests
 from strands import tool
 
-JRAVAN_API_URL = os.environ.get(
-    "JRAVAN_API_URL",
-    "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
-)
+from .jravan_client import get_api_url, get_headers
+
 
 # ペース予想結果と有利脚質のマッピング
 PACE_FAVORABLE_STYLES = {
@@ -25,7 +21,8 @@ def _get_running_styles(race_id: str) -> list[dict]:
     """APIから脚質データを取得する."""
     try:
         response = requests.get(
-            f"{JRAVAN_API_URL}/races/{race_id}/running-styles",
+            f"{get_api_url()}/races/{race_id}/running-styles",
+            headers=get_headers(),
             timeout=10,
         )
         response.raise_for_status()
