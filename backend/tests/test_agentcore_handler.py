@@ -105,17 +105,17 @@ class TestHandleResponse:
 
         response = {
             "contentType": "application/json",
-            "response": [b'{"message": "バイトレスポンス"}'],
+            "response": ['{"message": "byte response"}'.encode("utf-8")],
         }
         result = _handle_response(response)
 
-        assert result["message"] == "バイトレスポンス"
+        assert result["message"] == "byte response"
 
     def test_handle_nested_json_in_bytes(self):
         """バイト内のネストされたJSONを展開できる."""
         from agentcore_handler import _handle_response
 
-        inner = json.dumps({"message": "展開されたメッセージ"})
+        inner = json.dumps({"message": "unwrapped message"})
         outer = json.dumps({"message": inner})
 
         response = {
@@ -124,7 +124,7 @@ class TestHandleResponse:
         }
         result = _handle_response(response)
 
-        assert result["message"] == "展開されたメッセージ"
+        assert result["message"] == "unwrapped message"
 
     def test_handle_empty_response(self):
         """空のレスポンスを処理できる."""
