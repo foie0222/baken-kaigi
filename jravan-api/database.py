@@ -8,7 +8,12 @@ import os
 from contextlib import contextmanager
 from datetime import datetime
 
+from pathlib import Path
+from dotenv import load_dotenv
 import pg8000
+
+# .env ファイルから環境変数を読み込み（このファイルと同じディレクトリ）
+load_dotenv(Path(__file__).parent / ".env")
 
 logger = logging.getLogger(__name__)
 
