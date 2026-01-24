@@ -12,7 +12,9 @@ from typing import Any
 import boto3
 from botocore.config import Config
 
+# Lambda環境でログを出力するための設定
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 # AgentCore Runtime の ARN
@@ -162,21 +164,30 @@ def _handle_response(response: dict) -> dict:
     decoded_content = ""
     resp_obj = response.get("response")
 
+    # StreamingBody の場合は .read() で全体を読み取る
+    if hasattr(resp_obj, 'read'):
+        try:
+            raw_bytes = resp_obj.read()
+            decoded_content = raw_bytes.decode("utf-8")
+        except Exception as e:
+            logger.error("StreamingBody read error: %s", e)
+
     # EventStream の場合は iterate して収集
-    try:
-        for event in resp_obj:
-            if isinstance(event, bytes):
-                try:
-                    decoded_content += event.decode("utf-8")
-                except UnicodeDecodeError:
-                    continue
-            elif isinstance(event, str):
-                decoded_content += event
-            elif isinstance(event, dict):
-                # 辞書が直接返ってきた場合
-                return _unwrap_nested_json(event)
-    except (TypeError, StopIteration) as e:
-        logger.warning("Response iteration error: %s", e)
+    elif resp_obj is not None:
+        try:
+            for event in resp_obj:
+                if isinstance(event, bytes):
+                    try:
+                        decoded_content += event.decode("utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                elif isinstance(event, str):
+                    decoded_content += event
+                elif isinstance(event, dict):
+                    # 辞書が直接返ってきた場合
+                    return _unwrap_nested_json(event)
+        except (TypeError, StopIteration) as e:
+            logger.warning("Response iteration error: %s", e)
 
     # デコードしたコンテンツをJSONとしてパース
     if decoded_content:
@@ -188,6 +199,7 @@ def _handle_response(response: dict) -> dict:
         except json.JSONDecodeError:
             return {"message": decoded_content}
 
+    logger.warning("No content decoded from response")
     return {"message": "応答を取得できませんでした"}
 
 
