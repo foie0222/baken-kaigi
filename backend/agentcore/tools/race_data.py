@@ -3,15 +3,10 @@
 JRA-VAN API を呼び出してレース・馬データを取得する。
 """
 
-import os
-
 import requests
 from strands import tool
 
-JRAVAN_API_URL = os.environ.get(
-    "JRAVAN_API_URL",
-    "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
-)
+from .jravan_client import get_api_url, get_headers
 
 
 @tool
@@ -19,18 +14,21 @@ def get_race_runners(race_id: str) -> dict:
     """指定されたレースの出走馬一覧を取得する。
 
     Args:
-        race_id: レースID (例: "202506050811")
+        race_id: レースID (例: "20260125_06_11")
 
     Returns:
         出走馬情報のリスト（馬番、馬名、騎手、オッズ、人気）
     """
     try:
         response = requests.get(
-            f"{JRAVAN_API_URL}/races/{race_id}/runners",
+            f"{get_api_url()}/races/{race_id}",
+            headers=get_headers(),
             timeout=10,
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        # runners フィールドを返す
+        return {"runners": data.get("runners", []), "race": data.get("race", {})}
     except requests.RequestException as e:
         return {"error": f"API呼び出しに失敗しました: {str(e)}"}
 
@@ -47,7 +45,8 @@ def get_race_info(race_id: str) -> dict:
     """
     try:
         response = requests.get(
-            f"{JRAVAN_API_URL}/races/{race_id}",
+            f"{get_api_url()}/races/{race_id}",
+            headers=get_headers(),
             timeout=10,
         )
         response.raise_for_status()

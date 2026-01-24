@@ -26,11 +26,6 @@ def _use_jravan() -> bool:
     return os.environ.get("RACE_DATA_PROVIDER") == "jravan"
 
 
-def _use_claude() -> bool:
-    """Claude APIを使用するか判定する."""
-    return os.environ.get("ANTHROPIC_API_KEY") is not None
-
-
 class Dependencies:
     """依存性を管理するコンテナ.
 
@@ -81,14 +76,12 @@ class Dependencies:
 
     @classmethod
     def get_ai_client(cls) -> AIClient:
-        """AIクライアントを取得する."""
-        if cls._ai_client is None:
-            if _use_claude():
-                from src.infrastructure.clients.claude_ai_client import ClaudeAIClient
+        """AIクライアントを取得する.
 
-                cls._ai_client = ClaudeAIClient()
-            else:
-                cls._ai_client = MockAIClient()
+        Note: AI相談は AgentCore 経由（/api/consultation）で行う。
+        """
+        if cls._ai_client is None:
+            cls._ai_client = MockAIClient()
         return cls._ai_client
 
     @classmethod

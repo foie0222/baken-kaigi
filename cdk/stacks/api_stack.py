@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from aws_cdk import Duration, RemovalPolicy, Stack
+from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
@@ -91,12 +91,22 @@ class BakenKaigiApiStack(Stack):
         )
 
         # ========================================
-        # Lambda Layer
+        # Lambda Layer（デプロイ時に自動で依存関係をインストール）
         # ========================================
+        lambda_layer_path = project_root / "cdk" / "lambda_layer"
         deps_layer = lambda_.LayerVersion(
             self,
             "DepsLayer",
-            code=lambda_.Code.from_asset(str(project_root / "cdk" / "lambda_layer")),
+            code=lambda_.Code.from_asset(
+                str(lambda_layer_path),
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output/python",
+                    ],
+                ),
+            ),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
             description="Dependencies layer for baken-kaigi",
         )
@@ -275,50 +285,113 @@ class BakenKaigiApiStack(Stack):
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
                 allow_methods=apigw.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization"],
+                allow_headers=["Content-Type", "Authorization", "x-api-key"],
             ),
         )
+
+        # ========================================
+        # API Key 認証
+        # ========================================
+
+        # 本番用 API Key
+        api_key_prod = apigw.ApiKey(
+            self,
+            "BakenKaigiApiKeyProd",
+            api_key_name="baken-kaigi-api-key-prod",
+            description="馬券会議 API Key (本番環境)",
+        )
+
+        # 開発用 API Key
+        api_key_dev = apigw.ApiKey(
+            self,
+            "BakenKaigiApiKeyDev",
+            api_key_name="baken-kaigi-api-key-dev",
+            description="馬券会議 API Key (開発環境)",
+        )
+
+        # Usage Plan（レート制限）
+        usage_plan = apigw.UsagePlan(
+            self,
+            "BakenKaigiUsagePlan",
+            name="baken-kaigi-usage-plan",
+            description="馬券会議 API 利用プラン",
+            throttle=apigw.ThrottleSettings(
+                rate_limit=100,  # 1秒あたり100リクエスト
+                burst_limit=200,  # バースト時200リクエスト
+            ),
+            quota=apigw.QuotaSettings(
+                limit=10000,  # 1日あたり10000リクエスト
+                period=apigw.Period.DAY,
+            ),
+        )
+
+        # API Key を Usage Plan に紐付け
+        usage_plan.add_api_key(api_key_prod)
+        usage_plan.add_api_key(api_key_dev)
+
+        # Usage Plan に API ステージを紐付け
+        usage_plan.add_api_stage(stage=api.deployment_stage)
 
         # エンドポイント定義
         # /race-dates
         race_dates = api.root.add_resource("race-dates")
-        race_dates.add_method("GET", apigw.LambdaIntegration(get_race_dates_fn))
+        race_dates.add_method(
+            "GET", apigw.LambdaIntegration(get_race_dates_fn), api_key_required=True
+        )
 
         # /races
         races = api.root.add_resource("races")
-        races.add_method("GET", apigw.LambdaIntegration(get_races_fn))
+        races.add_method(
+            "GET", apigw.LambdaIntegration(get_races_fn), api_key_required=True
+        )
 
         # /races/{race_id}
         race = races.add_resource("{race_id}")
-        race.add_method("GET", apigw.LambdaIntegration(get_race_detail_fn))
+        race.add_method(
+            "GET", apigw.LambdaIntegration(get_race_detail_fn), api_key_required=True
+        )
 
         # /cart
         cart = api.root.add_resource("cart")
 
         # /cart/items
         cart_items = cart.add_resource("items")
-        cart_items.add_method("POST", apigw.LambdaIntegration(add_to_cart_fn))
+        cart_items.add_method(
+            "POST", apigw.LambdaIntegration(add_to_cart_fn), api_key_required=True
+        )
 
         # /cart/{cart_id}
         cart_by_id = cart.add_resource("{cart_id}")
-        cart_by_id.add_method("GET", apigw.LambdaIntegration(get_cart_fn))
-        cart_by_id.add_method("DELETE", apigw.LambdaIntegration(clear_cart_fn))
+        cart_by_id.add_method(
+            "GET", apigw.LambdaIntegration(get_cart_fn), api_key_required=True
+        )
+        cart_by_id.add_method(
+            "DELETE", apigw.LambdaIntegration(clear_cart_fn), api_key_required=True
+        )
 
         # /cart/{cart_id}/items/{item_id}
         cart_items_by_id = cart_by_id.add_resource("items").add_resource("{item_id}")
-        cart_items_by_id.add_method("DELETE", apigw.LambdaIntegration(remove_from_cart_fn))
+        cart_items_by_id.add_method(
+            "DELETE", apigw.LambdaIntegration(remove_from_cart_fn), api_key_required=True
+        )
 
         # /consultations
         consultations = api.root.add_resource("consultations")
-        consultations.add_method("POST", apigw.LambdaIntegration(start_consultation_fn))
+        consultations.add_method(
+            "POST", apigw.LambdaIntegration(start_consultation_fn), api_key_required=True
+        )
 
         # /consultations/{session_id}
         consultation = consultations.add_resource("{session_id}")
-        consultation.add_method("GET", apigw.LambdaIntegration(get_consultation_fn))
+        consultation.add_method(
+            "GET", apigw.LambdaIntegration(get_consultation_fn), api_key_required=True
+        )
 
         # /consultations/{session_id}/messages
         messages = consultation.add_resource("messages")
-        messages.add_method("POST", apigw.LambdaIntegration(send_message_fn))
+        messages.add_method(
+            "POST", apigw.LambdaIntegration(send_message_fn), api_key_required=True
+        )
 
         # ========================================
         # AgentCore 相談 API
@@ -360,7 +433,8 @@ class BakenKaigiApiStack(Stack):
         consultation_resource = api_resource.add_resource("consultation")
         consultation_resource.add_method(
             "POST",
-            apigw.LambdaIntegration(agentcore_consultation_fn)
+            apigw.LambdaIntegration(agentcore_consultation_fn),
+            api_key_required=True,
         )
 
         # ========================================
@@ -378,3 +452,21 @@ class BakenKaigiApiStack(Stack):
         for fn in consultation_functions:
             cart_table.grant_read_data(fn)
             session_table.grant_read_write_data(fn)
+
+        # ========================================
+        # 出力
+        # ========================================
+
+        CfnOutput(
+            self,
+            "ApiKeyIdProd",
+            value=api_key_prod.key_id,
+            description="本番用 API Key ID（値の取得: aws apigateway get-api-key --api-key <ID> --include-value）",
+        )
+
+        CfnOutput(
+            self,
+            "ApiKeyIdDev",
+            value=api_key_dev.key_id,
+            description="開発用 API Key ID（値の取得: aws apigateway get-api-key --api-key <ID> --include-value）",
+        )

@@ -442,16 +442,16 @@ export function ConsultationPage() {
           </div>
         </div>
 
-        <div className="action-buttons">
+        <div className="action-buttons vertical">
+          <button className="btn-stop" onClick={() => navigate('/cart')}>
+            やめておく
+          </button>
           <button
-            className="btn-primary"
+            className="btn-purchase-subtle"
             onClick={handlePurchase}
             disabled={items.length === 0}
           >
             購入する
-          </button>
-          <button className="btn-secondary" onClick={() => navigate('/cart')}>
-            やめておく
           </button>
         </div>
       </div>

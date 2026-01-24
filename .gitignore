@@ -29,6 +29,9 @@ jravan-api/analyze_*.py
 jravan-api/check_*.py
 jravan-api/test_*.py
 
+# JRA-VAN environment file (contains secrets)
+jravan-api/.env
+
 # Bedrock AgentCore
 .bedrock_agentcore/
 .bedrock_agentcore.yaml

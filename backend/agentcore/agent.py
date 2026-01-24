@@ -9,16 +9,28 @@ import os
 os.environ["BYPASS_TOOL_CONSENT"] = "true"
 
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 from tools.race_data import get_race_info, get_race_runners
 from tools.bet_analysis import analyze_bet_selection
 from tools.pace_analysis import analyze_race_development, analyze_running_style_match
-from tools.historical_analysis import analyze_past_race_trends
+from tools.historical_analysis import (
+    analyze_past_race_trends,
+    analyze_jockey_course_stats,
+    analyze_bet_roi,
+)
 from prompts.consultation import SYSTEM_PROMPT
+
+# Amazon Nova 2 Lite モデル（JP inference profile）
+bedrock_model = BedrockModel(
+    model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
+    temperature=0.3,
+)
 
 # エージェント初期化
 agent = Agent(
+    model=bedrock_model,
     system_prompt=SYSTEM_PROMPT,
     tools=[
         get_race_runners,
@@ -27,6 +39,8 @@ agent = Agent(
         analyze_race_development,
         analyze_running_style_match,
         analyze_past_race_trends,
+        analyze_jockey_course_stats,
+        analyze_bet_roi,
     ],
 )
 
