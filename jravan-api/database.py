@@ -727,7 +727,7 @@ def get_runners_with_running_style(race_id: str) -> list[dict]:
             style_code = (row.get("kyakushitsu_hantei") or "").strip()
             running_style = RUNNING_STYLE_MAP.get(style_code, "不明")
 
-            # 馬マスタの脚質傾向（1:逃げ 2:先行 3:差し 4:追込）
+            # 馬マスタの脚質傾向（1:逃げ 2:先行 3:差し 4:追込 5:自在）
             tendency_code = (row.get("kyakushitsu_keiko") or "").strip()
             running_style_tendency = RUNNING_STYLE_MAP.get(tendency_code, "不明")
 
@@ -740,43 +740,6 @@ def get_runners_with_running_style(race_id: str) -> list[dict]:
             })
 
         return results
-
-
-def get_race_pace_factors(race_id: str) -> dict | None:
-    """レースのペース関連情報を取得.
-
-    jvd_ra から zenhan_3f, zenhan_4f を取得。
-
-    Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
-
-    Returns:
-        ペース関連情報の辞書、またはNone
-    """
-    try:
-        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
-    except ValueError:
-        return None
-
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT
-                zenhan_3f,
-                zenhan_4f
-            FROM jvd_ra
-            WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
-              AND keibajo_code = %s AND race_bango = %s
-        """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
-        row = _fetch_one_as_dict(cur)
-
-        if not row:
-            return None
-
-        return {
-            "zenhan_3f": (row.get("zenhan_3f") or "").strip(),
-            "zenhan_4f": (row.get("zenhan_4f") or "").strip(),
-        }
 
 
 def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: int) -> int | None:

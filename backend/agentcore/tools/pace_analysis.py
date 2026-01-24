@@ -62,7 +62,16 @@ def _generate_pace_analysis(
     front_runner_count: int,
     runners_by_style: dict[str, list[dict]],
 ) -> str:
-    """ペース予想に基づく分析コメントを生成する."""
+    """ペース予想に基づく分析コメントを生成する.
+
+    Args:
+        predicted_pace: 予想ペース（"ハイ", "ミドル", "スロー", "不明"）
+        front_runner_count: 逃げ馬の頭数
+        runners_by_style: 脚質別の出走馬辞書
+
+    Returns:
+        分析コメント文字列
+    """
     escaper_names = [r["horse_name"] for r in runners_by_style.get("逃げ", [])]
 
     if predicted_pace == "ハイ":
@@ -94,7 +103,15 @@ def _analyze_race_development_impl(
     race_id: str,
     running_styles_data: list[dict],
 ) -> dict:
-    """レースの展開を予想する（実装）."""
+    """レースの展開を予想する（実装）.
+
+    Args:
+        race_id: レースID
+        running_styles_data: 出走馬の脚質データリスト
+
+    Returns:
+        展開予想結果の辞書（脚質別馬リスト、予想ペース、有利脚質、分析コメント）
+    """
     if not running_styles_data:
         return {
             "error": "脚質データが取得できませんでした",
@@ -172,7 +189,17 @@ def _analyze_running_style_match_impl(
     running_styles_data: list[dict],
     predicted_pace: str,
 ) -> dict:
-    """選択馬の脚質と展開の相性を分析する（実装）."""
+    """選択馬の脚質と展開の相性を分析する（実装）.
+
+    Args:
+        race_id: レースID
+        horse_numbers: 分析対象の馬番リスト
+        running_styles_data: 出走馬の脚質データリスト
+        predicted_pace: 予想ペース
+
+    Returns:
+        脚質相性分析結果の辞書（予想ペース、各馬の相性評価とコメント）
+    """
     if not running_styles_data:
         return {
             "error": "脚質データが取得できませんでした",
@@ -190,7 +217,11 @@ def _analyze_running_style_match_impl(
         running_style = runner.get("running_style", "不明")
 
         # 相性判定
-        if running_style in favorable_styles:
+        if predicted_pace == "不明":
+            # ペース予想が不明な場合は有利不利を判定しない
+            pace_compatibility = "不明"
+            comment = "ペース予想が困難なため、脚質の有利不利は判断できません"
+        elif running_style in favorable_styles:
             pace_compatibility = "有利"
             comment = f"{predicted_pace}ペース予想で{running_style}脚質は好展開"
         elif running_style == "自在":

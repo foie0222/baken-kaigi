@@ -2,24 +2,22 @@
 
 import sys
 from pathlib import Path
-import importlib.util
 
-# strands の @tool デコレータをモック（他のモジュールがロードされる前に）
+# agentcoreモジュールをインポートできるようにパスを追加
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
+
+# strands の @tool デコレータをモック
 mock_strands = type(sys)("strands")
 mock_strands.tool = lambda f: f  # type: ignore
 sys.modules["strands"] = mock_strands
 
-# pace_analysis モジュールを直接ファイルからロード
-pace_analysis_path = Path(__file__).parent.parent.parent / "agentcore" / "tools" / "pace_analysis.py"
-spec = importlib.util.spec_from_file_location("pace_analysis", pace_analysis_path)
-pace_analysis = importlib.util.module_from_spec(spec)  # type: ignore
-spec.loader.exec_module(pace_analysis)  # type: ignore
-
-_predict_pace = pace_analysis._predict_pace
-_generate_pace_analysis = pace_analysis._generate_pace_analysis
-_analyze_race_development_impl = pace_analysis._analyze_race_development_impl
-_analyze_running_style_match_impl = pace_analysis._analyze_running_style_match_impl
-PACE_FAVORABLE_STYLES = pace_analysis.PACE_FAVORABLE_STYLES
+from tools.pace_analysis import (
+    _predict_pace,
+    _generate_pace_analysis,
+    _analyze_race_development_impl,
+    _analyze_running_style_match_impl,
+    PACE_FAVORABLE_STYLES,
+)
 
 
 class TestPredictPace:
@@ -41,8 +39,8 @@ class TestPredictPace:
         pace = _predict_pace(2, 16)
         assert pace == "ミドル"
 
-    def test_逃げ馬0頭でスローペース(self):
-        # 逃げ馬がいない場合も、スローペース傾向
+    def test_逃げ馬0頭でミドルペース(self):
+        # 逃げ馬がいない場合はミドルペース想定（実際のレースはややスロー傾向）
         pace = _predict_pace(0, 16)
         assert pace == "ミドル"
 
@@ -221,6 +219,20 @@ class TestAnalyzeRunningStyleMatchImpl:
         assert 1 in horse_numbers
         assert 3 in horse_numbers
         assert 2 not in horse_numbers
+
+    def test_ペース不明の場合は有利不利を判定しない(self):
+        running_styles = [
+            {"horse_number": 1, "horse_name": "差し馬", "running_style": "差し"},
+            {"horse_number": 2, "horse_name": "逃げ馬", "running_style": "逃げ"},
+        ]
+        result = _analyze_running_style_match_impl("test_race", [1, 2], running_styles, "不明")
+
+        assert result["predicted_pace"] == "不明"
+        assert result["favorable_styles"] == []
+        assert len(result["horses"]) == 2
+        for horse in result["horses"]:
+            assert horse["pace_compatibility"] == "不明"
+            assert "判断できません" in horse["comment"]
 
 
 class TestIntegration:
