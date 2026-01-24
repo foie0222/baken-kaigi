@@ -4,54 +4,13 @@
 """
 
 import logging
-import os
 
-import boto3
 import requests
 from strands import tool
 
+from .jravan_client import get_api_url, get_headers
+
 logger = logging.getLogger(__name__)
-
-JRAVAN_API_URL = os.environ.get(
-    "JRAVAN_API_URL",
-    "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
-)
-JRAVAN_API_KEY = os.environ.get("JRAVAN_API_KEY", "")
-JRAVAN_API_KEY_ID = os.environ.get("JRAVAN_API_KEY_ID", "zeq5hh8qp6")
-
-_cached_api_key: str | None = None
-
-
-def _get_api_key() -> str:
-    """APIキーを取得（キャッシュあり）."""
-    global _cached_api_key
-    if _cached_api_key is not None:
-        return _cached_api_key
-
-    # 環境変数から取得
-    if JRAVAN_API_KEY:
-        _cached_api_key = JRAVAN_API_KEY
-        return _cached_api_key
-
-    # boto3でAPI Gatewayから取得
-    try:
-        client = boto3.client("apigateway", region_name="ap-northeast-1")
-        response = client.get_api_key(apiKey=JRAVAN_API_KEY_ID, includeValue=True)
-        _cached_api_key = response.get("value", "")
-        return _cached_api_key
-    except Exception:
-        _cached_api_key = ""
-        return _cached_api_key
-
-
-def _get_headers() -> dict:
-    """APIリクエスト用ヘッダーを取得."""
-    headers = {}
-    api_key = _get_api_key()
-    if api_key:
-        headers["x-api-key"] = api_key
-    return headers
-
 
 # 定数定義
 DEFAULT_PAST_RACES_LIMIT = 100  # 集計対象レース数のデフォルト値
@@ -87,14 +46,14 @@ def analyze_past_race_trends(
         track_code = _to_track_code(track_type)
 
         response = requests.get(
-            f"{JRAVAN_API_URL}/statistics/past-races",
+            f"{get_api_url()}/statistics/past-races",
             params={
                 "track_code": track_code,
                 "distance": distance,
                 "grade_code": grade_class if grade_class else None,
                 "limit": DEFAULT_PAST_RACES_LIMIT,
             },
-            headers=_get_headers(),
+            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -236,9 +195,9 @@ def analyze_jockey_course_stats(
             params["keibajo_code"] = keibajo_code
 
         response = requests.get(
-            f"{JRAVAN_API_URL}/statistics/jockey-course",
+            f"{get_api_url()}/statistics/jockey-course",
             params=params,
-            headers=_get_headers(),
+            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -343,14 +302,14 @@ def analyze_bet_roi(
         track_code = _to_track_code(track_type)
 
         response = requests.get(
-            f"{JRAVAN_API_URL}/statistics/popularity-payout",
+            f"{get_api_url()}/statistics/popularity-payout",
             params={
                 "track_code": track_code,
                 "distance": distance,
                 "popularity": popularity,
                 "limit": DEFAULT_PAST_RACES_LIMIT,
             },
-            headers=_get_headers(),
+            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
