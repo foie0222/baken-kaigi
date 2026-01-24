@@ -3,7 +3,6 @@
     /* 基調色: 落ち着き・安心 */
     --color-calm-green: #1a5f2a;
     --color-calm-green-light: #e8f5ea;
-    --color-calm-green-gradient: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);
 
     /* 警告色: 注意喚起（煽りではなく気づき） */
     --color-alert-amber: #f59e0b;
@@ -46,6 +45,12 @@
     --font-size-base: 14px;
     --font-size-lg: 16px;
     --font-size-xl: 18px;
+
+    /* z-index スケール */
+    --z-index-help-link: 99;
+    --z-index-bottom-nav: 100;
+    --z-index-header: 100;
+    --z-index-toast: 1000;
 }
 
 /* Reset & Base */
@@ -1318,6 +1323,16 @@ main {
     transform: scale(0.98);
 }
 
+.btn-stop:focus-visible {
+    outline: 2px solid var(--color-calm-green);
+    outline-offset: 2px;
+}
+
+.btn-stop:disabled {
+    background: var(--color-neutral-300);
+    cursor: not-allowed;
+}
+
 /* 購入するボタン（控えめ - 慎重さを求める） */
 .btn-purchase-subtle {
     background: transparent;
@@ -1333,6 +1348,16 @@ main {
 
 .btn-purchase-subtle:hover {
     color: var(--color-neutral-700);
+}
+
+.btn-purchase-subtle:focus-visible {
+    outline: 2px solid var(--color-neutral-500);
+    outline-offset: 2px;
+}
+
+.btn-purchase-subtle:disabled {
+    color: var(--color-neutral-300);
+    cursor: not-allowed;
 }
 
 /* 損益状況表示 */
@@ -1379,7 +1404,7 @@ main {
     background: var(--color-neutral-50);
     text-align: center;
     border-top: 1px solid var(--color-neutral-200);
-    z-index: 99;
+    z-index: var(--z-index-help-link);
 }
 
 .help-link-section a {
@@ -1426,6 +1451,11 @@ main {
     cursor: not-allowed;
 }
 
+.btn-add-cart-subtle:focus-visible {
+    outline: 2px solid var(--color-calm-green);
+    outline-offset: 2px;
+}
+
 /* AIと一緒に確認するボタン */
 .btn-ai-confirm {
     background: var(--color-calm-green);
@@ -1446,4 +1476,25 @@ main {
 
 .btn-ai-confirm:hover {
     opacity: 0.9;
+}
+
+.btn-ai-confirm:focus-visible {
+    outline: 2px solid var(--color-calm-green);
+    outline-offset: 2px;
+}
+
+.btn-ai-confirm:disabled {
+    background: var(--color-neutral-300);
+    cursor: not-allowed;
+}
+
+/* action-buttons 縦並びレイアウト */
+.action-buttons.vertical {
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+/* カート確認ボタンのマージン */
+.btn-ai-confirm.mt-3 {
+    margin-top: var(--space-3);
 }

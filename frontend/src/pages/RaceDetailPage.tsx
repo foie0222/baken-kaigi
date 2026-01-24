@@ -368,8 +368,7 @@ export function RaceDetailPage() {
 
         {itemCount > 0 && (
           <button
-            className="btn-ai-confirm"
-            style={{ marginTop: 12 }}
+            className="btn-ai-confirm mt-3"
             onClick={() => navigate('/cart')}
           >
             AIと一緒に確認する（{itemCount}件） →

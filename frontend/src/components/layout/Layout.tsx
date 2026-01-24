@@ -10,6 +10,7 @@ function HelpLink() {
         href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000070789.html"
         target="_blank"
         rel="noopener noreferrer"
+        aria-label="ギャンブル依存症の相談窓口へ（新しいタブで開く）"
       >
         困ったときは｜ギャンブル依存症相談窓口 →
       </a>

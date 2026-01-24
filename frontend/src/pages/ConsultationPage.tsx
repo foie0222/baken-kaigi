@@ -277,7 +277,7 @@ export function ConsultationPage() {
           </div>
         </div>
 
-        <div className="action-buttons" style={{ flexDirection: 'column', gap: '8px' }}>
+        <div className="action-buttons vertical">
           <button className="btn-stop" onClick={() => navigate('/cart')}>
             やめておく
           </button>
