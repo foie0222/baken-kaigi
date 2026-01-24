@@ -30,7 +30,7 @@ describe('CartPage', () => {
         raceId: 'test-race-1',
         raceName: 'テストレース',
         raceVenue: '東京',
-        raceNumber: 1,
+        raceNumber: '1R',
         betType: 'win',
         betMethod: 'normal',
         horseNumbers: [1],
