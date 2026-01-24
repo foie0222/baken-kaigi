@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
@@ -91,12 +91,22 @@ class BakenKaigiApiStack(Stack):
         )
 
         # ========================================
-        # Lambda Layer
+        # Lambda Layer（デプロイ時に自動で依存関係をインストール）
         # ========================================
+        lambda_layer_path = project_root / "cdk" / "lambda_layer"
         deps_layer = lambda_.LayerVersion(
             self,
             "DepsLayer",
-            code=lambda_.Code.from_asset(str(project_root / "cdk" / "lambda_layer")),
+            code=lambda_.Code.from_asset(
+                str(lambda_layer_path),
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output/python",
+                    ],
+                ),
+            ),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
             description="Dependencies layer for baken-kaigi",
         )
