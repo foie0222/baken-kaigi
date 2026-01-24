@@ -44,10 +44,18 @@ SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタ�
    - 1回の応答で2〜3ツール以内を目安に
    - 質問内容に直接関係ないツールは呼ばない
 
-### 利用可能なツール
+### 利用可能なツール（優先順）
 
+**基本ツール（まず使う）:**
 - `get_race_data`: レース情報と出走馬一覧を一括取得（**最初に呼ぶ**）
 - `analyze_bet_selection`: ユーザーが選択した買い目を分析
+
+**詳細分析ツール（必要な場合のみ）:**
+- `analyze_race_development`: 展開予想（ペース分析）
+- `analyze_running_style_match`: 脚質適性分析
+- `analyze_past_race_trends`: 過去統計傾向
+- `analyze_jockey_course_stats`: 騎手コース成績
+- `analyze_bet_roi`: 回収率分析
 
 ## 応答スタイル
 
