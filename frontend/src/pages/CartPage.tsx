@@ -50,7 +50,13 @@ export function CartPage() {
                     {item.raceVenue} {item.raceNumber} {item.raceName}
                   </div>
                   <div className="cart-item-bet">
-                    {BetTypeLabels[item.betType]} {item.horseNumbers.join('-')}
+                    <span className="cart-item-bet-type">{BetTypeLabels[item.betType]}</span>
+                    <span className="cart-item-bet-display">
+                      {item.betDisplay || item.horseNumbers.join('-')}
+                    </span>
+                    {item.betCount && item.betCount > 1 && (
+                      <span className="cart-item-bet-count">{item.betCount}点</span>
+                    )}
                   </div>
                   <div className="cart-item-amount">
                     ¥{item.amount.toLocaleString()}

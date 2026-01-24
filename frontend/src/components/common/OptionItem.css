@@ -1,0 +1,85 @@
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: white;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.option-item:active {
+  transform: scale(0.99);
+}
+
+.option-item.selected {
+  background: #e8f5e9;
+  border-color: #1a5f2a;
+}
+
+.option-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.option-check {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: transparent;
+  flex-shrink: 0;
+}
+
+.option-item.selected .option-check {
+  background: #1a5f2a;
+  border-color: #1a5f2a;
+  color: white;
+}
+
+.option-info {
+  flex: 1;
+}
+
+.option-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.option-desc {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.option-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ff6b35;
+  background: #fff3e0;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.option-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.option-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  margin-bottom: 10px;
+}

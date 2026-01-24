@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
-import type { RaceDetail, BetType } from '../types';
-import { BetTypeLabels, BetTypeRequiredHorses } from '../types';
+import type { RaceDetail, BetType, BetMethod, ColumnSelections } from '../types';
+import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered } from '../types';
 import { apiClient } from '../api/client';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
+import { getBetMethodLabel } from '../utils/betMethods';
+import { BetTypeSheet } from '../components/bet/BetTypeSheet';
+import { BetMethodSheet } from '../components/bet/BetMethodSheet';
+import { HorseCheckboxList } from '../components/bet/HorseCheckboxList';
+import { useBetCalculation } from '../hooks/useBetCalculation';
+import './RaceDetailPage.css';
 
-const betTypes: BetType[] = ['win', 'place', 'quinella', 'quinella_place', 'exacta', 'trio', 'trifecta'];
+const initialSelections: ColumnSelections = { col1: [], col2: [], col3: [] };
 
 export function RaceDetailPage() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -19,9 +25,19 @@ export function RaceDetailPage() {
   const [race, setRace] = useState<RaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedHorses, setSelectedHorses] = useState<number[]>([]);
+
+  // 券種・買い方・選択状態
   const [betType, setBetType] = useState<BetType>('win');
-  const [betAmount, setBetAmount] = useState(1000);
+  const [betMethod, setBetMethod] = useState<BetMethod>('normal');
+  const [selections, setSelections] = useState<ColumnSelections>(initialSelections);
+  const [betAmount, setBetAmount] = useState(100);
+
+  // ボトムシートの開閉状態
+  const [isBetTypeSheetOpen, setIsBetTypeSheetOpen] = useState(false);
+  const [isBetMethodSheetOpen, setIsBetMethodSheetOpen] = useState(false);
+
+  // 点数計算
+  const { betCount } = useBetCalculation(betType, betMethod, selections);
 
   useEffect(() => {
     if (!raceId) return;
@@ -52,39 +68,45 @@ export function RaceDetailPage() {
     };
   }, [raceId]);
 
-  const toggleHorse = (number: number) => {
-    setSelectedHorses((prev) =>
-      prev.includes(number) ? prev.filter((n) => n !== number) : [...prev, number]
-    );
+  const handleBetTypeChange = (type: BetType) => {
+    setBetType(type);
+    setBetMethod('normal');
+    setSelections(initialSelections);
   };
 
-  const clearSelection = () => setSelectedHorses([]);
+  const handleBetMethodChange = (method: BetMethod) => {
+    setBetMethod(method);
+    setSelections(initialSelections);
+  };
 
-  const requiredCount = BetTypeRequiredHorses[betType];
-  const isValidSelection = selectedHorses.length === requiredCount;
+  const clearSelection = () => setSelections(initialSelections);
 
-  const getSelectionHint = () => {
-    switch (requiredCount) {
-      case 1: return '（1頭選択）';
-      case 2: return '（2頭選択）';
-      case 3: return '（3頭選択）';
-      default: return '';
+  const handleAmountMinus = () => {
+    if (betAmount > 100) {
+      const newAmount = betAmount <= 500 ? betAmount - 100 : betAmount - 500;
+      setBetAmount(Math.max(100, newAmount));
     }
   };
 
-  const getSelectionError = () => {
-    if (selectedHorses.length === 0) return '';
-    if (selectedHorses.length < requiredCount) {
-      return `あと${requiredCount - selectedHorses.length}頭選択してください`;
-    }
-    if (selectedHorses.length > requiredCount) {
-      return `${selectedHorses.length - requiredCount}頭多く選択されています`;
-    }
-    return '';
+  const handleAmountPlus = () => {
+    setBetAmount(betAmount < 500 ? betAmount + 100 : betAmount + 500);
   };
 
   const handleAddToCart = () => {
-    if (!race || !isValidSelection) return;
+    if (!race || betCount === 0) return;
+
+    // 馬番表示を生成
+    let horseNumbersDisplay: number[];
+    if (betMethod === 'formation' || betMethod.startsWith('nagashi')) {
+      // 複数列の場合は全ての選択を結合
+      const allNumbers = [...new Set([...selections.col1, ...selections.col2, ...selections.col3])];
+      horseNumbersDisplay = allNumbers.sort((a, b) => a - b);
+    } else {
+      horseNumbersDisplay = [...selections.col1].sort((a, b) => a - b);
+    }
+
+    // 表示用文字列を生成
+    const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
 
     addItem({
       raceId: race.id,
@@ -92,18 +114,118 @@ export function RaceDetailPage() {
       raceVenue: race.venue,
       raceNumber: race.number,
       betType,
-      horseNumbers: [...selectedHorses].sort((a, b) => a - b),
-      amount: betAmount,
+      betMethod,
+      horseNumbers: horseNumbersDisplay,
+      betDisplay,
+      betCount,
+      amount: betAmount * betCount,
     });
 
-    setSelectedHorses([]);
-    setBetAmount(1000);
+    setSelections(initialSelections);
+    setBetAmount(100);
     showToast('カートに追加しました');
+  };
+
+  // 選択ヒントのラベル生成
+  const getSelectionLabel = () => {
+    const methodLabel = getBetMethodLabel(betMethod, betType);
+    if (methodLabel === '通常') {
+      return BetTypeLabels[betType];
+    }
+    return `${BetTypeLabels[betType]} × ${methodLabel}`;
+  };
+
+  // 選択馬番の表示テキスト生成
+  const getSelectionDisplay = () => {
+    const hasAny = selections.col1.length > 0 || selections.col2.length > 0 || selections.col3.length > 0;
+    if (!hasAny) return null;
+
+    if (betMethod.startsWith('nagashi')) {
+      const required = BetTypeRequiredHorses[betType];
+      const ordered = BetTypeOrdered[betType];
+
+      // 馬単の場合
+      if (required === 2 && ordered) {
+        if (betMethod === 'nagashi_2') {
+          // 2着流し: 1着 → 2着軸 の順
+          const partnerText = selections.col2.length > 0 ? `1着:${selections.col2.join(',')}` : '';
+          const axisText = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
+          return [partnerText, axisText].filter(Boolean).join(' → ');
+        }
+        // 1着流し: 1着軸 → 2着 の順
+        const axisText = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+        const partnerText = selections.col2.length > 0 ? `2着:${selections.col2.join(',')}` : '';
+        return [axisText, partnerText].filter(Boolean).join(' → ');
+      }
+
+      // 三連単の場合
+      if (required === 3 && ordered) {
+        if (betMethod === 'nagashi_1') {
+          // 1着流し: 1着軸 → 2-3着
+          const axisText = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+          const partnerText = selections.col2.length > 0 ? `2-3着:${selections.col2.join(',')}` : '';
+          return [axisText, partnerText].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_2') {
+          // 2着流し: 1,3着 → 2着軸
+          const partnerText = selections.col2.length > 0 ? `1,3着:${selections.col2.join(',')}` : '';
+          const axisText = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
+          return [partnerText, axisText].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_3') {
+          // 3着流し: 1-2着 → 3着軸
+          const partnerText = selections.col2.length > 0 ? `1-2着:${selections.col2.join(',')}` : '';
+          const axisText = selections.col1.length > 0 ? `3着軸:${selections.col1.join(',')}` : '';
+          return [partnerText, axisText].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_12') {
+          // 軸2頭 1-2着流し: 1着軸 → 2着軸 → 3着
+          const axis1 = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+          const axis2 = selections.col3.length > 0 ? `2着軸:${selections.col3.join(',')}` : '';
+          const partner = selections.col2.length > 0 ? `3着:${selections.col2.join(',')}` : '';
+          return [axis1, axis2, partner].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_13') {
+          // 軸2頭 1-3着流し: 1着軸 → 2着 → 3着軸
+          const axis1 = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+          const partner = selections.col2.length > 0 ? `2着:${selections.col2.join(',')}` : '';
+          const axis3 = selections.col3.length > 0 ? `3着軸:${selections.col3.join(',')}` : '';
+          return [axis1, partner, axis3].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_23') {
+          // 軸2頭 2-3着流し: 1着 → 2着軸 → 3着軸
+          const partner = selections.col2.length > 0 ? `1着:${selections.col2.join(',')}` : '';
+          const axis2 = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
+          const axis3 = selections.col3.length > 0 ? `3着軸:${selections.col3.join(',')}` : '';
+          return [partner, axis2, axis3].filter(Boolean).join(' → ');
+        }
+        // マルチ
+        const axisText = selections.col1.length > 0 ? `軸:${selections.col1.join(',')}` : '';
+        const partnerText = selections.col2.length > 0 ? `相手:${selections.col2.join(',')}` : '';
+        return [axisText, partnerText].filter(Boolean).join(' → ');
+      }
+
+      // 馬連・ワイド・三連複（順不同）
+      const axisText = selections.col1.length > 0 ? `軸:${selections.col1.join(',')}` : '';
+      const partnerText = selections.col2.length > 0 ? `相手:${selections.col2.join(',')}` : '';
+      return [axisText, partnerText].filter(Boolean).join(' → ');
+    } else if (betMethod === 'formation') {
+      const parts = [
+        selections.col1.length > 0 ? selections.col1.join(',') : '-',
+        selections.col2.length > 0 ? selections.col2.join(',') : '-',
+        selections.col3.length > 0 ? selections.col3.join(',') : '-',
+      ];
+      const required = BetTypeRequiredHorses[betType];
+      return parts.slice(0, required).join(' × ');
+    } else {
+      const sorted = [...selections.col1].sort((a, b) => a - b);
+      return sorted.join(' - ');
+    }
   };
 
   if (loading) return <div className="loading">読み込み中...</div>;
   if (error) return <div className="error">{error}</div>;
   if (!race) return <div className="no-races">レースが見つかりません</div>;
+
+  const required = BetTypeRequiredHorses[betType];
+  const canSelectMethod = required > 1;
+  const selectionDisplay = getSelectionDisplay();
+  const totalAmount = betAmount * betCount;
 
   return (
     <div className="fade-in">
@@ -141,62 +263,53 @@ export function RaceDetailPage() {
         </div>
       </div>
 
-      <div className="horse-list">
-        <div className="horse-list-header">
-          <span></span>
-          <span>馬番</span>
-          <span>馬名</span>
-          <span>オッズ</span>
-        </div>
-        {race.horses.map((horse) => (
-          <div
-            key={horse.number}
-            className={`horse-item ${selectedHorses.includes(horse.number) ? 'selected' : ''}`}
-            onClick={() => toggleHorse(horse.number)}
-          >
-            <div className="horse-checkbox">
-              <input
-                type="checkbox"
-                checked={selectedHorses.includes(horse.number)}
-                onChange={() => {}}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            <div className="horse-number" style={{ background: horse.color, color: horse.textColor }}>
-              {horse.number}
-            </div>
-            <div className="horse-info">
-              <div className="horse-name">{horse.name}</div>
-              <div className="horse-jockey">{horse.jockey}</div>
-            </div>
-            <div className="horse-odds">{horse.odds}</div>
-          </div>
-        ))}
+      {/* 券種・買い方セレクター */}
+      <div className="selector-area">
+        <button
+          className="selector-badge bet-type"
+          onClick={() => setIsBetTypeSheetOpen(true)}
+        >
+          <span className="label">{BetTypeLabels[betType]}</span>
+          <span className="arrow">▼</span>
+        </button>
+        <button
+          className={`selector-badge bet-method ${!canSelectMethod ? 'disabled' : ''}`}
+          onClick={() => canSelectMethod && setIsBetMethodSheetOpen(true)}
+          disabled={!canSelectMethod}
+        >
+          <span className="label">{getBetMethodLabel(betMethod, betType)}</span>
+          <span className="arrow">▼</span>
+        </button>
+        {selectionDisplay && (
+          <button className="clear-selection-btn" onClick={clearSelection}>
+            ✕ クリア
+          </button>
+        )}
       </div>
 
+      {/* 馬リスト */}
+      <HorseCheckboxList
+        horses={race.horses}
+        betType={betType}
+        method={betMethod}
+        selections={selections}
+        onSelectionChange={setSelections}
+      />
+
+      {/* 買い目入力セクション */}
       <div className="bet-section">
-        <h3>🎫 買い目を入力</h3>
-
-        <div className="bet-type-selector">
-          {betTypes.map((type) => (
-            <button
-              key={type}
-              className={`bet-type-btn ${betType === type ? 'active' : ''}`}
-              onClick={() => setBetType(type)}
-            >
-              {BetTypeLabels[type]}
-            </button>
-          ))}
-        </div>
-
         <div className="bet-input-group">
-          <label>選択した馬番 {getSelectionHint()}</label>
-          <div className={`selected-horses-display ${selectedHorses.length > 0 ? 'has-selection' : ''}`}>
-            {selectedHorses.length > 0 ? (
+          <label>
+            選択した馬番
+            <span className="selection-label">{getSelectionLabel()}</span>
+          </label>
+          <div className={`selected-horses-display ${selectionDisplay ? 'has-selection' : ''}`}>
+            {selectionDisplay ? (
               <>
-                <span className="selected-numbers">
-                  {[...selectedHorses].sort((a, b) => a - b).join(' - ')}
-                </span>
+                <span className="selected-numbers">{selectionDisplay}</span>
+                {betCount > 0 && (
+                  <span className="inline-bet-count">{betCount}点</span>
+                )}
                 <button className="clear-selection-btn" onClick={clearSelection}>
                   クリア
                 </button>
@@ -205,21 +318,22 @@ export function RaceDetailPage() {
               <span className="no-selection">上のリストから馬を選択してください</span>
             )}
           </div>
-          {getSelectionError() && (
-            <div className="selection-error">{getSelectionError()}</div>
-          )}
         </div>
 
         <div className="bet-input-group">
           <label>金額</label>
           <div className="amount-input-wrapper">
-            <span className="currency-symbol">¥</span>
-            <input
-              type="number"
-              className="amount-input"
-              value={betAmount}
-              onChange={(e) => setBetAmount(parseInt(e.target.value) || 0)}
-            />
+            <button className="amount-stepper-btn" onClick={handleAmountMinus}>−</button>
+            <div className="amount-center">
+              <span className="currency-symbol">¥</span>
+              <input
+                type="number"
+                className="amount-input"
+                value={betAmount}
+                onChange={(e) => setBetAmount(Math.max(100, parseInt(e.target.value) || 100))}
+              />
+            </div>
+            <button className="amount-stepper-btn" onClick={handleAmountPlus}>＋</button>
           </div>
           <div className="amount-presets">
             {[100, 500, 1000, 5000].map((amount) => (
@@ -234,10 +348,17 @@ export function RaceDetailPage() {
           </div>
         </div>
 
+        {betCount > 0 && (
+          <div className="bet-summary">
+            <span>{betCount}点</span>
+            <span>¥{totalAmount.toLocaleString()}</span>
+          </div>
+        )}
+
         <button
           className="ai-consult-btn"
           onClick={handleAddToCart}
-          disabled={!isValidSelection}
+          disabled={betCount === 0}
         >
           🛒 カートに追加
         </button>
@@ -252,6 +373,21 @@ export function RaceDetailPage() {
           </button>
         )}
       </div>
+
+      {/* ボトムシート */}
+      <BetTypeSheet
+        isOpen={isBetTypeSheetOpen}
+        onClose={() => setIsBetTypeSheetOpen(false)}
+        selectedType={betType}
+        onSelect={handleBetTypeChange}
+      />
+      <BetMethodSheet
+        isOpen={isBetMethodSheetOpen}
+        onClose={() => setIsBetMethodSheetOpen(false)}
+        betType={betType}
+        selectedMethod={betMethod}
+        onSelect={handleBetMethodChange}
+      />
     </div>
   );
 }

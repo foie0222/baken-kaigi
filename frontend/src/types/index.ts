@@ -222,6 +222,54 @@ export const BetTypeRequiredHorses: Record<BetType, number> = {
   trifecta: 3,
 };
 
+// 券種が着順を考慮するかどうか
+export const BetTypeOrdered: Record<BetType, boolean> = {
+  win: false,
+  place: false,
+  quinella: false,
+  quinella_place: false,
+  exacta: true,
+  trio: false,
+  trifecta: true,
+};
+
+// 買い方
+export type BetMethod =
+  | 'normal'           // 通常
+  | 'box'              // ボックス
+  | 'nagashi'          // 軸1頭流し（順不同券種）
+  | 'nagashi_1'        // 1着流し / 軸1頭1着流し
+  | 'nagashi_2'        // 2着流し / 軸1頭2着流し
+  | 'nagashi_3'        // 軸1頭3着流し（三連単）
+  | 'nagashi_multi'    // マルチ（馬単）
+  | 'nagashi_1_multi'  // 軸1頭マルチ（三連単）
+  | 'nagashi_12'       // 軸2頭1-2着流し（三連単）
+  | 'nagashi_13'       // 軸2頭1-3着流し（三連単）
+  | 'nagashi_23'       // 軸2頭2-3着流し（三連単）
+  | 'nagashi_2_multi'  // 軸2頭マルチ（三連単）
+  | 'formation';       // フォーメーション
+
+export interface BetMethodConfig {
+  id: BetMethod;
+  label: string;
+  description: string;
+  badge?: string;       // 倍率バッジ（×2など）
+}
+
+// 複数列選択の状態
+export interface ColumnSelections {
+  col1: number[];  // 1着/軸/1頭目
+  col2: number[];  // 2着/相手/2頭目
+  col3: number[];  // 3着/3頭目
+}
+
+// チェックボックス列の設定
+export interface ColumnConfig {
+  id: keyof ColumnSelections;
+  label: string;
+  colorClass: string;
+}
+
 // カート
 export interface CartItem {
   id: string;
@@ -230,7 +278,10 @@ export interface CartItem {
   raceVenue: string;
   raceNumber: string;
   betType: BetType;
+  betMethod?: BetMethod;
   horseNumbers: number[];
+  betDisplay?: string;  // 買い目の表示文字列（例: "1着軸:3 → 2着:1,5"）
+  betCount?: number;    // 点数
   amount: number;
 }
 

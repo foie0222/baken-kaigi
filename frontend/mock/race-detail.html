@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>レース詳細 - 馬券会議 モック</title>
+  <link rel="stylesheet" href="race-detail.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <h1 class="app-title">馬券会議</h1>
+  </header>
+
+  <!-- Main Content -->
+  <main class="fade-in">
+    <!-- Back Button -->
+    <button class="back-btn">← レース一覧に戻る</button>
+
+    <!-- Race Detail Header -->
+    <div class="race-detail-header">
+      <div class="race-header-top">
+        <span class="race-number">中山 1R</span>
+        <a href="#" class="jra-link-btn">
+          <span>出馬表</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </a>
+      </div>
+      <div class="race-name">3歳未勝利</div>
+      <div class="race-conditions">
+        <span class="condition-tag">ダート 1200m</span>
+        <span class="condition-tag">馬場: 良</span>
+        <span class="condition-tag">09:55 発走</span>
+      </div>
+    </div>
+
+    <!-- Bet Type Section -->
+    <div class="bet-type-section">
+      <div class="bet-type-selector" id="bet-type-selector"></div>
+    </div>
+
+    <!-- Horse List -->
+    <div class="horse-list">
+      <div class="horse-list-header">
+        <span class="header-umaban">馬番</span>
+        <span class="header-name">馬名</span>
+        <span class="header-odds">単勝</span>
+      </div>
+      <div id="horse-list-body"></div>
+    </div>
+  </main>
+
+  <!-- Floating Selection Bar -->
+  <div class="floating-selection-bar" id="floating-bar">
+    <div class="floating-bar-single">
+      <span class="floating-bet-type" id="floating-bet-type">単勝</span>
+      <span class="floating-selection" id="floating-selection">馬を選択</span>
+      <div class="amount-control-mini">
+        <button class="amount-step-btn-mini" id="amount-decrease">−</button>
+        <button class="amount-display-mini" id="amount-display">¥100</button>
+        <button class="amount-step-btn-mini" id="amount-increase">+</button>
+      </div>
+      <button class="add-cart-btn-mini" id="add-to-cart-btn" disabled>追加</button>
+    </div>
+
+    <!-- Amount Input Modal -->
+    <div class="amount-modal" id="amount-modal">
+      <div class="amount-modal-backdrop" id="amount-modal-backdrop"></div>
+      <div class="amount-modal-content">
+        <div class="amount-modal-header">
+          <span>金額を入力</span>
+          <button class="amount-modal-close" id="amount-modal-close">✕</button>
+        </div>
+        <div class="amount-modal-input-wrapper">
+          <span class="amount-modal-currency">¥</span>
+          <input type="number" class="amount-modal-input" id="amount-modal-input" value="1000" step="100">
+        </div>
+        <div class="amount-modal-presets">
+          <button class="amount-preset-btn" data-amount="100">¥100</button>
+          <button class="amount-preset-btn" data-amount="500">¥500</button>
+          <button class="amount-preset-btn" data-amount="1000">¥1,000</button>
+          <button class="amount-preset-btn" data-amount="3000">¥3,000</button>
+          <button class="amount-preset-btn" data-amount="5000">¥5,000</button>
+          <button class="amount-preset-btn" data-amount="10000">¥10,000</button>
+        </div>
+        <button class="amount-modal-confirm" id="amount-modal-confirm">決定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active">
+      <span class="nav-icon">🏇</span>
+      <span class="nav-label">レース</span>
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">損益</span>
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">📜</span>
+      <span class="nav-label">履歴</span>
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">設定</span>
+    </button>
+  </nav>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="race-detail.js"></script>
+</body>
+</html>
