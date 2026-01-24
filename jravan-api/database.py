@@ -27,6 +27,16 @@ VENUE_CODE_MAP = {
     "09": "阪神", "10": "小倉",
 }
 
+# 脚質コード → 名前のマッピング
+RUNNING_STYLE_MAP = {
+    "1": "逃げ",
+    "2": "先行",
+    "3": "差し",
+    "4": "追込",
+    "5": "自在",
+    "": "不明",
+}
+
 # 競走種別コード → 年齢条件のマッピング（共通定数）
 AGE_CONDITION_MAP = {
     "11": "2歳",
@@ -672,6 +682,64 @@ def check_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connection check failed: {e}")
         return False
+
+
+def get_runners_with_running_style(race_id: str) -> list[dict]:
+    """出走馬の脚質情報を含む一覧を取得.
+
+    jvd_se.kyakushitsu_hantei と jvd_um.kyakushitsu_keiko を結合して取得。
+
+    Args:
+        race_id: レースID（YYYYMMDD_XX_RR形式）
+
+    Returns:
+        出走馬の脚質情報リスト
+    """
+    try:
+        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
+    except ValueError:
+        return []
+
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                se.umaban,
+                se.bamei,
+                se.kyakushitsu_hantei,
+                um.kyakushitsu_keiko
+            FROM jvd_se se
+            LEFT JOIN jvd_um um ON se.ketto_toroku_bango = um.ketto_toroku_bango
+            WHERE se.kaisai_nen = %s AND se.kaisai_tsukihi = %s
+              AND se.keibajo_code = %s AND se.race_bango = %s
+            ORDER BY se.umaban::integer
+        """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+        rows = _fetch_all_as_dicts(cur)
+
+        results = []
+        for row in rows:
+            try:
+                horse_number = int(row.get("umaban", 0) or 0)
+            except (ValueError, TypeError):
+                horse_number = 0
+
+            # 脚質判定コードをマッピング
+            style_code = (row.get("kyakushitsu_hantei") or "").strip()
+            running_style = RUNNING_STYLE_MAP.get(style_code, "不明")
+
+            # 馬マスタの脚質傾向（1:逃げ 2:先行 3:差し 4:追込 5:自在）
+            tendency_code = (row.get("kyakushitsu_keiko") or "").strip()
+            running_style_tendency = RUNNING_STYLE_MAP.get(tendency_code, "不明")
+
+            results.append({
+                "horse_number": horse_number,
+                "horse_name": (row.get("bamei") or "").strip(),
+                "running_style": running_style,
+                "running_style_code": style_code,
+                "running_style_tendency": running_style_tendency,
+            })
+
+        return results
 
 
 def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: int) -> int | None:

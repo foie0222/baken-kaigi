@@ -120,6 +120,15 @@ class RaceWeightResponse(BaseModel):
     weight_diff: int            # 前走比増減
 
 
+class RunningStyleResponse(BaseModel):
+    """脚質情報レスポンス."""
+    horse_number: int
+    horse_name: str
+    running_style: str          # 逃げ/先行/差し/追込/自在/不明
+    running_style_code: str     # 元のコード
+    running_style_tendency: str # 馬マスタの脚質傾向
+
+
 class JraChecksumResponse(BaseModel):
     """JRAチェックサムレスポンス."""
     checksum: int | None
@@ -357,6 +366,23 @@ def get_race_weights(race_id: str):
             weight_diff=w["weight_diff"],
         )
         for w in weights
+    ]
+
+
+@app.get("/races/{race_id}/running-styles", response_model=list[RunningStyleResponse])
+def get_running_styles(race_id: str):
+    """出走馬の脚質情報を取得する."""
+    runners = db.get_runners_with_running_style(race_id)
+
+    return [
+        RunningStyleResponse(
+            horse_number=r["horse_number"],
+            horse_name=r["horse_name"],
+            running_style=r["running_style"],
+            running_style_code=r["running_style_code"],
+            running_style_tendency=r["running_style_tendency"],
+        )
+        for r in runners
     ]
 
 
