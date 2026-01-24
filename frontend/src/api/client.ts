@@ -14,6 +14,7 @@ import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 // API ベース URL（環境変数から取得）
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const AGENTCORE_ENDPOINT = import.meta.env.VITE_AGENTCORE_ENDPOINT || '';
+const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
@@ -36,10 +37,28 @@ export interface AgentCoreConsultationResponse {
 class ApiClient {
   private baseUrl: string;
   private agentCoreEndpoint: string;
+  private apiKey: string;
 
-  constructor(baseUrl: string, agentCoreEndpoint: string = '') {
+  constructor(baseUrl: string, agentCoreEndpoint: string = '', apiKey: string = '') {
     this.baseUrl = baseUrl;
     this.agentCoreEndpoint = agentCoreEndpoint;
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * 共通ヘッダーを生成する（API Key含む）
+   */
+  private createHeaders(additionalHeaders: HeadersInit = {}): HeadersInit {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(additionalHeaders as Record<string, string>),
+    };
+
+    if (this.apiKey) {
+      headers['x-api-key'] = this.apiKey;
+    }
+
+    return headers;
   }
 
   private async request<T>(
@@ -49,10 +68,7 @@ class ApiClient {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers: this.createHeaders(options.headers),
       });
 
       const data = await response.json();
@@ -212,9 +228,7 @@ class ApiClient {
     try {
       const response = await fetch(this.agentCoreEndpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.createHeaders(),
         body: JSON.stringify(request),
       });
 
@@ -245,4 +259,4 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL, AGENTCORE_ENDPOINT);
+export const apiClient = new ApiClient(API_BASE_URL, AGENTCORE_ENDPOINT, API_KEY);
