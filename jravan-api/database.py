@@ -845,6 +845,145 @@ def save_jra_checksum(venue_code: str, kaisai_kai: str, base_value: int) -> bool
         return True
 
 
+def get_past_race_statistics(
+    track_code: str,
+    distance: int,
+    grade_code: str | None = None,
+    limit_races: int = 100
+) -> dict | None:
+    """過去の同コース・同距離のレース統計を取得.
+
+    Args:
+        track_code: トラックコード（"1": 芝コース, "2": ダートコース, "3": 障害コース。内部的には track_code LIKE '<code>%' でフィルタ）
+        distance: 距離（メートル）
+        grade_code: グレードコード（省略可）
+        limit_races: 集計対象レース数
+
+    Returns:
+        人気別勝率・複勝率の統計
+        {
+            "total_races": int,
+            "popularity_stats": [
+                {
+                    "popularity": int,
+                    "total_runs": int,
+                    "wins": int,
+                    "places": int,
+                    "win_rate": float,
+                    "place_rate": float
+                }
+            ],
+            "avg_win_payout": float | None,
+            "avg_place_payout": float | None,
+            "conditions": {
+                "track_code": str,
+                "distance": int,
+                "grade_code": str | None
+            }
+        }
+    """
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            # 基本的な条件でレースを絞り込む
+            base_query = """
+                SELECT
+                    ra.kaisai_nen,
+                    ra.kaisai_tsukihi,
+                    ra.keibajo_code,
+                    ra.race_bango
+                FROM jvd_ra ra
+                WHERE ra.track_code LIKE %s
+                  AND ra.kyori = %s
+            """
+            params = [f"{track_code}%", distance]
+
+            if grade_code is not None:
+                base_query += " AND ra.grade_code = %s"
+                params.append(grade_code)
+
+            base_query += " ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC LIMIT %s"
+            params.append(limit_races)
+
+            cur.execute(base_query, params)
+            races = cur.fetchall()
+
+            if not races:
+                return None
+
+            total_races = len(races)
+
+            # 人気別統計を集計（kakutei_chakujun: 確定着順）
+            stats_query = """
+                SELECT
+                    se.tansho_ninkijun AS popularity,
+                    COUNT(*) AS total_runs,
+                    SUM(CASE WHEN se.kakutei_chakujun = '1' THEN 1 ELSE 0 END) AS wins,
+                    SUM(CASE WHEN se.kakutei_chakujun IN ('1', '2', '3') THEN 1 ELSE 0 END) AS places
+                FROM jvd_se se
+                WHERE (se.kaisai_nen, se.kaisai_tsukihi, se.keibajo_code, se.race_bango) IN (
+                    SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
+                    FROM jvd_ra ra
+                    WHERE ra.track_code LIKE %s
+                      AND ra.kyori = %s
+            """
+            stats_params = [f"{track_code}%", distance]
+
+            if grade_code is not None:
+                stats_query += " AND ra.grade_code = %s"
+                stats_params.append(grade_code)
+
+            stats_query += """
+                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                    LIMIT %s
+                )
+                AND se.tansho_ninkijun IS NOT NULL
+                AND se.tansho_ninkijun != ''
+                GROUP BY se.tansho_ninkijun
+                ORDER BY se.tansho_ninkijun::integer
+            """
+            stats_params.append(limit_races)
+
+            cur.execute(stats_query, stats_params)
+            popularity_rows = _fetch_all_as_dicts(cur)
+
+            # 人気別統計を整形
+            popularity_stats = []
+            for row in popularity_rows:
+                try:
+                    pop = int(row["popularity"])
+                    total = int(row["total_runs"])
+                    wins = int(row["wins"])
+                    places = int(row["places"])
+
+                    popularity_stats.append({
+                        "popularity": pop,
+                        "total_runs": total,
+                        "wins": wins,
+                        "places": places,
+                        "win_rate": round(wins / total * 100, 1) if total > 0 else 0.0,
+                        "place_rate": round(places / total * 100, 1) if total > 0 else 0.0,
+                    })
+                except (ValueError, TypeError, ZeroDivisionError):
+                    continue
+
+            return {
+                "total_races": total_races,
+                "popularity_stats": popularity_stats,
+                "avg_win_payout": None,
+                "avg_place_payout": None,
+                "conditions": {
+                    "track_code": track_code,
+                    "distance": distance,
+                    "grade_code": grade_code,
+                },
+            }
+    except Exception as e:
+        logger.error(f"Failed to get past race statistics: {e}")
+        return None
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 

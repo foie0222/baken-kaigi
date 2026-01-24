@@ -7,6 +7,7 @@ from src.domain.entities import Cart, ConsultationSession, Message
 from src.domain.enums import BetType, SessionStatus
 from src.domain.identifiers import CartId, RaceId, SessionId, UserId
 from src.domain.ports import (
+    PastRaceStats,
     AIClient,
     AmountFeedbackContext,
     BetFeedbackContext,
@@ -121,6 +122,16 @@ class MockRaceDataProvider(RaceDataProvider):
         to_date: date | None = None,
     ) -> list[date]:
         return []
+
+    def get_past_race_stats(
+        self,
+        track_type: str,
+        distance: int,
+        grade_class: str | None = None,
+        limit: int = 100
+    ) -> PastRaceStats | None:
+        """過去の同条件レース統計を取得する（モック実装）."""
+        return None
 
 
 class MockAIClient(AIClient):
