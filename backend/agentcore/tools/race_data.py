@@ -19,18 +19,20 @@ def get_race_runners(race_id: str) -> dict:
     """指定されたレースの出走馬一覧を取得する。
 
     Args:
-        race_id: レースID (例: "202506050811")
+        race_id: レースID (例: "20260125_06_11")
 
     Returns:
         出走馬情報のリスト（馬番、馬名、騎手、オッズ、人気）
     """
     try:
         response = requests.get(
-            f"{JRAVAN_API_URL}/races/{race_id}/runners",
+            f"{JRAVAN_API_URL}/races/{race_id}",
             timeout=10,
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        # runners フィールドを返す
+        return {"runners": data.get("runners", []), "race": data.get("race", {})}
     except requests.RequestException as e:
         return {"error": f"API呼び出しに失敗しました: {str(e)}"}
 
