@@ -984,6 +984,240 @@ def get_past_race_statistics(
         return None
 
 
+def get_jockey_course_stats(
+    jockey_id: str,
+    track_code: str,
+    distance: int,
+    keibajo_code: str | None = None,
+    limit_races: int = 100,
+) -> dict | None:
+    """騎手の特定コースでの成績を取得.
+
+    Args:
+        jockey_id: 騎手コード
+        track_code: トラックコード（1=芝, 2=ダート, 3=障害）
+        distance: 距離（メートル）
+        keibajo_code: 競馬場コード（Noneなら全競馬場）
+        limit_races: 集計対象レース数上限
+
+    Returns:
+        {
+            "jockey_id": str,
+            "jockey_name": str,
+            "total_rides": int,
+            "wins": int,
+            "places": int,
+            "win_rate": float,
+            "place_rate": float,
+            "conditions": {...}
+        }
+    """
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            # 騎手名を取得
+            cur.execute("""
+                SELECT kishumei
+                FROM jvd_ks
+                WHERE kishu_code = %s
+                LIMIT 1
+            """, (jockey_id,))
+            jockey_row = cur.fetchone()
+            jockey_name = jockey_row[0].strip() if jockey_row else "不明"
+
+            # 成績集計クエリ
+            stats_query = """
+                SELECT
+                    COUNT(*) AS total_rides,
+                    SUM(CASE WHEN se.kakutei_chakujun = '1' THEN 1 ELSE 0 END) AS wins,
+                    SUM(CASE WHEN se.kakutei_chakujun IN ('1', '2', '3') THEN 1 ELSE 0 END) AS places
+                FROM jvd_se se
+                INNER JOIN jvd_ra ra ON
+                    se.kaisai_nen = ra.kaisai_nen AND
+                    se.kaisai_tsukihi = ra.kaisai_tsukihi AND
+                    se.keibajo_code = ra.keibajo_code AND
+                    se.race_bango = ra.race_bango
+                WHERE se.kishu_code = %s
+                  AND ra.track_code LIKE %s
+                  AND ra.kyori = %s
+            """
+            params = [jockey_id, f"{track_code}%", distance]
+
+            if keibajo_code is not None:
+                stats_query += " AND ra.keibajo_code = %s"
+                params.append(keibajo_code)
+
+            # 直近のデータに限定
+            stats_query += """
+                AND se.kakutei_chakujun IS NOT NULL
+                AND se.kakutei_chakujun != ''
+            """
+
+            cur.execute(stats_query, params)
+            row = cur.fetchone()
+
+            if row is None or row[0] == 0:
+                return None
+
+            total_rides = int(row[0])
+            wins = int(row[1])
+            places = int(row[2])
+
+            win_rate = round(wins / total_rides * 100, 1) if total_rides > 0 else 0.0
+            place_rate = round(places / total_rides * 100, 1) if total_rides > 0 else 0.0
+
+            return {
+                "jockey_id": jockey_id,
+                "jockey_name": jockey_name,
+                "total_rides": total_rides,
+                "wins": wins,
+                "places": places,
+                "win_rate": win_rate,
+                "place_rate": place_rate,
+                "conditions": {
+                    "track_code": track_code,
+                    "distance": distance,
+                    "keibajo_code": keibajo_code,
+                },
+            }
+    except Exception as e:
+        logger.error(f"Failed to get jockey course stats: {e}")
+        return None
+
+
+def get_popularity_payout_stats(
+    track_code: str,
+    distance: int,
+    popularity: int,
+    limit_races: int = 100,
+) -> dict | None:
+    """特定人気の配当統計を取得.
+
+    Args:
+        track_code: トラックコード（1=芝, 2=ダート, 3=障害）
+        distance: 距離（メートル）
+        popularity: 人気順（1-18）
+        limit_races: 集計対象レース数上限
+
+    Returns:
+        {
+            "popularity": int,
+            "total_races": int,
+            "win_count": int,
+            "avg_win_payout": float | None,
+            "avg_place_payout": float | None,
+            "estimated_roi_win": float,
+            "estimated_roi_place": float,
+        }
+    """
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            # 指定人気の馬の成績と配当を集計
+            # jvd_hr テーブルから単勝・複勝配当を取得
+            query = """
+                WITH target_races AS (
+                    SELECT
+                        ra.kaisai_nen,
+                        ra.kaisai_tsukihi,
+                        ra.keibajo_code,
+                        ra.race_bango
+                    FROM jvd_ra ra
+                    WHERE ra.track_code LIKE %s
+                      AND ra.kyori = %s
+                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                    LIMIT %s
+                ),
+                target_horses AS (
+                    SELECT
+                        se.kaisai_nen,
+                        se.kaisai_tsukihi,
+                        se.keibajo_code,
+                        se.race_bango,
+                        se.umaban,
+                        se.kakutei_chakujun
+                    FROM jvd_se se
+                    INNER JOIN target_races tr ON
+                        se.kaisai_nen = tr.kaisai_nen AND
+                        se.kaisai_tsukihi = tr.kaisai_tsukihi AND
+                        se.keibajo_code = tr.keibajo_code AND
+                        se.race_bango = tr.race_bango
+                    WHERE se.tansho_ninkijun = %s
+                      AND se.kakutei_chakujun IS NOT NULL
+                      AND se.kakutei_chakujun != ''
+                )
+                SELECT
+                    COUNT(*) AS total_races,
+                    SUM(CASE WHEN th.kakutei_chakujun = '1' THEN 1 ELSE 0 END) AS win_count,
+                    SUM(CASE WHEN th.kakutei_chakujun IN ('1', '2', '3') THEN 1 ELSE 0 END) AS place_count,
+                    AVG(CASE
+                        WHEN th.kakutei_chakujun = '1' AND hr.tansho_haraimodoshi_1 IS NOT NULL
+                        THEN NULLIF(hr.tansho_haraimodoshi_1, '')::numeric / 10
+                        ELSE NULL
+                    END) AS avg_win_payout,
+                    AVG(CASE
+                        WHEN th.kakutei_chakujun IN ('1', '2', '3')
+                        THEN COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_1, '')::numeric / 10,
+                            NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric / 10,
+                            NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric / 10
+                        )
+                        ELSE NULL
+                    END) AS avg_place_payout
+                FROM target_horses th
+                LEFT JOIN jvd_hr hr ON
+                    th.kaisai_nen = hr.kaisai_nen AND
+                    th.kaisai_tsukihi = hr.kaisai_tsukihi AND
+                    th.keibajo_code = hr.keibajo_code AND
+                    th.race_bango = hr.race_bango
+            """
+            params = [f"{track_code}%", distance, limit_races, str(popularity)]
+
+            cur.execute(query, params)
+            row = cur.fetchone()
+
+            if row is None or row[0] == 0:
+                return None
+
+            total_races = int(row[0])
+            win_count = int(row[1])
+            place_count = int(row[2])
+            avg_win_payout = float(row[3]) if row[3] is not None else None
+            avg_place_payout = float(row[4]) if row[4] is not None else None
+
+            # 回収率計算
+            # 単勝: (勝利数 × 平均配当) / (総賭け金 = 100 × レース数) × 100
+            # 複勝: (入着数 × 平均配当) / (総賭け金 = 100 × レース数) × 100
+            win_rate_decimal = win_count / total_races if total_races > 0 else 0
+            place_rate_decimal = place_count / total_races if total_races > 0 else 0
+
+            # 回収率 = 勝率 × 平均配当（100円あたり）
+            if avg_win_payout is not None and win_count > 0:
+                estimated_roi_win = round(win_rate_decimal * avg_win_payout, 1)
+            else:
+                estimated_roi_win = 0.0
+
+            if avg_place_payout is not None and place_count > 0:
+                estimated_roi_place = round(place_rate_decimal * avg_place_payout, 1)
+            else:
+                estimated_roi_place = 0.0
+
+            return {
+                "popularity": popularity,
+                "total_races": total_races,
+                "win_count": win_count,
+                "avg_win_payout": round(avg_win_payout, 1) if avg_win_payout else None,
+                "avg_place_payout": round(avg_place_payout, 1) if avg_place_payout else None,
+                "estimated_roi_win": estimated_roi_win,
+                "estimated_roi_place": estimated_roi_place,
+            }
+    except Exception as e:
+        logger.error(f"Failed to get popularity payout stats: {e}")
+        return None
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 

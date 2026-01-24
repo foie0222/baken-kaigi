@@ -14,7 +14,11 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from tools.race_data import get_race_info, get_race_runners
 from tools.bet_analysis import analyze_bet_selection
 from tools.pace_analysis import analyze_race_development, analyze_running_style_match
-from tools.historical_analysis import analyze_past_race_trends
+from tools.historical_analysis import (
+    analyze_past_race_trends,
+    analyze_jockey_course_stats,
+    analyze_bet_roi,
+)
 from prompts.consultation import SYSTEM_PROMPT
 
 # エージェント初期化
@@ -27,6 +31,8 @@ agent = Agent(
         analyze_race_development,
         analyze_running_style_match,
         analyze_past_race_trends,
+        analyze_jockey_course_stats,
+        analyze_bet_roi,
     ],
 )
 
