@@ -24,7 +24,7 @@ class ClaudeAIClient(AIClient):
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
         self._client = anthropic.Anthropic(api_key=api_key)
-        self._model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        self._model = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20250514")
 
     def generate_bet_feedback(self, context: BetFeedbackContext) -> str:
         """買い目データに基づくフィードバック文を生成する."""
