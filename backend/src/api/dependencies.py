@@ -78,8 +78,7 @@ class Dependencies:
     def get_ai_client(cls) -> AIClient:
         """AIクライアントを取得する.
 
-        Note: AI相談は AgentCore 経由（/api/consultation）で行うため、
-        ここでは常に MockAIClient を返す（旧API互換用）。
+        Note: AI相談は AgentCore 経由（/api/consultation）で行う。
         """
         if cls._ai_client is None:
             cls._ai_client = MockAIClient()
