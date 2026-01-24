@@ -5,6 +5,7 @@
 
 import os
 
+import boto3
 import requests
 from strands import tool
 
@@ -12,6 +13,42 @@ JRAVAN_API_URL = os.environ.get(
     "JRAVAN_API_URL",
     "https://ryzl2uhi94.execute-api.ap-northeast-1.amazonaws.com/prod",
 )
+JRAVAN_API_KEY = os.environ.get("JRAVAN_API_KEY", "")
+JRAVAN_API_KEY_ID = os.environ.get("JRAVAN_API_KEY_ID", "zeq5hh8qp6")
+
+_cached_api_key: str | None = None
+
+
+def _get_api_key() -> str:
+    """APIキーを取得（キャッシュあり）."""
+    global _cached_api_key
+    if _cached_api_key is not None:
+        return _cached_api_key
+
+    # 環境変数から取得
+    if JRAVAN_API_KEY:
+        _cached_api_key = JRAVAN_API_KEY
+        return _cached_api_key
+
+    # boto3でAPI Gatewayから取得
+    try:
+        client = boto3.client("apigateway", region_name="ap-northeast-1")
+        response = client.get_api_key(apiKey=JRAVAN_API_KEY_ID, includeValue=True)
+        _cached_api_key = response.get("value", "")
+        return _cached_api_key
+    except Exception:
+        _cached_api_key = ""
+        return _cached_api_key
+
+
+def _get_headers() -> dict:
+    """APIリクエスト用ヘッダーを取得."""
+    headers = {}
+    api_key = _get_api_key()
+    if api_key:
+        headers["x-api-key"] = api_key
+    return headers
+
 
 # ペース予想結果と有利脚質のマッピング
 PACE_FAVORABLE_STYLES = {
@@ -26,6 +63,7 @@ def _get_running_styles(race_id: str) -> list[dict]:
     try:
         response = requests.get(
             f"{JRAVAN_API_URL}/races/{race_id}/running-styles",
+            headers=_get_headers(),
             timeout=10,
         )
         response.raise_for_status()
