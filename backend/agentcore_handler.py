@@ -111,6 +111,25 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
 
         # message を文字列に変換
         message = result.get("message", "応答を取得できませんでした")
+
+        # message がJSON文字列の場合、再帰的にパースして実際のメッセージを取得
+        max_depth = 5
+        for _ in range(max_depth):
+            if not isinstance(message, str) or not message.startswith("{"):
+                break
+            try:
+                parsed = json.loads(message)
+                if isinstance(parsed, dict) and "message" in parsed:
+                    message = parsed["message"]
+                    # session_id も取得
+                    if "session_id" in parsed:
+                        session_id = parsed["session_id"]
+                    print(f"[INVOKE] unwrapped message preview: {str(message)[:100]}")
+                else:
+                    break
+            except json.JSONDecodeError:
+                break  # パース失敗時はそのまま使用
+
         if isinstance(message, dict):
             # AgentCore の応答形式: {"role": "assistant", "content": [{"text": "..."}]}
             content = message.get("content", [])
@@ -139,36 +158,73 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
 def _handle_response(response: dict) -> dict:
     """AgentCore のレスポンスを処理する."""
     content_type = response.get("contentType", "")
+    print(f"[HANDLE] content_type: {content_type}")
 
     if "text/event-stream" in content_type:
         # ストリーミングレスポンス
         return _handle_streaming_response(response.get("response", []))
     else:
-        # 通常レスポンス
-        events = []
-        for event in response.get("response", []):
-            if isinstance(event, bytes):
-                try:
-                    decoded = event.decode("utf-8")
-                    if decoded.startswith('"') and decoded.endswith('"'):
-                        event = json.loads(decoded)
-                    else:
-                        event = decoded
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    pass
-            events.append(event)
+        # 通常レスポンス - すべてのイベントをデコードして結合
+        decoded_content = ""
+        resp_obj = response.get("response")
+        print(f"[HANDLE] response type: {type(resp_obj)}")
 
-        # レスポンスを結合
-        if events:
-            if isinstance(events[0], dict):
-                return events[0]
-            elif isinstance(events[0], str):
-                try:
-                    return json.loads(events[0])
-                except json.JSONDecodeError:
-                    return {"message": events[0]}
+        # EventStream の場合は iterate して収集
+        try:
+            for event in resp_obj:
+                print(f"[HANDLE] event type: {type(event)}, preview: {str(event)[:100]}")
+                if isinstance(event, bytes):
+                    try:
+                        decoded_content += event.decode("utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                elif isinstance(event, str):
+                    decoded_content += event
+                elif isinstance(event, dict):
+                    # 辞書が直接返ってきた場合
+                    print(f"[HANDLE] dict event: {event}")
+                    return _unwrap_nested_json(event)
+        except Exception as e:
+            print(f"[HANDLE] iteration error: {e}")
+
+        print(f"[HANDLE] decoded_content length: {len(decoded_content)}")
+        print(f"[HANDLE] decoded_content preview: {decoded_content[:500] if decoded_content else 'empty'}")
+
+        # デコードしたコンテンツをJSONとしてパース
+        if decoded_content:
+            try:
+                result = json.loads(decoded_content)
+                print(f"[HANDLE] parsed result type: {type(result)}")
+                if isinstance(result, dict):
+                    return _unwrap_nested_json(result)
+                else:
+                    return {"message": str(result)}
+            except json.JSONDecodeError as e:
+                print(f"[HANDLE] JSON decode error: {e}")
+                return {"message": decoded_content}
 
         return {"message": "応答を取得できませんでした"}
+
+
+def _unwrap_nested_json(result: dict) -> dict:
+    """ネストされたJSONを再帰的に展開する."""
+    max_depth = 5  # 無限ループ防止
+    for _ in range(max_depth):
+        msg = result.get("message", "")
+        if not isinstance(msg, str) or not msg.startswith("{"):
+            break
+        try:
+            inner = json.loads(msg)
+            if isinstance(inner, dict) and "message" in inner:
+                result["message"] = inner["message"]
+                if "session_id" in inner:
+                    result["session_id"] = inner["session_id"]
+                print(f"[UNWRAP] extracted message preview: {str(result['message'])[:100]}")
+            else:
+                break
+        except json.JSONDecodeError:
+            break
+    return result
 
 
 def _handle_streaming_response(response) -> dict:

@@ -22,10 +22,9 @@ from tools.historical_analysis import (
 )
 from prompts.consultation import SYSTEM_PROMPT
 
-# Amazon Nova 2 Lite モデル（コスト効率・高速・高精度）
-# cross-region inference で東京リージョンからも利用可能
+# Amazon Nova 2 Lite モデル（JP inference profile）
 bedrock_model = BedrockModel(
-    model_id=os.environ.get("BEDROCK_MODEL_ID", "us.amazon.nova-2-lite-v1:0"),
+    model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
     temperature=0.3,
 )
 
