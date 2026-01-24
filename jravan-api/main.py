@@ -160,6 +160,29 @@ class PastStatsResponse(BaseModel):
     conditions: dict
 
 
+class JockeyCourseStatsResponse(BaseModel):
+    """騎手コース成績レスポンス."""
+    jockey_id: str
+    jockey_name: str
+    total_rides: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+    conditions: dict
+
+
+class PopularityPayoutResponse(BaseModel):
+    """人気別配当統計レスポンス."""
+    popularity: int
+    total_races: int
+    win_count: int
+    avg_win_payout: float | None
+    avg_place_payout: float | None
+    estimated_roi_win: float
+    estimated_roi_place: float
+
+
 # ========================================
 # エンドポイント
 # ========================================
@@ -481,6 +504,91 @@ def get_past_race_stats(
         raise HTTPException(
             status_code=500,
             detail="統計データの取得に失敗しました"
+        )
+
+
+@app.get("/statistics/jockey-course", response_model=JockeyCourseStatsResponse)
+def get_jockey_course_stats(
+    jockey_id: str = Query(..., description="騎手コード"),
+    track_code: str = Query(..., description='トラックコード（"1": 芝, "2": ダート, "3": 障害）'),
+    distance: int = Query(..., description="距離（メートル）"),
+    keibajo_code: str | None = Query(None, description="競馬場コード（01-10）"),
+    limit: int = Query(100, ge=10, le=500, description="集計対象レース数"),
+):
+    """騎手の特定コースでの成績を取得."""
+    try:
+        stats = db.get_jockey_course_stats(
+            jockey_id=jockey_id,
+            track_code=track_code,
+            distance=distance,
+            keibajo_code=keibajo_code,
+            limit_races=limit,
+        )
+
+        if not stats:
+            raise HTTPException(
+                status_code=404,
+                detail="騎手成績データが見つかりませんでした"
+            )
+
+        return JockeyCourseStatsResponse(
+            jockey_id=stats["jockey_id"],
+            jockey_name=stats["jockey_name"],
+            total_rides=stats["total_rides"],
+            wins=stats["wins"],
+            places=stats["places"],
+            win_rate=stats["win_rate"],
+            place_rate=stats["place_rate"],
+            conditions=stats["conditions"],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get jockey course stats")
+        raise HTTPException(
+            status_code=500,
+            detail="騎手成績データの取得に失敗しました"
+        )
+
+
+@app.get("/statistics/popularity-payout", response_model=PopularityPayoutResponse)
+def get_popularity_payout_stats(
+    track_code: str = Query(..., description='トラックコード（"1": 芝, "2": ダート, "3": 障害）'),
+    distance: int = Query(..., description="距離（メートル）"),
+    popularity: int = Query(..., ge=1, le=18, description="人気順（1-18）"),
+    limit: int = Query(100, ge=10, le=500, description="集計対象レース数"),
+):
+    """特定人気の配当統計を取得."""
+    try:
+        stats = db.get_popularity_payout_stats(
+            track_code=track_code,
+            distance=distance,
+            popularity=popularity,
+            limit_races=limit,
+        )
+
+        if not stats:
+            raise HTTPException(
+                status_code=404,
+                detail="配当統計データが見つかりませんでした"
+            )
+
+        return PopularityPayoutResponse(
+            popularity=stats["popularity"],
+            total_races=stats["total_races"],
+            win_count=stats["win_count"],
+            avg_win_payout=stats["avg_win_payout"],
+            avg_place_payout=stats["avg_place_payout"],
+            estimated_roi_win=stats["estimated_roi_win"],
+            estimated_roi_place=stats["estimated_roi_place"],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get popularity payout stats")
+        raise HTTPException(
+            status_code=500,
+            detail="配当統計データの取得に失敗しました"
         )
 
 
