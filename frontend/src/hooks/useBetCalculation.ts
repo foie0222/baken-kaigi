@@ -39,8 +39,7 @@ export function calculateBetCount(
 
   if (method === 'box') {
     const n = selections.col1.length;
-    const minRequired = required + 1;
-    if (n < minRequired) return 0;
+    if (n < required) return 0;
     if (required === 2) {
       return ordered ? n * (n - 1) : combination(n, 2);
     } else if (required === 3) {
@@ -73,7 +72,8 @@ export function calculateBetCount(
       if (method === 'nagashi_multi') return baseCount * 2;
     } else if (required === 3) {
       if (axisCount === 1) {
-        baseCount = partners * (partners - 1);
+        // 三連複（順不同）は組み合わせ、三連単（順番あり）は順列
+        baseCount = ordered ? partners * (partners - 1) : combination(partners, 2);
         if (method === 'nagashi_1_multi') return baseCount * 3;
       } else {
         baseCount = partners;
@@ -91,7 +91,7 @@ export function calculateBetCount(
     if (required === 2) {
       if (col1 === 0 || col2 === 0) return 0;
       if (ordered) {
-        // 馬単フォーメーション
+        // 馬単フォーメーション（順序あり）
         let count = 0;
         selections.col1.forEach(h1 => {
           selections.col2.forEach(h2 => {
@@ -100,14 +100,22 @@ export function calculateBetCount(
         });
         return count;
       } else {
-        // 馬連・ワイドフォーメーション
-        const all = [...new Set([...selections.col1, ...selections.col2])];
-        return combination(all.length, 2);
+        // 馬連・ワイドフォーメーション（順不同）
+        // 各列から1頭ずつ選び、重複除外したユニークな組み合わせ数
+        const pairSet = new Set<string>();
+        selections.col1.forEach(h1 => {
+          selections.col2.forEach(h2 => {
+            if (h1 === h2) return;
+            const sorted = [h1, h2].sort((a, b) => a - b);
+            pairSet.add(`${sorted[0]}-${sorted[1]}`);
+          });
+        });
+        return pairSet.size;
       }
     } else if (required === 3) {
       if (col1 === 0 || col2 === 0 || col3 === 0) return 0;
       if (ordered) {
-        // 三連単フォーメーション
+        // 三連単フォーメーション（順序あり）
         let count = 0;
         selections.col1.forEach(h1 => {
           selections.col2.forEach(h2 => {
@@ -119,9 +127,20 @@ export function calculateBetCount(
         });
         return count;
       } else {
-        // 三連複フォーメーション
-        const all = [...new Set([...selections.col1, ...selections.col2, ...selections.col3])];
-        return combination(all.length, 3);
+        // 三連複フォーメーション（順不同）
+        // 各列から1頭ずつ選び、重複除外したユニークな組み合わせ数
+        const tripleSet = new Set<string>();
+        selections.col1.forEach(h1 => {
+          selections.col2.forEach(h2 => {
+            if (h1 === h2) return;
+            selections.col3.forEach(h3 => {
+              if (h1 === h3 || h2 === h3) return;
+              const sorted = [h1, h2, h3].sort((a, b) => a - b);
+              tripleSet.add(`${sorted[0]}-${sorted[1]}-${sorted[2]}`);
+            });
+          });
+        });
+        return tripleSet.size;
       }
     }
   }

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import './OptionItem.css';
 
 interface OptionItemProps {
@@ -18,9 +19,12 @@ export function OptionItem({
   onClick,
 }: OptionItemProps) {
   return (
-    <div
+    <button
+      type="button"
       className={`option-item ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
-      onClick={disabled ? undefined : onClick}
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
     >
       <div className="option-check">✓</div>
       <div className="option-info">
@@ -28,13 +32,13 @@ export function OptionItem({
         <div className="option-desc">{description}</div>
       </div>
       {badge && <span className="option-badge">{badge}</span>}
-    </div>
+    </button>
   );
 }
 
 interface OptionSectionProps {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function OptionSection({ title, children }: OptionSectionProps) {

@@ -7,6 +7,10 @@
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
+  background: white;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
 }
 
 .option-item:active {
