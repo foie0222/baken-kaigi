@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>券種・買い方デュアルシート - 馬券会議 モック</title>
+  <link rel="stylesheet" href="race-detail.css">
+  <style>
+    /* セレクターエリア */
+    .selector-area {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .selector-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      border: 1.5px solid #ddd;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .selector-badge:active {
+      transform: scale(0.98);
+      background: #f5f5f5;
+    }
+
+    .selector-badge .label {
+      color: #333;
+    }
+
+    .selector-badge .arrow {
+      color: #888;
+      font-size: 10px;
+    }
+
+    .selector-badge.bet-type {
+      flex: 1;
+    }
+
+    .selector-badge.bet-method {
+      flex: 1.2;
+    }
+
+    .selector-badge.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ボトムシート共通 */
+    .bottom-sheet {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 300;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .bottom-sheet.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bottom-sheet-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .bottom-sheet-content {
+      position: relative;
+      background: white;
+      width: 100%;
+      max-width: 500px;
+      border-radius: 16px 16px 0 0;
+      padding: 20px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .bottom-sheet.open .bottom-sheet-content {
+      transform: translateY(0);
+    }
+
+    .bottom-sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .bottom-sheet-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .bottom-sheet-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: #f5f5f5;
+      border-radius: 50%;
+      font-size: 14px;
+      color: #666;
+      cursor: pointer;
+    }
+
+    /* 選択リスト */
+    .option-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 2px solid #e8e8e8;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .option-item:active {
+      transform: scale(0.99);
+    }
+
+    .option-item.selected {
+      background: #e8f5e9;
+      border-color: #1a5f2a;
+    }
+
+    .option-item.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .option-check {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #ddd;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: transparent;
+      flex-shrink: 0;
+    }
+
+    .option-item.selected .option-check {
+      background: #1a5f2a;
+      border-color: #1a5f2a;
+      color: white;
+    }
+
+    .option-info {
+      flex: 1;
+    }
+
+    .option-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .option-desc {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .option-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: #ff6b35;
+      background: #fff3e0;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    /* セクション区切り */
+    .option-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #eee;
+    }
+
+    .option-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    /* 軸/相手バッジ */
+    .axis-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: #ff6b35;
+      color: white;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .axis-badge.partner {
+      background: #1a5f2a;
+    }
+
+    /* 選択ヒント */
+    .selection-guide {
+      background: linear-gradient(90deg, #e3f2fd 0%, #f3f8ff 100%);
+      border-left: 3px solid #2196f3;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+      color: #1565c0;
+    }
+
+    .selection-guide.axis {
+      background: linear-gradient(90deg, #fff3e0 0%, #fffaf5 100%);
+      border-left-color: #ff6b35;
+      color: #e65100;
+    }
+
+    .selection-guide.partner {
+      background: linear-gradient(90deg, #e8f5e9 0%, #f5fff6 100%);
+      border-left-color: #1a5f2a;
+      color: #1a5f2a;
+    }
+
+    .bet-count-display {
+      font-size: 11px;
+      color: #1a5f2a;
+      margin-left: auto;
+      margin-right: 8px;
+      cursor: pointer;
+      padding: 4px 8px;
+      background: #e8f5e9;
+      border-radius: 4px;
+      font-weight: 600;
+      position: relative;
+    }
+
+    .bet-count-display:active {
+      background: #c8e6c9;
+    }
+
+    /* 点数内訳ポップアップ */
+    .bet-breakdown-popup {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      max-width: 90%;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .bet-breakdown-popup.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .bet-breakdown-popup .breakdown-formula {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .bet-breakdown-popup .breakdown-detail {
+      font-size: 11px;
+      color: #aaa;
+    }
+
+    /* 選択クリアボタン */
+    .clear-selection-btn {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px solid #e53935;
+      color: #e53935;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .clear-selection-btn:active {
+      background: #ffebee;
+    }
+
+    .clear-selection-btn.show {
+      display: flex;
+    }
+
+    /* カートボタン */
+    .cart-btn {
+      position: relative;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: white;
+      font-size: 14px;
+    }
+
+    .cart-btn:active {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .cart-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #ff4444;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+
+    /* 買い目入力セクション（既存パターン） */
+    .bet-section {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+      margin-bottom: 80px;
+    }
+
+    .bet-section h3 {
+      font-size: 16px;
+      margin: 0 0 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bet-input-group {
+      margin-bottom: 16px;
+    }
+
+    .bet-input-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .bet-input-group label span {
+      font-weight: 400;
+      color: #888;
+    }
+
+    .selected-horses-display {
+      background: #f8f9fa;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .selected-horses-display.has-selection {
+      border-color: #1a5f2a;
+      background: #f0f9f1;
+    }
+
+    .selected-numbers {
+      font-weight: 600;
+      font-size: 15px;
+      color: #1a5f2a;
+      flex: 1;
+    }
+
+    .inline-bet-count {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a5f2a;
+      background: rgba(26, 95, 42, 0.1);
+      padding: 4px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .no-selection {
+      color: #999;
+      font-size: 13px;
+    }
+
+    .selection-error {
+      color: #c62828;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .selection-label {
+      font-size: 12px;
+      color: #666;
+      background: #f0f0f0;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 4px;
+    }
+
+    .amount-input-wrapper {
+      display: flex;
+      align-items: center;
+      background: #f8f9fa;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .amount-input-wrapper:focus-within {
+      border-color: #1a5f2a;
+    }
+
+    .amount-stepper-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: #e8e8e8;
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+
+    .amount-stepper-btn:active {
+      background: #d0d0d0;
+    }
+
+    .amount-stepper-btn:disabled {
+      color: #bbb;
+      cursor: not-allowed;
+    }
+
+    .amount-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+    }
+
+    .currency-symbol {
+      font-size: 16px;
+      font-weight: 600;
+      color: #666;
+    }
+
+    .amount-input {
+      width: 80px;
+      border: none;
+      background: none;
+      padding: 12px 4px;
+      font-size: 18px;
+      font-weight: 600;
+      outline: none;
+      text-align: center;
+    }
+
+    .amount-presets {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .preset-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset-btn:active {
+      background: #e8f5e9;
+      border-color: #1a5f2a;
+    }
+
+    .bet-summary {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+      background: #e8f5e9;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-weight: 600;
+      color: #1a5f2a;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #1a5f2a 0%, #2e7d32 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      background: white;
+      color: #1a5f2a;
+      border: 2px solid #1a5f2a;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .btn-secondary:active {
+      background: #e8f5e9;
+    }
+
+    /* チェックボックスエリア */
+    .horse-checkboxes {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      padding: 0 8px;
+    }
+
+    .checkbox-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .checkbox-col input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 28px;
+      height: 28px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.15s ease;
+    }
+
+    .checkbox-col input[type="checkbox"]:checked {
+      background: #1a5f2a;
+      border-color: #1a5f2a;
+    }
+
+    .checkbox-col input[type="checkbox"]:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .checkbox-col input[type="checkbox"]:active {
+      transform: scale(0.95);
+    }
+
+    /* 列ごとの色分け */
+    .checkbox-col.col-1 input[type="checkbox"]:checked {
+      background: #e53935;
+      border-color: #e53935;
+    }
+    .checkbox-col.col-2 input[type="checkbox"]:checked {
+      background: #1e88e5;
+      border-color: #1e88e5;
+    }
+    .checkbox-col.col-3 input[type="checkbox"]:checked {
+      background: #43a047;
+      border-color: #43a047;
+    }
+
+    /* 軸/相手 */
+    .checkbox-col.col-axis input[type="checkbox"]:checked {
+      background: #ff6b35;
+      border-color: #ff6b35;
+    }
+    .checkbox-col.col-partner input[type="checkbox"]:checked {
+      background: #1a5f2a;
+      border-color: #1a5f2a;
+    }
+
+    /* 通常モードは単一チェック */
+    .checkbox-col.col-single input[type="checkbox"]:checked {
+      background: #1a5f2a;
+      border-color: #1a5f2a;
+    }
+
+    /* ヘッダーのチェックボックス列 */
+    .header-checkboxes {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+      padding: 0 8px;
+    }
+
+    .header-checkbox-label {
+      width: 28px;
+      text-align: center;
+      font-size: 10px;
+      color: #666;
+      font-weight: 600;
+    }
+
+    .header-checkbox-label.col-1 { color: #e53935; }
+    .header-checkbox-label.col-2 { color: #1e88e5; }
+    .header-checkbox-label.col-3 { color: #43a047; }
+    .header-checkbox-label.col-axis { color: #ff6b35; }
+    .header-checkbox-label.col-partner { color: #1a5f2a; }
+
+    /* 馬リストのグリッド調整（動的に変更） */
+    .horse-list-header {
+      display: grid;
+      padding: 10px 8px;
+      background: #f8f9fa;
+      font-size: 11px;
+      color: #888;
+      font-weight: 600;
+    }
+
+    .horse-item {
+      display: grid;
+      padding: 0;
+      border-bottom: 1px solid #f0f0f0;
+      align-items: center;
+      min-height: 52px;
+      position: relative;
+    }
+
+    /* 1列チェック */
+    .horse-list.cols-1 .horse-list-header,
+    .horse-list.cols-1 .horse-item {
+      grid-template-columns: 40px 1fr 48px 44px;
+    }
+
+    /* 2列チェック */
+    .horse-list.cols-2 .horse-list-header,
+    .horse-list.cols-2 .horse-item {
+      grid-template-columns: 40px 1fr 48px 68px;
+    }
+
+    /* 3列チェック */
+    .horse-list.cols-3 .horse-list-header,
+    .horse-list.cols-3 .horse-item {
+      grid-template-columns: 40px 1fr 48px 100px;
+    }
+
+    .horse-umaban {
+      padding: 4px;
+    }
+
+    .umaban-number {
+      width: 26px;
+      height: 26px;
+      font-size: 12px;
+    }
+
+    .horse-info {
+      padding: 6px 4px;
+    }
+
+    .horse-name {
+      font-size: 13px;
+    }
+
+    .horse-odds {
+      font-size: 14px;
+      padding-right: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <h1 class="app-title">馬券会議</h1>
+    <button class="cart-btn" id="cart-btn" onclick="goToCart()">
+      🛒
+      <span class="cart-badge" id="cart-badge" style="display: none;">0</span>
+    </button>
+  </header>
+
+  <!-- Main Content -->
+  <main class="fade-in">
+    <!-- Back Button -->
+    <button class="back-btn" onclick="location.href='race-detail.html'">← ベースに戻る</button>
+
+    <!-- Race Detail Header -->
+    <div class="race-detail-header">
+      <div class="race-header-top">
+        <span class="race-number">中山 1R</span>
+        <a href="#" class="jra-link-btn">
+          <span>出馬表</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </a>
+      </div>
+      <div class="race-name">3歳未勝利</div>
+      <div class="race-conditions">
+        <span class="condition-tag">ダート 1200m</span>
+        <span class="condition-tag">馬場: 良</span>
+        <span class="condition-tag">09:55 発走</span>
+      </div>
+    </div>
+
+    <!-- Selector Area -->
+    <div class="selector-area">
+      <div class="selector-badge bet-type" id="bet-type-badge">
+        <span class="label" id="bet-type-label">単勝</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="selector-badge bet-method" id="bet-method-badge">
+        <span class="label" id="bet-method-label">通常</span>
+        <span class="arrow">▼</span>
+      </div>
+      <button class="clear-selection-btn" id="clear-selection-btn">
+        ✕ クリア
+      </button>
+    </div>
+
+    <!-- Selection Guide -->
+    <div class="selection-guide" id="selection-guide" style="display: none;"></div>
+
+    <!-- Horse List -->
+    <div class="horse-list cols-1" id="horse-list">
+      <div class="horse-list-header" id="horse-list-header">
+        <span>馬番</span>
+        <span>馬名</span>
+        <span>単勝</span>
+        <div class="header-checkboxes" id="header-checkboxes"></div>
+      </div>
+      <div id="horse-list-body"></div>
+    </div>
+
+    <!-- 買い目入力セクション -->
+    <div class="bet-section">
+      <div class="bet-input-group">
+        <label>選択した馬番 <span id="selection-hint"></span></label>
+        <div class="selected-horses-display" id="selected-horses-display">
+          <span class="no-selection">上のリストから馬を選択してください</span>
+        </div>
+        <div class="selection-error" id="selection-error"></div>
+      </div>
+
+      <div class="bet-input-group">
+        <label>金額</label>
+        <div class="amount-input-wrapper">
+          <button class="amount-stepper-btn" id="amount-minus">−</button>
+          <div class="amount-center">
+            <span class="currency-symbol">¥</span>
+            <input type="number" class="amount-input" id="amount-input" value="100" min="100" step="100">
+          </div>
+          <button class="amount-stepper-btn" id="amount-plus">＋</button>
+        </div>
+        <div class="amount-presets">
+          <button class="preset-btn" data-amount="100">¥100</button>
+          <button class="preset-btn" data-amount="500">¥500</button>
+          <button class="preset-btn" data-amount="1000">¥1,000</button>
+          <button class="preset-btn" data-amount="5000">¥5,000</button>
+        </div>
+      </div>
+
+      <div class="bet-summary" id="bet-summary" style="display: none;">
+        <span id="bet-count-display"></span>
+        <span id="bet-total-display"></span>
+      </div>
+
+      <button class="btn-primary" id="add-to-cart-btn" disabled>
+        🛒 カートに追加
+      </button>
+
+      <button class="btn-secondary" id="view-cart-btn" style="display: none;">
+        カートを確認する（<span id="cart-count">0</span>件）
+      </button>
+    </div>
+  </main>
+
+  <!-- 券種選択シート -->
+  <div class="bottom-sheet" id="bet-type-sheet">
+    <div class="bottom-sheet-backdrop"></div>
+    <div class="bottom-sheet-content">
+      <div class="bottom-sheet-header">
+        <span class="bottom-sheet-title">券種を選択</span>
+        <button class="bottom-sheet-close">✕</button>
+      </div>
+      <div class="option-list" id="bet-type-list"></div>
+    </div>
+  </div>
+
+  <!-- 買い方選択シート -->
+  <div class="bottom-sheet" id="bet-method-sheet">
+    <div class="bottom-sheet-backdrop"></div>
+    <div class="bottom-sheet-content">
+      <div class="bottom-sheet-header">
+        <span class="bottom-sheet-title">買い方を選択</span>
+        <button class="bottom-sheet-close">✕</button>
+      </div>
+      <div class="option-list" id="bet-method-list"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active">
+      <span class="nav-icon">🏇</span>
+      <span class="nav-label">レース</span>
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">損益</span>
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">📜</span>
+      <span class="nav-label">履歴</span>
+    </button>
+    <button class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">設定</span>
+    </button>
+  </nav>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- 点数内訳ポップアップ -->
+  <div class="bet-breakdown-popup" id="bet-breakdown-popup">
+    <div class="breakdown-formula" id="breakdown-formula"></div>
+    <div class="breakdown-detail" id="breakdown-detail"></div>
+  </div>
+
+  <script>
+    // 枠番カラー
+    const wakuColors = {
+      1: '#ffffff', 2: '#000000', 3: '#ff0000', 4: '#0066cc',
+      5: '#ffcc00', 6: '#00aa00', 7: '#ff6600', 8: '#ff66cc'
+    };
+    const wakuTextColors = {
+      1: '#000000', 2: '#ffffff', 3: '#ffffff', 4: '#ffffff',
+      5: '#000000', 6: '#ffffff', 7: '#ffffff', 8: '#ffffff'
+    };
+
+    // Mock Data
+    const horses = [
+      { number: 1, waku: 1, name: 'シセイヒナタ', jockey: '吉田豊', weight: '56.0', odds: '3.4' },
+      { number: 2, waku: 1, name: 'アドミ', jockey: '菅原明良', weight: '56.0', odds: '12.5' },
+      { number: 3, waku: 2, name: 'ビアーレ', jockey: '内田博幸', weight: '56.0', odds: '8.2' },
+      { number: 4, waku: 2, name: 'ジョイアミーア', jockey: '三浦皇成', weight: '56.0', odds: '5.6' },
+      { number: 5, waku: 3, name: 'スカット', jockey: '上里直汰', weight: '54.0', odds: '25.3' },
+      { number: 6, waku: 3, name: 'アイアンブランド', jockey: '丸田恭介', weight: '56.0', odds: '18.7' },
+      { number: 7, waku: 4, name: 'イヌボウノキラメキ', jockey: 'キング', weight: '54.0', odds: '45.2' },
+      { number: 8, waku: 4, name: 'ワンダーバリエンス', jockey: '柴田大知', weight: '56.0', odds: '32.1' },
+      { number: 9, waku: 5, name: 'グランドライン', jockey: '横山武史', weight: '56.0', odds: '6.8' },
+      { number: 10, waku: 5, name: 'サクラブレイブ', jockey: '田辺裕信', weight: '56.0', odds: '15.4' },
+      { number: 11, waku: 6, name: 'トーセンファントム', jockey: '戸崎圭太', weight: '56.0', odds: '4.2' },
+      { number: 12, waku: 6, name: 'ダノンスマッシュ', jockey: 'ルメール', weight: '56.0', odds: '2.1' },
+    ];
+
+    // 券種定義
+    const betTypes = [
+      { type: 'win', label: '単勝', desc: '1着を当てる', required: 1, ordered: false },
+      { type: 'place', label: '複勝', desc: '3着以内を当てる', required: 1, ordered: false },
+      { type: 'quinella', label: '馬連', desc: '1-2着を当てる（順不同）', required: 2, ordered: false },
+      { type: 'quinella_place', label: 'ワイド', desc: '3着以内の2頭を当てる', required: 2, ordered: false },
+      { type: 'exacta', label: '馬単', desc: '1-2着を順番通りに当てる', required: 2, ordered: true },
+      { type: 'trio', label: '三連複', desc: '1-2-3着を当てる（順不同）', required: 3, ordered: false },
+      { type: 'trifecta', label: '三連単', desc: '1-2-3着を順番通りに当てる', required: 3, ordered: true },
+    ];
+
+    // 買い方定義（券種によって動的に変わる）
+    function getBetMethods(betType) {
+      const config = betTypes.find(b => b.type === betType);
+      if (!config) return [];
+
+      const methods = [
+        { id: 'normal', label: '通常', desc: `${config.required}頭をぴったり選択` },
+      ];
+
+      // 2頭以上の券種のみ
+      if (config.required >= 2) {
+        methods.push({ id: 'box', label: 'ボックス', desc: '選んだ馬の全組み合わせ' });
+
+        if (config.ordered) {
+          // 馬単
+          if (config.required === 2) {
+            methods.push({ id: 'nagashi_1', label: '1着流し', desc: '軸が1着、相手が2着' });
+            methods.push({ id: 'nagashi_2', label: '2着流し', desc: '相手が1着、軸が2着' });
+            methods.push({ id: 'nagashi_multi', label: 'マルチ', desc: '1着流し＋2着流し', badge: '×2' });
+          }
+          // 三連単
+          if (config.required === 3) {
+            methods.push({ id: 'nagashi_1', label: '軸1頭 1着流し', desc: '軸が1着固定' });
+            methods.push({ id: 'nagashi_2', label: '軸1頭 2着流し', desc: '軸が2着固定' });
+            methods.push({ id: 'nagashi_3', label: '軸1頭 3着流し', desc: '軸が3着固定' });
+            methods.push({ id: 'nagashi_1_multi', label: '軸1頭 マルチ', desc: '軸がどこでもOK', badge: '×3' });
+            methods.push({ id: 'nagashi_12', label: '軸2頭 1-2着流し', desc: '軸2頭が1-2着' });
+            methods.push({ id: 'nagashi_13', label: '軸2頭 1-3着流し', desc: '軸2頭が1-3着' });
+            methods.push({ id: 'nagashi_23', label: '軸2頭 2-3着流し', desc: '軸2頭が2-3着' });
+            methods.push({ id: 'nagashi_2_multi', label: '軸2頭 マルチ', desc: '軸2頭がどこでもOK', badge: '×6' });
+          }
+        } else {
+          // 馬連・ワイド・三連複
+          methods.push({ id: 'nagashi', label: '軸1頭流し', desc: '軸から相手へ' });
+          if (config.required === 3) {
+            methods.push({ id: 'nagashi_2', label: '軸2頭流し', desc: '軸2頭から相手へ' });
+          }
+        }
+
+        methods.push({ id: 'formation', label: 'フォーメーション', desc: '着順ごとに候補を指定' });
+      }
+
+      return methods;
+    }
+
+    // State
+    let currentBetType = 'win';
+    let currentMethod = 'normal';
+    // 列ごとの選択（フォーメーション対応）
+    let selections = {
+      col1: [],  // 1着/軸/1頭目
+      col2: [],  // 2着/相手/2頭目
+      col3: [],  // 3着/3頭目
+    };
+    let betAmount = 100;
+
+    // カート（LocalStorage永続化）
+    let cart = JSON.parse(localStorage.getItem('baken-kaigi-mock-cart') || '[]');
+    let cartIdCounter = cart.length > 0 ? Math.max(...cart.map(c => c.id)) + 1 : 1;
+
+    // DOM Elements
+    const betTypeBadge = document.getElementById('bet-type-badge');
+    const betTypeLabel = document.getElementById('bet-type-label');
+    const betMethodBadge = document.getElementById('bet-method-badge');
+    const betMethodLabel = document.getElementById('bet-method-label');
+    const betTypeSheet = document.getElementById('bet-type-sheet');
+    const betMethodSheet = document.getElementById('bet-method-sheet');
+    const betTypeList = document.getElementById('bet-type-list');
+    const betMethodList = document.getElementById('bet-method-list');
+    const horseListBody = document.getElementById('horse-list-body');
+    const selectionGuide = document.getElementById('selection-guide');
+    const clearSelectionBtn = document.getElementById('clear-selection-btn');
+    const toast = document.getElementById('toast');
+    const betBreakdownPopup = document.getElementById('bet-breakdown-popup');
+    const breakdownFormula = document.getElementById('breakdown-formula');
+    const breakdownDetail = document.getElementById('breakdown-detail');
+
+    // 買い目セクション関連DOM
+    const selectedHorsesDisplay = document.getElementById('selected-horses-display');
+    const selectionHint = document.getElementById('selection-hint');
+    const selectionError = document.getElementById('selection-error');
+    const amountInput = document.getElementById('amount-input');
+    const betSummary = document.getElementById('bet-summary');
+    const betCountDisplay = document.getElementById('bet-count-display');
+    const betTotalDisplay = document.getElementById('bet-total-display');
+    const addToCartBtn = document.getElementById('add-to-cart-btn');
+    const viewCartBtn = document.getElementById('view-cart-btn');
+    const cartCount = document.getElementById('cart-count');
+    const cartBadge = document.getElementById('cart-badge');
+
+    function init() {
+      setupSheets();
+      setupAmountControl();
+      setupClearButton();
+      setupBreakdownPopup();
+      setupPresetButtons();
+      renderHorseList();
+      updateUI();
+      updateCartBadge();
+    }
+
+    function getCurrentBetTypeConfig() {
+      return betTypes.find(b => b.type === currentBetType);
+    }
+
+    function getCurrentMethodConfig() {
+      const methods = getBetMethods(currentBetType);
+      return methods.find(m => m.id === currentMethod);
+    }
+
+    // チェックボックス列の設定を取得
+    function getColumnConfig() {
+      const config = getCurrentBetTypeConfig();
+      const isNagashi = currentMethod.startsWith('nagashi');
+      const isFormation = currentMethod === 'formation';
+      const isBox = currentMethod === 'box';
+
+      if (currentMethod === 'normal' || isBox) {
+        // 通常・ボックス: 1列
+        return {
+          count: 1,
+          columns: [{ id: 'col1', label: '選択', class: 'col-single' }]
+        };
+      }
+
+      if (isNagashi) {
+        // 流し: 軸と相手の2列（着順に応じて配置を変える）
+        // 馬単の場合
+        if (config.required === 2 && config.ordered) {
+          if (currentMethod === 'nagashi_2') {
+            // 2着流し: 相手(1着) | 軸(2着) の順
+            return {
+              count: 2,
+              columns: [
+                { id: 'col2', label: '1着', class: 'col-partner' },
+                { id: 'col1', label: '2着軸', class: 'col-axis' }
+              ]
+            };
+          } else {
+            // 1着流し/マルチ: 軸(1着) | 相手(2着) の順
+            return {
+              count: 2,
+              columns: [
+                { id: 'col1', label: '1着軸', class: 'col-axis' },
+                { id: 'col2', label: '2着', class: 'col-partner' }
+              ]
+            };
+          }
+        }
+        // 三連単の場合
+        if (config.required === 3 && config.ordered) {
+          if (currentMethod === 'nagashi_1') {
+            return {
+              count: 2,
+              columns: [
+                { id: 'col1', label: '1着軸', class: 'col-axis' },
+                { id: 'col2', label: '2-3着', class: 'col-partner' }
+              ]
+            };
+          } else if (currentMethod === 'nagashi_2') {
+            return {
+              count: 2,
+              columns: [
+                { id: 'col2', label: '1,3着', class: 'col-partner' },
+                { id: 'col1', label: '2着軸', class: 'col-axis' }
+              ]
+            };
+          } else if (currentMethod === 'nagashi_3') {
+            return {
+              count: 2,
+              columns: [
+                { id: 'col2', label: '1-2着', class: 'col-partner' },
+                { id: 'col1', label: '3着軸', class: 'col-axis' }
+              ]
+            };
+          } else {
+            // マルチ/軸2頭流し
+            return {
+              count: 2,
+              columns: [
+                { id: 'col1', label: '軸', class: 'col-axis' },
+                { id: 'col2', label: '相手', class: 'col-partner' }
+              ]
+            };
+          }
+        }
+        // 馬連・ワイド・三連複（順不同）
+        return {
+          count: 2,
+          columns: [
+            { id: 'col1', label: '軸', class: 'col-axis' },
+            { id: 'col2', label: '相手', class: 'col-partner' }
+          ]
+        };
+      }
+
+      if (isFormation) {
+        // フォーメーション: 着順分の列
+        if (config.required === 2) {
+          if (config.ordered) {
+            return {
+              count: 2,
+              columns: [
+                { id: 'col1', label: '1着', class: 'col-1' },
+                { id: 'col2', label: '2着', class: 'col-2' }
+              ]
+            };
+          } else {
+            return {
+              count: 2,
+              columns: [
+                { id: 'col1', label: '1頭目', class: 'col-1' },
+                { id: 'col2', label: '2頭目', class: 'col-2' }
+              ]
+            };
+          }
+        } else if (config.required === 3) {
+          if (config.ordered) {
+            return {
+              count: 3,
+              columns: [
+                { id: 'col1', label: '1着', class: 'col-1' },
+                { id: 'col2', label: '2着', class: 'col-2' },
+                { id: 'col3', label: '3着', class: 'col-3' }
+              ]
+            };
+          } else {
+            return {
+              count: 3,
+              columns: [
+                { id: 'col1', label: '1頭目', class: 'col-1' },
+                { id: 'col2', label: '2頭目', class: 'col-2' },
+                { id: 'col3', label: '3頭目', class: 'col-3' }
+              ]
+            };
+          }
+        }
+      }
+
+      return { count: 1, columns: [{ id: 'col1', label: '', class: 'col-single' }] };
+    }
+
+    // シートのセットアップ
+    function setupSheets() {
+      // 券種バッジ
+      betTypeBadge.addEventListener('click', () => {
+        renderBetTypeList();
+        betTypeSheet.classList.add('open');
+      });
+
+      // 買い方バッジ
+      betMethodBadge.addEventListener('click', () => {
+        const config = getCurrentBetTypeConfig();
+        if (config.required === 1) return;  // 単勝・複勝は選択不可
+        renderBetMethodList();
+        betMethodSheet.classList.add('open');
+      });
+
+      // 閉じるボタン・背景クリック
+      document.querySelectorAll('.bottom-sheet').forEach(sheet => {
+        sheet.querySelector('.bottom-sheet-backdrop').addEventListener('click', () => {
+          sheet.classList.remove('open');
+        });
+        sheet.querySelector('.bottom-sheet-close').addEventListener('click', () => {
+          sheet.classList.remove('open');
+        });
+      });
+    }
+
+    // 券種リストを描画
+    function renderBetTypeList() {
+      betTypeList.innerHTML = betTypes.map(bt => `
+        <div class="option-item ${currentBetType === bt.type ? 'selected' : ''}" data-type="${bt.type}">
+          <div class="option-check">✓</div>
+          <div class="option-info">
+            <div class="option-title">${bt.label}</div>
+            <div class="option-desc">${bt.desc}</div>
+          </div>
+        </div>
+      `).join('');
+
+      betTypeList.querySelectorAll('.option-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const newType = item.dataset.type;
+          if (newType !== currentBetType) {
+            currentBetType = newType;
+            currentMethod = 'normal';
+            resetSelections();
+          }
+          betTypeSheet.classList.remove('open');
+          renderHorseList();
+          updateUI();
+        });
+      });
+    }
+
+    // 買い方リストを描画
+    function renderBetMethodList() {
+      const methods = getBetMethods(currentBetType);
+      const config = getCurrentBetTypeConfig();
+
+      // グループ分け
+      const normalMethods = methods.filter(m => m.id === 'normal' || m.id === 'box');
+      const nagashiMethods = methods.filter(m => m.id.startsWith('nagashi'));
+      const formationMethods = methods.filter(m => m.id === 'formation');
+
+      let html = '';
+
+      // 基本
+      html += normalMethods.map(m => renderMethodOption(m)).join('');
+
+      // 流し
+      if (nagashiMethods.length > 0) {
+        html += `<div class="option-section"><div class="option-section-title">流し</div>`;
+        html += nagashiMethods.map(m => renderMethodOption(m)).join('');
+        html += `</div>`;
+      }
+
+      // フォーメーション
+      if (formationMethods.length > 0) {
+        html += `<div class="option-section"><div class="option-section-title">その他</div>`;
+        html += formationMethods.map(m => renderMethodOption(m)).join('');
+        html += `</div>`;
+      }
+
+      betMethodList.innerHTML = html;
+    }
+
+    // 買い方リストのクリックイベント（イベントデリゲーション）
+    betMethodList.addEventListener('click', (e) => {
+      const item = e.target.closest('.option-item');
+      if (!item || item.classList.contains('disabled')) return;
+
+      const newMethod = item.dataset.method;
+      if (newMethod !== currentMethod) {
+        currentMethod = newMethod;
+        resetSelections();
+      }
+      betMethodSheet.classList.remove('open');
+      renderHorseList();
+      updateUI();
+    });
+
+    function renderMethodOption(method) {
+      const isSelected = currentMethod === method.id;
+      return `
+        <div class="option-item ${isSelected ? 'selected' : ''}" data-method="${method.id}">
+          <div class="option-check">✓</div>
+          <div class="option-info">
+            <div class="option-title">${method.label}</div>
+            <div class="option-desc">${method.desc}</div>
+          </div>
+          ${method.badge ? `<span class="option-badge">${method.badge}</span>` : ''}
+        </div>
+      `;
+    }
+
+    // 馬リスト描画
+    function renderHorseList() {
+      const colConfig = getColumnConfig();
+      const horseList = document.getElementById('horse-list');
+      const headerCheckboxes = document.getElementById('header-checkboxes');
+
+      // 列数に応じたクラス設定
+      horseList.className = `horse-list cols-${colConfig.count}`;
+
+      // ヘッダーのチェックボックスラベル
+      headerCheckboxes.innerHTML = colConfig.columns.map(col =>
+        `<span class="header-checkbox-label ${col.class}">${col.label}</span>`
+      ).join('');
+
+      // 馬リスト
+      horseListBody.innerHTML = horses.map(horse => {
+        const wakuColor = wakuColors[horse.waku];
+        const wakuTextColor = wakuTextColors[horse.waku];
+        const borderStyle = horse.waku === 1 ? 'border: 1px solid #ccc;' : '';
+
+        // 各列のチェックボックスを生成
+        const checkboxesHtml = colConfig.columns.map(col => {
+          const isChecked = selections[col.id]?.includes(horse.number);
+          return `
+            <div class="checkbox-col ${col.class}">
+              <input type="checkbox"
+                ${isChecked ? 'checked' : ''}
+                data-number="${horse.number}"
+                data-col="${col.id}">
+            </div>
+          `;
+        }).join('');
+
+        // 行が選択されているか（いずれかの列に含まれていれば）
+        const isSelected = colConfig.columns.some(col => selections[col.id]?.includes(horse.number));
+
+        return `
+          <div class="horse-item ${isSelected ? 'selected' : ''}" data-number="${horse.number}">
+            <div class="horse-umaban">
+              <div class="umaban-number" style="background: ${wakuColor}; color: ${wakuTextColor}; ${borderStyle}">${horse.number}</div>
+            </div>
+            <div class="horse-info">
+              <div class="horse-name">${horse.name}</div>
+              <div class="horse-detail">
+                <span>${horse.jockey}</span>
+                <span>${horse.weight}kg</span>
+              </div>
+            </div>
+            <div class="horse-odds">${horse.odds}</div>
+            <div class="horse-checkboxes">
+              ${checkboxesHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // チェックボックスのイベント
+      horseListBody.querySelectorAll('.checkbox-col input').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const number = parseInt(checkbox.dataset.number);
+          const colId = checkbox.dataset.col;
+          toggleHorseInColumn(number, colId);
+        });
+      });
+    }
+
+    function getAxisCount() {
+      if (['nagashi_12', 'nagashi_13', 'nagashi_23', 'nagashi_2_multi'].includes(currentMethod)) {
+        return 2;
+      }
+      if (currentMethod === 'nagashi_2' && getCurrentBetTypeConfig()?.required === 3) {
+        return 2;
+      }
+      return 1;
+    }
+
+    // 列内の選択をトグル
+    function toggleHorseInColumn(number, colId) {
+      const config = getCurrentBetTypeConfig();
+      const colConfig = getColumnConfig();
+      const isNagashi = currentMethod.startsWith('nagashi');
+
+      if (currentMethod === 'normal') {
+        // 通常モード: 必要頭数まで
+        if (selections.col1.includes(number)) {
+          selections.col1 = selections.col1.filter(n => n !== number);
+        } else if (selections.col1.length < config.required) {
+          selections.col1.push(number);
+        }
+      } else if (currentMethod === 'box') {
+        // ボックス: 無制限
+        if (selections.col1.includes(number)) {
+          selections.col1 = selections.col1.filter(n => n !== number);
+        } else {
+          selections.col1.push(number);
+        }
+      } else if (isNagashi) {
+        // 流し: 軸と相手
+        const axisCount = getAxisCount();
+        if (colId === 'col1') {
+          // 軸
+          if (selections.col1.includes(number)) {
+            selections.col1 = selections.col1.filter(n => n !== number);
+          } else if (selections.col1.length < axisCount) {
+            // 相手から削除して軸に追加
+            selections.col2 = selections.col2.filter(n => n !== number);
+            selections.col1.push(number);
+          }
+        } else {
+          // 相手
+          if (selections.col2.includes(number)) {
+            selections.col2 = selections.col2.filter(n => n !== number);
+          } else if (!selections.col1.includes(number)) {
+            // 軸にいなければ相手に追加
+            selections.col2.push(number);
+          }
+        }
+      } else if (currentMethod === 'formation') {
+        // フォーメーション: 各列独立
+        if (selections[colId].includes(number)) {
+          selections[colId] = selections[colId].filter(n => n !== number);
+        } else {
+          selections[colId].push(number);
+        }
+      }
+
+      renderHorseList();
+      updateUI();
+    }
+
+    // 選択をリセット
+    function resetSelections() {
+      selections = { col1: [], col2: [], col3: [] };
+    }
+
+    function calculateBetCount() {
+      const config = getCurrentBetTypeConfig();
+      const isNagashi = currentMethod.startsWith('nagashi');
+      const axisCount = getAxisCount();
+
+      if (currentMethod === 'normal') {
+        return selections.col1.length === config.required ? 1 : 0;
+      }
+
+      if (currentMethod === 'box') {
+        const n = selections.col1.length;
+        const minRequired = config.required + 1;
+        if (n < minRequired) return 0;
+        if (config.required === 2) {
+          return config.ordered ? n * (n - 1) : combination(n, 2);
+        } else if (config.required === 3) {
+          return config.ordered ? n * (n - 1) * (n - 2) : combination(n, 3);
+        }
+      }
+
+      if (isNagashi) {
+        const axisHorses = selections.col1;
+        const partnerHorses = selections.col2;
+        if (axisHorses.length !== axisCount || partnerHorses.length === 0) return 0;
+
+        const partners = partnerHorses.length;
+        let baseCount = 0;
+
+        if (config.required === 2) {
+          baseCount = partners;
+          if (currentMethod === 'nagashi_multi') return baseCount * 2;
+        } else if (config.required === 3) {
+          if (axisCount === 1) {
+            baseCount = partners * (partners - 1);
+            if (currentMethod === 'nagashi_1_multi') return baseCount * 3;
+          } else {
+            baseCount = partners;
+            if (currentMethod === 'nagashi_2_multi') return baseCount * 6;
+          }
+        }
+        return baseCount;
+      }
+
+      if (currentMethod === 'formation') {
+        // フォーメーション点数計算
+        const col1 = selections.col1.length;
+        const col2 = selections.col2.length;
+        const col3 = selections.col3.length;
+
+        if (config.required === 2) {
+          if (col1 === 0 || col2 === 0) return 0;
+          // 重複を考慮した計算
+          if (config.ordered) {
+            // 馬単フォーメーション
+            let count = 0;
+            selections.col1.forEach(h1 => {
+              selections.col2.forEach(h2 => {
+                if (h1 !== h2) count++;
+              });
+            });
+            return count;
+          } else {
+            // 馬連・ワイドフォーメーション
+            const all = [...new Set([...selections.col1, ...selections.col2])];
+            return combination(all.length, 2);
+          }
+        } else if (config.required === 3) {
+          if (col1 === 0 || col2 === 0 || col3 === 0) return 0;
+          if (config.ordered) {
+            // 三連単フォーメーション
+            let count = 0;
+            selections.col1.forEach(h1 => {
+              selections.col2.forEach(h2 => {
+                if (h1 === h2) return;
+                selections.col3.forEach(h3 => {
+                  if (h1 !== h3 && h2 !== h3) count++;
+                });
+              });
+            });
+            return count;
+          } else {
+            // 三連複フォーメーション
+            const all = [...new Set([...selections.col1, ...selections.col2, ...selections.col3])];
+            return combination(all.length, 3);
+          }
+        }
+      }
+
+      return 0;
+    }
+
+    function combination(n, r) {
+      if (r > n) return 0;
+      let result = 1;
+      for (let i = 0; i < r; i++) {
+        result = result * (n - i) / (i + 1);
+      }
+      return Math.round(result);
+    }
+
+    function updateUI() {
+      const config = getCurrentBetTypeConfig();
+      const methodConfig = getCurrentMethodConfig();
+      const betCount = calculateBetCount();
+      const isNagashi = currentMethod.startsWith('nagashi');
+      const isFormation = currentMethod === 'formation';
+      const colConfig = getColumnConfig();
+
+      // バッジ更新
+      betTypeLabel.textContent = config.label;
+      betMethodLabel.textContent = methodConfig?.label || '通常';
+
+      // 単勝・複勝は買い方選択不可
+      if (config.required === 1) {
+        betMethodBadge.classList.add('disabled');
+      } else {
+        betMethodBadge.classList.remove('disabled');
+      }
+
+      // 選択ガイド
+      updateSelectionGuide();
+
+      // 選択ヒント（券種×買い方）
+      const methodLabel = methodConfig?.label || '通常';
+      if (methodLabel === '通常') {
+        selectionHint.innerHTML = `<span class="selection-label">${config.label}</span>`;
+      } else {
+        selectionHint.innerHTML = `<span class="selection-label">${config.label} × ${methodLabel}</span>`;
+      }
+
+      // 選択した馬番表示
+      const hasAnySelection = selections.col1.length > 0 || selections.col2.length > 0 || selections.col3.length > 0;
+      if (hasAnySelection) {
+        let displayText;
+        if (isNagashi) {
+          const axisText = selections.col1.length > 0 ? `軸:${selections.col1.join(',')}` : '';
+          const partnerText = selections.col2.length > 0 ? `→${selections.col2.join(',')}` : '';
+          displayText = axisText + partnerText;
+        } else if (isFormation) {
+          const parts = colConfig.columns.map(col => {
+            const nums = selections[col.id] || [];
+            return nums.length > 0 ? nums.join(',') : '-';
+          });
+          displayText = parts.join(' × ');
+        } else {
+          const sorted = [...selections.col1].sort((a, b) => a - b);
+          displayText = config.ordered ? selections.col1.join(' → ') : sorted.join(' - ');
+        }
+
+        // 点数表示（betCount > 0 の場合のみ）
+        const betCountHtml = betCount > 0
+          ? `<span class="inline-bet-count">${betCount}点</span>`
+          : '';
+
+        selectedHorsesDisplay.innerHTML = `
+          <span class="selected-numbers">${displayText}</span>
+          ${betCountHtml}
+          <button class="clear-selection-btn show" onclick="clearAndUpdate()">クリア</button>
+        `;
+        selectedHorsesDisplay.classList.add('has-selection');
+      } else {
+        selectedHorsesDisplay.innerHTML = '<span class="no-selection">上のリストから馬を選択してください</span>';
+        selectedHorsesDisplay.classList.remove('has-selection');
+      }
+
+      // クリアボタン表示（セレクターエリア）
+      if (hasAnySelection) {
+        clearSelectionBtn.classList.add('show');
+      } else {
+        clearSelectionBtn.classList.remove('show');
+      }
+
+      // 点数・金額サマリー
+      if (betCount > 0) {
+        const total = betAmount * betCount;
+        betCountDisplay.textContent = `${betCount}点`;
+        betTotalDisplay.textContent = `¥${total.toLocaleString()}`;
+        betSummary.style.display = 'flex';
+      } else {
+        betSummary.style.display = 'none';
+      }
+
+      // ボタン状態
+      addToCartBtn.disabled = betCount === 0;
+
+      // カート確認ボタン
+      if (cart.length > 0) {
+        viewCartBtn.style.display = 'block';
+        cartCount.textContent = cart.length;
+      } else {
+        viewCartBtn.style.display = 'none';
+      }
+    }
+
+    function clearAndUpdate() {
+      resetSelections();
+      renderHorseList();
+      updateUI();
+    }
+
+    function updateSelectionGuide() {
+      const config = getCurrentBetTypeConfig();
+      const isNagashi = currentMethod.startsWith('nagashi');
+      const isFormation = currentMethod === 'formation';
+      const axisCount = getAxisCount();
+      const colConfig = getColumnConfig();
+
+      if (isNagashi) {
+        if (selections.col1.length < axisCount) {
+          const remaining = axisCount - selections.col1.length;
+          selectionGuide.textContent = `🎯 軸馬をあと${remaining}頭選択`;
+          selectionGuide.className = 'selection-guide axis';
+          selectionGuide.style.display = 'block';
+        } else if (selections.col2.length === 0) {
+          selectionGuide.textContent = '👥 相手馬を選択';
+          selectionGuide.className = 'selection-guide partner';
+          selectionGuide.style.display = 'block';
+        } else {
+          selectionGuide.style.display = 'none';
+        }
+      } else if (isFormation) {
+        // フォーメーション: 各列の状態を確認
+        const emptyColumns = colConfig.columns.filter(col => (selections[col.id]?.length || 0) === 0);
+        if (emptyColumns.length > 0) {
+          const labels = emptyColumns.map(col => col.label).join('・');
+          selectionGuide.textContent = `📋 ${labels}を選択`;
+          selectionGuide.className = 'selection-guide';
+          selectionGuide.style.display = 'block';
+        } else {
+          selectionGuide.style.display = 'none';
+        }
+      } else if (currentMethod === 'normal') {
+        const remaining = config.required - selections.col1.length;
+        if (remaining > 0) {
+          selectionGuide.textContent = `📌 あと${remaining}頭選択`;
+          selectionGuide.className = 'selection-guide';
+          selectionGuide.style.display = 'block';
+        } else {
+          selectionGuide.style.display = 'none';
+        }
+      } else if (currentMethod === 'box') {
+        const minRequired = config.required + 1;
+        if (selections.col1.length < minRequired) {
+          selectionGuide.textContent = `📦 ${minRequired}頭以上選択`;
+          selectionGuide.className = 'selection-guide';
+          selectionGuide.style.display = 'block';
+        } else {
+          selectionGuide.style.display = 'none';
+        }
+      } else {
+        selectionGuide.style.display = 'none';
+      }
+    }
+
+    function setupAmountControl() {
+      const minusBtn = document.getElementById('amount-minus');
+      const plusBtn = document.getElementById('amount-plus');
+
+      amountInput.value = betAmount;
+
+      amountInput.addEventListener('change', () => {
+        betAmount = parseInt(amountInput.value) || 100;
+        if (betAmount < 100) betAmount = 100;
+        amountInput.value = betAmount;
+        updateUI();
+      });
+
+      minusBtn.addEventListener('click', () => {
+        if (betAmount > 100) {
+          betAmount = betAmount <= 500 ? betAmount - 100 : betAmount - 500;
+          if (betAmount < 100) betAmount = 100;
+          amountInput.value = betAmount;
+          updateUI();
+        }
+      });
+
+      plusBtn.addEventListener('click', () => {
+        betAmount = betAmount < 500 ? betAmount + 100 : betAmount + 500;
+        amountInput.value = betAmount;
+        updateUI();
+      });
+    }
+
+    function setupPresetButtons() {
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          betAmount = parseInt(btn.dataset.amount);
+          amountInput.value = betAmount;
+          updateUI();
+        });
+      });
+    }
+
+    function setupClearButton() {
+      clearSelectionBtn.addEventListener('click', () => {
+        resetSelections();
+        renderHorseList();
+        updateUI();
+      });
+    }
+
+    function setupBreakdownPopup() {
+      let hideTimeout;
+
+      betCountDisplay.addEventListener('click', () => {
+        const breakdown = getBetBreakdown();
+        if (!breakdown) return;
+
+        breakdownFormula.textContent = breakdown.formula;
+        breakdownDetail.textContent = breakdown.detail;
+        betBreakdownPopup.classList.add('show');
+
+        clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(() => {
+          betBreakdownPopup.classList.remove('show');
+        }, 3000);
+      });
+
+      // ポップアップ外タップで閉じる
+      document.addEventListener('click', (e) => {
+        if (!betCountDisplay.contains(e.target) && !betBreakdownPopup.contains(e.target)) {
+          betBreakdownPopup.classList.remove('show');
+        }
+      });
+    }
+
+    function getBetBreakdown() {
+      const config = getCurrentBetTypeConfig();
+      const isNagashi = currentMethod.startsWith('nagashi');
+      const isFormation = currentMethod === 'formation';
+      const betCount = calculateBetCount();
+
+      if (betCount === 0) return null;
+
+      if (currentMethod === 'normal') {
+        return {
+          formula: '1点',
+          detail: `${selections.col1.join('→')} の1通り`
+        };
+      }
+
+      if (currentMethod === 'box') {
+        const n = selections.col1.length;
+        if (config.required === 2) {
+          if (config.ordered) {
+            return {
+              formula: `${n} × ${n-1} = ${betCount}点`,
+              detail: `${n}頭から2頭を順番に選ぶ組み合わせ`
+            };
+          } else {
+            return {
+              formula: `${n}C2 = ${betCount}点`,
+              detail: `${n}頭から2頭を選ぶ組み合わせ`
+            };
+          }
+        } else if (config.required === 3) {
+          if (config.ordered) {
+            return {
+              formula: `${n} × ${n-1} × ${n-2} = ${betCount}点`,
+              detail: `${n}頭から3頭を順番に選ぶ組み合わせ`
+            };
+          } else {
+            return {
+              formula: `${n}C3 = ${betCount}点`,
+              detail: `${n}頭から3頭を選ぶ組み合わせ`
+            };
+          }
+        }
+      }
+
+      if (isNagashi) {
+        const axisCount = getAxisCount();
+        const partners = selections.col2.length;
+        const multiplier = currentMethod.includes('multi') ? (config.required === 2 ? 2 : (axisCount === 1 ? 3 : 6)) : 1;
+        const baseCount = betCount / multiplier;
+
+        if (config.required === 2) {
+          if (multiplier > 1) {
+            return {
+              formula: `${partners} × ${multiplier} = ${betCount}点`,
+              detail: `相手${partners}頭 × マルチ${multiplier}倍`
+            };
+          }
+          return {
+            formula: `${partners}点`,
+            detail: `軸1頭 → 相手${partners}頭`
+          };
+        } else if (config.required === 3) {
+          if (axisCount === 1) {
+            if (multiplier > 1) {
+              return {
+                formula: `${partners} × ${partners-1} × ${multiplier} = ${betCount}点`,
+                detail: `相手${partners}頭の順列 × マルチ${multiplier}倍`
+              };
+            }
+            return {
+              formula: `${partners} × ${partners-1} = ${betCount}点`,
+              detail: `軸1頭固定、相手${partners}頭の順列`
+            };
+          } else {
+            if (multiplier > 1) {
+              return {
+                formula: `${partners} × ${multiplier} = ${betCount}点`,
+                detail: `相手${partners}頭 × マルチ${multiplier}倍`
+              };
+            }
+            return {
+              formula: `${partners}点`,
+              detail: `軸2頭固定 → 相手${partners}頭`
+            };
+          }
+        }
+      }
+
+      if (isFormation) {
+        const col1 = selections.col1.length;
+        const col2 = selections.col2.length;
+        const col3 = selections.col3.length;
+
+        if (config.required === 2) {
+          return {
+            formula: `${col1} × ${col2} → ${betCount}点`,
+            detail: `重複除外後の実組み合わせ数`
+          };
+        } else if (config.required === 3) {
+          return {
+            formula: `${col1} × ${col2} × ${col3} → ${betCount}点`,
+            detail: `重複除外後の実組み合わせ数`
+          };
+        }
+      }
+
+      return { formula: `${betCount}点`, detail: '' };
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // カートに追加
+    addToCartBtn.addEventListener('click', () => {
+      const betCount = calculateBetCount();
+      if (betCount === 0) return;
+
+      const config = getCurrentBetTypeConfig();
+      const methodConfig = getCurrentMethodConfig();
+      const total = betAmount * betCount;
+
+      // カートに追加
+      const colConfig = getColumnConfig();
+      let horseNumbersDisplay;
+      if (currentMethod === 'formation') {
+        horseNumbersDisplay = colConfig.columns.map(col => {
+          const nums = selections[col.id] || [];
+          return nums.join(',');
+        }).join(' × ');
+      } else if (currentMethod.startsWith('nagashi')) {
+        horseNumbersDisplay = `軸${selections.col1.join(',')}→${selections.col2.join(',')}`;
+      } else {
+        horseNumbersDisplay = [...selections.col1].sort((a, b) => a - b).join('-');
+      }
+
+      cart.push({
+        id: cartIdCounter++,
+        raceVenue: '中山',
+        raceNumber: '1R',
+        raceName: '3歳未勝利',
+        betType: currentBetType,
+        betTypeLabel: config.label,
+        method: currentMethod,
+        methodLabel: methodConfig?.label || '通常',
+        horseNumbers: horseNumbersDisplay,
+        betCount: betCount,
+        amount: total,
+      });
+
+      // LocalStorageに保存
+      saveCart();
+
+      showToast(`${config.label} ${methodConfig?.label || ''} ${betCount}点 ¥${total.toLocaleString()} を追加`);
+
+      resetSelections();
+      renderHorseList();
+      updateUI();
+      updateCartBadge();
+    });
+
+    // カートを確認ボタン
+    viewCartBtn.addEventListener('click', () => {
+      goToCart();
+    });
+
+    // カート関連関数
+    function saveCart() {
+      localStorage.setItem('baken-kaigi-mock-cart', JSON.stringify(cart));
+    }
+
+    function updateCartBadge() {
+      const itemCount = cart.length;
+      if (itemCount > 0) {
+        cartBadge.textContent = itemCount;
+        cartBadge.style.display = 'flex';
+        viewCartBtn.style.display = 'block';
+        cartCount.textContent = itemCount;
+      } else {
+        cartBadge.style.display = 'none';
+        viewCartBtn.style.display = 'none';
+      }
+    }
+
+    function goToCart() {
+      // 実際のアプリではCartPageに遷移
+      // モックではアラートで代用
+      if (cart.length === 0) {
+        showToast('カートに馬券がありません');
+        return;
+      }
+
+      const totalCount = cart.reduce((sum, item) => sum + item.betCount, 0);
+      const totalAmount = cart.reduce((sum, item) => sum + item.amount, 0);
+
+      const summary = cart.map(item =>
+        `・${item.raceVenue}${item.raceNumber} ${item.betTypeLabel} ${item.horseNumbers} (${item.betCount}点 ¥${item.amount.toLocaleString()})`
+      ).join('\n');
+
+      const action = confirm(
+        `🛒 カート確認\n\n${summary}\n\n合計: ${totalCount}点 ¥${totalAmount.toLocaleString()}\n\n` +
+        `OKを押すとカートをクリアします\n（実際のアプリではカートページに遷移します）`
+      );
+
+      if (action) {
+        cart = [];
+        saveCart();
+        updateCartBadge();
+        updateUI();
+        showToast('カートをクリアしました');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

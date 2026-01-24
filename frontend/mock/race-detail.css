@@ -1,0 +1,613 @@
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Meiryo', sans-serif;
+  background-color: #f5f6f8;
+  color: #1a1a1a;
+  line-height: 1.5;
+  font-size: 14px;
+  padding-bottom: 140px;
+}
+
+/* Header */
+.app-header {
+  background: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);
+  color: white;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Main Content */
+main {
+  padding: 16px;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: white;
+  display: flex;
+  border-top: 1px solid #e0e0e0;
+  padding: 4px 0;
+  z-index: 100;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s;
+}
+
+.nav-item.active {
+  color: #1a5f2a;
+}
+
+.nav-icon {
+  font-size: 20px;
+}
+
+.nav-label {
+  font-size: 11px;
+}
+
+/* Back Button */
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #1a5f2a;
+  font-size: 14px;
+  padding: 0;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+/* Race Detail Header */
+.race-detail-header {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.race-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.race-number {
+  background: #1a5f2a;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.jra-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #4caf50;
+  color: white;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.race-name {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.race-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.condition-tag {
+  background: #f0f0f0;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: #555;
+}
+
+/* Bet Type Section */
+.bet-type-section {
+  margin-bottom: 12px;
+}
+
+.bet-type-selector {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 0;
+}
+
+.bet-type-selector::-webkit-scrollbar {
+  display: none;
+}
+
+.bet-type-btn {
+  background: white;
+  border: 1.5px solid #ddd;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: #666;
+}
+
+.bet-type-btn:active {
+  transform: scale(0.95);
+}
+
+.bet-type-btn.active {
+  background: #1a5f2a;
+  color: white;
+  border-color: #1a5f2a;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(26, 95, 42, 0.25);
+}
+
+/* Horse List */
+.horse-list {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.horse-list-header {
+  display: grid;
+  grid-template-columns: 44px 1fr 56px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  font-size: 11px;
+  color: #888;
+  font-weight: 600;
+  text-align: center;
+}
+
+.header-name {
+  text-align: left;
+  padding-left: 8px;
+}
+
+.horse-item {
+  display: grid;
+  grid-template-columns: 44px 1fr 56px;
+  padding: 0;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: stretch;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  min-height: 56px;
+}
+
+.horse-item:last-child {
+  border-bottom: none;
+}
+
+.horse-item:active {
+  background: #f5f5f5;
+}
+
+.horse-item.selected {
+  background: linear-gradient(90deg, rgba(26, 95, 42, 0.08) 0%, rgba(26, 95, 42, 0.03) 100%);
+}
+
+/* 馬番カラム */
+.horse-umaban {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.umaban-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  transition: all 0.15s ease;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* 馬情報カラム */
+.horse-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px;
+  min-width: 0;
+}
+
+.horse-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #222;
+}
+
+.horse-detail {
+  font-size: 11px;
+  color: #888;
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* オッズカラム */
+.horse-odds {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a5f2a;
+  padding-right: 4px;
+}
+
+/* 選択順バッジ */
+.selection-order {
+  position: absolute;
+  top: 50%;
+  right: 52px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: #1a5f2a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  animation: popIn 0.2s ease;
+}
+
+@keyframes popIn {
+  0% { transform: translateY(-50%) scale(0); }
+  70% { transform: translateY(-50%) scale(1.2); }
+  100% { transform: translateY(-50%) scale(1); }
+}
+
+/* Floating Selection Bar */
+.floating-selection-bar {
+  position: fixed;
+  bottom: 56px;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  z-index: 99;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Single Line Floating Bar */
+.floating-bar-single {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.floating-bet-type {
+  background: #1a5f2a;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.floating-selection {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+  letter-spacing: 0.5px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.floating-selection.placeholder {
+  font-size: 13px;
+  font-weight: 400;
+  color: #aaa;
+  letter-spacing: 0;
+}
+
+/* Compact Amount Control */
+.amount-control-mini {
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.amount-step-btn-mini {
+  width: 32px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a5f2a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.amount-step-btn-mini:active {
+  background: #e0e0e0;
+}
+
+.amount-display-mini {
+  min-width: 60px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: #222;
+  cursor: pointer;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.amount-display-mini:active {
+  background: #e8e8e8;
+}
+
+/* Amount Modal */
+.amount-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.amount-modal.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.amount-modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.amount-modal-content {
+  position: relative;
+  background: white;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+.amount-modal.open .amount-modal-content {
+  transform: translateY(0);
+}
+
+.amount-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.amount-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 50%;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.amount-modal-input-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.amount-modal-currency {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  color: #666;
+}
+
+.amount-modal-input {
+  width: 100%;
+  padding: 16px 16px 16px 40px;
+  border: 2px solid #1a5f2a;
+  border-radius: 12px;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+}
+
+.amount-modal-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.amount-preset-btn {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.amount-preset-btn:active {
+  background: #f5f5f5;
+  transform: scale(0.97);
+}
+
+.amount-modal-confirm {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #1a5f2a;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.amount-modal-confirm:active {
+  transform: scale(0.98);
+}
+
+/* カート追加ボタン */
+.add-cart-btn-mini {
+  background: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.add-cart-btn-mini:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.add-cart-btn-mini:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 200px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
