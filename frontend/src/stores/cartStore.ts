@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem } from '../types';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
 interface CartState {
   cartId: string;
@@ -42,6 +43,10 @@ export const useCartStore = create<CartState>()(
       },
 
       updateItemAmount: (itemId, amount) => {
+        // バリデーション: 範囲外の金額は無視
+        if (amount < MIN_BET_AMOUNT || amount > MAX_BET_AMOUNT) {
+          return;
+        }
         set((state) => ({
           items: state.items.map((item) =>
             item.id === itemId ? { ...item, amount } : item

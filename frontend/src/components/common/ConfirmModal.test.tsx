@@ -72,4 +72,16 @@ describe('ConfirmModal', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(dialog).toHaveAttribute('aria-labelledby', 'confirm-modal-title');
   });
+
+  it('Escapeキーを押すとonCloseが呼ばれる', () => {
+    render(<ConfirmModal {...defaultProps} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('isOpenがfalseの場合はEscapeキーでonCloseが呼ばれない', () => {
+    render(<ConfirmModal {...defaultProps} isOpen={false} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+  });
 });

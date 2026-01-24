@@ -11,6 +11,7 @@ import {
   calculateTrigaramiRisk,
   getTrigaramiRiskLabel,
 } from '../utils/betAnalysis';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT, MOCK_ODDS } from '../constants/betting';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -19,11 +20,14 @@ interface ChatMessage {
 
 const quickReplies = ['過去の成績', '騎手', 'オッズ', '直感'];
 
-// アイテムごとの暫定オッズを生成（実際はAPIから取得予定）
+/**
+ * アイテムごとの暫定オッズを生成
+ * 注: 将来的にはJRA-VAN APIからリアルオッズを取得予定
+ */
 const generateMockOdds = (itemId: string): number => {
   // itemIdをシードとして一貫した値を返す
   const hash = itemId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return Number(((hash % 250) / 10 + 5).toFixed(1));
+  return Number(((hash % MOCK_ODDS.MODULO) / MOCK_ODDS.DIVISOR + MOCK_ODDS.MIN_ODDS).toFixed(1));
 };
 
 export function ConsultationPage() {
@@ -184,15 +188,20 @@ export function ConsultationPage() {
   };
 
   const confirmDelete = () => {
-    if (deleteTarget) {
-      removeItem(deleteTarget);
-      setDeleteTarget(null);
-      showToast('買い目を削除しました');
+    if (!deleteTarget) {
+      return;
+    }
 
-      // 全て削除した場合はカートに戻る
-      if (items.length <= 1) {
-        navigate('/cart');
-      }
+    // 削除前の状態で最後の1件かどうかを判定
+    const isLastItem = items.length === 1;
+
+    removeItem(deleteTarget);
+    setDeleteTarget(null);
+    showToast('買い目を削除しました');
+
+    // 全て削除した場合はカートに戻る
+    if (isLastItem) {
+      navigate('/cart');
     }
   };
 
@@ -202,7 +211,7 @@ export function ConsultationPage() {
   };
 
   const confirmEditAmount = () => {
-    if (editTarget && editAmount >= 100) {
+    if (editTarget && editAmount >= MIN_BET_AMOUNT && editAmount <= MAX_BET_AMOUNT) {
       updateItemAmount(editTarget.id, editAmount);
       setEditTarget(null);
       showToast('金額を変更しました');
@@ -210,7 +219,7 @@ export function ConsultationPage() {
   };
 
   const adjustEditAmount = (delta: number) => {
-    setEditAmount((prev) => Math.max(100, prev + delta));
+    setEditAmount((prev) => Math.max(MIN_BET_AMOUNT, Math.min(MAX_BET_AMOUNT, prev + delta)));
   };
 
   // モックデータフィードバック生成
@@ -289,7 +298,8 @@ export function ConsultationPage() {
 
           {items.map((item) => {
             const odds = itemOdds[item.id];
-            const betCount = item.horseNumbers.length;
+            // betCountが存在する場合はそれを使用（券種・買い方により正確な点数）
+            const betCount = item.betCount ?? item.horseNumbers.length;
             const risk = calculateTrigaramiRisk(odds, betCount);
             const riskLabel = getTrigaramiRiskLabel(risk);
 
