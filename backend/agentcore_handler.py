@@ -4,12 +4,15 @@ AgentCore Runtime にリクエストをプロキシする。
 このファイルは他のバックエンドモジュールに依存せず、独立して動作する。
 """
 import json
+import logging
 import os
 import uuid
 from typing import Any
 
 import boto3
 from botocore.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 # AgentCore Runtime の ARN
@@ -106,29 +109,14 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
             contentType="application/json",
         )
 
-        # レスポンスを処理
+        # レスポンスを処理（ネストされたJSONも展開済み）
         result = _handle_response(response)
+
+        # session_id を結果から取得（展開時に抽出されている場合）
+        session_id = result.get("session_id", session_id)
 
         # message を文字列に変換
         message = result.get("message", "応答を取得できませんでした")
-
-        # message がJSON文字列の場合、再帰的にパースして実際のメッセージを取得
-        max_depth = 5
-        for _ in range(max_depth):
-            if not isinstance(message, str) or not message.startswith("{"):
-                break
-            try:
-                parsed = json.loads(message)
-                if isinstance(parsed, dict) and "message" in parsed:
-                    message = parsed["message"]
-                    # session_id も取得
-                    if "session_id" in parsed:
-                        session_id = parsed["session_id"]
-                    print(f"[INVOKE] unwrapped message preview: {str(message)[:100]}")
-                else:
-                    break
-            except json.JSONDecodeError:
-                break  # パース失敗時はそのまま使用
 
         if isinstance(message, dict):
             # AgentCore の応答形式: {"role": "assistant", "content": [{"text": "..."}]}
@@ -151,63 +139,71 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
 
     except Exception as e:
         error_msg = str(e)
-        print(f"AgentCore invocation error: {error_msg}")
+        logger.exception("AgentCore invocation error: %s", error_msg)
         return _make_response({"error": f"AgentCore invocation failed: {error_msg}"}, 500)
 
 
 def _handle_response(response: dict) -> dict:
-    """AgentCore のレスポンスを処理する."""
+    """AgentCore のレスポンスを処理する.
+
+    Args:
+        response: AgentCore からのレスポンス辞書
+
+    Returns:
+        処理済みのレスポンス辞書（message, session_id を含む）
+    """
     content_type = response.get("contentType", "")
-    print(f"[HANDLE] content_type: {content_type}")
 
     if "text/event-stream" in content_type:
         # ストリーミングレスポンス
         return _handle_streaming_response(response.get("response", []))
-    else:
-        # 通常レスポンス - すべてのイベントをデコードして結合
-        decoded_content = ""
-        resp_obj = response.get("response")
-        print(f"[HANDLE] response type: {type(resp_obj)}")
 
-        # EventStream の場合は iterate して収集
+    # 通常レスポンス - すべてのイベントをデコードして結合
+    decoded_content = ""
+    resp_obj = response.get("response")
+
+    # EventStream の場合は iterate して収集
+    try:
+        for event in resp_obj:
+            if isinstance(event, bytes):
+                try:
+                    decoded_content += event.decode("utf-8")
+                except UnicodeDecodeError:
+                    continue
+            elif isinstance(event, str):
+                decoded_content += event
+            elif isinstance(event, dict):
+                # 辞書が直接返ってきた場合
+                return _unwrap_nested_json(event)
+    except (TypeError, StopIteration) as e:
+        logger.warning("Response iteration error: %s", e)
+
+    # デコードしたコンテンツをJSONとしてパース
+    if decoded_content:
         try:
-            for event in resp_obj:
-                print(f"[HANDLE] event type: {type(event)}, preview: {str(event)[:100]}")
-                if isinstance(event, bytes):
-                    try:
-                        decoded_content += event.decode("utf-8")
-                    except UnicodeDecodeError:
-                        continue
-                elif isinstance(event, str):
-                    decoded_content += event
-                elif isinstance(event, dict):
-                    # 辞書が直接返ってきた場合
-                    print(f"[HANDLE] dict event: {event}")
-                    return _unwrap_nested_json(event)
-        except Exception as e:
-            print(f"[HANDLE] iteration error: {e}")
+            result = json.loads(decoded_content)
+            if isinstance(result, dict):
+                return _unwrap_nested_json(result)
+            return {"message": str(result)}
+        except json.JSONDecodeError:
+            return {"message": decoded_content}
 
-        print(f"[HANDLE] decoded_content length: {len(decoded_content)}")
-        print(f"[HANDLE] decoded_content preview: {decoded_content[:500] if decoded_content else 'empty'}")
-
-        # デコードしたコンテンツをJSONとしてパース
-        if decoded_content:
-            try:
-                result = json.loads(decoded_content)
-                print(f"[HANDLE] parsed result type: {type(result)}")
-                if isinstance(result, dict):
-                    return _unwrap_nested_json(result)
-                else:
-                    return {"message": str(result)}
-            except json.JSONDecodeError as e:
-                print(f"[HANDLE] JSON decode error: {e}")
-                return {"message": decoded_content}
-
-        return {"message": "応答を取得できませんでした"}
+    return {"message": "応答を取得できませんでした"}
 
 
 def _unwrap_nested_json(result: dict) -> dict:
-    """ネストされたJSONを再帰的に展開する."""
+    """ネストされたJSONを再帰的に展開する.
+
+    AgentCore のレスポンスは複数回JSONエンコードされている場合がある。
+    例: {"message": "{\"message\": \"実際のテキスト\"}"}
+    この関数は最大5レベルまでネストを展開する。
+
+    Args:
+        result: message フィールドを含む辞書
+
+    Returns:
+        展開済みの辞書。message と session_id が含まれる。
+    """
     max_depth = 5  # 無限ループ防止
     for _ in range(max_depth):
         msg = result.get("message", "")
@@ -219,7 +215,6 @@ def _unwrap_nested_json(result: dict) -> dict:
                 result["message"] = inner["message"]
                 if "session_id" in inner:
                     result["session_id"] = inner["session_id"]
-                print(f"[UNWRAP] extracted message preview: {str(result['message'])[:100]}")
             else:
                 break
         except json.JSONDecodeError:
