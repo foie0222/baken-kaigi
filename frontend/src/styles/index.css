@@ -1081,9 +1081,38 @@ main {
 }
 
 .cart-item-bet {
-    font-weight: 600;
-    font-size: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 4px;
+}
+
+.cart-item-bet-type {
+    font-weight: 600;
+    font-size: 12px;
+    background: #1a5f2a;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.cart-item-bet-display {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+    word-break: break-all;
+}
+
+.cart-item-bet-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1a5f2a;
+    background: rgba(26, 95, 42, 0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
+    flex-shrink: 0;
 }
 
 .cart-item-amount {

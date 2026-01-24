@@ -53,8 +53,29 @@ function getColumnConfig(betType: BetType, method: BetMethod): ColumnConfig[] {
           { id: 'col2', label: '1-2着', colorClass: 'col-partner' },
           { id: 'col1', label: '3着軸', colorClass: 'col-axis' },
         ];
+      } else if (method === 'nagashi_12') {
+        // 軸2頭 1-2着流し: 1着軸、2着軸、3着（相手）
+        return [
+          { id: 'col1', label: '1着軸', colorClass: 'col-1' },
+          { id: 'col3', label: '2着軸', colorClass: 'col-2' },
+          { id: 'col2', label: '3着', colorClass: 'col-3' },
+        ];
+      } else if (method === 'nagashi_13') {
+        // 軸2頭 1-3着流し: 1着軸、2着（相手）、3着軸
+        return [
+          { id: 'col1', label: '1着軸', colorClass: 'col-1' },
+          { id: 'col2', label: '2着', colorClass: 'col-2' },
+          { id: 'col3', label: '3着軸', colorClass: 'col-3' },
+        ];
+      } else if (method === 'nagashi_23') {
+        // 軸2頭 2-3着流し: 1着（相手）、2着軸、3着軸
+        return [
+          { id: 'col2', label: '1着', colorClass: 'col-1' },
+          { id: 'col1', label: '2着軸', colorClass: 'col-2' },
+          { id: 'col3', label: '3着軸', colorClass: 'col-3' },
+        ];
       }
-      // マルチ/軸2頭流し
+      // マルチ
       return [
         { id: 'col1', label: '軸', colorClass: 'col-axis' },
         { id: 'col2', label: '相手', colorClass: 'col-partner' },
@@ -123,6 +144,9 @@ export function HorseCheckboxList({
   const isNagashi = method.startsWith('nagashi');
   const axisCount = getAxisCount(method, betType);
 
+  // 軸2頭流し（3列）かどうか
+  const isNagashi2Axis3Col = ['nagashi_12', 'nagashi_13', 'nagashi_23'].includes(method);
+
   const handleCheckboxChange = (horseNumber: number, colId: keyof ColumnSelections) => {
     const newSelections = { ...selections };
 
@@ -140,8 +164,37 @@ export function HorseCheckboxList({
       } else {
         newSelections.col1 = [...selections.col1, horseNumber];
       }
+    } else if (isNagashi2Axis3Col) {
+      // 軸2頭流し（3列）: col1とcol3が軸（各1頭）、col2が相手（複数）
+      // nagashi_12: col1=1着軸, col3=2着軸, col2=3着相手
+      // nagashi_13: col1=1着軸, col2=2着相手, col3=3着軸
+      // nagashi_23: col1=2着軸, col2=1着相手, col3=3着軸
+      const isAxisCol = colId === 'col1' || colId === 'col3';
+
+      if (isAxisCol) {
+        // 軸列のチェック
+        if (selections[colId].includes(horseNumber)) {
+          // 解除
+          newSelections[colId] = selections[colId].filter(n => n !== horseNumber);
+        } else if (selections[colId].length < 1) {
+          // 追加（各軸は1頭まで）
+          // 他の列から外す
+          newSelections.col1 = selections.col1.filter(n => n !== horseNumber);
+          newSelections.col2 = selections.col2.filter(n => n !== horseNumber);
+          newSelections.col3 = selections.col3.filter(n => n !== horseNumber);
+          newSelections[colId] = [horseNumber];
+        }
+      } else {
+        // 相手列（col2）のチェック
+        if (selections.col2.includes(horseNumber)) {
+          newSelections.col2 = selections.col2.filter(n => n !== horseNumber);
+        } else if (!selections.col1.includes(horseNumber) && !selections.col3.includes(horseNumber)) {
+          // 軸に選ばれていなければ追加可能
+          newSelections.col2 = [...selections.col2, horseNumber];
+        }
+      }
     } else if (isNagashi) {
-      // 流し: 軸と相手
+      // 流し（2列）: 軸と相手
       if (colId === 'col1') {
         if (selections.col1.includes(horseNumber)) {
           newSelections.col1 = selections.col1.filter(n => n !== horseNumber);

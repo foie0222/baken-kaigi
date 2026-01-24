@@ -49,6 +49,18 @@ export function calculateBetCount(
   }
 
   if (isNagashi) {
+    // 軸2頭流し（3列: col1とcol3が軸、col2が相手）
+    const isNagashi2Axis3Col = ['nagashi_12', 'nagashi_13', 'nagashi_23'].includes(method);
+
+    if (isNagashi2Axis3Col) {
+      // 軸2頭流し: col1とcol3に各1頭、col2に相手
+      if (selections.col1.length !== 1 || selections.col3.length !== 1 || selections.col2.length === 0) {
+        return 0;
+      }
+      return selections.col2.length;
+    }
+
+    // 通常の流し（2列）
     const axisHorses = selections.col1;
     const partnerHorses = selections.col2;
     if (axisHorses.length !== axisCount || partnerHorses.length === 0) return 0;
@@ -172,6 +184,16 @@ export function getBetBreakdown(
   }
 
   if (isNagashi) {
+    // 軸2頭流し（3列）
+    const isNagashi2Axis3Col = ['nagashi_12', 'nagashi_13', 'nagashi_23'].includes(method);
+    if (isNagashi2Axis3Col) {
+      const partners = selections.col2.length;
+      return {
+        formula: `${partners}点`,
+        detail: `軸2頭固定 → 相手${partners}頭`
+      };
+    }
+
     const partners = selections.col2.length;
     const multiplier = method.includes('multi') ? (required === 2 ? 2 : (axisCount === 1 ? 3 : 6)) : 1;
 

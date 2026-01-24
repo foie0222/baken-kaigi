@@ -278,7 +278,10 @@ export interface CartItem {
   raceVenue: string;
   raceNumber: string;
   betType: BetType;
+  betMethod?: BetMethod;
   horseNumbers: number[];
+  betDisplay?: string;  // 買い目の表示文字列（例: "1着軸:3 → 2着:1,5"）
+  betCount?: number;    // 点数
   amount: number;
 }
 

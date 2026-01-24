@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
 import type { RaceDetail, BetType, BetMethod, ColumnSelections } from '../types';
-import { BetTypeLabels, BetTypeRequiredHorses } from '../types';
+import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered } from '../types';
 import { apiClient } from '../api/client';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
 import { getBetMethodLabel } from '../utils/betMethods';
@@ -105,13 +105,19 @@ export function RaceDetailPage() {
       horseNumbersDisplay = [...selections.col1].sort((a, b) => a - b);
     }
 
+    // 表示用文字列を生成
+    const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
+
     addItem({
       raceId: race.id,
       raceName: race.name,
       raceVenue: race.venue,
       raceNumber: race.number,
       betType,
+      betMethod,
       horseNumbers: horseNumbersDisplay,
+      betDisplay,
+      betCount,
       amount: betAmount * betCount,
     });
 
@@ -135,9 +141,69 @@ export function RaceDetailPage() {
     if (!hasAny) return null;
 
     if (betMethod.startsWith('nagashi')) {
+      const required = BetTypeRequiredHorses[betType];
+      const ordered = BetTypeOrdered[betType];
+
+      // 馬単の場合
+      if (required === 2 && ordered) {
+        if (betMethod === 'nagashi_2') {
+          // 2着流し: 1着 → 2着軸 の順
+          const partnerText = selections.col2.length > 0 ? `1着:${selections.col2.join(',')}` : '';
+          const axisText = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
+          return [partnerText, axisText].filter(Boolean).join(' → ');
+        }
+        // 1着流し: 1着軸 → 2着 の順
+        const axisText = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+        const partnerText = selections.col2.length > 0 ? `2着:${selections.col2.join(',')}` : '';
+        return [axisText, partnerText].filter(Boolean).join(' → ');
+      }
+
+      // 三連単の場合
+      if (required === 3 && ordered) {
+        if (betMethod === 'nagashi_1') {
+          // 1着流し: 1着軸 → 2-3着
+          const axisText = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+          const partnerText = selections.col2.length > 0 ? `2-3着:${selections.col2.join(',')}` : '';
+          return [axisText, partnerText].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_2') {
+          // 2着流し: 1,3着 → 2着軸
+          const partnerText = selections.col2.length > 0 ? `1,3着:${selections.col2.join(',')}` : '';
+          const axisText = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
+          return [partnerText, axisText].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_3') {
+          // 3着流し: 1-2着 → 3着軸
+          const partnerText = selections.col2.length > 0 ? `1-2着:${selections.col2.join(',')}` : '';
+          const axisText = selections.col1.length > 0 ? `3着軸:${selections.col1.join(',')}` : '';
+          return [partnerText, axisText].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_12') {
+          // 軸2頭 1-2着流し: 1着軸 → 2着軸 → 3着
+          const axis1 = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+          const axis2 = selections.col3.length > 0 ? `2着軸:${selections.col3.join(',')}` : '';
+          const partner = selections.col2.length > 0 ? `3着:${selections.col2.join(',')}` : '';
+          return [axis1, axis2, partner].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_13') {
+          // 軸2頭 1-3着流し: 1着軸 → 2着 → 3着軸
+          const axis1 = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
+          const partner = selections.col2.length > 0 ? `2着:${selections.col2.join(',')}` : '';
+          const axis3 = selections.col3.length > 0 ? `3着軸:${selections.col3.join(',')}` : '';
+          return [axis1, partner, axis3].filter(Boolean).join(' → ');
+        } else if (betMethod === 'nagashi_23') {
+          // 軸2頭 2-3着流し: 1着 → 2着軸 → 3着軸
+          const partner = selections.col2.length > 0 ? `1着:${selections.col2.join(',')}` : '';
+          const axis2 = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
+          const axis3 = selections.col3.length > 0 ? `3着軸:${selections.col3.join(',')}` : '';
+          return [partner, axis2, axis3].filter(Boolean).join(' → ');
+        }
+        // マルチ
+        const axisText = selections.col1.length > 0 ? `軸:${selections.col1.join(',')}` : '';
+        const partnerText = selections.col2.length > 0 ? `相手:${selections.col2.join(',')}` : '';
+        return [axisText, partnerText].filter(Boolean).join(' → ');
+      }
+
+      // 馬連・ワイド・三連複（順不同）
       const axisText = selections.col1.length > 0 ? `軸:${selections.col1.join(',')}` : '';
-      const partnerText = selections.col2.length > 0 ? `→${selections.col2.join(',')}` : '';
-      return axisText + partnerText;
+      const partnerText = selections.col2.length > 0 ? `相手:${selections.col2.join(',')}` : '';
+      return [axisText, partnerText].filter(Boolean).join(' → ');
     } else if (betMethod === 'formation') {
       const parts = [
         selections.col1.length > 0 ? selections.col1.join(',') : '-',
