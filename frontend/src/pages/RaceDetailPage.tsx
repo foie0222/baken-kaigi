@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
 import type { RaceDetail, BetType, BetMethod, ColumnSelections } from '../types';
-import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered } from '../types';
+import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered, getVenueName } from '../types';
 import { apiClient } from '../api/client';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
 import { getBetMethodLabel } from '../utils/betMethods';
@@ -235,7 +235,7 @@ export function RaceDetailPage() {
 
       <div className="race-detail-header">
         <div className="race-header-top">
-          <span className="race-number">{race.venue} {race.number}</span>
+          <span className="race-number">{getVenueName(race.venue)} {race.number}</span>
           {(() => {
             const jraUrl = buildJraShutsubaUrl(race);
             return jraUrl && (

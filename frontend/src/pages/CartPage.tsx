@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../stores/cartStore';
-import { BetTypeLabels } from '../types';
+import { BetTypeLabels, getVenueName } from '../types';
 
 export function CartPage() {
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ export function CartPage() {
               <div key={item.id} className="cart-item">
                 <div className="cart-item-info">
                   <div className="cart-item-race">
-                    {item.raceVenue} {item.raceNumber} {item.raceName}
+                    {getVenueName(item.raceVenue)} {item.raceNumber} {item.raceName}
                   </div>
                   <div className="cart-item-bet">
                     <span className="cart-item-bet-type">{BetTypeLabels[item.betType]}</span>
