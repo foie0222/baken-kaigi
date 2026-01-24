@@ -9,6 +9,7 @@ import os
 os.environ["BYPASS_TOOL_CONSENT"] = "true"
 
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 from tools.race_data import get_race_info, get_race_runners
@@ -17,8 +18,16 @@ from tools.pace_analysis import analyze_race_development, analyze_running_style_
 from tools.historical_analysis import analyze_past_race_trends
 from prompts.consultation import SYSTEM_PROMPT
 
+# Amazon Nova 2 Lite モデル（コスト効率・高速・高精度）
+# cross-region inference で東京リージョンからも利用可能
+bedrock_model = BedrockModel(
+    model_id=os.environ.get("BEDROCK_MODEL_ID", "us.amazon.nova-2-lite-v1:0"),
+    temperature=0.3,
+)
+
 # エージェント初期化
 agent = Agent(
+    model=bedrock_model,
     system_prompt=SYSTEM_PROMPT,
     tools=[
         get_race_runners,
