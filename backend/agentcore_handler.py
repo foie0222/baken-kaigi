@@ -169,7 +169,7 @@ def _handle_response(response: dict) -> dict:
         try:
             raw_bytes = resp_obj.read()
             decoded_content = raw_bytes.decode("utf-8")
-        except (OSError, IOError, UnicodeDecodeError) as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.exception("StreamingBody read error: %s", e)
         finally:
             # HTTPコネクションをプールに戻すためクローズ

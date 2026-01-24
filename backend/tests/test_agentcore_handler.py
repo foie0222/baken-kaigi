@@ -124,6 +124,7 @@ class TestHandleResponse:
 
         assert result["message"] == "nested message"
         assert result["session_id"] == "nested-456"
+        mock_streaming_body.close.assert_called_once()
 
     def test_handle_streaming_body_read_error(self):
         """StreamingBody 読み取りエラー時はエラーメッセージを返す."""
