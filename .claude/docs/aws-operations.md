@@ -65,7 +65,7 @@ aws apigateway get-rest-apis --query 'items[?name==`baken-kaigi-api`].id' --outp
 ## CloudWatch Logs確認
 
 ```bash
-aws logs tail /aws/lambda/baken-kaigi-races --follow
+aws logs tail /aws/lambda/baken-kaigi-get-races --follow
 ```
 
 ## CI/CD

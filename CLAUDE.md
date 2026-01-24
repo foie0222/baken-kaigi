@@ -15,10 +15,12 @@ baken-kaigi/
 
 ### DDD（ドメイン駆動設計）
 
-設計ドキュメント: `aidlc-docs/inception/`
+設計ドキュメント: `aidlc-docs/construction/unit_01_ai_dialog_public/docs/`
 - `ubiquitous_language.md` - ユビキタス言語
 - `entities.md` - エンティティ
 - `value_objects.md` - 値オブジェクト
+- `aggregates.md` - 集約
+- `domain_services.md` - ドメインサービス
 
 ### TDD（テスト駆動開発）
 
