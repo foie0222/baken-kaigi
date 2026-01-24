@@ -40,11 +40,14 @@
     --radius-xl: 16px;
 
     /* フォントサイズ */
-    --font-size-xs: 11px;
+    --font-size-xs: 12px;  /* アクセシビリティ: 最小12px */
     --font-size-sm: 13px;
     --font-size-base: 14px;
     --font-size-lg: 16px;
     --font-size-xl: 18px;
+
+    /* レイアウト */
+    --bottom-nav-height: 60px;
 
     /* z-index スケール */
     --z-index-help-link: 99;
@@ -1336,18 +1339,20 @@ main {
 /* 購入するボタン（控えめ - 慎重さを求める） */
 .btn-purchase-subtle {
     background: transparent;
-    color: var(--color-neutral-500);
+    color: var(--color-neutral-600);  /* コントラスト比改善 */
     padding: var(--space-3);
     font-size: var(--font-size-sm);
-    text-decoration: underline;
+    text-decoration: none;  /* アクセシビリティ: hover/focusでのみunderline */
     border: none;
     cursor: pointer;
     width: 100%;
     margin-top: var(--space-2);
 }
 
-.btn-purchase-subtle:hover {
+.btn-purchase-subtle:hover,
+.btn-purchase-subtle:focus {
     color: var(--color-neutral-700);
+    text-decoration: underline;
 }
 
 .btn-purchase-subtle:focus-visible {
@@ -1396,7 +1401,7 @@ main {
 /* 依存症相談窓口リンク */
 .help-link-section {
     position: fixed;
-    bottom: 60px; /* bottom-navの高さ分 */
+    bottom: var(--bottom-nav-height);
     left: 0;
     right: 0;
     padding: var(--space-2) var(--space-4);

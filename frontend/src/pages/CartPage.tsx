@@ -88,9 +88,9 @@ export function CartPage() {
       {items.length > 0 ? (
         <>
           {/* 今月の状況（モック - 将来的にはログイン時のみ表示） */}
-          <div className="spending-status">
+          <div className="spending-status" role="region" aria-label="今月の使用状況">
             <div className="spending-status-title">
-              <span>📊</span>
+              <span aria-hidden="true">📊</span>
               <span>今月の状況</span>
             </div>
             <div className="spending-status-row">
