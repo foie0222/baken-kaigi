@@ -1052,7 +1052,10 @@ def get_jockey_course_stats(
             stats_query += """
                 AND se.kakutei_chakujun IS NOT NULL
                 AND se.kakutei_chakujun != ''
+                ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC, ra.race_bango DESC
+                LIMIT %s
             """
+            params.append(limit_races)
 
             cur.execute(stats_query, params)
             row = cur.fetchone()
@@ -1157,15 +1160,25 @@ def get_popularity_payout_stats(
                         THEN NULLIF(hr.tansho_haraimodoshi_1, '')::numeric / 10
                         ELSE NULL
                     END) AS avg_win_payout,
-                    AVG(CASE
-                        WHEN th.kakutei_chakujun IN ('1', '2', '3')
-                        THEN COALESCE(
-                            NULLIF(hr.fukusho_haraimodoshi_1, '')::numeric / 10,
-                            NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric / 10,
-                            NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric / 10
-                        )
-                        ELSE NULL
-                    END) AS avg_place_payout
+                    -- 複勝配当は jvd_hr.fukusho_umaban_1〜3 に格納された馬番に対応する
+                    -- fukusho_haraimodoshi_1〜3 を用いて算出する
+                    AVG(
+                        CASE
+                            WHEN th.kakutei_chakujun IN ('1', '2', '3') THEN
+                                CASE
+                                    WHEN hr.fukusho_umaban_1 IS NOT NULL AND th.umaban = hr.fukusho_umaban_1 THEN
+                                        NULLIF(hr.fukusho_haraimodoshi_1, '')::numeric / 10
+                                    WHEN hr.fukusho_umaban_2 IS NOT NULL AND th.umaban = hr.fukusho_umaban_2 THEN
+                                        NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric / 10
+                                    WHEN hr.fukusho_umaban_3 IS NOT NULL AND th.umaban = hr.fukusho_umaban_3 THEN
+                                        NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric / 10
+                                    ELSE
+                                        NULL
+                                END
+                            ELSE
+                                NULL
+                        END
+                    ) AS avg_place_payout
                 FROM target_horses th
                 LEFT JOIN jvd_hr hr ON
                     th.kaisai_nen = hr.kaisai_nen AND
@@ -1188,12 +1201,10 @@ def get_popularity_payout_stats(
             avg_place_payout = float(row[4]) if row[4] is not None else None
 
             # 回収率計算
-            # 単勝: (勝利数 × 平均配当) / (総賭け金 = 100 × レース数) × 100
-            # 複勝: (入着数 × 平均配当) / (総賭け金 = 100 × レース数) × 100
+            # 回収率(%) = 勝率(小数) × 平均配当(円)
+            # ※100円あたりの払戻しを想定（例: 勝率0.3 × 平均配当300円 = 90%）
             win_rate_decimal = win_count / total_races if total_races > 0 else 0
             place_rate_decimal = place_count / total_races if total_races > 0 else 0
-
-            # 回収率 = 勝率 × 平均配当（100円あたり）
             if avg_win_payout is not None and win_count > 0:
                 estimated_roi_win = round(win_rate_decimal * avg_win_payout, 1)
             else:
