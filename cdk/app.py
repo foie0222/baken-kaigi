@@ -10,12 +10,16 @@ Usage:
 
     # 既存 VPC を使用する場合
     cdk deploy --all --context jravan=true --context vpc_id=vpc-xxxxxxxxx
+
+    # GitHub OIDC スタックのみデプロイ
+    cdk deploy GitHubOidcStack
 """
 import aws_cdk as cdk
 from aws_cdk import aws_ec2 as ec2
 
 from stacks.api_stack import BakenKaigiApiStack
 from stacks.jravan_server_stack import JraVanServerStack
+from stacks.github_oidc_stack import GitHubOidcStack
 
 app = cdk.App()
 
@@ -27,6 +31,13 @@ vpc_id = app.node.try_get_context("vpc_id")
 env = cdk.Environment(
     account=None,  # 環境変数 CDK_DEFAULT_ACCOUNT から取得
     region="ap-northeast-1",
+)
+
+# GitHub OIDC スタック（常に作成）
+GitHubOidcStack(
+    app,
+    "GitHubOidcStack",
+    env=env,
 )
 
 if use_jravan:
