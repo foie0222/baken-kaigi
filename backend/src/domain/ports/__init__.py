@@ -14,6 +14,8 @@ from .race_data_provider import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrainingRecordData,
+    TrainingSummaryData,
     WeightData,
 )
 
@@ -35,5 +37,7 @@ __all__ = [
     "RaceData",
     "RaceDataProvider",
     "RunnerData",
+    "TrainingRecordData",
+    "TrainingSummaryData",
     "WeightData",
 ]

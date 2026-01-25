@@ -14,6 +14,8 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrainingRecordData,
+    TrainingSummaryData,
     WeightData,
 )
 
@@ -160,6 +162,15 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> list[HorsePerformanceData]:
         """馬の過去成績を取得する（モック実装）."""
         return []
+
+    def get_horse_training(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        days: int = 30,
+    ) -> tuple[list[TrainingRecordData], TrainingSummaryData | None]:
+        """馬の調教データを取得する（モック実装）."""
+        return [], None
 
 
 class TestRaceDataProviderInterface:

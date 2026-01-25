@@ -15,6 +15,8 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrainingRecordData,
+    TrainingSummaryData,
     WeightData,
 )
 
@@ -666,6 +668,89 @@ class MockRaceDataProvider(RaceDataProvider):
             performances.append(perf)
 
         return performances[:limit]
+
+    def get_horse_training(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        days: int = 30,
+    ) -> tuple[list[TrainingRecordData], TrainingSummaryData | None]:
+        """馬の調教データを取得する（モック実装）."""
+        import random
+
+        random.seed(_stable_hash(horse_id) % (2**32))
+
+        training_courses = [
+            "栗東CW", "栗東坂路", "栗東P", "栗東芝",
+            "美浦南W", "美浦坂路", "美浦北C", "美浦南P"
+        ]
+        course_conditions = ["良", "稍", "重", "不"]
+        training_types = ["馬なり", "一杯", "強め", "仕掛け", "叩き一杯"]
+        evaluations = ["A", "B", "C", "D"]
+
+        records = []
+        base_date = datetime.now()
+        times = []
+
+        for i in range(limit):
+            # days以内のランダムな日付
+            training_date = base_date - timedelta(days=random.randint(1, days))
+            course = random.choice(training_courses)
+
+            # 距離によってタイムを変える
+            distance = random.choice([800, 1000, 1200])
+            base_time = 51.0 + (distance - 800) / 200 * 5
+            time_val = base_time + random.uniform(-2, 3)
+            time_str = f"{time_val:.1f}"
+            times.append(time_val)
+
+            last_3f = f"{random.uniform(11.5, 13.5):.1f}"
+            last_1f = f"{random.uniform(11.5, 13.0):.1f}"
+
+            # 併せ馬（50%の確率）
+            partner = random.choice(self.HORSE_NAMES) if random.random() > 0.5 else None
+
+            record = TrainingRecordData(
+                date=training_date.strftime("%Y%m%d"),
+                course=course,
+                course_condition=random.choices(course_conditions, weights=[6, 2, 1, 1])[0],
+                distance=distance,
+                time=time_str,
+                last_3f=last_3f,
+                last_1f=last_1f,
+                training_type=random.choice(training_types),
+                partner_horse=partner,
+                evaluation=random.choices(evaluations, weights=[2, 4, 3, 1])[0],
+                comment=None,
+            )
+            records.append(record)
+
+        # サマリーを生成
+        if times:
+            avg_time = sum(times) / len(times)
+            best_time = min(times)
+            # 最近のトレンドを判定（最新3件の平均と残りの平均を比較）
+            if len(times) >= 3:
+                recent_avg = sum(times[:3]) / 3
+                older_avg = sum(times[3:]) / max(len(times) - 3, 1) if len(times) > 3 else recent_avg
+                if recent_avg < older_avg - 0.3:
+                    trend = "上昇"
+                elif recent_avg > older_avg + 0.3:
+                    trend = "下降"
+                else:
+                    trend = "平行"
+            else:
+                trend = "平行"
+
+            summary = TrainingSummaryData(
+                recent_trend=trend,
+                average_time=f"{avg_time:.1f}",
+                best_time=f"{best_time:.1f}",
+            )
+        else:
+            summary = None
+
+        return records, summary
 
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int
