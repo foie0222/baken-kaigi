@@ -316,6 +316,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             finish_position=data["finish_position"],
             total_runners=data["total_runners"],
             time=data["time"],
+            horse_name=data.get("horse_name"),
             time_diff=data.get("time_diff"),
             last_3f=data.get("last_3f"),
             weight_carried=data.get("weight_carried"),

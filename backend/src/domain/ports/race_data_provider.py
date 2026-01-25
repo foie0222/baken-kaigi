@@ -127,6 +127,7 @@ class HorsePerformanceData:
     finish_position: int
     total_runners: int
     time: str  # 例: "1:33.5"
+    horse_name: str | None = None  # 馬名
     time_diff: str | None = None  # 例: "+0.2"
     last_3f: str | None = None  # 上がり3ハロン 例: "33.8"
     weight_carried: float | None = None  # 斤量

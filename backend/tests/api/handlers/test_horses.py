@@ -1,5 +1,5 @@
 """馬API ハンドラーのテスト."""
-import pytest
+import json
 
 from src.api.handlers.horses import get_horse_performances
 
@@ -17,9 +17,9 @@ class TestGetHorsePerformances:
         assert response["statusCode"] == 200
         body = response.get("body")
         assert body is not None
-        import json
         data = json.loads(body)
         assert "horse_id" in data
+        assert "horse_name" in data
         assert "performances" in data
         assert isinstance(data["performances"], list)
 
@@ -31,7 +31,6 @@ class TestGetHorsePerformances:
         }
         response = get_horse_performances(event, None)
         assert response["statusCode"] == 200
-        import json
         data = json.loads(response["body"])
         assert len(data["performances"]) <= 3
 
@@ -61,7 +60,6 @@ class TestGetHorsePerformances:
         }
         response = get_horse_performances(event, None)
         assert response["statusCode"] == 200
-        import json
         data = json.loads(response["body"])
         for perf in data["performances"]:
             assert perf["track_type"] == "芝"

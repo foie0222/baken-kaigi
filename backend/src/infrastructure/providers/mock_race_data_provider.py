@@ -597,7 +597,7 @@ class MockRaceDataProvider(RaceDataProvider):
 
         performances = []
         base_date = datetime.now()
-        track_types = ["芝", "ダート"]
+        track_types = ["芝", "ダート", "障害"]
         track_conditions = ["良", "稍", "重", "不"]
         margins = ["クビ", "ハナ", "1/2", "3/4", "1", "1 1/2", "2", "3", "大差"]
         paces = ["S", "M", "H"]
@@ -608,12 +608,18 @@ class MockRaceDataProvider(RaceDataProvider):
             horse_index = int(horse_id.split("_")[1]) % len(self.HORSE_NAMES)
         except (IndexError, ValueError):
             horse_index = _stable_hash(horse_id) % len(self.HORSE_NAMES)
+        horse_name = self.HORSE_NAMES[horse_index]
 
-        for i in range(min(limit, 20)):
+        # フィルタを考慮して多めにループ
+        for i in range(min(limit * 2, 40)):
+            if len(performances) >= limit:
+                break
             race_date = base_date - timedelta(days=30 * (i + 1))
-            tt = track_type or random.choice(track_types)
+            tt = random.choice(track_types)
+
+            # track_typeでフィルタ
             if track_type and tt != track_type:
-                continue  # フィルタ適用
+                continue
 
             venue = random.choice(self.VENUES)
             distance = random.choice([1200, 1400, 1600, 1800, 2000, 2200, 2400])
@@ -646,6 +652,7 @@ class MockRaceDataProvider(RaceDataProvider):
                 finish_position=finish,
                 total_runners=total_runners,
                 time=time_str,
+                horse_name=horse_name,
                 time_diff=f"+{random.uniform(0, 2.0):.1f}" if finish > 1 else None,
                 last_3f=f"{random.uniform(33.0, 37.0):.1f}",
                 weight_carried=random.choice([54.0, 55.0, 56.0, 57.0, 58.0]),

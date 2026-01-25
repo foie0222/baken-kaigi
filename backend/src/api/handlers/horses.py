@@ -53,8 +53,12 @@ def get_horse_performances(event: dict, context: Any) -> dict:
     provider = Dependencies.get_race_data_provider()
     performances = provider.get_horse_performances(horse_id, limit, track_type)
 
+    # 馬名は最初のレコードから取得（全レコード同じはず）
+    horse_name = performances[0].horse_name if performances else None
+
     return success_response({
         "horse_id": horse_id,
+        "horse_name": horse_name,
         "performances": [
             {
                 "race_id": p.race_id,
