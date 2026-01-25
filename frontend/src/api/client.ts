@@ -33,6 +33,7 @@ export interface AgentCoreConsultationResponse {
   message: string;
   session_id: string;
   suggested_questions?: string[];
+  confidence?: number;
 }
 
 class ApiClient {
