@@ -1298,7 +1298,11 @@ def get_jockey_info(jockey_id: str) -> dict | None:
                 try:
                     license_year = int(menkyo_nengappi[:4])
                 except ValueError:
-                    pass
+                    # 免許年が数値に変換できない場合は不正データとして無視し、None のままとする
+                    logger.debug(
+                        "Failed to parse license year from menkyo_nengappi: %s",
+                        menkyo_nengappi,
+                    )
 
             return {
                 "jockey_id": kishu_code,
@@ -1379,7 +1383,9 @@ def get_jockey_stats(
                 params.append(str(current_year))
             elif period == "recent":
                 # 直近1年（デフォルト）
-                one_year_ago = datetime.now().replace(year=datetime.now().year - 1)
+                # timedeltaを使用して閏年(2/29)でのエラーを回避
+                from datetime import timedelta
+                one_year_ago = datetime.now() - timedelta(days=365)
                 base_query += " AND (se.kaisai_nen || se.kaisai_tsukihi) >= %s"
                 params.append(one_year_ago.strftime("%Y%m%d"))
 

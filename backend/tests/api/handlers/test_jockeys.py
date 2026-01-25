@@ -7,7 +7,6 @@ from src.api.dependencies import Dependencies
 from src.domain.ports import (
     JockeyInfoData,
     JockeyStatsDetailData,
-    RaceDataProvider,
 )
 from tests.api.handlers.test_races import MockRaceDataProvider
 
@@ -124,8 +123,8 @@ class TestGetJockeyStatsHandler:
                 wins=100,
                 second_places=80,
                 third_places=70,
-                win_rate=0.20,
-                place_rate=0.50,
+                win_rate=20.0,
+                place_rate=50.0,
                 period="recent",
                 year=None,
             )
@@ -147,8 +146,8 @@ class TestGetJockeyStatsHandler:
         assert body["wins"] == 100
         assert body["second_places"] == 80
         assert body["third_places"] == 70
-        assert body["win_rate"] == 0.20
-        assert body["place_rate"] == 0.50
+        assert body["win_rate"] == 20.0
+        assert body["place_rate"] == 50.0
         assert body["period"] == "recent"
         assert body["year"] is None
 
@@ -165,8 +164,8 @@ class TestGetJockeyStatsHandler:
                 wins=40,
                 second_places=30,
                 third_places=25,
-                win_rate=0.20,
-                place_rate=0.475,
+                win_rate=20.0,
+                place_rate=47.5,
                 period="recent",
                 year=2024,
             )
@@ -197,8 +196,8 @@ class TestGetJockeyStatsHandler:
                 wins=1000,
                 second_places=800,
                 third_places=700,
-                win_rate=0.20,
-                place_rate=0.50,
+                win_rate=20.0,
+                place_rate=50.0,
                 period="all",
                 year=None,
             )

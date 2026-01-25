@@ -649,7 +649,12 @@ def get_jockey_info(jockey_id: str):
 @app.get("/jockeys/{jockey_id}/stats", response_model=JockeyStatsResponse)
 def get_jockey_stats(
     jockey_id: str,
-    year: int | None = Query(None, description="年（指定時はその年の成績）"),
+    year: int | None = Query(
+        None,
+        ge=1900,
+        le=2100,
+        description="年（指定時はその年の成績）",
+    ),
     period: str = Query("recent", description="期間（recent=直近1年, ytd=今年初から, all=通算）"),
 ):
     """騎手の成績統計を取得する."""
