@@ -18,6 +18,11 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    StallionConditionStatsData,
+    StallionDistanceStatsData,
+    StallionOffspringStatsData,
+    StallionTrackStatsData,
+    TopOffspringData,
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
@@ -140,6 +145,21 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
         """馬の拡張血統情報を取得する（モック実装）."""
         return None
+
+    def get_stallion_offspring_stats(
+        self,
+        stallion_id: str,
+        year: int | None = None,
+        track_type: str | None = None,
+    ) -> tuple[
+        StallionOffspringStatsData | None,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """種牡馬産駒成績を取得する（モック実装）."""
+        return None, [], [], [], []
 
 
 @pytest.fixture(autouse=True)
