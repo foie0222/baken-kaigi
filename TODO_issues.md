@@ -8,39 +8,43 @@
 
 ```
 ┌─────────────────┐
-│  1. Issue確認   │
+│ 1. Worktree作成 │
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│2. リポジトリ確認 │
+│  2. Issue確認   │
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│ 3. 実装方針作成 │
+│3. リポジトリ確認 │
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│ 4. テスト実装   │ ← TDD: Red
+│ 4. 実装方針作成 │
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│   5. 実装       │ ← TDD: Green
+│ 5. テスト実装   │ ← TDD: Red
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│6. コミット/PR   │
+│   6. 実装       │ ← TDD: Green
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│  7. デプロイ    │
+│7. コミット/PR   │
 └────────┬────────┘
          ▼
 ┌─────────────────┐
-│  8. 動作確認    │
+│  8. デプロイ    │
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│  9. 動作確認    │
 └────────┬────────┘
          ▼
 ┌─────────────────────────────────────────┐
-│ 9. Copilotコメント確認                  │
+│ 10. Copilotコメント確認                 │
 │    ├─ 修正指摘あり → 修正 → 動作確認 ─┐│
 │    │                      ↑           ││
 │    │                      └───────────┘│
@@ -50,48 +54,52 @@
 
 ### 各ステップ詳細
 
-#### 1. Issue確認
+#### 1. Worktree作成
+- [ ] `git worktree add ../issue-{番号} -b feat/issue-{番号}-{機能名}`
+- [ ] `cd ../issue-{番号}`
+- [ ] 作業ディレクトリで開発開始
+
+#### 2. Issue確認
 - [ ] Issueの要件を読み込む
 - [ ] 返却データの形式を確認
 - [ ] パラメータを確認
 - [ ] 利用テーブル・依存関係を確認
 
-#### 2. リポジトリ確認
+#### 3. リポジトリ確認
 - [ ] 既存の類似実装パターンを確認
 - [ ] テストパターンを確認
 - [ ] 依存モジュールを確認
 
-#### 3. 実装方針作成
+#### 4. 実装方針作成
 - [ ] エンドポイント設計
 - [ ] データベースクエリ設計
 - [ ] エラーハンドリング設計
 
-#### 4. テスト実装（TDD: Red）
+#### 5. テスト実装（TDD: Red）
 - [ ] 正常系テスト作成
 - [ ] 異常系テスト作成（404、バリデーションエラー等）
 - [ ] テスト実行して失敗を確認
 
-#### 5. 実装（TDD: Green）
+#### 6. 実装（TDD: Green）
 - [ ] database.py に関数追加
 - [ ] main.py にエンドポイント追加
 - [ ] テスト実行して成功を確認
 
-#### 6. コミット/PR作成
-- [ ] `git checkout -b feat/issue-{番号}-{機能名}`
+#### 7. コミット/PR作成
 - [ ] `git add` で変更ファイルをステージング
 - [ ] `git commit -m "feat: {説明}"`
 - [ ] `git push -u origin {ブランチ名}`
 - [ ] `gh pr create --title "{タイトル}" --body "{本文}"`
 
-#### 7. デプロイ
+#### 8. デプロイ
 - [ ] `./scripts/pre-deploy-check.sh` 実行
 - [ ] `cd cdk && npx cdk deploy --all --context jravan=true --require-approval never`
 
-#### 8. 動作確認
+#### 9. 動作確認
 - [ ] 本番環境でAPIエンドポイントを叩いて確認
 - [ ] 期待通りのレスポンスが返ることを確認
 
-#### 9. Copilotコメント対応
+#### 10. Copilotコメント対応
 **重要: Copilotの指摘は後回しにしない。指摘があれば即座に対応する。**
 
 - [ ] PR上のCopilotコメントを確認
@@ -107,7 +115,12 @@
 
 ## Issue #79: 馬の過去成績取得APIエンドポイント追加
 
-### 1. Issue確認
+### 1. Worktree作成
+
+- [ ] `git worktree add ../issue-79 -b feat/issue-79-horse-performances`
+- [ ] `cd ../issue-79`
+
+### 2. Issue確認
 
 - [x] **要件**: 馬の過去レース成績（着順、タイム、上がり3F等）を取得するAPI
 - [x] **エンドポイント**: `GET /horses/{horse_id}/performances`
@@ -148,7 +161,7 @@
   - `jvd_se` (出走馬情報): kakutei_chakujun, time_value, nobori_jikan
   - `jvd_ra` (レース情報): 関連レース情報
 
-### 2. リポジトリ確認
+### 3. リポジトリ確認
 
 - [ ] **既存パターン確認**:
   - `jravan-api/main.py`: FastAPIエンドポイント定義
@@ -162,7 +175,7 @@
   - `jvd_se`: ketto_toroku_bango, kakutei_chakujun, time_value, nobori_jikan, futan_juryo, kishu_name, tansho_odds, kakutei_ninki, chakusa_code
   - `jvd_ra`: race_id, kaisai_nen, kaisai_tsukihi, race_name, keibajo_code, kyori, track_code, baba_jotai
 
-### 3. 実装方針作成
+### 4. 実装方針作成
 
 - [ ] **database.py**:
   ```python
@@ -190,7 +203,7 @@
       # 404 ハンドリング
   ```
 
-### 4. テスト実装（TDD: Red）
+### 5. テスト実装（TDD: Red）
 
 - [ ] **テストファイル作成**: `jravan-api/tests/test_horse_performances.py`
 
@@ -224,7 +237,7 @@
 - [ ] **テスト実行**: `cd jravan-api && pytest tests/test_horse_performances.py -v`
 - [ ] **失敗を確認**（Red）
 
-### 5. 実装（TDD: Green）
+### 6. 実装（TDD: Green）
 
 - [ ] **database.py に関数追加**:
   - `get_horse_performances()` 関数実装
@@ -242,9 +255,8 @@
 - [ ] **全テスト実行**: `cd jravan-api && pytest`
 - [ ] **既存テストが壊れていないことを確認**
 
-### 6. コミット/PR作成
+### 7. コミット/PR作成
 
-- [ ] `git checkout -b feat/issue-79-horse-performances`
 - [ ] `git add jravan-api/database.py jravan-api/main.py jravan-api/tests/test_horse_performances.py`
 - [ ] コミットメッセージ:
   ```
@@ -257,12 +269,12 @@
 - [ ] `git push -u origin feat/issue-79-horse-performances`
 - [ ] PR作成: `gh pr create --title "feat: 馬の過去成績取得APIエンドポイント追加 (#79)" --body "..."`
 
-### 7. デプロイ
+### 8. デプロイ
 
 - [ ] `./scripts/pre-deploy-check.sh`
 - [ ] `cd cdk && npx cdk deploy --all --context jravan=true --require-approval never`
 
-### 8. 動作確認
+### 9. 動作確認
 
 - [ ] EC2上のAPIエンドポイントを確認:
   ```bash
@@ -270,7 +282,7 @@
   ```
 - [ ] レスポンスが期待通りか確認
 
-### 9. Copilotコメント対応
+### 10. Copilotコメント対応
 
 **重要: 指摘は即座に対応する**
 
