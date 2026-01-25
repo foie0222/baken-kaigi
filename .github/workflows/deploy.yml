@@ -1,0 +1,119 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # 手動トリガー
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # CIジョブを再利用
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  # CDKデプロイジョブ
+  deploy-cdk:
+    name: Deploy CDK Stacks
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.ref == 'refs/heads/main' && 
+      github.repository == 'foie0222/baken-kaigi' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: cdk/requirements.txt
+
+      - name: Install CDK
+        run: npm install -g aws-cdk@2
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+        working-directory: cdk
+
+      - name: CDK Deploy
+        run: cdk deploy --all --context jravan=true --require-approval never
+        working-directory: cdk
+
+      - name: Output CDK deployment summary
+        run: |
+          echo "## CDK Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- AWS Region: ap-northeast-1" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Stacks" >> $GITHUB_STEP_SUMMARY
+          cdk ls --context jravan=true >> $GITHUB_STEP_SUMMARY
+        working-directory: cdk
+
+  # AgentCoreデプロイジョブ
+  deploy-agentcore:
+    name: Deploy AgentCore
+    needs: [ci, deploy-cdk]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      github.ref == 'refs/heads/main' && 
+      github.repository == 'foie0222/baken-kaigi' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install AgentCore CLI
+        run: pip install bedrock-agentcore-starter-toolkit
+
+      - name: Verify AgentCore configuration
+        run: |
+          if [ ! -f .bedrock_agentcore.yaml ]; then
+            echo "Error: .bedrock_agentcore.yaml not found"
+            exit 1
+          fi
+        working-directory: backend/agentcore
+
+      - name: Deploy AgentCore
+        run: agentcore deploy
+        working-directory: backend/agentcore
+
+      - name: Output AgentCore deployment summary
+        run: |
+          echo "## AgentCore Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- AWS Region: ap-northeast-1" >> $GITHUB_STEP_SUMMARY
+        working-directory: backend/agentcore
