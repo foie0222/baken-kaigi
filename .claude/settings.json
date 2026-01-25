@@ -9,6 +9,24 @@
             "command": ".claude/hooks/pre-tool-use-block-pr-operations.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-tool-use-block-main-edit-write.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-tool-use-block-main-edit-write.sh"
+          }
+        ]
       }
     ]
   }
