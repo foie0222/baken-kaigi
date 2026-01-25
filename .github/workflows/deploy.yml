@@ -115,7 +115,7 @@ jobs:
         working-directory: backend/agentcore
 
       - name: Deploy AgentCore
-        run: agentcore deploy
+        run: agentcore deploy --auto-update-on-conflict
         working-directory: backend/agentcore
         env:
           UV_SYSTEM_PYTHON: '1'

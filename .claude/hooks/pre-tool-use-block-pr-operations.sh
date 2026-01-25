@@ -1,16 +1,17 @@
 #!/bin/bash
-# PreToolUse hook: 危険なGitHub操作をブロック
+# PreToolUse hook: PRマージを条件付きで許可
 #
-# stdin から JSON を受け取り、以下の操作をブロック:
-# - gh pr merge / gh pr close
-# - gh api でのPRコメントresolve (resolveReviewThread)
+# stdin から JSON を受け取り、以下の制御を行う:
+# - gh pr merge: Copilotレビュー + 全コメント解決済みの場合のみ許可
+# - gh pr close: 許可
+# - resolveReviewThread: 許可
 
 set -e
 
 # stdin から JSON を読み取り
 INPUT=$(cat)
 
-# ツール名を取得（jq -r は存在しないキーで "null" を返すため // "" でデフォルト空文字に）
+# ツール名を取得
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 
 # Bash ツール以外は許可
@@ -19,18 +20,119 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 # コマンドを取得
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
 
-# gh pr merge または gh pr close をブロック
-# - 絶対パス (/usr/bin/gh) にも対応
-# - echo "gh pr merge" のような安全なコマンドは除外（先頭コマンドのみマッチ）
-if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr[[:space:]]+(merge|close)\b'; then
-  echo "BLOCK: PRのマージ/クローズは手動で行ってください。Claudeからの実行は禁止されています。" >&2
-  exit 2
+# gh pr merge を条件付きで許可
+if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr[[:space:]]+merge\b'; then
+  # --help フラグは許可
+  if echo "$COMMAND" | grep -qE '\-\-help|\-h'; then
+    exit 0
+  fi
+
+  # PR番号を抽出（POSIX準拠：sedを使用）
+  # パターン1: gh pr merge 123
+  PR_NUMBER=$(echo "$COMMAND" | sed -n 's/.*merge[[:space:]][[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)
+
+  # パターン2: gh pr merge https://github.com/.../pull/123
+  if [ -z "$PR_NUMBER" ]; then
+    PR_NUMBER=$(echo "$COMMAND" | sed -n 's#.*/pull/\([0-9][0-9]*\).*#\1#p' | head -n 1)
+  fi
+
+  # パターン3: 引数なし（現在のブランチから取得）
+  if [ -z "$PR_NUMBER" ]; then
+    PR_NUMBER=$(gh pr view --json number -q '.number' 2>/dev/null || true)
+  fi
+
+  if [ -z "$PR_NUMBER" ]; then
+    echo "BLOCK: PR番号を特定できませんでした。PR番号を明示的に指定してください。" >&2
+    exit 2
+  fi
+
+  # PR番号が純粋な整数であることを確認
+  if ! echo "$PR_NUMBER" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: 無効なPR番号です: $PR_NUMBER" >&2
+    exit 2
+  fi
+
+  # Copilotレビューの確認
+  REVIEWS_RESULT=$(gh pr view "$PR_NUMBER" --json reviews 2>/dev/null || echo "")
+  if [ -z "$REVIEWS_RESULT" ]; then
+    echo "BLOCK: PRのレビュー情報を取得できませんでした。" >&2
+    exit 2
+  fi
+
+  HAS_COPILOT=$(echo "$REVIEWS_RESULT" | jq '[.reviews[] | select(.author.login == "copilot-pull-request-reviewer")] | length > 0' 2>/dev/null || echo "false")
+
+  if [ "$HAS_COPILOT" != "true" ]; then
+    echo "BLOCK: Copilotのレビューがありません。Copilotレビューを受けてからマージしてください。" >&2
+    exit 2
+  fi
+
+  # リポジトリ情報を取得してバリデーション
+  REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"' 2>/dev/null || echo "")
+  OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
+  REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
+
+  if [ -z "$OWNER" ] || [ -z "$REPO" ]; then
+    echo "BLOCK: リポジトリ情報を取得できませんでした。" >&2
+    exit 2
+  fi
+
+  # OWNER/REPOが英数字、ハイフン、アンダースコアのみであることを確認
+  if ! echo "$OWNER" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+    echo "BLOCK: 無効なリポジトリオーナー名です。" >&2
+    exit 2
+  fi
+  if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9_.-]+$'; then
+    echo "BLOCK: 無効なリポジトリ名です。" >&2
+    exit 2
+  fi
+
+  # 未解決コメントの確認（ヒアドキュメントで可読性向上）
+  GRAPHQL_QUERY=$(cat <<EOF
+query {
+  repository(owner: "$OWNER", name: "$REPO") {
+    pullRequest(number: $PR_NUMBER) {
+      reviewThreads(first: 100) {
+        totalCount
+        nodes {
+          isResolved
+        }
+      }
+    }
+  }
+}
+EOF
+  )
+
+  QUERY_RESULT=$(gh api graphql -f query="$GRAPHQL_QUERY" 2>/dev/null || echo "")
+  if [ -z "$QUERY_RESULT" ]; then
+    echo "BLOCK: PRの状態を確認できませんでした。" >&2
+    exit 2
+  fi
+
+  # 総コメント数を確認（100件を超える場合は警告）
+  TOTAL_COUNT=$(echo "$QUERY_RESULT" | jq '.data.repository.pullRequest.reviewThreads.totalCount // -1' 2>/dev/null || echo "-1")
+  if [ "$TOTAL_COUNT" -gt 100 ]; then
+    echo "BLOCK: レビューコメントが100件を超えています（${TOTAL_COUNT}件）。全てのコメントを確認できないため、手動でマージしてください。" >&2
+    exit 2
+  fi
+
+  UNRESOLVED_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "-1")
+
+  if [ "$UNRESOLVED_COUNT" = "-1" ]; then
+    echo "BLOCK: PRの状態を確認できませんでした。" >&2
+    exit 2
+  fi
+
+  if [ "$UNRESOLVED_COUNT" -gt 0 ]; then
+    echo "BLOCK: 未解決のコメントが${UNRESOLVED_COUNT:-0}件あります。全てのコメントを解決してからマージしてください。" >&2
+    exit 2
+  fi
+
+  # 両方の条件を満たした場合は許可
+  exit 0
 fi
 
-# gh api での resolveReviewThread をブロック（PRコメントのresolve）
-if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+api([[:space:]]|$)' && echo "$COMMAND" | grep -qE 'resolveReviewThread'; then
-  echo "BLOCK: PRコメントのresolveは手動で行ってください。Claudeからの実行は禁止されています。" >&2
-  exit 2
-fi
+# gh pr close は許可
+# resolveReviewThread は許可
 
 exit 0
