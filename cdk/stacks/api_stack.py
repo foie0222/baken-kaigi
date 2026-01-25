@@ -183,6 +183,19 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        get_odds_history_fn = lambda_.Function(
+            self,
+            "GetOddsHistoryFunction",
+            handler="src.api.handlers.races.get_odds_history",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-odds-history",
+            description="オッズ履歴取得",
+            **lambda_common_props,
+        )
+
         # カートAPI
         add_to_cart_fn = lambda_.Function(
             self,
@@ -416,6 +429,12 @@ class BakenKaigiApiStack(Stack):
         race = races.add_resource("{race_id}")
         race.add_method(
             "GET", apigw.LambdaIntegration(get_race_detail_fn), api_key_required=True
+        )
+
+        # /races/{race_id}/odds-history
+        race_odds_history = race.add_resource("odds-history")
+        race_odds_history.add_method(
+            "GET", apigw.LambdaIntegration(get_odds_history_fn), api_key_required=True
         )
 
         # /horses

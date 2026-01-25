@@ -10,6 +10,7 @@ from src.domain.ports import (
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
+    OddsHistoryData,
     PastRaceStats,
     PedigreeData,
     PerformanceData,
@@ -122,6 +123,10 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
         """馬の拡張血統情報を取得する（モック実装）."""
+        return None
+
+    def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
+        """レースのオッズ履歴を取得する（モック実装）."""
         return None
 
 

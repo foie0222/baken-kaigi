@@ -12,6 +12,11 @@ from src.domain.ports import (
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
+    NotableMovementData,
+    OddsHistoryData,
+    OddsMovementData,
+    OddsSnapshotData,
+    OddsTimestampData,
     PastRaceStats,
     PedigreeData,
     PerformanceData,
@@ -32,6 +37,7 @@ class MockRaceDataProvider(RaceDataProvider):
         self._races_by_date: dict[date, list[RaceData]] = {}
         self._runners: dict[str, list[RunnerData]] = {}
         self._race_weights: dict[str, dict[int, WeightData]] = {}
+        self._odds_history: dict[str, OddsHistoryData] = {}
 
     def add_race(self, race: RaceData) -> None:
         self._races[race.race_id] = race
@@ -45,6 +51,9 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def add_race_weights(self, race_id: str, weights: dict[int, WeightData]) -> None:
         self._race_weights[race_id] = weights
+
+    def add_odds_history(self, race_id: str, odds_history: OddsHistoryData) -> None:
+        self._odds_history[race_id] = odds_history
 
     def get_race(self, race_id: RaceId) -> RaceData | None:
         return self._races.get(str(race_id))
@@ -140,6 +149,10 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
         """馬の拡張血統情報を取得する（モック実装）."""
         return None
+
+    def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
+        """レースのオッズ履歴を取得する（モック実装）."""
+        return self._odds_history.get(str(race_id))
 
 
 @pytest.fixture(autouse=True)
@@ -736,3 +749,191 @@ class TestGetRaceDatesHandler:
         response = get_race_dates(event, None)
 
         assert response["statusCode"] == 400
+
+
+class TestGetOddsHistoryHandler:
+    """GET /races/{race_id}/odds-history ハンドラーのテスト."""
+
+    def test_オッズ履歴を取得できる(self) -> None:
+        """オッズ履歴を取得できることを確認."""
+        from src.api.handlers.races import get_odds_history
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+            )
+        )
+        provider.add_odds_history(
+            "2024060111",
+            OddsHistoryData(
+                race_id="2024060111",
+                odds_history=[
+                    OddsTimestampData(
+                        timestamp="2024-06-01T09:00:00+09:00",
+                        odds=[
+                            OddsSnapshotData(
+                                horse_number=1,
+                                win_odds=3.5,
+                                place_odds_min=1.2,
+                                place_odds_max=1.5,
+                                popularity=1,
+                            ),
+                            OddsSnapshotData(
+                                horse_number=2,
+                                win_odds=5.0,
+                                place_odds_min=1.5,
+                                place_odds_max=2.0,
+                                popularity=2,
+                            ),
+                        ],
+                    ),
+                ],
+                odds_movement=[
+                    OddsMovementData(
+                        horse_number=1,
+                        initial_odds=4.0,
+                        final_odds=3.5,
+                        change_rate=-12.5,
+                        trend="下降",
+                    ),
+                ],
+                notable_movements=[
+                    NotableMovementData(
+                        horse_number=1,
+                        description="1番が人気急上昇（オッズ4.0→3.5）",
+                    ),
+                ],
+            ),
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+
+        response = get_odds_history(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["race_id"] == "2024060111"
+        assert len(body["odds_history"]) == 1
+        assert len(body["odds_history"][0]["odds"]) == 2
+        assert body["odds_history"][0]["odds"][0]["horse_number"] == 1
+        assert body["odds_history"][0]["odds"][0]["win_odds"] == 3.5
+        assert len(body["odds_movement"]) == 1
+        assert body["odds_movement"][0]["trend"] == "下降"
+        assert len(body["notable_movements"]) == 1
+        assert "人気急上昇" in body["notable_movements"][0]["description"]
+
+    def test_存在しないレースで404(self) -> None:
+        """存在しないレースで404が返ることを確認."""
+        from src.api.handlers.races import get_odds_history
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "nonexistent"}}
+
+        response = get_odds_history(event, None)
+
+        assert response["statusCode"] == 404
+
+    def test_race_idが指定されていない場合はエラー(self) -> None:
+        """race_idが指定されていない場合はエラーを返す."""
+        from src.api.handlers.races import get_odds_history
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {}}
+
+        response = get_odds_history(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_オッズ履歴の構造確認(self) -> None:
+        """オッズ履歴レスポンスの構造を確認."""
+        from src.api.handlers.races import get_odds_history
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="日本ダービー",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+            )
+        )
+        provider.add_odds_history(
+            "2024060111",
+            OddsHistoryData(
+                race_id="2024060111",
+                odds_history=[
+                    OddsTimestampData(
+                        timestamp="2024-06-01T09:00:00+09:00",
+                        odds=[
+                            OddsSnapshotData(
+                                horse_number=1,
+                                win_odds=3.5,
+                                place_odds_min=1.2,
+                                place_odds_max=1.5,
+                                popularity=1,
+                            ),
+                        ],
+                    ),
+                ],
+                odds_movement=[
+                    OddsMovementData(
+                        horse_number=1,
+                        initial_odds=4.0,
+                        final_odds=3.5,
+                        change_rate=-12.5,
+                        trend="下降",
+                    ),
+                ],
+                notable_movements=[],
+            ),
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+
+        response = get_odds_history(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+
+        # トップレベルの構造
+        assert "race_id" in body
+        assert "odds_history" in body
+        assert "odds_movement" in body
+        assert "notable_movements" in body
+
+        # odds_historyの構造
+        ts_data = body["odds_history"][0]
+        assert "timestamp" in ts_data
+        assert "odds" in ts_data
+
+        # odds内の構造
+        odds_data = ts_data["odds"][0]
+        assert "horse_number" in odds_data
+        assert "win_odds" in odds_data
+        assert "place_odds_min" in odds_data
+        assert "place_odds_max" in odds_data
+        assert "popularity" in odds_data
+
+        # odds_movementの構造
+        movement = body["odds_movement"][0]
+        assert "horse_number" in movement
+        assert "initial_odds" in movement
+        assert "final_odds" in movement
+        assert "change_rate" in movement
+        assert "trend" in movement
