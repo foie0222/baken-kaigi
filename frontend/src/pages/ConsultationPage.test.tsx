@@ -1,10 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '../test/utils'
 import { ConsultationPage } from './ConsultationPage'
 import { useCartStore } from '../stores/cartStore'
 
+// APIクライアントをモック
+vi.mock('../api/client', () => ({
+  apiClient: {
+    isAgentCoreAvailable: vi.fn(() => false),
+    consultWithAgent: vi.fn(),
+  },
+}))
+
 describe('ConsultationPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     useCartStore.getState().clearCart()
     // テスト用の買い目を追加
     useCartStore.getState().addItem({

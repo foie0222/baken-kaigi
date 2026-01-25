@@ -84,6 +84,25 @@ export function ConsultationPage() {
   } | null>(null);
   const [editAmount, setEditAmount] = useState(0);
 
+  // モック用の自信度計算（バックエンドが実装されるまで）
+  const calculateMockConfidence = useCallback(() => {
+    // アイテム数と合計金額に基づいて自信度を計算
+    const itemCount = items.length;
+    const total = getTotalAmount();
+
+    // 少ない買い目で適度な金額の場合は自信度が高い
+    let confidence = 70;
+    if (itemCount > 5) confidence -= 15;
+    if (itemCount > 10) confidence -= 20;
+    if (total > 10000) confidence -= 10;
+    if (total > 50000) confidence -= 15;
+
+    // ランダム要素
+    confidence += Math.floor(Math.random() * 20) - 10;
+
+    return Math.max(20, Math.min(90, confidence));
+  }, [items, getTotalAmount]);
+
   // 初回ロード時に AI からの初期分析を取得
   const fetchInitialAnalysis = useCallback(async () => {
     if (!apiClient.isAgentCoreAvailable()) {
@@ -144,26 +163,7 @@ export function ConsultationPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [items]);
-
-  // モック用の自信度計算（バックエンドが実装されるまで）
-  const calculateMockConfidence = useCallback(() => {
-    // アイテム数と合計金額に基づいて自信度を計算
-    const itemCount = items.length;
-    const total = getTotalAmount();
-
-    // 少ない買い目で適度な金額の場合は自信度が高い
-    let confidence = 70;
-    if (itemCount > 5) confidence -= 15;
-    if (itemCount > 10) confidence -= 20;
-    if (total > 10000) confidence -= 10;
-    if (total > 50000) confidence -= 15;
-
-    // ランダム要素
-    confidence += Math.floor(Math.random() * 20) - 10;
-
-    return Math.max(20, Math.min(90, confidence));
-  }, [items, getTotalAmount]);
+  }, [items, calculateMockConfidence]);
 
   useEffect(() => {
     fetchInitialAnalysis();
