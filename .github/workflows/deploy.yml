@@ -95,6 +95,9 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
       - name: Install AgentCore CLI
         run: pip install bedrock-agentcore-starter-toolkit
 
@@ -107,7 +110,9 @@ jobs:
         working-directory: backend/agentcore
 
       - name: Deploy AgentCore
-        run: agentcore deploy
+        run: |
+          source $HOME/.local/bin/env
+          agentcore deploy
         working-directory: backend/agentcore
 
       - name: Output AgentCore deployment summary
