@@ -12,6 +12,7 @@ from urllib3.util.retry import Retry
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -301,6 +302,58 @@ class JraVanRaceDataProvider(RaceDataProvider):
             weight=data["weight"],
             weight_diff=data["weight_diff"],
         )
+
+    def _to_horse_performance_data(self, data: dict) -> HorsePerformanceData:
+        """APIレスポンスをHorsePerformanceDataに変換する."""
+        return HorsePerformanceData(
+            race_id=data["race_id"],
+            race_date=data["race_date"],
+            race_name=data["race_name"],
+            venue=data["venue"],
+            distance=data["distance"],
+            track_type=data["track_type"],
+            track_condition=data["track_condition"],
+            finish_position=data["finish_position"],
+            total_runners=data["total_runners"],
+            time=data["time"],
+            horse_name=data.get("horse_name"),
+            time_diff=data.get("time_diff"),
+            last_3f=data.get("last_3f"),
+            weight_carried=data.get("weight_carried"),
+            jockey_name=data.get("jockey_name"),
+            odds=data.get("odds"),
+            popularity=data.get("popularity"),
+            margin=data.get("margin"),
+            race_pace=data.get("race_pace"),
+            running_style=data.get("running_style"),
+        )
+
+    def get_horse_performances(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        track_type: str | None = None,
+    ) -> list[HorsePerformanceData]:
+        """馬の過去成績を詳細に取得する."""
+        try:
+            params: dict[str, str | int] = {"limit": min(limit, 20)}
+            if track_type:
+                params["track_type"] = track_type
+
+            response = self._session.get(
+                f"{self._base_url}/horses/{horse_id}/performances",
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+
+            performances_data = response.json()
+            return [self._to_horse_performance_data(p) for p in performances_data]
+        except requests.RequestException as e:
+            logger.warning(f"Could not get performances for horse {horse_id}: {e}")
+            return []
 
     def get_jra_checksum(
         self,

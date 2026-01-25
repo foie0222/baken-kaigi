@@ -114,6 +114,32 @@ class PastRaceStats:
 
 
 @dataclass(frozen=True)
+class HorsePerformanceData:
+    """馬の過去成績詳細データ."""
+
+    race_id: str
+    race_date: str  # YYYYMMDD形式
+    race_name: str
+    venue: str
+    distance: int
+    track_type: str  # 芝/ダート/障害
+    track_condition: str  # 良/稍/重/不
+    finish_position: int
+    total_runners: int
+    time: str  # 例: "1:33.5"
+    horse_name: str | None = None  # 馬名
+    time_diff: str | None = None  # 例: "+0.2"
+    last_3f: str | None = None  # 上がり3ハロン 例: "33.8"
+    weight_carried: float | None = None  # 斤量
+    jockey_name: str | None = None
+    odds: float | None = None
+    popularity: int | None = None
+    margin: str | None = None  # 着差 例: "クビ"
+    race_pace: str | None = None  # S/M/H
+    running_style: str | None = None  # 逃げ/先行/差し/追込
+
+
+@dataclass(frozen=True)
 class JockeyInfoData:
     """騎手基本情報."""
 
@@ -285,5 +311,24 @@ class RaceDataProvider(ABC):
 
         Returns:
             騎手成績統計、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_horse_performances(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        track_type: str | None = None,
+    ) -> list[HorsePerformanceData]:
+        """馬の過去成績を詳細に取得する.
+
+        Args:
+            horse_id: 馬コード
+            limit: 取得件数（デフォルト5、最大20）
+            track_type: 芝/ダート/障害 でフィルタ
+
+        Returns:
+            過去成績データのリスト（新しい順）
         """
         pass

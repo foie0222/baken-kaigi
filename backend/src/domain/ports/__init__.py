@@ -3,6 +3,7 @@ from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, Cons
 from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
 from .race_data_provider import (
+    HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -23,6 +24,7 @@ __all__ = [
     "ConsultationContext",
     "CartRepository",
     "ConsultationSessionRepository",
+    "HorsePerformanceData",
     "JockeyInfoData",
     "JockeyStatsData",
     "JockeyStatsDetailData",

@@ -276,6 +276,20 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # 馬API
+        get_horse_performances_fn = lambda_.Function(
+            self,
+            "GetHorsePerformancesFunction",
+            handler="src.api.handlers.horses.get_horse_performances",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-horse-performances",
+            description="馬の過去成績取得",
+            **lambda_common_props,
+        )
+
         # 騎手API
         get_jockey_info_fn = lambda_.Function(
             self,
@@ -376,6 +390,18 @@ class BakenKaigiApiStack(Stack):
         race = races.add_resource("{race_id}")
         race.add_method(
             "GET", apigw.LambdaIntegration(get_race_detail_fn), api_key_required=True
+        )
+
+        # /horses
+        horses = api.root.add_resource("horses")
+
+        # /horses/{horse_id}
+        horse = horses.add_resource("{horse_id}")
+
+        # /horses/{horse_id}/performances
+        horse_performances = horse.add_resource("performances")
+        horse_performances.add_method(
+            "GET", apigw.LambdaIntegration(get_horse_performances_fn), api_key_required=True
         )
 
         # /jockeys
