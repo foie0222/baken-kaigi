@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem } from '../types';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
 interface CartState {
   cartId: string;
   items: CartItem[];
   addItem: (item: Omit<CartItem, 'id'>) => void;
   removeItem: (itemId: string) => void;
+  updateItemAmount: (itemId: string, amount: number) => void;
   clearCart: () => void;
   getTotalAmount: () => number;
   getItemCount: () => number;
@@ -37,6 +39,18 @@ export const useCartStore = create<CartState>()(
       removeItem: (itemId) => {
         set((state) => ({
           items: state.items.filter((item) => item.id !== itemId),
+        }));
+      },
+
+      updateItemAmount: (itemId, amount) => {
+        // バリデーション: 範囲外の金額は無視
+        if (amount < MIN_BET_AMOUNT || amount > MAX_BET_AMOUNT) {
+          return;
+        }
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === itemId ? { ...item, amount } : item
+          ),
         }));
       },
 
