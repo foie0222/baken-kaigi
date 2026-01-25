@@ -1,0 +1,24 @@
+# Bedrock AgentCore Configuration
+# Generated for baken-kaigi AI Agent
+
+# Agent configuration
+agent:
+  name: baken-kaigi-agent
+  entrypoint: agent.py
+  requirements_file: requirements.txt
+
+# Deployment configuration
+deployment:
+  type: direct_code_deploy
+  runtime: PYTHON_3_12
+  region: ap-northeast-1
+
+# Runtime configuration
+runtime:
+  idle_timeout: 900
+  max_lifetime: 28800
+
+# Features
+features:
+  otel_enabled: true
+  memory_enabled: false
