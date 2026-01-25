@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-tool-use-block-main-edit.sh"
+            "command": ".claude/hooks/pre-tool-use-block-main-edit-write.sh"
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-tool-use-block-main-edit.sh"
+            "command": ".claude/hooks/pre-tool-use-block-main-edit-write.sh"
           }
         ]
       }
