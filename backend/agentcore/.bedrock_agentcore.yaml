@@ -3,7 +3,6 @@ agents:
   baken_kaigi_agent:
     name: baken_kaigi_agent
     language: python
-    node_version: '20'
     entrypoint: agent.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_12
