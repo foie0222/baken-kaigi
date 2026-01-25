@@ -25,8 +25,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が16個作成されること."""
-        template.resource_count_is("AWS::Lambda::Function", 16)
+        """Lambda関数が18個作成されること."""
+        template.resource_count_is("AWS::Lambda::Function", 18)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること."""
@@ -171,5 +171,22 @@ class TestApiStack:
             {
                 "FunctionName": "baken-kaigi-get-extended-pedigree",
                 "Handler": "src.api.handlers.horses.get_extended_pedigree",
+            },
+        )
+
+    def test_trainer_endpoints(self, template):
+        """厩舎APIのLambda関数が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-trainer-info",
+                "Handler": "src.api.handlers.trainers.get_trainer_info",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-trainer-stats",
+                "Handler": "src.api.handlers.trainers.get_trainer_stats",
             },
         )

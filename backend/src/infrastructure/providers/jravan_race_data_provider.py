@@ -26,6 +26,10 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrainerClassStatsData,
+    TrainerInfoData,
+    TrainerStatsDetailData,
+    TrainerTrackStatsData,
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
@@ -663,6 +667,98 @@ class JraVanRaceDataProvider(RaceDataProvider):
             dam=dam,
             inbreeding=inbreeding,
             lineage_type=data.get("lineage_type"),
+        )
+
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎（調教師）基本情報を取得する."""
+        try:
+            response = self.session.get(
+                f"{self.base_url}/api/trainers/{trainer_id}/info",
+                timeout=self.timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return self._to_trainer_info_data(data)
+        except requests.RequestException as e:
+            logger.error(f"Failed to get trainer info for {trainer_id}: {e}")
+            return None
+
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎（調教師）の成績統計を取得する."""
+        try:
+            params = {"period": period}
+            if year:
+                params["year"] = str(year)
+
+            response = self.session.get(
+                f"{self.base_url}/api/trainers/{trainer_id}/stats",
+                params=params,
+                timeout=self.timeout,
+            )
+            if response.status_code == 404:
+                return None, [], []
+            response.raise_for_status()
+            data = response.json()
+
+            stats = self._to_trainer_stats_detail_data(data)
+            track_stats = [
+                TrainerTrackStatsData(
+                    track_type=t["track_type"],
+                    starts=t["starts"],
+                    wins=t["wins"],
+                    win_rate=t["win_rate"],
+                )
+                for t in data.get("by_track_type", [])
+            ]
+            class_stats = [
+                TrainerClassStatsData(
+                    grade_class=c["class"],
+                    starts=c["starts"],
+                    wins=c["wins"],
+                    win_rate=c["win_rate"],
+                )
+                for c in data.get("by_class", [])
+            ]
+            return stats, track_stats, class_stats
+        except requests.RequestException as e:
+            logger.error(f"Failed to get trainer stats for {trainer_id}: {e}")
+            return None, [], []
+
+    def _to_trainer_info_data(self, data: dict) -> TrainerInfoData:
+        """APIレスポンスをTrainerInfoDataに変換する."""
+        return TrainerInfoData(
+            trainer_id=data["trainer_id"],
+            trainer_name=data["trainer_name"],
+            trainer_name_kana=data.get("trainer_name_kana"),
+            affiliation=data.get("affiliation"),
+            stable_location=data.get("stable_location"),
+            license_year=data.get("license_year"),
+            career_wins=data.get("career_wins"),
+            career_starts=data.get("career_starts"),
+        )
+
+    def _to_trainer_stats_detail_data(self, data: dict) -> TrainerStatsDetailData:
+        """APIレスポンスをTrainerStatsDetailDataに変換する."""
+        stats = data.get("stats", {})
+        return TrainerStatsDetailData(
+            trainer_id=data["trainer_id"],
+            trainer_name=data["trainer_name"],
+            total_starts=stats.get("total_starts", 0),
+            wins=stats.get("wins", 0),
+            second_places=stats.get("places", 0) - stats.get("wins", 0) if stats.get("places") else 0,
+            third_places=0,  # APIから取得できない場合
+            win_rate=stats.get("win_rate", 0.0),
+            place_rate=stats.get("place_rate", 0.0),
+            prize_money=stats.get("prize_money"),
+            period=data.get("period", "all"),
+            year=data.get("year"),
         )
 
 

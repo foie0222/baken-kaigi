@@ -224,6 +224,57 @@ class ExtendedPedigreeData:
     lineage_type: str | None  # 系統タイプ（例: サンデーサイレンス系）
 
 
+@dataclass(frozen=True)
+class TrainerInfoData:
+    """厩舎（調教師）基本情報."""
+
+    trainer_id: str
+    trainer_name: str
+    trainer_name_kana: str | None = None
+    affiliation: str | None = None  # 美浦/栗東
+    stable_location: str | None = None
+    license_year: int | None = None
+    career_wins: int | None = None
+    career_starts: int | None = None
+
+
+@dataclass(frozen=True)
+class TrainerStatsDetailData:
+    """厩舎（調教師）成績統計データ."""
+
+    trainer_id: str
+    trainer_name: str
+    total_starts: int
+    wins: int
+    second_places: int
+    third_places: int
+    win_rate: float
+    place_rate: float
+    prize_money: int | None = None
+    period: str = "all"  # recent/all/year
+    year: int | None = None
+
+
+@dataclass(frozen=True)
+class TrainerTrackStatsData:
+    """厩舎コース別成績."""
+
+    track_type: str  # 芝/ダート/障害
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class TrainerClassStatsData:
+    """厩舎クラス別成績."""
+
+    grade_class: str  # G1/G2/G3/OP/1勝/2勝/3勝/未勝利/新馬
+    starts: int
+    wins: int
+    win_rate: float
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -418,5 +469,36 @@ class RaceDataProvider(ABC):
 
         Returns:
             拡張血統情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎（調教師）基本情報を取得する.
+
+        Args:
+            trainer_id: 調教師コード
+
+        Returns:
+            厩舎基本情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎（調教師）の成績統計を取得する.
+
+        Args:
+            trainer_id: 調教師コード
+            year: 年（指定時はその年の成績）
+            period: 期間（recent=直近1年, all=通算）
+
+        Returns:
+            成績統計、コース別成績リスト、クラス別成績リストのタプル
         """
         pass

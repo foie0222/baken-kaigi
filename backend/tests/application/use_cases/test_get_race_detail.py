@@ -16,6 +16,10 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrainerClassStatsData,
+    TrainerInfoData,
+    TrainerStatsDetailData,
+    TrainerTrackStatsData,
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
@@ -123,6 +127,19 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
         """馬の拡張血統情報を取得する（モック実装）."""
         return None
+
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎基本情報を取得する（モック実装）."""
+        return None
+
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎成績統計を取得する（モック実装）."""
+        return None, [], []
 
 
 class TestGetRaceDetailUseCase:
