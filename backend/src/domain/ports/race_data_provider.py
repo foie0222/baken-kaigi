@@ -152,6 +152,32 @@ class JockeyInfoData:
 
 
 @dataclass(frozen=True)
+class TrainingRecordData:
+    """調教データ."""
+
+    date: str  # YYYYMMDD形式
+    course: str  # 栗東CW, 美浦南W など
+    course_condition: str  # 良/稍/重/不
+    distance: int  # メートル
+    time: str  # 例: "52.3"
+    last_3f: str | None = None  # 例: "12.5"
+    last_1f: str | None = None  # 例: "12.0"
+    training_type: str | None = None  # 馬なり/一杯/強め など
+    partner_horse: str | None = None  # 併せ馬
+    evaluation: str | None = None  # A/B/C など
+    comment: str | None = None
+
+
+@dataclass(frozen=True)
+class TrainingSummaryData:
+    """調教サマリー."""
+
+    recent_trend: str  # 上昇/平行/下降
+    average_time: str | None = None
+    best_time: str | None = None
+
+
+@dataclass(frozen=True)
 class JockeyStatsDetailData:
     """騎手成績統計データ."""
 
@@ -330,5 +356,24 @@ class RaceDataProvider(ABC):
 
         Returns:
             過去成績データのリスト（新しい順）
+        """
+        pass
+
+    @abstractmethod
+    def get_horse_training(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        days: int = 30,
+    ) -> tuple[list[TrainingRecordData], TrainingSummaryData | None]:
+        """馬の調教データを取得する.
+
+        Args:
+            horse_id: 馬コード
+            limit: 取得件数（デフォルト5、最大10）
+            days: 直近N日分（デフォルト30）
+
+        Returns:
+            調教データのリストとサマリーのタプル
         """
         pass

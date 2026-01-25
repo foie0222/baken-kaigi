@@ -23,6 +23,8 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrainingRecordData,
+    TrainingSummaryData,
     WeightData,
 )
 
@@ -546,6 +548,62 @@ class JraVanRaceDataProvider(RaceDataProvider):
             place_rate=data["place_rate"],
             period=data["period"],
             year=data.get("year"),
+        )
+
+    def get_horse_training(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        days: int = 30,
+    ) -> tuple[list[TrainingRecordData], TrainingSummaryData | None]:
+        """馬の調教データを取得する."""
+        try:
+            params: dict[str, int] = {
+                "limit": min(limit, 10),
+                "days": days,
+            }
+
+            response = self._session.get(
+                f"{self._base_url}/horses/{horse_id}/training",
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return [], None
+            response.raise_for_status()
+
+            data = response.json()
+            records = [self._to_training_record_data(r) for r in data.get("training_records", [])]
+            summary = None
+            if data.get("training_summary"):
+                summary = self._to_training_summary_data(data["training_summary"])
+            return records, summary
+        except requests.RequestException as e:
+            logger.warning(f"Could not get training data for horse {horse_id}: {e}")
+            return [], None
+
+    def _to_training_record_data(self, data: dict) -> TrainingRecordData:
+        """APIレスポンスをTrainingRecordDataに変換する."""
+        return TrainingRecordData(
+            date=data["date"],
+            course=data["course"],
+            course_condition=data["course_condition"],
+            distance=data["distance"],
+            time=data["time"],
+            last_3f=data.get("last_3f"),
+            last_1f=data.get("last_1f"),
+            training_type=data.get("training_type"),
+            partner_horse=data.get("partner_horse"),
+            evaluation=data.get("evaluation"),
+            comment=data.get("comment"),
+        )
+
+    def _to_training_summary_data(self, data: dict) -> TrainingSummaryData:
+        """APIレスポンスをTrainingSummaryDataに変換する."""
+        return TrainingSummaryData(
+            recent_trend=data["recent_trend"],
+            average_time=data.get("average_time"),
+            best_time=data.get("best_time"),
         )
 
 

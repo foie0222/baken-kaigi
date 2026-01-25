@@ -84,3 +84,81 @@ def get_horse_performances(event: dict, context: Any) -> dict:
             for p in performances
         ],
     })
+
+
+def get_horse_training(event: dict, context: Any) -> dict:
+    """馬の調教データを取得する.
+
+    GET /horses/{horse_id}/training
+
+    Path Parameters:
+        horse_id: 馬コード
+
+    Query Parameters:
+        limit: 取得件数（デフォルト: 5、最大: 10）
+        days: 直近N日分（デフォルト: 30）
+
+    Returns:
+        馬の調教データとサマリー
+    """
+    horse_id = get_path_parameter(event, "horse_id")
+    if not horse_id:
+        return bad_request_response("horse_id is required")
+
+    # パラメータ取得
+    limit_str = get_query_parameter(event, "limit")
+    days_str = get_query_parameter(event, "days")
+
+    # limitのバリデーション
+    limit = 5
+    if limit_str:
+        try:
+            limit = int(limit_str)
+            if limit < 1 or limit > 10:
+                return bad_request_response("limit must be between 1 and 10")
+        except ValueError:
+            return bad_request_response("limit must be a valid integer")
+
+    # daysのバリデーション
+    days = 30
+    if days_str:
+        try:
+            days = int(days_str)
+            if days < 1 or days > 365:
+                return bad_request_response("days must be between 1 and 365")
+        except ValueError:
+            return bad_request_response("days must be a valid integer")
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    records, summary = provider.get_horse_training(horse_id, limit, days)
+
+    # 馬名を取得（pedigreeから）
+    pedigree = provider.get_pedigree(horse_id)
+    horse_name = pedigree.horse_name if pedigree else None
+
+    return success_response({
+        "horse_id": horse_id,
+        "horse_name": horse_name,
+        "training_records": [
+            {
+                "date": r.date,
+                "course": r.course,
+                "course_condition": r.course_condition,
+                "distance": r.distance,
+                "time": r.time,
+                "last_3f": r.last_3f,
+                "last_1f": r.last_1f,
+                "training_type": r.training_type,
+                "partner_horse": r.partner_horse,
+                "evaluation": r.evaluation,
+                "comment": r.comment,
+            }
+            for r in records
+        ],
+        "training_summary": {
+            "recent_trend": summary.recent_trend,
+            "average_time": summary.average_time,
+            "best_time": summary.best_time,
+        } if summary else None,
+    })
