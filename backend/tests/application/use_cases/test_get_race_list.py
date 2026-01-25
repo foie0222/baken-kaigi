@@ -6,6 +6,7 @@ import pytest
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -106,6 +107,15 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> JockeyStatsDetailData | None:
         """騎手成績統計を取得する（モック実装）."""
         return None
+
+    def get_horse_performances(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        track_type: str | None = None,
+    ) -> list[HorsePerformanceData]:
+        """馬の過去成績を取得する（モック実装）."""
+        return []
 
 
 class TestGetRaceListUseCase:
