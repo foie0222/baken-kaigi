@@ -1,17 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
 import { useAppStore } from '../stores/appStore';
-import { BetTypeLabels } from '../types';
+import { BetTypeLabels, getVenueName } from '../types';
 import { apiClient } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
-import {
-  calculateTrigaramiRisk,
-  getTrigaramiRiskLabel,
-} from '../utils/betAnalysis';
-import { MIN_BET_AMOUNT, MAX_BET_AMOUNT, MOCK_ODDS } from '../constants/betting';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -19,16 +15,6 @@ interface ChatMessage {
 }
 
 const quickReplies = ['過去の成績', '騎手', 'オッズ', '直感'];
-
-/**
- * アイテムごとの暫定オッズを生成
- * 注: 将来的にはJRA-VAN APIからリアルオッズを取得予定
- */
-const generateMockOdds = (itemId: string): number => {
-  // itemIdをシードとして一貫した値を返す
-  const hash = itemId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return Number(((hash % MOCK_ODDS.MODULO) / MOCK_ODDS.DIVISOR + MOCK_ODDS.MIN_ODDS).toFixed(1));
-};
 
 export function ConsultationPage() {
   const navigate = useNavigate();
@@ -54,15 +40,6 @@ export function ConsultationPage() {
     amount: number;
   } | null>(null);
   const [editAmount, setEditAmount] = useState(0);
-
-  // アイテムごとのオッズをメモ化
-  const itemOdds = useMemo(() => {
-    const odds: Record<string, number> = {};
-    items.forEach((item) => {
-      odds[item.id] = generateMockOdds(item.id);
-    });
-    return odds;
-  }, [items]);
 
   // 初回ロード時に AI からの初期分析を取得
   const fetchInitialAnalysis = useCallback(async () => {
@@ -211,12 +188,23 @@ export function ConsultationPage() {
   };
 
   const confirmEditAmount = () => {
-    if (editTarget && editAmount >= MIN_BET_AMOUNT && editAmount <= MAX_BET_AMOUNT) {
-      updateItemAmount(editTarget.id, editAmount);
-      setEditTarget(null);
-      showToast('金額を変更しました');
+    if (!editTarget) {
+      return;
     }
+
+    if (editAmount < MIN_BET_AMOUNT || editAmount > MAX_BET_AMOUNT) {
+      showToast(
+        `金額は${MIN_BET_AMOUNT.toLocaleString()}〜${MAX_BET_AMOUNT.toLocaleString()}円の範囲で入力してください`
+      );
+      return;
+    }
+
+    updateItemAmount(editTarget.id, editAmount);
+    setEditTarget(null);
+    showToast('金額を変更しました');
   };
+
+  const isEditAmountValid = editAmount >= MIN_BET_AMOUNT && editAmount <= MAX_BET_AMOUNT;
 
   const adjustEditAmount = (delta: number) => {
     setEditAmount((prev) => Math.max(MIN_BET_AMOUNT, Math.min(MAX_BET_AMOUNT, prev + delta)));
@@ -296,14 +284,7 @@ export function ConsultationPage() {
         <div className="data-feedback">
           <div className="feedback-title">📊 買い目データフィードバック</div>
 
-          {items.map((item) => {
-            const odds = itemOdds[item.id];
-            // betCountが存在する場合はそれを使用（券種・買い方により正確な点数）
-            const betCount = item.betCount ?? item.horseNumbers.length;
-            const risk = calculateTrigaramiRisk(odds, betCount);
-            const riskLabel = getTrigaramiRiskLabel(risk);
-
-            return (
+          {items.map((item) => (
               <div
                 key={item.id}
                 style={{
@@ -326,7 +307,7 @@ export function ConsultationPage() {
                   }}
                 >
                   <span style={{ fontWeight: 700, color: '#1a5f2a' }}>
-                    {item.raceVenue} {item.raceNumber}
+                    {getVenueName(item.raceVenue)} {item.raceNumber}
                   </span>
                   <span
                     style={{
@@ -339,24 +320,6 @@ export function ConsultationPage() {
                     }}
                   >
                     {BetTypeLabels[item.betType]} {item.horseNumbers.join('-')}
-                  </span>
-                  <span
-                    className="risk-badge"
-                    style={{
-                      background: riskLabel.color,
-                      color: 'white',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {riskLabel.label}
-                  </span>
-                  <span
-                    style={{ marginLeft: 'auto', fontSize: 13, color: '#666' }}
-                  >
-                    予想オッズ {odds}倍
                   </span>
                 </div>
                 {item.horseNumbers.map((num) => (
@@ -420,8 +383,7 @@ export function ConsultationPage() {
                   </div>
                 </div>
               </div>
-            );
-          })}
+          ))}
 
           <div
             style={{
@@ -517,7 +479,7 @@ export function ConsultationPage() {
           {deleteTargetItem && (
             <>
               <strong>
-                {deleteTargetItem.raceVenue} {deleteTargetItem.raceNumber}
+                {getVenueName(deleteTargetItem.raceVenue)} {deleteTargetItem.raceNumber}
               </strong>
               <br />
               {BetTypeLabels[deleteTargetItem.betType]}{' '}
@@ -537,78 +499,105 @@ export function ConsultationPage() {
         title="掛け金の変更"
       >
         <div style={{ padding: '8px 0' }}>
+          {/* 金額入力 - RaceDetailPageと同じスタイル */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 16,
-              marginBottom: 24,
+              background: '#f8f9fa',
+              border: '2px solid #e8e8e8',
+              borderRadius: 8,
+              overflow: 'hidden',
+              marginBottom: 8,
             }}
           >
             <button
               onClick={() => adjustEditAmount(-100)}
-              disabled={editAmount <= 100}
+              disabled={editAmount <= MIN_BET_AMOUNT}
               style={{
                 width: 44,
                 height: 44,
-                borderRadius: '50%',
                 border: 'none',
-                background: editAmount <= 100 ? '#e0e0e0' : '#1a5f2a',
-                color: 'white',
-                fontSize: 24,
-                cursor: editAmount <= 100 ? 'not-allowed' : 'pointer',
+                background: '#e8e8e8',
+                fontSize: 20,
+                fontWeight: 600,
+                color: editAmount <= MIN_BET_AMOUNT ? '#999' : '#333',
+                cursor: editAmount <= MIN_BET_AMOUNT ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               −
             </button>
             <div
               style={{
-                fontSize: 28,
-                fontWeight: 700,
-                minWidth: 150,
-                textAlign: 'center',
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 8px',
+                gap: 2,
               }}
             >
-              ¥{editAmount.toLocaleString()}
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#666' }}>¥</span>
+              <input
+                type="number"
+                value={editAmount}
+                onChange={(e) => setEditAmount(Math.max(MIN_BET_AMOUNT, parseInt(e.target.value) || MIN_BET_AMOUNT))}
+                style={{
+                  width: 80,
+                  border: 'none',
+                  background: 'none',
+                  padding: '12px 4px',
+                  fontSize: 18,
+                  fontWeight: 600,
+                  outline: 'none',
+                  textAlign: 'center',
+                }}
+              />
             </div>
             <button
               onClick={() => adjustEditAmount(100)}
+              disabled={editAmount >= MAX_BET_AMOUNT}
               style={{
                 width: 44,
                 height: 44,
-                borderRadius: '50%',
                 border: 'none',
-                background: '#1a5f2a',
-                color: 'white',
-                fontSize: 24,
-                cursor: 'pointer',
+                background: '#e8e8e8',
+                fontSize: 20,
+                fontWeight: 600,
+                color: editAmount >= MAX_BET_AMOUNT ? '#999' : '#333',
+                cursor: editAmount >= MAX_BET_AMOUNT ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              +
+              ＋
             </button>
           </div>
+          {/* プリセットボタン */}
           <div
             style={{
               display: 'flex',
               gap: 8,
-              justifyContent: 'center',
-              marginBottom: 24,
+              marginBottom: 16,
             }}
           >
-            {[500, 1000, 5000, 10000].map((amount) => (
+            {[100, 500, 1000, 5000].map((amount) => (
               <button
                 key={amount}
                 onClick={() => setEditAmount(amount)}
                 style={{
-                  padding: '8px 16px',
-                  borderRadius: 20,
-                  border:
-                    editAmount === amount
-                      ? '2px solid #1a5f2a'
-                      : '1px solid #ddd',
-                  background: editAmount === amount ? '#e8f5e9' : 'white',
-                  fontSize: 13,
+                  flex: 1,
+                  padding: 8,
+                  border: '1px solid #ddd',
+                  background: 'white',
+                  borderRadius: 6,
+                  fontSize: 12,
                   cursor: 'pointer',
                 }}
               >
@@ -618,16 +607,17 @@ export function ConsultationPage() {
           </div>
           <button
             onClick={confirmEditAmount}
+            disabled={!isEditAmountValid}
             style={{
               width: '100%',
               padding: 14,
               borderRadius: 10,
               border: 'none',
-              background: '#1a5f2a',
+              background: isEditAmountValid ? '#1a5f2a' : '#ccc',
               color: 'white',
               fontSize: 16,
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: isEditAmountValid ? 'pointer' : 'not-allowed',
             }}
           >
             変更を確定
