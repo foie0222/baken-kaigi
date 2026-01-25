@@ -14,6 +14,7 @@ from src.domain.ports import (
     CartRepository,
     ConsultationContext,
     ConsultationSessionRepository,
+    CourseAptitudeData,
     ExtendedPedigreeData,
     HorsePerformanceData,
     JockeyInfoData,
@@ -172,6 +173,10 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
         """馬の拡張血統情報を取得する（モック実装）."""
+        return None
+
+    def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
+        """馬のコース適性を取得する（モック実装）."""
         return None
 
 

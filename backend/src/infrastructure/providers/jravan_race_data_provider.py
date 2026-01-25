@@ -13,6 +13,10 @@ from urllib3.util.retry import Retry
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     AncestorData,
+    AptitudeSummaryData,
+    ConditionAptitudeData,
+    CourseAptitudeData,
+    DistanceAptitudeData,
     ExtendedPedigreeData,
     HorsePerformanceData,
     InbreedingData,
@@ -23,11 +27,14 @@ from src.domain.ports import (
     PedigreeData,
     PerformanceData,
     PopularityStats,
+    PositionAptitudeData,
     RaceData,
     RaceDataProvider,
     RunnerData,
+    TrackTypeAptitudeData,
     TrainingRecordData,
     TrainingSummaryData,
+    VenueAptitudeData,
     WeightData,
 )
 
@@ -663,6 +670,97 @@ class JraVanRaceDataProvider(RaceDataProvider):
             dam=dam,
             inbreeding=inbreeding,
             lineage_type=data.get("lineage_type"),
+        )
+
+    def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
+        """馬のコース適性を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/horses/{horse_id}/course-aptitude",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_course_aptitude_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get course aptitude for horse {horse_id}: {e}")
+            return None
+
+    def _to_course_aptitude_data(self, data: dict) -> CourseAptitudeData:
+        """APIレスポンスをCourseAptitudeDataに変換する."""
+        by_venue = [
+            VenueAptitudeData(
+                venue=v["venue"],
+                starts=v["starts"],
+                wins=v["wins"],
+                places=v["places"],
+                win_rate=v["win_rate"],
+                place_rate=v["place_rate"],
+            )
+            for v in data.get("by_venue", [])
+        ]
+
+        by_track_type = [
+            TrackTypeAptitudeData(
+                track_type=t["track_type"],
+                starts=t["starts"],
+                wins=t["wins"],
+                win_rate=t["win_rate"],
+            )
+            for t in data.get("by_track_type", [])
+        ]
+
+        by_distance = [
+            DistanceAptitudeData(
+                distance_range=d["distance_range"],
+                starts=d["starts"],
+                wins=d["wins"],
+                win_rate=d["win_rate"],
+                best_time=d.get("best_time"),
+            )
+            for d in data.get("by_distance", [])
+        ]
+
+        by_track_condition = [
+            ConditionAptitudeData(
+                condition=c["condition"],
+                starts=c["starts"],
+                wins=c["wins"],
+                win_rate=c["win_rate"],
+            )
+            for c in data.get("by_track_condition", [])
+        ]
+
+        by_running_position = [
+            PositionAptitudeData(
+                position=p["position"],
+                starts=p["starts"],
+                wins=p["wins"],
+                win_rate=p["win_rate"],
+            )
+            for p in data.get("by_running_position", [])
+        ]
+
+        aptitude_summary = None
+        summary_data = data.get("aptitude_summary")
+        if summary_data:
+            aptitude_summary = AptitudeSummaryData(
+                best_venue=summary_data.get("best_venue"),
+                best_distance=summary_data.get("best_distance"),
+                preferred_condition=summary_data.get("preferred_condition"),
+                preferred_position=summary_data.get("preferred_position"),
+            )
+
+        return CourseAptitudeData(
+            horse_id=data["horse_id"],
+            horse_name=data.get("horse_name"),
+            by_venue=by_venue,
+            by_track_type=by_track_type,
+            by_distance=by_distance,
+            by_track_condition=by_track_condition,
+            by_running_position=by_running_position,
+            aptitude_summary=aptitude_summary,
         )
 
 

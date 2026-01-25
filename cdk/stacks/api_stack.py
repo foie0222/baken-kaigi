@@ -316,6 +316,19 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        get_course_aptitude_fn = lambda_.Function(
+            self,
+            "GetCourseAptitudeFunction",
+            handler="src.api.handlers.horses.get_course_aptitude",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-course-aptitude",
+            description="馬のコース適性取得",
+            **lambda_common_props,
+        )
+
         # 騎手API
         get_jockey_info_fn = lambda_.Function(
             self,
@@ -441,6 +454,12 @@ class BakenKaigiApiStack(Stack):
         horse_pedigree_extended = horse_pedigree.add_resource("extended")
         horse_pedigree_extended.add_method(
             "GET", apigw.LambdaIntegration(get_extended_pedigree_fn), api_key_required=True
+        )
+
+        # /horses/{horse_id}/course-aptitude
+        horse_course_aptitude = horse.add_resource("course-aptitude")
+        horse_course_aptitude.add_method(
+            "GET", apigw.LambdaIntegration(get_course_aptitude_fn), api_key_required=True
         )
 
         # /jockeys
