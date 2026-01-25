@@ -72,9 +72,13 @@ def invoke(payload: dict, context: dict) -> dict:
     # レスポンスからテキストを抽出
     message_text = _extract_message_text(result.message)
 
+    # クイックリプライ提案を抽出
+    message_text, suggested_questions = _extract_suggested_questions(message_text)
+
     return {
         "message": message_text,
         "session_id": context.session_id,
+        "suggested_questions": suggested_questions,
     }
 
 
@@ -93,6 +97,45 @@ def _extract_message_text(message) -> str:
             return "\n".join(texts)
         return str(content)
     return str(message)
+
+
+def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
+    """応答テキストからクイックリプライ提案を抽出する.
+
+    Args:
+        text: AIの応答テキスト
+
+    Returns:
+        (本文, 提案リスト) のタプル
+    """
+    separator = "---SUGGESTED_QUESTIONS---"
+
+    if separator not in text:
+        return text.strip(), []
+
+    parts = text.split(separator, 1)
+    main_text = parts[0].strip()
+
+    if len(parts) < 2:
+        return main_text, []
+
+    questions_text = parts[1].strip()
+    questions = [
+        q.strip()
+        for q in questions_text.split("\n")
+        if q.strip() and not q.strip().startswith("-")
+    ]
+
+    # 先頭の「-」を除去（箇条書き形式の場合）
+    questions = [
+        q.lstrip("- ").strip() if q.startswith("-") else q.strip()
+        for q in questions
+    ]
+
+    # 空の質問を除外し、3〜5個に制限
+    questions = [q for q in questions if q][:5]
+
+    return main_text, questions
 
 
 def _format_cart_summary(cart_items: list) -> str:
