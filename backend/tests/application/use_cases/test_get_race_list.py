@@ -6,6 +6,7 @@ import pytest
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    ExtendedPedigreeData,
     HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
@@ -127,6 +128,10 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> tuple[list[TrainingRecordData], TrainingSummaryData | None]:
         """馬の調教データを取得する（モック実装）."""
         return [], None
+
+    def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
+        """馬の拡張血統情報を取得する（モック実装）."""
+        return None
 
 
 class TestGetRaceListUseCase:

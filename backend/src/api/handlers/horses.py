@@ -162,3 +162,59 @@ def get_horse_training(event: dict, context: Any) -> dict:
             "best_time": summary.best_time,
         } if summary else None,
     })
+
+
+def get_extended_pedigree(event: dict, context: Any) -> dict:
+    """馬の拡張血統情報（3代血統）を取得する.
+
+    GET /horses/{horse_id}/pedigree/extended
+
+    Path Parameters:
+        horse_id: 馬コード
+
+    Returns:
+        馬の拡張血統情報（父母の3代血統、インブリード情報、系統タイプ）
+    """
+    horse_id = get_path_parameter(event, "horse_id")
+    if not horse_id:
+        return bad_request_response("horse_id is required")
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    extended_pedigree = provider.get_extended_pedigree(horse_id)
+
+    if not extended_pedigree:
+        return success_response({
+            "horse_id": horse_id,
+            "horse_name": None,
+            "sire": None,
+            "dam": None,
+            "inbreeding": [],
+            "lineage_type": None,
+        })
+
+    return success_response({
+        "horse_id": extended_pedigree.horse_id,
+        "horse_name": extended_pedigree.horse_name,
+        "sire": {
+            "name": extended_pedigree.sire.name,
+            "sire": extended_pedigree.sire.sire,
+            "dam": extended_pedigree.sire.dam,
+            "broodmare_sire": extended_pedigree.sire.broodmare_sire,
+        } if extended_pedigree.sire else None,
+        "dam": {
+            "name": extended_pedigree.dam.name,
+            "sire": extended_pedigree.dam.sire,
+            "dam": extended_pedigree.dam.dam,
+            "broodmare_sire": extended_pedigree.dam.broodmare_sire,
+        } if extended_pedigree.dam else None,
+        "inbreeding": [
+            {
+                "ancestor": i.ancestor,
+                "pattern": i.pattern,
+                "percentage": i.percentage,
+            }
+            for i in extended_pedigree.inbreeding
+        ],
+        "lineage_type": extended_pedigree.lineage_type,
+    })

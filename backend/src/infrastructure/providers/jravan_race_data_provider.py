@@ -12,7 +12,10 @@ from urllib3.util.retry import Retry
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    AncestorData,
+    ExtendedPedigreeData,
     HorsePerformanceData,
+    InbreedingData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -604,6 +607,62 @@ class JraVanRaceDataProvider(RaceDataProvider):
             recent_trend=data["recent_trend"],
             average_time=data.get("average_time"),
             best_time=data.get("best_time"),
+        )
+
+    def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
+        """馬の拡張血統情報（3代血統）を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/horses/{horse_id}/pedigree/extended",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_extended_pedigree_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get extended pedigree for horse {horse_id}: {e}")
+            return None
+
+    def _to_extended_pedigree_data(self, data: dict) -> ExtendedPedigreeData:
+        """APIレスポンスをExtendedPedigreeDataに変換する."""
+        sire_data = data.get("sire")
+        dam_data = data.get("dam")
+
+        sire = None
+        if sire_data:
+            sire = AncestorData(
+                name=sire_data["name"],
+                sire=sire_data.get("sire"),
+                dam=sire_data.get("dam"),
+                broodmare_sire=sire_data.get("broodmare_sire"),
+            )
+
+        dam = None
+        if dam_data:
+            dam = AncestorData(
+                name=dam_data["name"],
+                sire=dam_data.get("sire"),
+                dam=dam_data.get("dam"),
+                broodmare_sire=dam_data.get("broodmare_sire"),
+            )
+
+        inbreeding = [
+            InbreedingData(
+                ancestor=i["ancestor"],
+                pattern=i["pattern"],
+                percentage=i["percentage"],
+            )
+            for i in data.get("inbreeding", [])
+        ]
+
+        return ExtendedPedigreeData(
+            horse_id=data["horse_id"],
+            horse_name=data.get("horse_name"),
+            sire=sire,
+            dam=dam,
+            inbreeding=inbreeding,
+            lineage_type=data.get("lineage_type"),
         )
 
 

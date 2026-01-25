@@ -3,7 +3,10 @@ from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, Cons
 from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
 from .race_data_provider import (
+    AncestorData,
+    ExtendedPedigreeData,
     HorsePerformanceData,
+    InbreedingData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -22,11 +25,14 @@ from .race_data_provider import (
 __all__ = [
     "AIClient",
     "AmountFeedbackContext",
+    "AncestorData",
     "BetFeedbackContext",
     "ConsultationContext",
     "CartRepository",
     "ConsultationSessionRepository",
+    "ExtendedPedigreeData",
     "HorsePerformanceData",
+    "InbreedingData",
     "JockeyInfoData",
     "JockeyStatsData",
     "JockeyStatsDetailData",

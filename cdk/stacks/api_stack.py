@@ -303,6 +303,19 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        get_extended_pedigree_fn = lambda_.Function(
+            self,
+            "GetExtendedPedigreeFunction",
+            handler="src.api.handlers.horses.get_extended_pedigree",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-extended-pedigree",
+            description="馬の拡張血統情報取得",
+            **lambda_common_props,
+        )
+
         # 騎手API
         get_jockey_info_fn = lambda_.Function(
             self,
@@ -421,6 +434,13 @@ class BakenKaigiApiStack(Stack):
         horse_training = horse.add_resource("training")
         horse_training.add_method(
             "GET", apigw.LambdaIntegration(get_horse_training_fn), api_key_required=True
+        )
+
+        # /horses/{horse_id}/pedigree/extended
+        horse_pedigree = horse.add_resource("pedigree")
+        horse_pedigree_extended = horse_pedigree.add_resource("extended")
+        horse_pedigree_extended.add_method(
+            "GET", apigw.LambdaIntegration(get_extended_pedigree_fn), api_key_required=True
         )
 
         # /jockeys
