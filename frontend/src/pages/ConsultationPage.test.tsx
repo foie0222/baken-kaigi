@@ -58,4 +58,14 @@ describe('ConsultationPage', () => {
       expect(await screen.findByText('立ち止まって、考えましょう')).toBeInTheDocument()
     })
   })
+
+  describe('クイックリプライ', () => {
+    it('デフォルトのクイックリプライが表示される', async () => {
+      render(<ConsultationPage />)
+
+      // ローディング完了後にクイックリプライが表示される
+      const quickReplyButton = await screen.findByRole('button', { name: '過去の成績' }, { timeout: 3000 })
+      expect(quickReplyButton).toBeInTheDocument()
+    })
+  })
 })

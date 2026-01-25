@@ -14,7 +14,7 @@ interface ChatMessage {
   text: string;
 }
 
-const quickReplies = ['過去の成績', '騎手', 'オッズ', '直感'];
+const DEFAULT_QUICK_REPLIES = ['過去の成績', '騎手', 'オッズ', '直感'];
 
 export function ConsultationPage() {
   const navigate = useNavigate();
@@ -25,6 +25,7 @@ export function ConsultationPage() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [quickReplies, setQuickReplies] = useState<string[]>(DEFAULT_QUICK_REPLIES);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | undefined>();
 
@@ -70,6 +71,12 @@ export function ConsultationPage() {
       if (response.success && response.data) {
         setMessages([{ type: 'ai', text: response.data.message }]);
         setSessionId(response.data.session_id);
+        // 動的クイックリプライを設定（なければデフォルト）
+        if (response.data.suggested_questions && response.data.suggested_questions.length > 0) {
+          setQuickReplies(response.data.suggested_questions);
+        } else {
+          setQuickReplies(DEFAULT_QUICK_REPLIES);
+        }
       } else {
         setMessages([
           {
@@ -77,6 +84,7 @@ export function ConsultationPage() {
             text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
           },
         ]);
+        setQuickReplies(DEFAULT_QUICK_REPLIES);
       }
     } catch {
       setMessages([
@@ -85,6 +93,7 @@ export function ConsultationPage() {
           text: `${items.length}件の買い目について分析しました。\n以下のデータを参考に、最終判断はあなた自身で行いましょう。`,
         },
       ]);
+      setQuickReplies(DEFAULT_QUICK_REPLIES);
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +136,13 @@ export function ConsultationPage() {
         const data = response.data;
         setMessages((prev) => [...prev, { type: 'ai', text: data.message }]);
         setSessionId(data.session_id);
+        // 動的クイックリプライを更新（なければデフォルトにフォールバック）
+        const nextQuickReplies =
+          data.suggested_questions && data.suggested_questions.length > 0
+            ? data.suggested_questions
+            : DEFAULT_QUICK_REPLIES;
+        setQuickReplies(nextQuickReplies);
+        setShowQuickReplies(true);
       } else {
         setMessages((prev) => [
           ...prev,
@@ -135,6 +151,8 @@ export function ConsultationPage() {
             text: '申し訳ございません。分析中に問題が発生しました。\n\n上記のデータを参考に、ご自身でご判断ください。',
           },
         ]);
+        setQuickReplies(DEFAULT_QUICK_REPLIES);
+        setShowQuickReplies(true);
       }
     } catch {
       setMessages((prev) => [
@@ -144,6 +162,8 @@ export function ConsultationPage() {
           text: '申し訳ございません。通信エラーが発生しました。\n\nしばらく待ってから再度お試しいただくか、上記のデータを参考にご判断ください。',
         },
       ]);
+      setQuickReplies(DEFAULT_QUICK_REPLIES);
+      setShowQuickReplies(true);
     } finally {
       setIsLoading(false);
     }
