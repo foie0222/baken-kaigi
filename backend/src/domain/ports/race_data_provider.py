@@ -193,6 +193,37 @@ class JockeyStatsDetailData:
     year: int | None = None
 
 
+@dataclass(frozen=True)
+class AncestorData:
+    """先祖馬データ."""
+
+    name: str
+    sire: str | None = None  # 父
+    dam: str | None = None  # 母
+    broodmare_sire: str | None = None  # 母父
+
+
+@dataclass(frozen=True)
+class InbreedingData:
+    """インブリードデータ."""
+
+    ancestor: str  # 共通先祖名
+    pattern: str  # 例: "3x4"
+    percentage: float  # 血量パーセンテージ
+
+
+@dataclass(frozen=True)
+class ExtendedPedigreeData:
+    """拡張血統情報（3代血統）."""
+
+    horse_id: str
+    horse_name: str | None
+    sire: AncestorData | None  # 父
+    dam: AncestorData | None  # 母
+    inbreeding: list[InbreedingData]  # インブリード情報
+    lineage_type: str | None  # 系統タイプ（例: サンデーサイレンス系）
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -375,5 +406,17 @@ class RaceDataProvider(ABC):
 
         Returns:
             調教データのリストとサマリーのタプル
+        """
+        pass
+
+    @abstractmethod
+    def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
+        """馬の拡張血統情報（3代血統）を取得する.
+
+        Args:
+            horse_id: 馬コード
+
+        Returns:
+            拡張血統情報、見つからない場合はNone
         """
         pass

@@ -4,7 +4,10 @@ from datetime import date, datetime, timedelta
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    AncestorData,
+    ExtendedPedigreeData,
     HorsePerformanceData,
+    InbreedingData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -751,6 +754,93 @@ class MockRaceDataProvider(RaceDataProvider):
             summary = None
 
         return records, summary
+
+    def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
+        """馬の拡張血統情報（3代血統）を取得する（モック実装）."""
+        import random
+
+        # nonexistent で始まるIDの場合はNoneを返す
+        if horse_id.startswith("nonexistent"):
+            return None
+
+        random.seed(_stable_hash(horse_id) % (2**32))
+
+        # 馬名を特定
+        try:
+            horse_index = int(horse_id.split("_")[1]) % len(self.HORSE_NAMES)
+        except (IndexError, ValueError):
+            horse_index = _stable_hash(horse_id) % len(self.HORSE_NAMES)
+        horse_name = self.HORSE_NAMES[horse_index]
+
+        # 父の情報
+        sire_name = random.choice(self.SIRE_NAMES)
+        sire_sire = random.choice(self.SIRE_NAMES)
+        sire_dam = random.choice(self.DAM_NAMES)
+        sire_broodmare_sire = random.choice(self.BROODMARE_SIRE_NAMES)
+        sire = AncestorData(
+            name=sire_name,
+            sire=sire_sire,
+            dam=sire_dam,
+            broodmare_sire=sire_broodmare_sire,
+        )
+
+        # 母の情報
+        dam_name = random.choice(self.DAM_NAMES)
+        dam_sire = random.choice(self.BROODMARE_SIRE_NAMES)  # 母父
+        dam_dam = random.choice(self.DAM_NAMES)
+        dam_broodmare_sire = random.choice(self.BROODMARE_SIRE_NAMES)
+        dam = AncestorData(
+            name=dam_name,
+            sire=dam_sire,
+            dam=dam_dam,
+            broodmare_sire=dam_broodmare_sire,
+        )
+
+        # インブリード情報を生成（50%の確率で存在）
+        inbreeding = []
+        if random.random() < 0.5:
+            common_ancestor = random.choice(self.SIRE_NAMES + self.BROODMARE_SIRE_NAMES)
+            patterns = ["3x3", "3x4", "4x4", "3x5", "4x5", "5x5"]
+            percentages = {"3x3": 12.5, "3x4": 9.375, "4x4": 6.25, "3x5": 6.25, "4x5": 4.6875, "5x5": 3.125}
+            pattern = random.choice(patterns)
+            inbreeding.append(InbreedingData(
+                ancestor=common_ancestor,
+                pattern=pattern,
+                percentage=percentages[pattern],
+            ))
+            # 2つ目のインブリード（20%の確率）
+            if random.random() < 0.2:
+                common_ancestor2 = random.choice(self.SIRE_NAMES + self.BROODMARE_SIRE_NAMES)
+                pattern2 = random.choice(patterns)
+                inbreeding.append(InbreedingData(
+                    ancestor=common_ancestor2,
+                    pattern=pattern2,
+                    percentage=percentages[pattern2],
+                ))
+
+        # 系統タイプを決定（父の父で判定）
+        lineage_types = {
+            "ディープインパクト": "サンデーサイレンス系",
+            "キングカメハメハ": "キングマンボ系",
+            "ハーツクライ": "サンデーサイレンス系",
+            "ロードカナロア": "キングマンボ系",
+            "エピファネイア": "シンボリクリスエス系",
+            "キズナ": "サンデーサイレンス系",
+            "ドゥラメンテ": "キングマンボ系",
+            "モーリス": "ロベルト系",
+            "サトノダイヤモンド": "サンデーサイレンス系",
+            "コントレイル": "サンデーサイレンス系",
+        }
+        lineage_type = lineage_types.get(sire_sire, "その他")
+
+        return ExtendedPedigreeData(
+            horse_id=horse_id,
+            horse_name=horse_name,
+            sire=sire,
+            dam=dam,
+            inbreeding=inbreeding,
+            lineage_type=lineage_type,
+        )
 
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int

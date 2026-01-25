@@ -1,7 +1,11 @@
 """馬API ハンドラーのテスト."""
 import json
 
-from src.api.handlers.horses import get_horse_performances, get_horse_training
+from src.api.handlers.horses import (
+    get_extended_pedigree,
+    get_horse_performances,
+    get_horse_training,
+)
 
 
 class TestGetHorsePerformances:
@@ -202,3 +206,90 @@ class TestGetHorseTraining:
             assert "recent_trend" in summary
             assert "average_time" in summary
             assert "best_time" in summary
+
+
+class TestGetExtendedPedigree:
+    """get_extended_pedigree のテスト."""
+
+    def test_正常取得(self) -> None:
+        """馬の拡張血統情報を正常に取得できる."""
+        event = {
+            "pathParameters": {"horse_id": "horse_0001"},
+            "queryStringParameters": None,
+        }
+        response = get_extended_pedigree(event, None)
+        assert response["statusCode"] == 200
+        body = response.get("body")
+        assert body is not None
+        data = json.loads(body)
+        assert "horse_id" in data
+        assert "horse_name" in data
+        assert "sire" in data
+        assert "dam" in data
+        assert "inbreeding" in data
+        assert "lineage_type" in data
+
+    def test_horse_id未指定(self) -> None:
+        """horse_id が指定されていない場合はエラーを返す."""
+        event = {
+            "pathParameters": {},
+            "queryStringParameters": None,
+        }
+        response = get_extended_pedigree(event, None)
+        assert response["statusCode"] == 400
+
+    def test_sireの構造(self) -> None:
+        """sire が必要なフィールドを持つ."""
+        event = {
+            "pathParameters": {"horse_id": "horse_0001"},
+            "queryStringParameters": None,
+        }
+        response = get_extended_pedigree(event, None)
+        assert response["statusCode"] == 200
+        data = json.loads(response["body"])
+        if data["sire"]:
+            sire = data["sire"]
+            assert "name" in sire
+            assert "sire" in sire
+            assert "dam" in sire
+            assert "broodmare_sire" in sire
+
+    def test_damの構造(self) -> None:
+        """dam が必要なフィールドを持つ."""
+        event = {
+            "pathParameters": {"horse_id": "horse_0001"},
+            "queryStringParameters": None,
+        }
+        response = get_extended_pedigree(event, None)
+        assert response["statusCode"] == 200
+        data = json.loads(response["body"])
+        if data["dam"]:
+            dam = data["dam"]
+            assert "name" in dam
+            assert "sire" in dam
+            assert "dam" in dam
+            assert "broodmare_sire" in dam
+
+    def test_inbreedingの構造(self) -> None:
+        """inbreeding の各レコードが必要なフィールドを持つ."""
+        event = {
+            "pathParameters": {"horse_id": "horse_0001"},
+            "queryStringParameters": None,
+        }
+        response = get_extended_pedigree(event, None)
+        assert response["statusCode"] == 200
+        data = json.loads(response["body"])
+        assert isinstance(data["inbreeding"], list)
+        for inbreeding in data["inbreeding"]:
+            assert "ancestor" in inbreeding
+            assert "pattern" in inbreeding
+            assert "percentage" in inbreeding
+
+    def test_存在しない馬で404(self) -> None:
+        """存在しない馬の場合は404を返す."""
+        event = {
+            "pathParameters": {"horse_id": "nonexistent_horse"},
+            "queryStringParameters": None,
+        }
+        response = get_extended_pedigree(event, None)
+        assert response["statusCode"] == 404
