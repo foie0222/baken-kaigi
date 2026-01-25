@@ -120,19 +120,14 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
         return main_text, []
 
     questions_text = parts[1].strip()
-    questions = [
-        q.strip()
-        for q in questions_text.split("\n")
-        if q.strip() and not q.strip().startswith("-")
-    ]
 
-    # 先頭の「-」を除去（箇条書き形式の場合）
-    questions = [
-        q.lstrip("- ").strip() if q.startswith("-") else q.strip()
-        for q in questions
-    ]
+    # すべての行を取得し、空行を除外
+    raw_questions = [q.strip() for q in questions_text.split("\n") if q.strip()]
 
-    # 空の質問を除外し、3〜5個に制限
+    # 先頭の「-」「- 」を除去（箇条書き形式の場合）
+    questions = [q.lstrip("-").strip() for q in raw_questions]
+
+    # 空の質問を除外し、5個までに制限
     questions = [q for q in questions if q][:5]
 
     return main_text, questions

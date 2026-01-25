@@ -1,9 +1,9 @@
 """agentcore/agent.py の _extract_suggested_questions 関数のテスト."""
 
-import pytest
-
 
 # _extract_suggested_questions 関数のロジックを直接テスト
+# Note: agentcore.agent をインポートするには strands/bedrock_agentcore が必要なため、
+# ロジックをここで再定義してテストしている
 def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     """応答テキストからクイックリプライ提案を抽出する.
 
@@ -25,19 +25,14 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
         return main_text, []
 
     questions_text = parts[1].strip()
-    questions = [
-        q.strip()
-        for q in questions_text.split("\n")
-        if q.strip() and not q.strip().startswith("-")
-    ]
 
-    # 先頭の「-」を除去（箇条書き形式の場合）
-    questions = [
-        q.lstrip("- ").strip() if q.startswith("-") else q.strip()
-        for q in questions
-    ]
+    # すべての行を取得し、空行を除外
+    raw_questions = [q.strip() for q in questions_text.split("\n") if q.strip()]
 
-    # 空の質問を除外し、3〜5個に制限
+    # 先頭の「-」「- 」を除去（箇条書き形式の場合）
+    questions = [q.lstrip("-").strip() for q in raw_questions]
+
+    # 空の質問を除外し、5個までに制限
     questions = [q for q in questions if q][:5]
 
     return main_text, questions
@@ -111,14 +106,17 @@ class TestExtractSuggestedQuestions:
         text = """分析結果。
 
 ---SUGGESTED_QUESTIONS---
-穴馬を探して
-展開予想は？
-リスク確認"""
+- 穴馬を探して
+- 展開予想は？
+- リスク確認"""
 
         main_text, questions = _extract_suggested_questions(text)
 
         assert len(questions) == 3
+        # 「-」プレフィックスは除去される
         assert questions[0] == "穴馬を探して"
+        assert questions[1] == "展開予想は？"
+        assert questions[2] == "リスク確認"
 
     def test_本文がトリムされる(self):
         """本文の前後の空白はトリムされる."""
@@ -146,3 +144,18 @@ class TestExtractSuggestedQuestions:
 
         assert main_text == "分析結果。"
         assert questions == []
+
+    def test_ハイフンのみの行は空として除外される(self):
+        """ハイフンのみの行は空として除外される."""
+        text = """分析結果。
+
+---SUGGESTED_QUESTIONS---
+-
+質問1
+- 質問2"""
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert len(questions) == 2
+        assert questions[0] == "質問1"
+        assert questions[1] == "質問2"

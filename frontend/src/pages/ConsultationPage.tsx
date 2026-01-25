@@ -136,11 +136,13 @@ export function ConsultationPage() {
         const data = response.data;
         setMessages((prev) => [...prev, { type: 'ai', text: data.message }]);
         setSessionId(data.session_id);
-        // 動的クイックリプライを更新
-        if (data.suggested_questions && data.suggested_questions.length > 0) {
-          setQuickReplies(data.suggested_questions);
-          setShowQuickReplies(true);
-        }
+        // 動的クイックリプライを更新（なければデフォルトにフォールバック）
+        const nextQuickReplies =
+          data.suggested_questions && data.suggested_questions.length > 0
+            ? data.suggested_questions
+            : DEFAULT_QUICK_REPLIES;
+        setQuickReplies(nextQuickReplies);
+        setShowQuickReplies(true);
       } else {
         setMessages((prev) => [
           ...prev,
