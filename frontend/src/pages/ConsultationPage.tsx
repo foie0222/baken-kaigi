@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
@@ -8,6 +8,7 @@ import { apiClient } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
+import { ConfidenceBar, RiskReturnChart, type RiskReturnDataPoint } from '../components/charts';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -28,6 +29,47 @@ export function ConsultationPage() {
   const [quickReplies, setQuickReplies] = useState<string[]>(DEFAULT_QUICK_REPLIES);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | undefined>();
+  const [aiConfidence, setAiConfidence] = useState(0);
+
+  // リスク/リターンデータをカートアイテムから生成
+  const riskReturnData: RiskReturnDataPoint[] = useMemo(() => {
+    return items.map((item) => {
+      // 買い目の種類に基づいてリスクと期待リターンを算出（モック）
+      const betTypeRisk: Record<string, number> = {
+        win: 65,
+        place: 25,
+        quinella: 55,
+        quinella_place: 35,
+        exacta: 75,
+        trio: 70,
+        trifecta: 90,
+      };
+      const betTypeReturn: Record<string, number> = {
+        win: 3.5,
+        place: 1.5,
+        quinella: 5.0,
+        quinella_place: 2.5,
+        exacta: 8.0,
+        trio: 15.0,
+        trifecta: 50.0,
+      };
+
+      const baseRisk = betTypeRisk[item.betType] || 50;
+      const baseReturn = betTypeReturn[item.betType] || 2.0;
+
+      // 選択した馬番による微調整（ランダム要素）
+      const riskVariation = ((item.horseNumbers[0] || 1) % 5) * 3 - 6;
+      const returnVariation = ((item.horseNumbers[0] || 1) % 3) * 0.3;
+
+      return {
+        id: item.id,
+        name: `${getVenueName(item.raceVenue)} ${item.raceNumber} ${BetTypeLabels[item.betType]}`,
+        risk: Math.max(10, Math.min(95, baseRisk + riskVariation)),
+        expectedReturn: Math.max(0.5, baseReturn + returnVariation),
+        amount: item.amount,
+      };
+    });
+  }, [items]);
 
   // 購入確認モーダル
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -77,6 +119,9 @@ export function ConsultationPage() {
         } else {
           setQuickReplies(DEFAULT_QUICK_REPLIES);
         }
+        // AI自信度を設定（バックエンドからconfidenceが来る場合はそれを使用、なければ計算）
+        const confidence = response.data.confidence ?? calculateMockConfidence();
+        setAiConfidence(confidence);
       } else {
         setMessages([
           {
@@ -85,6 +130,7 @@ export function ConsultationPage() {
           },
         ]);
         setQuickReplies(DEFAULT_QUICK_REPLIES);
+        setAiConfidence(calculateMockConfidence());
       }
     } catch {
       setMessages([
@@ -94,10 +140,30 @@ export function ConsultationPage() {
         },
       ]);
       setQuickReplies(DEFAULT_QUICK_REPLIES);
+      setAiConfidence(calculateMockConfidence());
     } finally {
       setIsLoading(false);
     }
   }, [items]);
+
+  // モック用の自信度計算（バックエンドが実装されるまで）
+  const calculateMockConfidence = useCallback(() => {
+    // アイテム数と合計金額に基づいて自信度を計算
+    const itemCount = items.length;
+    const total = getTotalAmount();
+
+    // 少ない買い目で適度な金額の場合は自信度が高い
+    let confidence = 70;
+    if (itemCount > 5) confidence -= 15;
+    if (itemCount > 10) confidence -= 20;
+    if (total > 10000) confidence -= 10;
+    if (total > 50000) confidence -= 15;
+
+    // ランダム要素
+    confidence += Math.floor(Math.random() * 20) - 10;
+
+    return Math.max(20, Math.min(90, confidence));
+  }, [items, getTotalAmount]);
 
   useEffect(() => {
     fetchInitialAnalysis();
@@ -298,6 +364,40 @@ export function ConsultationPage() {
                 {reply}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* ビジュアル分析ダッシュボード */}
+        {!isLoading && items.length > 0 && (
+          <div
+            className="visual-dashboard"
+            style={{
+              background: '#fafafa',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#333',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span>📈</span>
+              <span>AI分析ダッシュボード</span>
+            </div>
+
+            {/* AI自信度バー */}
+            <ConfidenceBar confidence={aiConfidence} />
+
+            {/* リスク/リターン散布図 */}
+            <RiskReturnChart data={riskReturnData} />
           </div>
         )}
 
