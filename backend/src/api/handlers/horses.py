@@ -4,7 +4,7 @@ from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
-from src.api.response import bad_request_response, success_response
+from src.api.response import bad_request_response, not_found_response, success_response
 
 logger = logging.getLogger(__name__)
 
@@ -184,14 +184,7 @@ def get_extended_pedigree(event: dict, context: Any) -> dict:
     extended_pedigree = provider.get_extended_pedigree(horse_id)
 
     if not extended_pedigree:
-        return success_response({
-            "horse_id": horse_id,
-            "horse_name": None,
-            "sire": None,
-            "dam": None,
-            "inbreeding": [],
-            "lineage_type": None,
-        })
+        return not_found_response("Horse pedigree")
 
     return success_response({
         "horse_id": extended_pedigree.horse_id,

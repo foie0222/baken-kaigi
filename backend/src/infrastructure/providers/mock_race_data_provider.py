@@ -759,6 +759,10 @@ class MockRaceDataProvider(RaceDataProvider):
         """馬の拡張血統情報（3代血統）を取得する（モック実装）."""
         import random
 
+        # nonexistent で始まるIDの場合はNoneを返す
+        if horse_id.startswith("nonexistent"):
+            return None
+
         random.seed(_stable_hash(horse_id) % (2**32))
 
         # 馬名を特定
