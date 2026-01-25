@@ -27,13 +27,13 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
     exit 0
   fi
 
-  # PR番号を抽出
+  # PR番号を抽出（POSIX準拠：sedを使用）
   # パターン1: gh pr merge 123
-  PR_NUMBER=$(echo "$COMMAND" | grep -oP 'merge\s+\K\d+' || true)
+  PR_NUMBER=$(echo "$COMMAND" | sed -n 's/.*merge[[:space:]][[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)
 
   # パターン2: gh pr merge https://github.com/.../pull/123
   if [ -z "$PR_NUMBER" ]; then
-    PR_NUMBER=$(echo "$COMMAND" | grep -oP 'pull/\K\d+' || true)
+    PR_NUMBER=$(echo "$COMMAND" | sed -n 's#.*/pull/\([0-9][0-9]*\).*#\1#p' | head -n 1)
   fi
 
   # パターン3: 引数なし（現在のブランチから取得）
@@ -46,16 +46,27 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
     exit 2
   fi
 
+  # PR番号が純粋な整数であることを確認
+  if ! echo "$PR_NUMBER" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: 無効なPR番号です: $PR_NUMBER" >&2
+    exit 2
+  fi
+
   # Copilotレビューの確認
-  HAS_COPILOT=$(gh pr view "$PR_NUMBER" --json reviews \
-    --jq '[.reviews[] | select(.author.login == "copilot-pull-request-reviewer")] | length > 0' 2>/dev/null || echo "false")
+  REVIEWS_RESULT=$(gh pr view "$PR_NUMBER" --json reviews 2>/dev/null || echo "")
+  if [ -z "$REVIEWS_RESULT" ]; then
+    echo "BLOCK: PRのレビュー情報を取得できませんでした。" >&2
+    exit 2
+  fi
+
+  HAS_COPILOT=$(echo "$REVIEWS_RESULT" | jq '[.reviews[] | select(.author.login == "copilot-pull-request-reviewer")] | length > 0' 2>/dev/null || echo "false")
 
   if [ "$HAS_COPILOT" != "true" ]; then
     echo "BLOCK: Copilotのレビューがありません。Copilotレビューを受けてからマージしてください。" >&2
     exit 2
   fi
 
-  # 未解決コメントの確認
+  # リポジトリ情報を取得してバリデーション
   REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"' 2>/dev/null || echo "")
   OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
   REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
@@ -65,18 +76,47 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
     exit 2
   fi
 
-  UNRESOLVED_COUNT=$(gh api graphql -f query="
-    query {
-      repository(owner: \"$OWNER\", name: \"$REPO\") {
-        pullRequest(number: $PR_NUMBER) {
-          reviewThreads(first: 100) {
-            nodes {
-              isResolved
-            }
-          }
+  # OWNER/REPOが英数字、ハイフン、アンダースコアのみであることを確認
+  if ! echo "$OWNER" | grep -qE '^[a-zA-Z0-9_-]+$'; then
+    echo "BLOCK: 無効なリポジトリオーナー名です。" >&2
+    exit 2
+  fi
+  if ! echo "$REPO" | grep -qE '^[a-zA-Z0-9_.-]+$'; then
+    echo "BLOCK: 無効なリポジトリ名です。" >&2
+    exit 2
+  fi
+
+  # 未解決コメントの確認（ヒアドキュメントで可読性向上）
+  GRAPHQL_QUERY=$(cat <<EOF
+query {
+  repository(owner: "$OWNER", name: "$REPO") {
+    pullRequest(number: $PR_NUMBER) {
+      reviewThreads(first: 100) {
+        totalCount
+        nodes {
+          isResolved
         }
       }
-    }" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "-1")
+    }
+  }
+}
+EOF
+  )
+
+  QUERY_RESULT=$(gh api graphql -f query="$GRAPHQL_QUERY" 2>/dev/null || echo "")
+  if [ -z "$QUERY_RESULT" ]; then
+    echo "BLOCK: PRの状態を確認できませんでした。" >&2
+    exit 2
+  fi
+
+  # 総コメント数を確認（100件を超える場合は警告）
+  TOTAL_COUNT=$(echo "$QUERY_RESULT" | jq '.data.repository.pullRequest.reviewThreads.totalCount // -1' 2>/dev/null || echo "-1")
+  if [ "$TOTAL_COUNT" -gt 100 ]; then
+    echo "BLOCK: レビューコメントが100件を超えています（${TOTAL_COUNT}件）。全てのコメントを確認できないため、手動でマージしてください。" >&2
+    exit 2
+  fi
+
+  UNRESOLVED_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "-1")
 
   if [ "$UNRESOLVED_COUNT" = "-1" ]; then
     echo "BLOCK: PRの状態を確認できませんでした。" >&2
@@ -84,7 +124,7 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
   fi
 
   if [ "$UNRESOLVED_COUNT" -gt 0 ]; then
-    echo "BLOCK: 未解決のコメントが${UNRESOLVED_COUNT}件あります。全てのコメントを解決してからマージしてください。" >&2
+    echo "BLOCK: 未解決のコメントが${UNRESOLVED_COUNT:-0}件あります。全てのコメントを解決してからマージしてください。" >&2
     exit 2
   fi
 
