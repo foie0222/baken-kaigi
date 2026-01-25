@@ -4,7 +4,9 @@ from datetime import date, datetime, timedelta
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    JockeyInfoData,
     JockeyStatsData,
+    JockeyStatsDetailData,
     PastRaceStats,
     PedigreeData,
     PerformanceData,
@@ -509,6 +511,76 @@ class MockRaceDataProvider(RaceDataProvider):
             track_type=track_type,
             distance=distance,
             grade_class=grade_class,
+        )
+
+    def get_jockey_info(self, jockey_id: str) -> JockeyInfoData | None:
+        """騎手基本情報を取得する（モック実装）."""
+        import random
+
+        random.seed(_stable_hash(jockey_id) % (2**32))
+
+        # 騎手名を特定
+        try:
+            jockey_index = int(jockey_id.split("_")[1]) % len(self.JOCKEY_NAMES)
+        except (IndexError, ValueError):
+            jockey_index = _stable_hash(jockey_id) % len(self.JOCKEY_NAMES)
+        jockey_name = self.JOCKEY_NAMES[jockey_index]
+
+        # モックデータを生成
+        birth_year = random.randint(1970, 2000)
+        birth_month = random.randint(1, 12)
+        birth_day = random.randint(1, 28)
+        birth_date = f"{birth_year:04d}-{birth_month:02d}-{birth_day:02d}"
+
+        affiliation = random.choice(["美浦", "栗東"])
+        license_year = random.randint(1988, 2020)
+
+        return JockeyInfoData(
+            jockey_id=jockey_id,
+            jockey_name=jockey_name,
+            jockey_name_kana=None,  # モックではカナは省略
+            birth_date=birth_date,
+            affiliation=affiliation,
+            license_year=license_year,
+        )
+
+    def get_jockey_stats_detail(
+        self,
+        jockey_id: str,
+        year: int | None = None,
+        period: str = "recent",
+    ) -> JockeyStatsDetailData | None:
+        """騎手の成績統計を取得する（モック実装）."""
+        import random
+
+        random.seed(_stable_hash(f"{jockey_id}_{year}_{period}") % (2**32))
+
+        # 騎手名を特定
+        try:
+            jockey_index = int(jockey_id.split("_")[1]) % len(self.JOCKEY_NAMES)
+        except (IndexError, ValueError):
+            jockey_index = _stable_hash(jockey_id) % len(self.JOCKEY_NAMES)
+        jockey_name = self.JOCKEY_NAMES[jockey_index]
+
+        total_rides = random.randint(200, 800)
+        win_rate = random.uniform(0.08, 0.20)
+        wins = int(total_rides * win_rate)
+        second_places = int(total_rides * random.uniform(0.08, 0.15))
+        third_places = int(total_rides * random.uniform(0.08, 0.15))
+        places = wins + second_places + third_places
+        place_rate = round(places / total_rides * 100, 1) if total_rides > 0 else 0.0
+
+        return JockeyStatsDetailData(
+            jockey_id=jockey_id,
+            jockey_name=jockey_name,
+            total_rides=total_rides,
+            wins=wins,
+            second_places=second_places,
+            third_places=third_places,
+            win_rate=round(win_rate * 100, 1),
+            place_rate=place_rate,
+            period=period if not year else "year",
+            year=year,
         )
 
     def _generate_race_data(

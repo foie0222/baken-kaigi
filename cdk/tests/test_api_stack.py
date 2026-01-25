@@ -25,8 +25,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が11個作成されること."""
-        template.resource_count_is("AWS::Lambda::Function", 11)
+        """Lambda関数が13個作成されること."""
+        template.resource_count_is("AWS::Lambda::Function", 13)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること."""
@@ -131,4 +131,21 @@ class TestApiStack:
         template.has_resource_properties(
             "AWS::Lambda::Function",
             {"FunctionName": "baken-kaigi-get-consultation"},
+        )
+
+    def test_jockey_endpoints(self, template):
+        """騎手APIのLambda関数が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-jockey-info",
+                "Handler": "src.api.handlers.jockeys.get_jockey_info",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-jockey-stats",
+                "Handler": "src.api.handlers.jockeys.get_jockey_stats",
+            },
         )

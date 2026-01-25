@@ -183,6 +183,30 @@ class PopularityPayoutResponse(BaseModel):
     estimated_roi_place: float
 
 
+class JockeyInfoResponse(BaseModel):
+    """騎手基本情報レスポンス."""
+    jockey_id: str
+    jockey_name: str
+    jockey_name_kana: str | None = None
+    birth_date: str | None = None  # YYYY-MM-DD形式
+    affiliation: str | None = None  # 美浦/栗東
+    license_year: int | None = None
+
+
+class JockeyStatsResponse(BaseModel):
+    """騎手成績統計レスポンス."""
+    jockey_id: str
+    jockey_name: str
+    total_rides: int
+    wins: int
+    second_places: int
+    third_places: int
+    win_rate: float
+    place_rate: float
+    period: str  # recent/ytd/all/year
+    year: int | None = None
+
+
 # ========================================
 # エンドポイント
 # ========================================
@@ -589,6 +613,91 @@ def get_popularity_payout_stats(
         raise HTTPException(
             status_code=500,
             detail="配当統計データの取得に失敗しました"
+        )
+
+
+@app.get("/jockeys/{jockey_id}/info", response_model=JockeyInfoResponse)
+def get_jockey_info(jockey_id: str):
+    """騎手基本情報を取得する."""
+    try:
+        info = db.get_jockey_info(jockey_id)
+
+        if not info:
+            raise HTTPException(
+                status_code=404,
+                detail="騎手情報が見つかりませんでした"
+            )
+
+        return JockeyInfoResponse(
+            jockey_id=info["jockey_id"],
+            jockey_name=info["jockey_name"],
+            jockey_name_kana=info.get("jockey_name_kana"),
+            birth_date=info.get("birth_date"),
+            affiliation=info.get("affiliation"),
+            license_year=info.get("license_year"),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get jockey info")
+        raise HTTPException(
+            status_code=500,
+            detail="騎手情報の取得に失敗しました"
+        )
+
+
+@app.get("/jockeys/{jockey_id}/stats", response_model=JockeyStatsResponse)
+def get_jockey_stats(
+    jockey_id: str,
+    year: int | None = Query(
+        None,
+        ge=1900,
+        le=2100,
+        description="年（指定時はその年の成績）",
+    ),
+    period: str = Query("recent", description="期間（recent=直近1年, ytd=今年初から, all=通算）"),
+):
+    """騎手の成績統計を取得する."""
+    # period のバリデーション
+    valid_periods = ["recent", "ytd", "all"]
+    if period not in valid_periods:
+        raise HTTPException(
+            status_code=400,
+            detail=f"period は {', '.join(valid_periods)} のいずれかで指定してください"
+        )
+
+    try:
+        stats = db.get_jockey_stats(
+            jockey_id=jockey_id,
+            year=year,
+            period=period,
+        )
+
+        if not stats:
+            raise HTTPException(
+                status_code=404,
+                detail="騎手成績データが見つかりませんでした"
+            )
+
+        return JockeyStatsResponse(
+            jockey_id=stats["jockey_id"],
+            jockey_name=stats["jockey_name"],
+            total_rides=stats["total_rides"],
+            wins=stats["wins"],
+            second_places=stats["second_places"],
+            third_places=stats["third_places"],
+            win_rate=stats["win_rate"],
+            place_rate=stats["place_rate"],
+            period=stats["period"],
+            year=stats.get("year"),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to get jockey stats")
+        raise HTTPException(
+            status_code=500,
+            detail="騎手成績データの取得に失敗しました"
         )
 
 

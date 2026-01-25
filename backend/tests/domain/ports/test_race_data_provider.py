@@ -5,6 +5,8 @@ import pytest
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    JockeyInfoData,
+    JockeyStatsDetailData,
     PastRaceStats,
     PedigreeData,
     PopularityStats,
@@ -135,6 +137,19 @@ class MockRaceDataProvider(RaceDataProvider):
             distance=distance,
             grade_class=grade_class,
         )
+
+    def get_jockey_info(self, jockey_id: str) -> JockeyInfoData | None:
+        """騎手基本情報を取得する（モック実装）."""
+        return None
+
+    def get_jockey_stats_detail(
+        self,
+        jockey_id: str,
+        year: int | None = None,
+        period: str = "recent",
+    ) -> JockeyStatsDetailData | None:
+        """騎手成績統計を取得する（モック実装）."""
+        return None
 
 
 class TestRaceDataProviderInterface:
