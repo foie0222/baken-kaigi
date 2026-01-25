@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:  # 他のワークフローから呼び出し可能
 
 jobs:
   frontend-test:
@@ -86,7 +87,7 @@ jobs:
 
       - name: Install CDK dependencies
         run: |
-          npm install -g aws-cdk
+          npm install -g aws-cdk@2
           pip install -r requirements.txt
           pip install pytest
 
