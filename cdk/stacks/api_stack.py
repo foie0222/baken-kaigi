@@ -276,6 +276,33 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # 騎手API
+        get_jockey_info_fn = lambda_.Function(
+            self,
+            "GetJockeyInfoFunction",
+            handler="src.api.handlers.jockeys.get_jockey_info",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-jockey-info",
+            description="騎手基本情報取得",
+            **lambda_common_props,
+        )
+
+        get_jockey_stats_fn = lambda_.Function(
+            self,
+            "GetJockeyStatsFunction",
+            handler="src.api.handlers.jockeys.get_jockey_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-jockey-stats",
+            description="騎手成績統計取得",
+            **lambda_common_props,
+        )
+
         # API Gateway
         api = apigw.RestApi(
             self,
@@ -349,6 +376,24 @@ class BakenKaigiApiStack(Stack):
         race = races.add_resource("{race_id}")
         race.add_method(
             "GET", apigw.LambdaIntegration(get_race_detail_fn), api_key_required=True
+        )
+
+        # /jockeys
+        jockeys = api.root.add_resource("jockeys")
+
+        # /jockeys/{jockey_id}
+        jockey = jockeys.add_resource("{jockey_id}")
+
+        # /jockeys/{jockey_id}/info
+        jockey_info = jockey.add_resource("info")
+        jockey_info.add_method(
+            "GET", apigw.LambdaIntegration(get_jockey_info_fn), api_key_required=True
+        )
+
+        # /jockeys/{jockey_id}/stats
+        jockey_stats = jockey.add_resource("stats")
+        jockey_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_jockey_stats_fn), api_key_required=True
         )
 
         # /cart

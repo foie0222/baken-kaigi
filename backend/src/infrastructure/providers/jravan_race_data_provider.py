@@ -12,7 +12,9 @@ from urllib3.util.retry import Retry
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    JockeyInfoData,
     JockeyStatsData,
+    JockeyStatsDetailData,
     PastRaceStats,
     PedigreeData,
     PerformanceData,
@@ -425,6 +427,72 @@ class JraVanRaceDataProvider(RaceDataProvider):
             track_type=track_type,
             distance=data["conditions"]["distance"],
             grade_class=data["conditions"].get("grade_code"),
+        )
+
+    def get_jockey_info(self, jockey_id: str) -> JockeyInfoData | None:
+        """騎手基本情報を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/jockeys/{jockey_id}/info",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_jockey_info_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get jockey info for {jockey_id}: {e}")
+            return None
+
+    def get_jockey_stats_detail(
+        self,
+        jockey_id: str,
+        year: int | None = None,
+        period: str = "recent",
+    ) -> JockeyStatsDetailData | None:
+        """騎手の成績統計を取得する."""
+        try:
+            params = {"period": period}
+            if year is not None:
+                params["year"] = year
+
+            response = self._session.get(
+                f"{self._base_url}/jockeys/{jockey_id}/stats",
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_jockey_stats_detail_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get jockey stats for {jockey_id}: {e}")
+            return None
+
+    def _to_jockey_info_data(self, data: dict) -> JockeyInfoData:
+        """APIレスポンスをJockeyInfoDataに変換する."""
+        return JockeyInfoData(
+            jockey_id=data["jockey_id"],
+            jockey_name=data["jockey_name"],
+            jockey_name_kana=data.get("jockey_name_kana"),
+            birth_date=data.get("birth_date"),
+            affiliation=data.get("affiliation"),
+            license_year=data.get("license_year"),
+        )
+
+    def _to_jockey_stats_detail_data(self, data: dict) -> JockeyStatsDetailData:
+        """APIレスポンスをJockeyStatsDetailDataに変換する."""
+        return JockeyStatsDetailData(
+            jockey_id=data["jockey_id"],
+            jockey_name=data["jockey_name"],
+            total_rides=data["total_rides"],
+            wins=data["wins"],
+            second_places=data["second_places"],
+            third_places=data["third_places"],
+            win_rate=data["win_rate"],
+            place_rate=data["place_rate"],
+            period=data["period"],
+            year=data.get("year"),
         )
 
 

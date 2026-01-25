@@ -113,6 +113,34 @@ class PastRaceStats:
     grade_class: str | None
 
 
+@dataclass(frozen=True)
+class JockeyInfoData:
+    """騎手基本情報."""
+
+    jockey_id: str
+    jockey_name: str
+    jockey_name_kana: str | None = None
+    birth_date: str | None = None  # YYYY-MM-DD形式
+    affiliation: str | None = None  # 美浦/栗東
+    license_year: int | None = None
+
+
+@dataclass(frozen=True)
+class JockeyStatsDetailData:
+    """騎手成績統計データ."""
+
+    jockey_id: str
+    jockey_name: str
+    total_rides: int
+    wins: int
+    second_places: int
+    third_places: int
+    win_rate: float
+    place_rate: float
+    period: str  # recent/ytd/all/year
+    year: int | None = None
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -226,5 +254,36 @@ class RaceDataProvider(ABC):
 
         Returns:
             過去レース統計、データがない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_jockey_info(self, jockey_id: str) -> JockeyInfoData | None:
+        """騎手基本情報を取得する.
+
+        Args:
+            jockey_id: 騎手コード
+
+        Returns:
+            騎手基本情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_jockey_stats_detail(
+        self,
+        jockey_id: str,
+        year: int | None = None,
+        period: str = "recent",
+    ) -> JockeyStatsDetailData | None:
+        """騎手の成績統計を取得する.
+
+        Args:
+            jockey_id: 騎手コード
+            year: 年（指定時はその年の成績）
+            period: 期間（recent=直近1年, ytd=今年初から, all=通算）
+
+        Returns:
+            騎手成績統計、見つからない場合はNone
         """
         pass

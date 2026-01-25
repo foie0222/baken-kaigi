@@ -1234,6 +1234,187 @@ def get_popularity_payout_stats(
         return None
 
 
+# 所属コード → 名前のマッピング
+AFFILIATION_CODE_MAP = {
+    "1": "美浦",
+    "2": "栗東",
+}
+
+
+def get_jockey_info(jockey_id: str) -> dict | None:
+    """騎手基本情報を取得.
+
+    Args:
+        jockey_id: 騎手コード
+
+    Returns:
+        {
+            "jockey_id": str,
+            "jockey_name": str,
+            "jockey_name_kana": str | None,
+            "birth_date": str | None,  # YYYY-MM-DD形式
+            "affiliation": str | None,  # 美浦/栗東
+            "license_year": int | None,
+        }
+    """
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT
+                    kishu_code,
+                    kishumei,
+                    kishumei_hankaku_kana,
+                    seinengappi,
+                    tozai_shozoku_code,
+                    menkyo_kofu_nengappi
+                FROM jvd_ks
+                WHERE kishu_code = %s
+                LIMIT 1
+            """, (jockey_id,))
+            row = cur.fetchone()
+
+            if row is None:
+                return None
+
+            kishu_code = row[0]
+            kishumei = (row[1] or "").strip()
+            kishumei_kana = (row[2] or "").strip() or None
+            seinengappi = (row[3] or "").strip()
+            shozoku_code = (row[4] or "").strip()
+            menkyo_nengappi = (row[5] or "").strip()
+
+            # 生年月日をYYYY-MM-DD形式に変換
+            birth_date = None
+            if seinengappi and len(seinengappi) == 8:
+                birth_date = f"{seinengappi[:4]}-{seinengappi[4:6]}-{seinengappi[6:8]}"
+
+            # 所属コードを名前に変換
+            affiliation = AFFILIATION_CODE_MAP.get(shozoku_code)
+
+            # 免許年を取得
+            license_year = None
+            if menkyo_nengappi and len(menkyo_nengappi) >= 4:
+                try:
+                    license_year = int(menkyo_nengappi[:4])
+                except ValueError:
+                    pass
+
+            return {
+                "jockey_id": kishu_code,
+                "jockey_name": kishumei,
+                "jockey_name_kana": kishumei_kana,
+                "birth_date": birth_date,
+                "affiliation": affiliation,
+                "license_year": license_year,
+            }
+    except Exception as e:
+        logger.error(f"Failed to get jockey info: {e}")
+        return None
+
+
+def get_jockey_stats(
+    jockey_id: str,
+    year: int | None = None,
+    period: str = "recent",  # recent/ytd/all
+) -> dict | None:
+    """騎手の成績統計を取得.
+
+    Args:
+        jockey_id: 騎手コード
+        year: 年（指定時はその年の成績）
+        period: 期間（recent=直近1年, ytd=今年初から, all=通算）
+
+    Returns:
+        {
+            "jockey_id": str,
+            "jockey_name": str,
+            "total_rides": int,
+            "wins": int,
+            "second_places": int,
+            "third_places": int,
+            "win_rate": float,
+            "place_rate": float,
+            "period": str,
+            "year": int | None,
+        }
+    """
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            # 騎手名を取得
+            cur.execute("""
+                SELECT kishumei
+                FROM jvd_ks
+                WHERE kishu_code = %s
+                LIMIT 1
+            """, (jockey_id,))
+            jockey_row = cur.fetchone()
+            jockey_name = jockey_row[0].strip() if jockey_row else "不明"
+
+            # 成績集計クエリの基本部分
+            base_query = """
+                SELECT
+                    COUNT(*) AS total_rides,
+                    SUM(CASE WHEN se.kakutei_chakujun = '1' THEN 1 ELSE 0 END) AS wins,
+                    SUM(CASE WHEN se.kakutei_chakujun = '2' THEN 1 ELSE 0 END) AS second_places,
+                    SUM(CASE WHEN se.kakutei_chakujun = '3' THEN 1 ELSE 0 END) AS third_places
+                FROM jvd_se se
+                WHERE se.kishu_code = %s
+                  AND se.kakutei_chakujun IS NOT NULL
+                  AND se.kakutei_chakujun != ''
+                  AND se.kakutei_chakujun ~ '^[0-9]+$'
+            """
+            params: list = [jockey_id]
+
+            # 期間条件を追加
+            if year:
+                base_query += " AND se.kaisai_nen = %s"
+                params.append(str(year))
+            elif period == "ytd":
+                # 今年初から
+                current_year = datetime.now().year
+                base_query += " AND se.kaisai_nen = %s"
+                params.append(str(current_year))
+            elif period == "recent":
+                # 直近1年（デフォルト）
+                one_year_ago = datetime.now().replace(year=datetime.now().year - 1)
+                base_query += " AND (se.kaisai_nen || se.kaisai_tsukihi) >= %s"
+                params.append(one_year_ago.strftime("%Y%m%d"))
+
+            cur.execute(base_query, params)
+            row = cur.fetchone()
+
+            if row is None or row[0] == 0:
+                return None
+
+            total_rides = int(row[0])
+            wins = int(row[1])
+            second_places = int(row[2])
+            third_places = int(row[3])
+            places = wins + second_places + third_places
+
+            win_rate = round(wins / total_rides * 100, 1) if total_rides > 0 else 0.0
+            place_rate = round(places / total_rides * 100, 1) if total_rides > 0 else 0.0
+
+            return {
+                "jockey_id": jockey_id,
+                "jockey_name": jockey_name,
+                "total_rides": total_rides,
+                "wins": wins,
+                "second_places": second_places,
+                "third_places": third_places,
+                "win_rate": win_rate,
+                "place_rate": place_rate,
+                "period": period if not year else "year",
+                "year": year,
+            }
+    except Exception as e:
+        logger.error(f"Failed to get jockey stats: {e}")
+        return None
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
