@@ -95,6 +95,14 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: '0.4.30'
+
+      - name: Verify uv installation
+        run: uv --version
+
       - name: Install AgentCore CLI
         run: pip install bedrock-agentcore-starter-toolkit
 
