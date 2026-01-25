@@ -117,6 +117,8 @@ jobs:
       - name: Deploy AgentCore
         run: agentcore deploy
         working-directory: backend/agentcore
+        env:
+          UV_SYSTEM_PYTHON: '1'
 
       - name: Output AgentCore deployment summary
         run: |
