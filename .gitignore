@@ -35,6 +35,7 @@ jravan-api/.env
 # Bedrock AgentCore
 .bedrock_agentcore/
 .bedrock_agentcore.yaml
+!backend/agentcore/.bedrock_agentcore.yaml
 
 # uv lock file
 uv.lock
