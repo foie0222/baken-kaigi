@@ -2,6 +2,9 @@
 
 GitHub Actions から AWS リソースにアクセスするための
 OIDC Provider と IAM Role を作成します。
+
+このスタックは github_oidc=true コンテキストフラグを指定した場合のみ有効化されます。
+例: cdk deploy GitHubOidcStack --context github_oidc=true
 """
 from aws_cdk import (
     Stack,
@@ -25,16 +28,29 @@ class GitHubOidcStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # GitHub OIDC Provider
-        # 既存の Provider がある場合はインポートも可能
+        # thumbprints は GitHub Actions 公式ドキュメントで公開されている
+        # token.actions.githubusercontent.com の証明書チェーンの SHA-1 フィンガープリントを設定する。
+        # - 参考: https://docs.github.com/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
+        # GitHub 側で証明書がローテーションされた場合は、上記ドキュメント等を参照して
+        # 新しい thumbprint を確認し、このリストを更新・再デプロイすること。
         oidc_provider = iam.OpenIdConnectProvider(
             self,
             "GitHubOidcProvider",
             url="https://token.actions.githubusercontent.com",
             client_ids=["sts.amazonaws.com"],
-            thumbprints=["ffffffffffffffffffffffffffffffffffffffff"],  # GitHub は thumbprint 検証不要
+            thumbprints=[
+                # DigiCert High Assurance EV Root CA
+                "6938fd4d98bab03faadb97b34396831e3780aea1",
+                # DigiCert TLS Hybrid ECC SHA384 2020 CA1
+                "1b511abead59b0b54b0a1c8232661093315d1fca",
+            ],
         )
 
-        # デプロイ用 IAM Role
+        # GitHub Actions ロールは、CDK Bootstrap で作成される
+        # cdk-* 系ロールを AssumeRole するための最小権限のみを付与する。
+        # 実際の AWS リソース操作権限は bootstrap 側ロールに集約する。
+        # 
+        # 完全一致のためStringEqualsを使用（ワイルドカードなし）
         deploy_role = iam.Role(
             self,
             "GitHubActionsDeployRole",
@@ -44,8 +60,6 @@ class GitHubOidcStack(Stack):
                 conditions={
                     "StringEquals": {
                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                    },
-                    "StringLike": {
                         "token.actions.githubusercontent.com:sub": f"repo:{github_owner}/{github_repo}:ref:refs/heads/main",
                     },
                 },
@@ -54,126 +68,32 @@ class GitHubOidcStack(Stack):
             description="IAM Role for GitHub Actions CDK/AgentCore deployment",
         )
 
-        # CDK デプロイに必要な権限
+        # CDK Bootstrap ロールへの AssumeRole 権限
+        # 現在のアカウントのみに制限し、bootstrap 標準のプレフィックスを使用
         deploy_role.add_to_policy(
             iam.PolicyStatement(
-                sid="CloudFormation",
+                sid="AssumeBootstrapRoles",
                 effect=iam.Effect.ALLOW,
                 actions=[
-                    "cloudformation:*",
+                    "sts:AssumeRole",
                 ],
-                resources=["*"],
+                resources=[
+                    f"arn:aws:iam::{Stack.of(self).account}:role/cdk-hnb659fds-*",
+                ],
             )
         )
 
+        # AgentCore デプロイに必要な最小権限
+        # CDK以外のデプロイ（AgentCore CLI等）で必要な権限を追加
         deploy_role.add_to_policy(
             iam.PolicyStatement(
-                sid="Lambda",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "lambda:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="APIGateway",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "apigateway:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="DynamoDB",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "dynamodb:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="IAM",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "iam:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="S3",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "s3:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="EC2",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "ec2:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="SSM",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "ssm:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="CloudWatchLogs",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "logs:*",
-                ],
-                resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="Bedrock",
+                sid="BedrockAgentCore",
                 effect=iam.Effect.ALLOW,
                 actions=[
                     "bedrock:*",
                     "bedrock-agentcore:*",
                 ],
                 resources=["*"],
-            )
-        )
-
-        deploy_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="STS",
-                effect=iam.Effect.ALLOW,
-                actions=[
-                    "sts:AssumeRole",
-                ],
-                resources=["arn:aws:iam::*:role/cdk-*"],
             )
         )
 

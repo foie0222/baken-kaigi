@@ -11,8 +11,9 @@ Usage:
     # 既存 VPC を使用する場合
     cdk deploy --all --context jravan=true --context vpc_id=vpc-xxxxxxxxx
 
-    # GitHub OIDC スタックのみデプロイ
-    cdk deploy GitHubOidcStack
+    # GitHub OIDC スタックをデプロイ（初回セットアップ時のみ）
+    # 注意: このスタックは明示的に github_oidc=true を指定した場合のみデプロイされます
+    cdk deploy GitHubOidcStack --context github_oidc=true
 """
 import aws_cdk as cdk
 from aws_cdk import aws_ec2 as ec2
@@ -25,6 +26,7 @@ app = cdk.App()
 
 # コンテキストから設定を取得
 use_jravan = app.node.try_get_context("jravan") == "true"
+use_github_oidc = app.node.try_get_context("github_oidc") == "true"
 vpc_id = app.node.try_get_context("vpc_id")
 
 # 環境設定
@@ -33,12 +35,14 @@ env = cdk.Environment(
     region="ap-northeast-1",
 )
 
-# GitHub OIDC スタック（常に作成）
-GitHubOidcStack(
-    app,
-    "GitHubOidcStack",
-    env=env,
-)
+# GitHub OIDC スタック（明示的に有効化された場合のみ）
+# 初回セットアップ時: cdk deploy GitHubOidcStack --context github_oidc=true
+if use_github_oidc:
+    GitHubOidcStack(
+        app,
+        "GitHubOidcStack",
+        env=env,
+    )
 
 if use_jravan:
     # ========================================
