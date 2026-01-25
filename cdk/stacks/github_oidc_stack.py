@@ -51,7 +51,7 @@ class GitHubOidcStack(Stack):
                 },
                 assume_role_action="sts:AssumeRoleWithWebIdentity",
             ),
-            description="GitHub Actions からの CDK/AgentCore デプロイ用ロール",
+            description="IAM Role for GitHub Actions CDK/AgentCore deployment",
         )
 
         # CDK デプロイに必要な権限
@@ -182,7 +182,7 @@ class GitHubOidcStack(Stack):
             self,
             "DeployRoleArn",
             value=deploy_role.role_arn,
-            description="GitHub Actions デプロイ用ロール ARN（GitHub Secrets に設定）",
+            description="GitHub Actions Deploy Role ARN (set in GitHub Secrets)",
             export_name="GitHubActionsDeployRoleArn",
         )
 
