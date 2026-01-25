@@ -12,7 +12,7 @@ from strands import Agent
 from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
-from tools.race_data import get_race_info, get_race_runners
+from tools.race_data import get_race_data
 from tools.bet_analysis import analyze_bet_selection
 from tools.pace_analysis import analyze_race_development, analyze_running_style_match
 from tools.historical_analysis import (
@@ -33,8 +33,7 @@ agent = Agent(
     model=bedrock_model,
     system_prompt=SYSTEM_PROMPT,
     tools=[
-        get_race_runners,
-        get_race_info,
+        get_race_data,  # レース情報と出走馬を一括取得（API呼び出し削減）
         analyze_bet_selection,
         analyze_race_development,
         analyze_running_style_match,

@@ -4,6 +4,8 @@
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 import requests
 from strands import tool
@@ -11,6 +13,49 @@ from strands import tool
 from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
+
+# 並列API呼び出しの最大ワーカー数
+MAX_PARALLEL_WORKERS = 5
+
+
+def _fetch_parallel_stats(api_calls: list[dict]) -> list[dict]:
+    """複数のAPI呼び出しを並列実行する.
+
+    Args:
+        api_calls: API呼び出し情報のリスト
+            各要素は {"url": str, "params": dict} の形式
+
+    Returns:
+        各API呼び出しの結果リスト（同じ順序）
+    """
+    results: list[dict | None] = [None] * len(api_calls)
+
+    def fetch_single(index: int, call: dict) -> tuple[int, dict[str, Any]]:
+        try:
+            response = requests.get(
+                call["url"],
+                params=call.get("params", {}),
+                headers=get_headers(),
+                timeout=call.get("timeout", API_TIMEOUT_SECONDS),
+            )
+            if response.status_code == 404:
+                return index, {"error": "not_found"}
+            response.raise_for_status()
+            return index, response.json()
+        except requests.RequestException as e:
+            logger.error(f"Parallel API call failed: {e}")
+            return index, {"error": str(e)}
+
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
+        futures = [
+            executor.submit(fetch_single, i, call)
+            for i, call in enumerate(api_calls)
+        ]
+        for future in as_completed(futures):
+            index, result = future.result()
+            results[index] = result
+
+    return [r if r is not None else {"error": "unknown"} for r in results]
 
 # 定数定義
 DEFAULT_PAST_RACES_LIMIT = 100  # 集計対象レース数のデフォルト値
