@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
@@ -582,6 +583,82 @@ class MockRaceDataProvider(RaceDataProvider):
             period=period if not year else "year",
             year=year,
         )
+
+    def get_horse_performances(
+        self,
+        horse_id: str,
+        limit: int = 5,
+        track_type: str | None = None,
+    ) -> list[HorsePerformanceData]:
+        """馬の過去成績を詳細に取得する（モック実装）."""
+        import random
+
+        random.seed(_stable_hash(horse_id) % (2**32))
+
+        performances = []
+        base_date = datetime.now()
+        track_types = ["芝", "ダート"]
+        track_conditions = ["良", "稍", "重", "不"]
+        margins = ["クビ", "ハナ", "1/2", "3/4", "1", "1 1/2", "2", "3", "大差"]
+        paces = ["S", "M", "H"]
+        styles = ["逃げ", "先行", "差し", "追込"]
+
+        # 馬名を特定
+        try:
+            horse_index = int(horse_id.split("_")[1]) % len(self.HORSE_NAMES)
+        except (IndexError, ValueError):
+            horse_index = _stable_hash(horse_id) % len(self.HORSE_NAMES)
+
+        for i in range(min(limit, 20)):
+            race_date = base_date - timedelta(days=30 * (i + 1))
+            tt = track_type or random.choice(track_types)
+            if track_type and tt != track_type:
+                continue  # フィルタ適用
+
+            venue = random.choice(self.VENUES)
+            distance = random.choice([1200, 1400, 1600, 1800, 2000, 2200, 2400])
+            finish = random.choices(
+                range(1, 19),
+                weights=[10, 8, 7, 6, 5, 4, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 1, 1],
+            )[0]
+            total_runners = random.randint(max(finish, 8), 18)
+
+            minutes = distance // 1000
+            seconds = (distance % 1000) / 100 * 6 + random.uniform(0, 5)
+            time_str = f"{minutes}:{seconds:04.1f}"
+
+            track_condition = random.choices(
+                track_conditions, weights=[6, 2, 1, 1]
+            )[0]
+
+            jockey = random.choice(self.JOCKEY_NAMES)
+            odds_val = random.uniform(1.5, 50.0)
+            pop = random.randint(1, total_runners)
+
+            perf = HorsePerformanceData(
+                race_id=f"{race_date.strftime('%Y%m%d')}_{venue.lower()}_{random.randint(1,12):02d}",
+                race_date=race_date.strftime("%Y%m%d"),
+                race_name=f"{venue}{distance}m {random.choice(self.RACE_NAMES)}",
+                venue=venue,
+                distance=distance,
+                track_type=tt,
+                track_condition=track_condition,
+                finish_position=finish,
+                total_runners=total_runners,
+                time=time_str,
+                time_diff=f"+{random.uniform(0, 2.0):.1f}" if finish > 1 else None,
+                last_3f=f"{random.uniform(33.0, 37.0):.1f}",
+                weight_carried=random.choice([54.0, 55.0, 56.0, 57.0, 58.0]),
+                jockey_name=jockey,
+                odds=round(odds_val, 1),
+                popularity=pop,
+                margin=random.choice(margins) if finish > 1 else None,
+                race_pace=random.choice(paces),
+                running_style=random.choice(styles),
+            )
+            performances.append(perf)
+
+        return performances[:limit]
 
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int
