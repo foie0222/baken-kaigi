@@ -732,3 +732,80 @@ class RaceDataProvider(ABC):
             見つからない場合は(None, [], [], [], [])
         """
         pass
+
+    @abstractmethod
+    def get_gate_position_stats(
+        self,
+        venue: str,
+        track_type: str | None = None,
+        distance: int | None = None,
+        track_condition: str | None = None,
+        limit: int = 100,
+    ) -> "GatePositionStatsData | None":
+        """枠順別成績統計を取得する.
+
+        Args:
+            venue: 競馬場（必須）
+            track_type: 芝/ダート/障害
+            distance: 距離（メートル）
+            track_condition: 馬場状態（良/稍/重/不）
+            limit: 集計対象レース数
+
+        Returns:
+            枠順別成績統計、データがない場合はNone
+        """
+        pass
+
+
+@dataclass(frozen=True)
+class GateStatsData:
+    """枠番別成績データ."""
+
+    gate: int  # 枠番（1-8）
+    gate_range: str  # 例: "1-2枠"
+    starts: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+    avg_finish: float
+
+
+@dataclass(frozen=True)
+class HorseNumberStatsData:
+    """馬番別成績データ."""
+
+    horse_number: int
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class GateAnalysisData:
+    """枠順分析データ."""
+
+    favorable_gates: list[int]  # 有利な枠
+    unfavorable_gates: list[int]  # 不利な枠
+    comment: str
+
+
+@dataclass(frozen=True)
+class GatePositionConditionsData:
+    """枠順統計の検索条件."""
+
+    venue: str
+    track_type: str | None
+    distance: int | None
+    track_condition: str | None
+
+
+@dataclass(frozen=True)
+class GatePositionStatsData:
+    """枠順別成績統計データ."""
+
+    conditions: GatePositionConditionsData
+    total_races: int
+    by_gate: list[GateStatsData]
+    by_horse_number: list[HorseNumberStatsData]
+    analysis: GateAnalysisData

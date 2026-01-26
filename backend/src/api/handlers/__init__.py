@@ -4,6 +4,7 @@ from .consultation import get_consultation, send_message, start_consultation
 from .horses import get_horse_performances
 from .jockeys import get_jockey_info, get_jockey_stats
 from .races import get_race_detail, get_races
+from .statistics import get_gate_position_stats
 
 __all__ = [
     # Races
@@ -23,4 +24,6 @@ __all__ = [
     "start_consultation",
     "send_message",
     "get_consultation",
+    # Statistics
+    "get_gate_position_stats",
 ]

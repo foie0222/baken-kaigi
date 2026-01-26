@@ -18,6 +18,11 @@ from src.domain.ports import (
     CourseAptitudeData,
     DistanceAptitudeData,
     ExtendedPedigreeData,
+    GateAnalysisData,
+    GatePositionConditionsData,
+    GatePositionStatsData,
+    GateStatsData,
+    HorseNumberStatsData,
     HorsePerformanceData,
     InbreedingData,
     JockeyInfoData,
@@ -1027,6 +1032,83 @@ class JraVanRaceDataProvider(RaceDataProvider):
 
         return stats, track_stats, distance_stats, condition_stats, top_offspring
 
+    def get_gate_position_stats(
+        self,
+        venue: str,
+        track_type: str | None = None,
+        distance: int | None = None,
+        track_condition: str | None = None,
+        limit: int = 100,
+    ) -> GatePositionStatsData | None:
+        """枠順別成績統計を取得する."""
+        params: dict[str, str | int] = {"venue": venue}
+        if track_type:
+            params["track_type"] = track_type
+        if distance:
+            params["distance"] = distance
+        if track_condition:
+            params["track_condition"] = track_condition
+        params["limit"] = limit
+
+        try:
+            response = self._session.get(
+                f"{self._base_url}/statistics/gate-position",
+                params=params,
+                timeout=self._timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException:
+            logger.exception("Failed to fetch gate position stats")
+            return None
+
+        if not data:
+            return None
+
+        conditions = GatePositionConditionsData(
+            venue=data["conditions"]["venue"],
+            track_type=data["conditions"].get("track_type"),
+            distance=data["conditions"].get("distance"),
+            track_condition=data["conditions"].get("track_condition"),
+        )
+
+        by_gate = [
+            GateStatsData(
+                gate=g["gate"],
+                gate_range=g["gate_range"],
+                starts=g["starts"],
+                wins=g["wins"],
+                places=g["places"],
+                win_rate=g["win_rate"],
+                place_rate=g["place_rate"],
+                avg_finish=g["avg_finish"],
+            )
+            for g in data.get("by_gate", [])
+        ]
+
+        by_horse_number = [
+            HorseNumberStatsData(
+                horse_number=h["horse_number"],
+                starts=h["starts"],
+                wins=h["wins"],
+                win_rate=h["win_rate"],
+            )
+            for h in data.get("by_horse_number", [])
+        ]
+
+        analysis = GateAnalysisData(
+            favorable_gates=data["analysis"]["favorable_gates"],
+            unfavorable_gates=data["analysis"]["unfavorable_gates"],
+            comment=data["analysis"]["comment"],
+        )
+
+        return GatePositionStatsData(
+            conditions=conditions,
+            total_races=data["total_races"],
+            by_gate=by_gate,
+            by_horse_number=by_horse_number,
+            analysis=analysis,
+        )
 
 
 class JraVanApiError(Exception):

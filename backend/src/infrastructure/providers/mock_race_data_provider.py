@@ -10,6 +10,11 @@ from src.domain.ports import (
     CourseAptitudeData,
     DistanceAptitudeData,
     ExtendedPedigreeData,
+    GateAnalysisData,
+    GatePositionConditionsData,
+    GatePositionStatsData,
+    GateStatsData,
+    HorseNumberStatsData,
     HorsePerformanceData,
     InbreedingData,
     JockeyInfoData,
@@ -1403,3 +1408,105 @@ class MockRaceDataProvider(RaceDataProvider):
             ))
 
         return stats, track_stats, class_stats
+
+    def get_gate_position_stats(
+        self,
+        venue: str,
+        track_type: str | None = None,
+        distance: int | None = None,
+        track_condition: str | None = None,
+        limit: int = 100,
+    ) -> GatePositionStatsData | None:
+        """枠順別成績統計を取得する（モック実装）."""
+        import random
+
+        # 存在しない競馬場の場合はNoneを返す
+        if venue.startswith("nonexistent"):
+            return None
+
+        # 安定したシード生成
+        seed_str = f"{venue}_{track_type}_{distance}_{track_condition}"
+        random.seed(_stable_hash(seed_str) % (2**32))
+
+        # 条件データ
+        conditions = GatePositionConditionsData(
+            venue=venue,
+            track_type=track_type,
+            distance=distance,
+            track_condition=track_condition,
+        )
+
+        total_races = min(limit, random.randint(50, 200))
+
+        # 枠番別成績（1-8枠）
+        by_gate = []
+        gate_win_rates: dict[int, float] = {}
+        gate_ranges = [
+            (1, "1-2枠"), (2, "1-2枠"), (3, "3-4枠"), (4, "3-4枠"),
+            (5, "5-6枠"), (6, "5-6枠"), (7, "7-8枠"), (8, "7-8枠"),
+        ]
+
+        for gate, gate_range in gate_ranges:
+            starts = random.randint(80, 200)
+            # 内枠を有利にする傾向をシミュレート
+            base_win_rate = random.uniform(0.10, 0.18)
+            if gate <= 2:
+                base_win_rate += 0.03
+            elif gate >= 7:
+                base_win_rate -= 0.02
+            win_rate = base_win_rate
+            gate_win_rates[gate] = win_rate
+
+            wins = int(starts * win_rate)
+            places = wins + random.randint(wins // 2, wins)
+            avg_finish_sum = sum(
+                random.gauss(5.0 + gate * 0.3, 2.0) for _ in range(starts)
+            )
+            avg_finish = round(avg_finish_sum / starts, 1)
+
+            by_gate.append(GateStatsData(
+                gate=gate,
+                gate_range=gate_range,
+                starts=starts,
+                wins=wins,
+                places=places,
+                win_rate=round(win_rate * 100, 1),
+                place_rate=round(places / starts * 100, 1),
+                avg_finish=avg_finish,
+            ))
+
+        # 馬番別成績（1-18番）
+        by_horse_number = []
+        for horse_num in range(1, 19):
+            starts = random.randint(30, total_races)
+            win_rate = random.uniform(0.05, 0.20)
+            wins = int(starts * win_rate)
+            by_horse_number.append(HorseNumberStatsData(
+                horse_number=horse_num,
+                starts=starts,
+                wins=wins,
+                win_rate=round(win_rate * 100, 1),
+            ))
+
+        # 分析データ
+        sorted_gates = sorted(gate_win_rates.items(), key=lambda x: x[1], reverse=True)
+        favorable_gates = [g for g, _ in sorted_gates[:2]]
+        unfavorable_gates = [g for g, _ in sorted_gates[-2:]]
+
+        track_type_name = track_type or "全コース"
+        distance_name = f"{distance}m" if distance else "全距離"
+        comment = f"{venue}{track_type_name}{distance_name}は内枠有利。外枠は距離ロスが大きい"
+
+        analysis = GateAnalysisData(
+            favorable_gates=favorable_gates,
+            unfavorable_gates=unfavorable_gates,
+            comment=comment,
+        )
+
+        return GatePositionStatsData(
+            conditions=conditions,
+            total_races=total_races,
+            by_gate=by_gate,
+            by_horse_number=by_horse_number,
+            analysis=analysis,
+        )

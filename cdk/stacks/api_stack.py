@@ -410,6 +410,20 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # 統計API
+        get_gate_position_stats_fn = lambda_.Function(
+            self,
+            "GetGatePositionStatsFunction",
+            handler="src.api.handlers.statistics.get_gate_position_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-gate-position-stats",
+            description="枠順別成績統計取得",
+            **lambda_common_props,
+        )
+
         # API Gateway
         api = apigw.RestApi(
             self,
@@ -568,6 +582,15 @@ class BakenKaigiApiStack(Stack):
         stallion_offspring_stats = stallion.add_resource("offspring-stats")
         stallion_offspring_stats.add_method(
             "GET", apigw.LambdaIntegration(get_stallion_offspring_stats_fn), api_key_required=True
+        )
+
+        # /statistics
+        statistics = api.root.add_resource("statistics")
+
+        # /statistics/gate-position
+        gate_position_stats = statistics.add_resource("gate-position")
+        gate_position_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_gate_position_stats_fn), api_key_required=True
         )
 
         # /cart
