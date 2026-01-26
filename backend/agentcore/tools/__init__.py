@@ -11,6 +11,7 @@ from .historical_analysis import (
 from .horse_analysis import analyze_horse_performance
 from .training_analysis import analyze_training_condition
 from .pedigree_analysis import analyze_pedigree_aptitude
+from .trainer_analysis import analyze_trainer_tendency
 
 __all__ = [
     "get_race_data",
@@ -23,4 +24,5 @@ __all__ = [
     "analyze_horse_performance",
     "analyze_training_condition",
     "analyze_pedigree_aptitude",
+    "analyze_trainer_tendency",
 ]
