@@ -104,7 +104,14 @@ def analyze_gate_position(
 
 
 def _get_position_type(horse_number: int) -> str:
-    """馬番から位置タイプを判定する."""
+    """馬番から位置タイプを判定する.
+
+    Args:
+        horse_number: 馬番
+
+    Returns:
+        位置タイプ（内枠/中枠/外枠/不明）
+    """
     if horse_number <= 0:
         return "不明"
     elif horse_number <= 6:
@@ -117,8 +124,18 @@ def _get_position_type(horse_number: int) -> str:
 
 def _analyze_course_gate_tendency(
     venue: str, track_type: str, distance: int, gate: int
-) -> dict:
-    """コース別の枠順傾向を分析する."""
+) -> dict[str, str | int | float | list[int]]:
+    """コース別の枠順傾向を分析する.
+
+    Args:
+        venue: 競馬場名
+        track_type: コース種別
+        distance: 距離
+        gate: 枠番
+
+    Returns:
+        コース別枠順傾向分析結果
+    """
     try:
         # 枠順別成績統計を取得
         response = requests.get(
@@ -178,8 +195,8 @@ def _analyze_course_gate_tendency(
                 "rating": rating,
                 "comment": comment,
             }
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        logger.warning(f"枠順傾向データ取得失敗: {e}")
 
     # データ取得失敗時のデフォルト
     return {
@@ -195,8 +212,16 @@ def _analyze_course_gate_tendency(
     }
 
 
-def _analyze_horse_gate_aptitude(horse_id: str, position_type: str) -> dict:
-    """馬の枠順適性を分析する."""
+def _analyze_horse_gate_aptitude(horse_id: str, position_type: str) -> dict[str, str]:
+    """馬の枠順適性を分析する.
+
+    Args:
+        horse_id: 馬コード
+        position_type: 位置タイプ
+
+    Returns:
+        馬の枠順適性分析結果
+    """
     if not horse_id:
         return {
             "inner_gate_record": "データなし",
@@ -274,8 +299,8 @@ def _analyze_horse_gate_aptitude(horse_id: str, position_type: str) -> dict:
                 "current_position_rating": current_rating,
                 "comment": comment,
             }
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        logger.warning(f"枠順適性データ取得失敗: {e}")
 
     return {
         "inner_gate_record": "データなし",
@@ -287,8 +312,16 @@ def _analyze_horse_gate_aptitude(horse_id: str, position_type: str) -> dict:
     }
 
 
-def _analyze_running_style_fit(running_style: str, position_type: str) -> dict:
-    """脚質と枠順の相性を分析する."""
+def _analyze_running_style_fit(running_style: str, position_type: str) -> dict[str, str]:
+    """脚質と枠順の相性を分析する.
+
+    Args:
+        running_style: 脚質
+        position_type: 位置タイプ
+
+    Returns:
+        脚質と枠順の相性分析結果
+    """
     # 脚質×枠の一般的な相性
     fit_matrix = {
         "逃げ": {"内枠": "好相性", "中枠": "普通", "外枠": "やや不利"},
@@ -322,8 +355,16 @@ def _analyze_running_style_fit(running_style: str, position_type: str) -> dict:
     }
 
 
-def _analyze_field(position_type: str, running_style: str) -> dict:
-    """フィールド分析（簡易版）."""
+def _analyze_field(position_type: str, running_style: str) -> dict[str, str | list[str]]:
+    """フィールド分析（簡易版）.
+
+    Args:
+        position_type: 位置タイプ
+        running_style: 脚質
+
+    Returns:
+        フィールド分析結果
+    """
     # 実際にはレース出走馬情報を取得して分析すべき
     # ここでは簡易的なデフォルト値を返す
     return {
@@ -343,8 +384,21 @@ def _generate_gate_comment(
     horse_aptitude: dict,
     running_style: str,
 ) -> str:
-    """総合コメントを生成する."""
-    parts = []
+    """総合コメントを生成する.
+
+    Args:
+        horse_name: 馬名
+        gate: 枠番
+        horse_number: 馬番
+        position_type: 位置タイプ
+        course_tendency: コース傾向
+        horse_aptitude: 馬の適性
+        running_style: 脚質
+
+    Returns:
+        総合コメント
+    """
+    parts: list[str] = []
 
     # 枠番評価
     course_rating = course_tendency.get("rating", "普通")

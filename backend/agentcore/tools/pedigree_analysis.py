@@ -189,8 +189,15 @@ def analyze_pedigree_aptitude(
         return {"error": str(e)}
 
 
-def _create_pedigree_summary(pedigree_data: dict) -> dict:
-    """血統サマリーを生成する."""
+def _create_pedigree_summary(pedigree_data: dict) -> dict[str, str | list[str]]:
+    """血統サマリーを生成する.
+
+    Args:
+        pedigree_data: 血統データ
+
+    Returns:
+        血統サマリー（父系、父、母父、重要先祖）
+    """
     sire = pedigree_data.get("sire", {})
     dam = pedigree_data.get("dam", {})
 
@@ -212,7 +219,14 @@ def _create_pedigree_summary(pedigree_data: dict) -> dict:
 
 
 def _estimate_sire_line(sire_name: str) -> str:
-    """父名から系統を推定する."""
+    """父名から系統を推定する.
+
+    Args:
+        sire_name: 父馬名
+
+    Returns:
+        系統名
+    """
     # 直接マッチ
     if sire_name in SIRE_LINE_CHARACTERISTICS:
         return sire_name
@@ -242,8 +256,15 @@ def _estimate_sire_line(sire_name: str) -> str:
 
 
 def _identify_key_ancestors(pedigree_data: dict) -> list[str]:
-    """重要な先祖を特定する."""
-    key_ancestors = []
+    """重要な先祖を特定する.
+
+    Args:
+        pedigree_data: 血統データ
+
+    Returns:
+        重要先祖のリスト（最大4つ）
+    """
+    key_ancestors: list[str] = []
 
     # インブリードから取得
     inbreeding = pedigree_data.get("inbreeding", [])
@@ -266,8 +287,17 @@ def _identify_key_ancestors(pedigree_data: dict) -> list[str]:
 
 def _analyze_distance_aptitude(
     pedigree_data: dict, sire_stats: dict | None, race_distance: int
-) -> dict:
-    """距離適性を分析する."""
+) -> dict[str, str]:
+    """距離適性を分析する.
+
+    Args:
+        pedigree_data: 血統データ
+        sire_stats: 種牡馬産駒成績
+        race_distance: レース距離
+
+    Returns:
+        距離適性分析結果
+    """
     sire_name = pedigree_data.get("sire", {}).get("name", "")
     sire_line = _estimate_sire_line(sire_name)
     characteristics = SIRE_LINE_CHARACTERISTICS.get(
@@ -312,7 +342,14 @@ def _analyze_distance_aptitude(
 
 
 def _find_best_distance_range(by_distance: list[dict]) -> tuple[int, int]:
-    """産駒成績から最適距離帯を算出する."""
+    """産駒成績から最適距離帯を算出する.
+
+    Args:
+        by_distance: 距離別成績データ
+
+    Returns:
+        最適距離帯（min, max）
+    """
     if not by_distance:
         return (1600, 2400)
 
@@ -340,8 +377,17 @@ def _find_best_distance_range(by_distance: list[dict]) -> tuple[int, int]:
 
 def _analyze_track_aptitude(
     pedigree_data: dict, sire_stats: dict | None, track_type: str
-) -> dict:
-    """馬場適性を分析する."""
+) -> dict[str, str]:
+    """馬場適性を分析する.
+
+    Args:
+        pedigree_data: 血統データ
+        sire_stats: 種牡馬産駒成績
+        track_type: コース種別
+
+    Returns:
+        馬場適性分析結果
+    """
     sire_name = pedigree_data.get("sire", {}).get("name", "")
     sire_line = _estimate_sire_line(sire_name)
     characteristics = SIRE_LINE_CHARACTERISTICS.get(
@@ -378,7 +424,14 @@ def _analyze_track_aptitude(
 
 
 def _win_rate_to_rating(win_rate: float) -> str:
-    """勝率から評価を算出."""
+    """勝率から評価を算出.
+
+    Args:
+        win_rate: 勝率（0-1の小数）
+
+    Returns:
+        評価（A/B/C/D）
+    """
     if win_rate >= 0.12:
         return "A"
     elif win_rate >= 0.08:
@@ -391,8 +444,17 @@ def _win_rate_to_rating(win_rate: float) -> str:
 
 def _analyze_condition_aptitude(
     pedigree_data: dict, sire_stats: dict | None, track_condition: str
-) -> dict:
-    """馬場状態適性を分析する."""
+) -> dict[str, str]:
+    """馬場状態適性を分析する.
+
+    Args:
+        pedigree_data: 血統データ
+        sire_stats: 種牡馬産駒成績
+        track_condition: 馬場状態
+
+    Returns:
+        馬場状態適性分析結果
+    """
     good_rating = "A"
     heavy_rating = "B"
 
@@ -423,8 +485,15 @@ def _analyze_condition_aptitude(
     }
 
 
-def _analyze_inbreeding(pedigree_data: dict) -> dict:
-    """インブリードを分析する."""
+def _analyze_inbreeding(pedigree_data: dict) -> dict[str, bool | list[str] | str]:
+    """インブリードを分析する.
+
+    Args:
+        pedigree_data: 血統データ
+
+    Returns:
+        インブリード分析結果
+    """
     inbreeding = pedigree_data.get("inbreeding", [])
 
     if not inbreeding:
@@ -455,8 +524,15 @@ def _analyze_inbreeding(pedigree_data: dict) -> dict:
     }
 
 
-def _analyze_growth_stage(pedigree_data: dict) -> dict:
-    """成長曲線を分析する."""
+def _analyze_growth_stage(pedigree_data: dict) -> dict[str, str]:
+    """成長曲線を分析する.
+
+    Args:
+        pedigree_data: 血統データ
+
+    Returns:
+        成長曲線分析結果
+    """
     sire_name = pedigree_data.get("sire", {}).get("name", "")
     sire_line = _estimate_sire_line(sire_name)
     characteristics = SIRE_LINE_CHARACTERISTICS.get(
@@ -489,8 +565,20 @@ def _generate_pedigree_comment(
     race_distance: int,
     track_type: str,
 ) -> str:
-    """総合コメントを生成する."""
-    parts = []
+    """総合コメントを生成する.
+
+    Args:
+        horse_name: 馬名
+        pedigree_summary: 血統サマリー
+        distance_aptitude: 距離適性
+        track_aptitude: 馬場適性
+        race_distance: レース距離
+        track_type: コース種別
+
+    Returns:
+        総合コメント
+    """
+    parts: list[str] = []
 
     # 血統的な条件適合度
     sire = pedigree_summary.get("sire", "")

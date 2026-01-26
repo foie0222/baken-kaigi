@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Any
 
 import requests
 from strands import tool
@@ -126,8 +125,15 @@ def analyze_training_condition(
         return {"error": str(e)}
 
 
-def _analyze_last_workout(record: dict) -> dict:
-    """直近の調教を分析する."""
+def _analyze_last_workout(record: dict) -> dict[str, str]:
+    """直近の調教を分析する.
+
+    Args:
+        record: 調教レコード
+
+    Returns:
+        調教分析結果（日付、コース、タイム、評価等）
+    """
     course = record.get("course", "")
     time_str = record.get("time", "")
     last_3f = record.get("last_3f")
@@ -146,8 +152,17 @@ def _analyze_last_workout(record: dict) -> dict:
     }
 
 
-def _evaluate_time(course: str, time_str: str, last_3f: Any) -> str:
-    """調教タイムを評価する."""
+def _evaluate_time(course: str, time_str: str, last_3f: float | None) -> str:
+    """調教タイムを評価する.
+
+    Args:
+        course: 調教コース名
+        time_str: タイム文字列
+        last_3f: 上がり3Fタイム（将来の拡張用）
+
+    Returns:
+        評価（A/B/C/D/評価不能）
+    """
     if not time_str:
         return "評価不能"
 
@@ -194,8 +209,16 @@ def _evaluate_time(course: str, time_str: str, last_3f: Any) -> str:
         return "B"
 
 
-def _analyze_trend(records: list[dict], summary: dict) -> dict:
-    """調教の傾向を分析する."""
+def _analyze_trend(records: list[dict], summary: dict) -> dict[str, str]:
+    """調教の傾向を分析する.
+
+    Args:
+        records: 調教レコードのリスト
+        summary: 調教サマリー
+
+    Returns:
+        傾向分析結果（比較、傾向）
+    """
     if len(records) < 2:
         return {
             "comparison": "比較データなし",
@@ -238,7 +261,16 @@ def _analyze_trend(records: list[dict], summary: dict) -> dict:
 def _evaluate_condition(
     records: list[dict], last_workout: dict, trend_analysis: dict
 ) -> str:
-    """状態を評価する."""
+    """状態を評価する.
+
+    Args:
+        records: 調教レコードのリスト
+        last_workout: 直近調教の分析結果
+        trend_analysis: 傾向分析結果
+
+    Returns:
+        状態評価（絶好調/好調/普通/不安）
+    """
     score = 0
 
     # 直近調教の評価から加点
@@ -272,8 +304,15 @@ def _evaluate_condition(
         return "不安"
 
 
-def _analyze_trainer_intent(records: list[dict]) -> dict:
-    """トレーナーの意図を分析する."""
+def _analyze_trainer_intent(records: list[dict]) -> dict[str, str | bool]:
+    """トレーナーの意図を分析する.
+
+    Args:
+        records: 調教レコードのリスト
+
+    Returns:
+        トレーナー意図分析結果（強度、勝負レースか、コメント）
+    """
     # 調教強度を判定
     workout_count = len(records)
     has_strong_workout = any(
@@ -300,8 +339,15 @@ def _analyze_trainer_intent(records: list[dict]) -> dict:
     }
 
 
-def _analyze_historical_pattern(records: list[dict]) -> dict:
-    """過去パターンとの比較を行う."""
+def _analyze_historical_pattern(records: list[dict]) -> dict[str, str]:
+    """過去パターンとの比較を行う.
+
+    Args:
+        records: 調教レコードのリスト
+
+    Returns:
+        過去パターン分析結果
+    """
     # 現時点では簡易的な分析
     # 将来的にはDBから過去の同様パターンを検索して比較
     good_workouts = sum(
@@ -334,7 +380,17 @@ def _generate_comment(
     condition_rating: str,
     trainer_intent: dict,
 ) -> str:
-    """総合コメントを生成する."""
+    """総合コメントを生成する.
+
+    Args:
+        horse_name: 馬名
+        last_workout: 直近調教の分析結果
+        condition_rating: 状態評価
+        trainer_intent: トレーナー意図分析結果
+
+    Returns:
+        総合コメント
+    """
     course = last_workout.get("course", "")
     time_str = last_workout.get("time", "")
     evaluation = last_workout.get("evaluation", "")
