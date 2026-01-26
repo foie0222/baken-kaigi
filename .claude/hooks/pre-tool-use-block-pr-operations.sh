@@ -2,7 +2,7 @@
 # PreToolUse hook: PRマージを条件付きで許可
 #
 # stdin から JSON を受け取り、以下の制御を行う:
-# - gh pr merge: Copilotレビュー + 全コメント解決済みの場合のみ許可
+# - gh pr merge: Copilotレビューコメント投稿済み + 全コメント解決済みの場合のみ許可
 # - gh pr close: 許可
 # - resolveReviewThread: 許可
 
@@ -52,21 +52,7 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
     exit 2
   fi
 
-  # Copilotレビューの確認
-  REVIEWS_RESULT=$(gh pr view "$PR_NUMBER" --json reviews 2>/dev/null || echo "")
-  if [ -z "$REVIEWS_RESULT" ]; then
-    echo "BLOCK: PRのレビュー情報を取得できませんでした。" >&2
-    exit 2
-  fi
-
-  HAS_COPILOT=$(echo "$REVIEWS_RESULT" | jq '[.reviews[] | select(.author.login == "copilot-pull-request-reviewer")] | length > 0' 2>/dev/null || echo "false")
-
-  if [ "$HAS_COPILOT" != "true" ]; then
-    echo "BLOCK: Copilotのレビューがありません。Copilotレビューを受けてからマージしてください。" >&2
-    exit 2
-  fi
-
-  # リポジトリ情報を取得してバリデーション
+  # リポジトリ情報を取得してバリデーション（Copilotコメント確認に必要）
   REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"' 2>/dev/null || echo "")
   OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
   REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
@@ -86,8 +72,9 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
     exit 2
   fi
 
-  # 未解決コメントの確認（ヒアドキュメントで可読性向上）
-  GRAPHQL_QUERY=$(cat <<EOF
+  # Copilotレビューコメントと未解決コメントの確認（1回のクエリで取得）
+  # ※レビューが「存在する」だけでなく「コメントが投稿済み」であることを確認
+  COPILOT_QUERY=$(cat <<EOF
 query {
   repository(owner: "$OWNER", name: "$REPO") {
     pullRequest(number: $PR_NUMBER) {
@@ -95,6 +82,11 @@ query {
         totalCount
         nodes {
           isResolved
+          comments(first: 1) {
+            nodes {
+              author { login }
+            }
+          }
         }
       }
     }
@@ -103,9 +95,17 @@ query {
 EOF
   )
 
-  QUERY_RESULT=$(gh api graphql -f query="$GRAPHQL_QUERY" 2>/dev/null || echo "")
+  QUERY_RESULT=$(gh api graphql -f query="$COPILOT_QUERY" 2>/dev/null || echo "")
   if [ -z "$QUERY_RESULT" ]; then
     echo "BLOCK: PRの状態を確認できませんでした。" >&2
+    exit 2
+  fi
+
+  # Copilotのコメント数を確認（コメントが1件以上投稿されているか）
+  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null || echo "0")
+
+  if [ "$COPILOT_COMMENT_COUNT" -eq 0 ]; then
+    echo "BLOCK: Copilotのレビューコメントがありません。Copilotレビューが完了してからマージしてください。" >&2
     exit 2
   fi
 
@@ -116,6 +116,7 @@ EOF
     exit 2
   fi
 
+  # 未解決コメントの確認
   UNRESOLVED_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' 2>/dev/null || echo "-1")
 
   if [ "$UNRESOLVED_COUNT" = "-1" ]; then
@@ -128,7 +129,7 @@ EOF
     exit 2
   fi
 
-  # 両方の条件を満たした場合は許可
+  # 全ての条件を満たした場合は許可
   exit 0
 fi
 
