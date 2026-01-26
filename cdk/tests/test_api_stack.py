@@ -25,8 +25,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が25個作成されること."""
-        template.resource_count_is("AWS::Lambda::Function", 25)
+        """Lambda関数が30個作成されること."""
+        template.resource_count_is("AWS::Lambda::Function", 30)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること."""
@@ -246,5 +246,49 @@ class TestApiStack:
             {
                 "FunctionName": "baken-kaigi-get-popularity-payout-stats",
                 "Handler": "src.api.handlers.statistics.get_popularity_payout_stats",
+            },
+        )
+
+    def test_race_results_endpoint(self, template):
+        """GET /races/{race_id}/results エンドポイントが存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-race-results",
+                "Handler": "src.api.handlers.races.get_race_results",
+            },
+        )
+
+    def test_owner_endpoints(self, template):
+        """馬主APIのLambda関数が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-owner-info",
+                "Handler": "src.api.handlers.owners.get_owner_info",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-owner-stats",
+                "Handler": "src.api.handlers.owners.get_owner_stats",
+            },
+        )
+
+    def test_breeder_endpoints(self, template):
+        """生産者APIのLambda関数が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-breeder-info",
+                "Handler": "src.api.handlers.owners.get_breeder_info",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-breeder-stats",
+                "Handler": "src.api.handlers.owners.get_breeder_stats",
             },
         )

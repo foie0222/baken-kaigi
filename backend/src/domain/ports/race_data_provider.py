@@ -756,6 +756,80 @@ class RaceDataProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_race_results(self, race_id: RaceId) -> "RaceResultsData | None":
+        """レース結果・払戻金を取得する.
+
+        Args:
+            race_id: レースID
+
+        Returns:
+            レース結果データ、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_owner_info(self, owner_id: str) -> "OwnerInfoData | None":
+        """馬主基本情報を取得する.
+
+        Args:
+            owner_id: 馬主コード
+
+        Returns:
+            馬主基本情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_owner_stats(
+        self,
+        owner_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> "OwnerStatsData | None":
+        """馬主成績統計を取得する.
+
+        Args:
+            owner_id: 馬主コード
+            year: 年（指定時はその年の成績）
+            period: 期間（recent=直近1年, all=通算）
+
+        Returns:
+            馬主成績統計、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_breeder_info(self, breeder_id: str) -> "BreederInfoData | None":
+        """生産者基本情報を取得する.
+
+        Args:
+            breeder_id: 生産者コード
+
+        Returns:
+            生産者基本情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_breeder_stats(
+        self,
+        breeder_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> "BreederStatsData | None":
+        """生産者成績統計を取得する.
+
+        Args:
+            breeder_id: 生産者コード
+            year: 年（指定時はその年の成績）
+            period: 期間（recent=直近1年, all=通算）
+
+        Returns:
+            生産者成績統計、見つからない場合はNone
+        """
+        pass
+
 
 @dataclass(frozen=True)
 class GateStatsData:
@@ -809,3 +883,99 @@ class GatePositionStatsData:
     by_gate: list[GateStatsData]
     by_horse_number: list[HorseNumberStatsData]
     analysis: GateAnalysisData
+
+
+@dataclass(frozen=True)
+class RaceResultData:
+    """レース結果データ（着順）."""
+
+    horse_number: int
+    horse_name: str
+    finish_position: int
+    time: str | None  # 例: "1:33.5"
+    margin: str | None  # 例: "クビ"
+    last_3f: str | None  # 上がり3ハロン
+    popularity: int | None
+    odds: float | None
+    jockey_name: str | None
+
+
+@dataclass(frozen=True)
+class PayoutData:
+    """払戻金データ."""
+
+    bet_type: str  # 単勝/複勝/枠連/馬連/ワイド/馬単/三連複/三連単
+    combination: str  # 例: "3", "3-5", "3-5-7"
+    payout: int  # 払戻金（円）
+    popularity: int | None  # 人気順
+
+
+@dataclass(frozen=True)
+class RaceResultsData:
+    """レース結果総合データ."""
+
+    race_id: str
+    race_name: str
+    race_date: str
+    venue: str
+    results: list[RaceResultData]
+    payouts: list[PayoutData]
+    is_finalized: bool  # 確定済みかどうか
+
+
+@dataclass(frozen=True)
+class OwnerInfoData:
+    """馬主基本情報."""
+
+    owner_id: str
+    owner_name: str
+    representative_name: str | None = None
+    registered_year: int | None = None
+
+
+@dataclass(frozen=True)
+class OwnerStatsData:
+    """馬主成績統計."""
+
+    owner_id: str
+    owner_name: str
+    total_horses: int
+    total_starts: int
+    wins: int
+    second_places: int
+    third_places: int
+    win_rate: float
+    place_rate: float
+    total_prize: int | None = None
+    g1_wins: int = 0
+    period: str = "all"
+    year: int | None = None
+
+
+@dataclass(frozen=True)
+class BreederInfoData:
+    """生産者基本情報."""
+
+    breeder_id: str
+    breeder_name: str
+    location: str | None = None
+    registered_year: int | None = None
+
+
+@dataclass(frozen=True)
+class BreederStatsData:
+    """生産者成績統計."""
+
+    breeder_id: str
+    breeder_name: str
+    total_horses: int
+    total_starts: int
+    wins: int
+    second_places: int
+    third_places: int
+    win_rate: float
+    place_rate: float
+    total_prize: int | None = None
+    g1_wins: int = 0
+    period: str = "all"
+    year: int | None = None

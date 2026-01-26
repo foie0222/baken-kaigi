@@ -21,6 +21,16 @@ from .sire_analysis import analyze_sire_offspring
 from .race_comprehensive_analysis import analyze_race_comprehensive
 from .bet_combinations import suggest_bet_combinations
 from .rotation_analysis import analyze_rotation
+# Issue #102-111 追加ツール
+from .bet_probability_analysis import analyze_bet_probability
+from .track_condition_analysis import analyze_track_condition_impact
+from .last_race_analysis import analyze_last_race_detail
+from .class_analysis import analyze_class_factor
+from .distance_change_analysis import analyze_distance_change
+from .momentum_analysis import analyze_momentum
+from .track_change_analysis import track_course_condition_change
+from .scratch_impact_analysis import analyze_scratch_impact
+from .time_analysis import analyze_time_performance
 
 __all__ = [
     "get_race_data",
@@ -43,4 +53,14 @@ __all__ = [
     "analyze_race_comprehensive",
     "suggest_bet_combinations",
     "analyze_rotation",
+    # Issue #102-111 追加ツール
+    "analyze_bet_probability",
+    "analyze_track_condition_impact",
+    "analyze_last_race_detail",
+    "analyze_class_factor",
+    "analyze_distance_change",
+    "analyze_momentum",
+    "track_course_condition_change",
+    "analyze_scratch_impact",
+    "analyze_time_performance",
 ]

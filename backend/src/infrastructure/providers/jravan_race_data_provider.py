@@ -14,6 +14,8 @@ from src.domain.identifiers import RaceId
 from src.domain.ports import (
     AncestorData,
     AptitudeSummaryData,
+    BreederInfoData,
+    BreederStatsData,
     ConditionAptitudeData,
     CourseAptitudeData,
     DistanceAptitudeData,
@@ -33,13 +35,18 @@ from src.domain.ports import (
     OddsMovementData,
     OddsSnapshotData,
     OddsTimestampData,
+    OwnerInfoData,
+    OwnerStatsData,
     PastRaceStats,
+    PayoutData,
     PedigreeData,
     PerformanceData,
     PopularityStats,
     PositionAptitudeData,
     RaceData,
     RaceDataProvider,
+    RaceResultData,
+    RaceResultsData,
     RunnerData,
     StallionConditionStatsData,
     StallionDistanceStatsData,
@@ -1109,6 +1116,180 @@ class JraVanRaceDataProvider(RaceDataProvider):
             by_horse_number=by_horse_number,
             analysis=analysis,
         )
+
+    def get_race_results(self, race_id: RaceId) -> RaceResultsData | None:
+        """レース結果・払戻金を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/races/{race_id.value}/results",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_race_results_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get race results for {race_id}: {e}")
+            return None
+
+    def _to_race_results_data(self, data: dict) -> RaceResultsData:
+        """APIレスポンスをRaceResultsDataに変換する."""
+        results = [
+            RaceResultData(
+                horse_number=r["horse_number"],
+                horse_name=r["horse_name"],
+                finish_position=r["finish_position"],
+                time=r.get("time"),
+                margin=r.get("margin"),
+                last_3f=r.get("last_3f"),
+                popularity=r.get("popularity"),
+                odds=r.get("odds"),
+                jockey_name=r.get("jockey_name"),
+            )
+            for r in data.get("results", [])
+        ]
+
+        payouts = [
+            PayoutData(
+                bet_type=p["bet_type"],
+                combination=p["combination"],
+                payout=p["payout"],
+                popularity=p.get("popularity"),
+            )
+            for p in data.get("payouts", [])
+        ]
+
+        return RaceResultsData(
+            race_id=data["race_id"],
+            race_name=data["race_name"],
+            race_date=data["race_date"],
+            venue=data["venue"],
+            results=results,
+            payouts=payouts,
+            is_finalized=data.get("is_finalized", True),
+        )
+
+    def get_owner_info(self, owner_id: str) -> OwnerInfoData | None:
+        """馬主基本情報を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/api/owners/{owner_id}/info",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return OwnerInfoData(
+                owner_id=data["owner_id"],
+                owner_name=data["owner_name"],
+                representative_name=data.get("representative_name"),
+                registered_year=data.get("registered_year"),
+            )
+        except requests.RequestException as e:
+            logger.warning(f"Could not get owner info for {owner_id}: {e}")
+            return None
+
+    def get_owner_stats(
+        self,
+        owner_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> OwnerStatsData | None:
+        """馬主成績統計を取得する."""
+        try:
+            params = {"period": period}
+            if year:
+                params["year"] = str(year)
+
+            response = self._session.get(
+                f"{self._base_url}/api/owners/{owner_id}/stats",
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return OwnerStatsData(
+                owner_id=data["owner_id"],
+                owner_name=data["owner_name"],
+                total_horses=data.get("total_horses", 0),
+                total_starts=data.get("total_starts", 0),
+                wins=data.get("wins", 0),
+                second_places=data.get("second_places", 0),
+                third_places=data.get("third_places", 0),
+                win_rate=data.get("win_rate", 0.0),
+                place_rate=data.get("place_rate", 0.0),
+                total_prize=data.get("total_prize"),
+                g1_wins=data.get("g1_wins", 0),
+                period=data.get("period", "all"),
+                year=data.get("year"),
+            )
+        except requests.RequestException as e:
+            logger.warning(f"Could not get owner stats for {owner_id}: {e}")
+            return None
+
+    def get_breeder_info(self, breeder_id: str) -> BreederInfoData | None:
+        """生産者基本情報を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/api/breeders/{breeder_id}/info",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return BreederInfoData(
+                breeder_id=data["breeder_id"],
+                breeder_name=data["breeder_name"],
+                location=data.get("location"),
+                registered_year=data.get("registered_year"),
+            )
+        except requests.RequestException as e:
+            logger.warning(f"Could not get breeder info for {breeder_id}: {e}")
+            return None
+
+    def get_breeder_stats(
+        self,
+        breeder_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> BreederStatsData | None:
+        """生産者成績統計を取得する."""
+        try:
+            params = {"period": period}
+            if year:
+                params["year"] = str(year)
+
+            response = self._session.get(
+                f"{self._base_url}/api/breeders/{breeder_id}/stats",
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return BreederStatsData(
+                breeder_id=data["breeder_id"],
+                breeder_name=data["breeder_name"],
+                total_horses=data.get("total_horses", 0),
+                total_starts=data.get("total_starts", 0),
+                wins=data.get("wins", 0),
+                second_places=data.get("second_places", 0),
+                third_places=data.get("third_places", 0),
+                win_rate=data.get("win_rate", 0.0),
+                place_rate=data.get("place_rate", 0.0),
+                total_prize=data.get("total_prize"),
+                g1_wins=data.get("g1_wins", 0),
+                period=data.get("period", "all"),
+                year=data.get("year"),
+            )
+        except requests.RequestException as e:
+            logger.warning(f"Could not get breeder stats for {breeder_id}: {e}")
+            return None
 
 
 class JraVanApiError(Exception):
