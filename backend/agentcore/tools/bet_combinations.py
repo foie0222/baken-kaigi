@@ -19,11 +19,56 @@ API_TIMEOUT_SECONDS = 30
 SCORE_HIGH_CONFIDENCE = 75
 SCORE_MEDIUM_CONFIDENCE = 60
 SCORE_VALUE_PICK = 45
+SCORE_EXCLUDE_CRITICAL = 40
 
 # 予算配分比率
 HIGH_CONFIDENCE_RATIO = 0.5
 MEDIUM_CONFIDENCE_RATIO = 0.3
 VALUE_RATIO = 0.2
+
+# オッズ関連
+VALUE_PICK_MIN_ODDS = 10
+FAVORITE_ODDS_THRESHOLD = 5.0
+EXPECTED_ODDS_HIGH = 5.0
+EXPECTED_ODDS_MEDIUM = 10.0
+EXPECTED_ODDS_LOW = 20.0
+ODDS_VALUE_UNDER_RATIO = 0.7
+ODDS_VALUE_OVER_RATIO = 1.5
+
+# スコア計算パラメータ
+BASE_SCORE = 50
+SCORE_DELTA_STYLE = 5
+SCORE_DELTA_INNER_GATE = 5
+SCORE_DELTA_OUTER_GATE = -5
+INNER_GATE_MAX = 4
+OUTER_GATE_MIN = 14
+MAX_REASONS_DISPLAY = 3
+
+# 過去成績評価パラメータ
+FORM_AVG_EXCELLENT = 3.0
+FORM_AVG_GOOD = 5.0
+FORM_SCORE_EXCELLENT = 20
+FORM_SCORE_GOOD = 10
+FORM_SCORE_POOR = -10
+IN_MONEY_THRESHOLD = 3
+PERFORMANCE_LIMIT = 5
+
+# 買い目生成パラメータ
+BET_HIGH_RATIO = 0.15
+BET_MEDIUM_RATIO = 0.08
+BET_VALUE_RATIO = 0.04
+ODDS_ESTIMATE_FACTOR = 1.2
+DEFAULT_AXIS_ODDS = 5.0
+DEFAULT_PARTNER_ODDS = 10.0
+MIN_BET_AMOUNT = 100
+MAX_PARTNERS_TO_PROCESS = 6
+MAX_BET_SUGGESTIONS = 8
+
+# 表示数制限
+MAX_HIGH_CONFIDENCE = 3
+MAX_MEDIUM_CONFIDENCE = 3
+MAX_VALUE_PICKS = 3
+MAX_EXCLUDED_HORSES = 5
 
 
 @tool
@@ -48,10 +93,22 @@ def suggest_bet_combinations(
         相手馬選定結果（軸馬情報、相手馬候補、消し馬、買い目提案、予算配分）
     """
     try:
+        # 入力検証
+        if not axis_horses:
+            return {"error": "軸馬が指定されていません", "race_id": race_id}
+        if budget <= 0:
+            return {"error": "予算は正の数を指定してください", "race_id": race_id}
+
         # 出走馬リスト取得
         runners = _get_runners(race_id)
         if not runners:
             return {"error": "出走馬データが取得できませんでした", "race_id": race_id}
+
+        # 軸馬の存在確認
+        runner_numbers = {r.get("horse_number") for r in runners}
+        invalid_axes = [h for h in axis_horses if h not in runner_numbers]
+        if invalid_axes:
+            return {"error": f"無効な軸馬番号: {invalid_axes}", "race_id": race_id}
 
         # オッズデータ取得
         odds_data = _get_current_odds(race_id)
@@ -60,7 +117,7 @@ def suggest_bet_combinations(
         running_styles = _get_running_styles(race_id)
 
         # 各馬のスコアを計算
-        horse_scores = _calculate_horse_scores(race_id, runners, running_styles)
+        horse_scores = _calculate_horse_scores(runners, running_styles)
 
         # 軸馬情報の抽出
         axis_info = _extract_axis_info(axis_horses, runners, horse_scores)
@@ -85,7 +142,7 @@ def suggest_bet_combinations(
 
         # 総合コメント生成
         overall_comment = _generate_overall_comment(
-            axis_info, partners, excluded, bet_type
+            axis_info, partners, excluded
         )
 
         return {
@@ -152,7 +209,6 @@ def _get_running_styles(race_id: str) -> list[dict]:
 
 
 def _calculate_horse_scores(
-    race_id: str,
     runners: list[dict],
     running_styles: list[dict],
 ) -> dict[int, dict]:
@@ -165,7 +221,7 @@ def _calculate_horse_scores(
         horse_id = runner.get("horse_id", "")
 
         # 基本スコアと理由
-        score = 50
+        score = BASE_SCORE
         reasons = []
         risk_reasons = []
 
@@ -178,23 +234,23 @@ def _calculate_horse_scores(
         # 脚質評価
         style = style_map.get(horse_number, "不明")
         if style in ["先行", "差し"]:
-            score += 5
+            score += SCORE_DELTA_STYLE
             reasons.append("脚質良好")
         elif style == "追込":
             risk_reasons.append("追込脚質")
 
         # 枠順評価
-        if horse_number <= 4:
-            score += 5
+        if horse_number <= INNER_GATE_MAX:
+            score += SCORE_DELTA_INNER_GATE
             reasons.append("内枠有利")
-        elif horse_number >= 14:
-            score -= 5
+        elif horse_number >= OUTER_GATE_MIN:
+            score += SCORE_DELTA_OUTER_GATE
             risk_reasons.append("外枠不利")
 
         scores[horse_number] = {
             "score": min(100, max(0, score)),
-            "reasons": reasons[:3],
-            "risk_reasons": risk_reasons[:3],
+            "reasons": reasons[:MAX_REASONS_DISPLAY],
+            "risk_reasons": risk_reasons[:MAX_REASONS_DISPLAY],
         }
 
     return scores
@@ -209,7 +265,7 @@ def _evaluate_form(horse_id: str) -> tuple[int, list[str], list[str]]:
     try:
         response = requests.get(
             f"{get_api_url()}/horses/{horse_id}/performances",
-            params={"limit": 5},
+            params={"limit": PERFORMANCE_LIMIT},
             headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
@@ -222,19 +278,19 @@ def _evaluate_form(horse_id: str) -> tuple[int, list[str], list[str]]:
                     avg = sum(finishes) / len(finishes)
                     in_money = sum(1 for f in finishes if f <= 3)
 
-                    if avg <= 3.0:
-                        score_delta += 20
+                    if avg <= FORM_AVG_EXCELLENT:
+                        score_delta += FORM_SCORE_EXCELLENT
                         reasons.append("好成績継続")
-                    elif avg <= 5.0:
-                        score_delta += 10
+                    elif avg <= FORM_AVG_GOOD:
+                        score_delta += FORM_SCORE_GOOD
                         reasons.append("安定した成績")
                     else:
-                        score_delta -= 10
+                        score_delta += FORM_SCORE_POOR
                         risk_reasons.append("成績不振")
 
-                    if in_money >= 3:
-                        score_delta += 5
-                        reasons.append("連対率高い")
+                    if in_money >= IN_MONEY_THRESHOLD:
+                        score_delta += SCORE_DELTA_STYLE
+                        reasons.append("馬券圏内率高い")
     except requests.RequestException as e:
         logger.debug(f"Failed to get performances for horse {horse_id}: {e}")
 
@@ -252,7 +308,7 @@ def _extract_axis_info(
 
     for horse_number in axis_horses:
         runner = runner_map.get(horse_number, {})
-        score_info = horse_scores.get(horse_number, {"score": 50})
+        score_info = horse_scores.get(horse_number, {"score": BASE_SCORE})
 
         confidence = "高" if score_info["score"] >= SCORE_HIGH_CONFIDENCE else "中"
         axis_info.append({
@@ -301,7 +357,7 @@ def _select_partners(
             high_confidence.append(partner)
         elif score >= SCORE_MEDIUM_CONFIDENCE:
             medium_confidence.append(partner)
-        elif score >= SCORE_VALUE_PICK and odds >= 10:
+        elif score >= SCORE_VALUE_PICK and odds >= VALUE_PICK_MIN_ODDS:
             partner["reasons"].append("オッズ妙味")
             value_picks.append(partner)
 
@@ -311,9 +367,9 @@ def _select_partners(
     value_picks.sort(key=lambda x: x["score"], reverse=True)
 
     return {
-        "high_confidence": high_confidence[:3],
-        "medium_confidence": medium_confidence[:3],
-        "value_picks": value_picks[:3],
+        "high_confidence": high_confidence[:MAX_HIGH_CONFIDENCE],
+        "medium_confidence": medium_confidence[:MAX_MEDIUM_CONFIDENCE],
+        "value_picks": value_picks[:MAX_VALUE_PICKS],
     }
 
 
@@ -324,15 +380,15 @@ def _evaluate_odds_value(score: int, odds: float) -> str:
 
     # スコアに対する期待オッズ
     if score >= SCORE_HIGH_CONFIDENCE:
-        expected_odds = 5.0
+        expected_odds = EXPECTED_ODDS_HIGH
     elif score >= SCORE_MEDIUM_CONFIDENCE:
-        expected_odds = 10.0
+        expected_odds = EXPECTED_ODDS_MEDIUM
     else:
-        expected_odds = 20.0
+        expected_odds = EXPECTED_ODDS_LOW
 
-    if odds < expected_odds * 0.7:
+    if odds < expected_odds * ODDS_VALUE_UNDER_RATIO:
         return "過剰人気"
-    elif odds > expected_odds * 1.5:
+    elif odds > expected_odds * ODDS_VALUE_OVER_RATIO:
         return "お値打ち"
     else:
         return "適正"
@@ -357,13 +413,13 @@ def _identify_excluded_horses(
         odds = odds_data.get(horse_number, 0)
 
         # 消し条件: スコアが低い または 人気なのにスコアが低い
-        if score < SCORE_VALUE_PICK or (odds > 0 and odds <= 5.0 and score < SCORE_MEDIUM_CONFIDENCE):
+        if score < SCORE_VALUE_PICK or (odds > 0 and odds <= FAVORITE_ODDS_THRESHOLD and score < SCORE_MEDIUM_CONFIDENCE):
             runner = runner_map.get(horse_number, {})
 
             if not risk_reasons:
                 risk_reasons = ["総合評価低"]
 
-            risk_level = "消し推奨" if score < 40 else "注意"
+            risk_level = "消し推奨" if score < SCORE_EXCLUDE_CRITICAL else "注意"
 
             excluded.append({
                 "number": horse_number,
@@ -372,7 +428,7 @@ def _identify_excluded_horses(
                 "risk_level": risk_level,
             })
 
-    return excluded[:5]
+    return excluded[:MAX_EXCLUDED_HORSES]
 
 
 def _generate_bet_suggestions(
@@ -392,7 +448,7 @@ def _generate_bet_suggestions(
         + partners.get("value_picks", [])
     )
 
-    for i, partner in enumerate(all_partners[:6]):
+    for partner in all_partners[:MAX_PARTNERS_TO_PROCESS]:
         for axis in axis_horses:
             # 組み合わせ生成
             if bet_type in ["馬連", "ワイド"]:
@@ -401,30 +457,30 @@ def _generate_bet_suggestions(
                 combination = f"{axis}-{partner['number']}"
 
             # オッズ推定（単勝オッズから概算）
-            axis_odds = odds_data.get(axis, 5.0)
-            partner_odds = odds_data.get(partner["number"], 10.0)
-            estimated_odds = (axis_odds * partner_odds) ** 0.5 * 1.2
+            axis_odds = odds_data.get(axis, DEFAULT_AXIS_ODDS)
+            partner_odds = odds_data.get(partner["number"], DEFAULT_PARTNER_ODDS)
+            estimated_odds = (axis_odds * partner_odds) ** 0.5 * ODDS_ESTIMATE_FACTOR
 
             # 信頼度と金額
             if partner["score"] >= SCORE_HIGH_CONFIDENCE:
                 confidence = "高"
-                amount = int(budget * 0.15)
+                amount = int(budget * BET_HIGH_RATIO)
             elif partner["score"] >= SCORE_MEDIUM_CONFIDENCE:
                 confidence = "中"
-                amount = int(budget * 0.08)
+                amount = int(budget * BET_MEDIUM_RATIO)
             else:
                 confidence = "低（穴狙い）"
-                amount = int(budget * 0.04)
+                amount = int(budget * BET_VALUE_RATIO)
 
             suggestions.append({
                 "bet_type": bet_type,
                 "combination": combination,
                 "estimated_odds": round(estimated_odds, 1),
                 "confidence": confidence,
-                "suggested_amount": max(100, (amount // 100) * 100),
+                "suggested_amount": max(MIN_BET_AMOUNT, (amount // MIN_BET_AMOUNT) * MIN_BET_AMOUNT),
             })
 
-    return suggestions[:8]
+    return suggestions[:MAX_BET_SUGGESTIONS]
 
 
 def _allocate_budget(budget: int, partners: dict) -> dict:
@@ -433,6 +489,7 @@ def _allocate_budget(budget: int, partners: dict) -> dict:
     medium_count = len(partners.get("medium_confidence", []))
     value_count = len(partners.get("value_picks", []))
 
+    # 実際の相手馬数に基づいて配分を調整
     total_count = high_count + medium_count + value_count
     if total_count == 0:
         return {
@@ -442,9 +499,21 @@ def _allocate_budget(budget: int, partners: dict) -> dict:
             "value_allocation": 0,
         }
 
-    high_allocation = int(budget * HIGH_CONFIDENCE_RATIO)
-    medium_allocation = int(budget * MEDIUM_CONFIDENCE_RATIO)
-    value_allocation = int(budget * VALUE_RATIO)
+    # 相手馬が存在するカテゴリにのみ配分
+    high_allocation = int(budget * HIGH_CONFIDENCE_RATIO) if high_count > 0 else 0
+    medium_allocation = int(budget * MEDIUM_CONFIDENCE_RATIO) if medium_count > 0 else 0
+    value_allocation = int(budget * VALUE_RATIO) if value_count > 0 else 0
+
+    # 残額を再配分
+    total_allocated = high_allocation + medium_allocation + value_allocation
+    if total_allocated < budget:
+        remainder = budget - total_allocated
+        if high_count > 0:
+            high_allocation += remainder
+        elif medium_count > 0:
+            medium_allocation += remainder
+        elif value_count > 0:
+            value_allocation += remainder
 
     return {
         "total_budget": budget,
@@ -458,7 +527,6 @@ def _generate_overall_comment(
     axis_info: list[dict],
     partners: dict,
     excluded: list[dict],
-    bet_type: str,
 ) -> str:
     """総合コメントを生成する."""
     axis_nums = [str(a["number"]) for a in axis_info]
