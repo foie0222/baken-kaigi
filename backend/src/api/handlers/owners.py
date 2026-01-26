@@ -65,6 +65,8 @@ def get_owner_stats(event: dict, context: Any) -> dict:
             year = int(year_str)
         except ValueError:
             return bad_request_response("Invalid year format")
+        if not (1900 <= year <= 2100):
+            return bad_request_response("year must be between 1900 and 2100")
 
     if period not in ("recent", "all"):
         return bad_request_response("period must be 'recent' or 'all'")
@@ -153,6 +155,8 @@ def get_breeder_stats(event: dict, context: Any) -> dict:
             year = int(year_str)
         except ValueError:
             return bad_request_response("Invalid year format")
+        if not (1900 <= year <= 2100):
+            return bad_request_response("year must be between 1900 and 2100")
 
     if period not in ("recent", "all"):
         return bad_request_response("period must be 'recent' or 'all'")

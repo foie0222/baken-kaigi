@@ -4,7 +4,6 @@
 """
 
 import logging
-from datetime import datetime
 
 import requests
 from strands import tool

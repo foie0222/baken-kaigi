@@ -29,7 +29,7 @@ def analyze_scratch_impact(
     Args:
         race_id: 対象レースID
         scratched_horses: 取消/除外馬リスト [{"horse_number": 1, "horse_name": "XX", "reason": "取消"}]
-                         Noneの場合はAPIから取得
+                         Noneの場合は「取消なし」として処理
 
     Returns:
         取消影響分析結果（展開変化、枠順影響、人気変動予測）
@@ -60,14 +60,14 @@ def analyze_scratch_impact(
         # 取消馬の影響分析
         scratched_impact = _analyze_scratched_horses(scratched_horses, runners)
 
-        # 展開変化予測
-        pace_impact = _predict_pace_impact(scratched_horses, runners)
+        # 展開変化予測（人気情報を含む scratched_impact を使用）
+        pace_impact = _predict_pace_impact(scratched_impact, runners)
 
         # 枠順影響
         gate_impact = _analyze_gate_impact(scratched_horses, runners)
 
-        # 人気変動予測
-        popularity_shift = _predict_popularity_shift(scratched_horses, runners)
+        # 人気変動予測（人気情報を含む scratched_impact を使用）
+        popularity_shift = _predict_popularity_shift(scratched_impact, runners)
 
         # 返還金影響
         refund_impact = _analyze_refund_impact(scratched_horses)

@@ -24,6 +24,19 @@ CONDITION_WEIGHT = {
 }
 
 
+def _normalize_track_condition(condition: str) -> str:
+    """馬場状態を正規化する（稍重→稍、不良→不など）."""
+    if not condition:
+        return "良"
+    if "不" in condition:
+        return "不"
+    if "重" in condition:
+        return "重"
+    if "稍" in condition:
+        return "稍"
+    return "良"
+
+
 @tool
 def track_course_condition_change(
     race_id: str,
@@ -151,16 +164,16 @@ def _analyze_condition_change(daily_races: list[dict], current_race: dict) -> di
             "comment": f"本日{current_track}初戦",
         }
 
-    # 馬場状態の履歴
+    # 馬場状態の履歴（正規化して保存）
     history = []
     for race in sorted(same_track_races, key=lambda x: x.get("race_number", 0)):
-        condition = race.get("track_condition", "良")
+        condition = _normalize_track_condition(race.get("track_condition", "良"))
         history.append({
             "race_number": race.get("race_number"),
             "condition": condition,
         })
 
-    # トレンド判定
+    # トレンド判定（正規化済みの条件で重みを取得）
     if len(history) >= 2:
         first_weight = CONDITION_WEIGHT.get(history[0]["condition"], 1)
         last_weight = CONDITION_WEIGHT.get(history[-1]["condition"], 1)

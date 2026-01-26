@@ -185,7 +185,8 @@ def _analyze_probability(stats: dict, scope: str) -> dict:
                 favorite_win = favorite["win_rate"]
             top3 = [ps for ps in popularity_stats if ps["popularity"] <= 3]
             if top3:
-                top3_place = sum(ps["place_rate"] for ps in top3) / 3
+                # 上位3人気の平均複勝率は、実際に存在する件数で割る
+                top3_place = sum(ps["place_rate"] for ps in top3) / len(top3)
 
         return {
             "type": "条件別",

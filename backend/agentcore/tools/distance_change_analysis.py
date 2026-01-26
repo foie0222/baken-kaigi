@@ -261,10 +261,6 @@ def _evaluate_distance_aptitude(
     win_rate = current_stats.get("win_rate", 0.0)
     place_rate = current_stats.get("place_rate", 0.0)
 
-    # 他カテゴリとの比較
-    other_stats = [s for cat, s in distance_stats.items()
-                   if cat != current_cat and s.get("runs", 0) > 0]
-
     if runs >= 3:
         if win_rate >= 25:
             rating = "A"

@@ -191,6 +191,7 @@ def _analyze_best_times(performances: list[dict]) -> dict:
         times_by_distance[distance].append({
             "time": time_str,
             "seconds": seconds,
+            "distance": distance,
             "condition": condition,
             "race_name": perf.get("race_name", ""),
             "race_date": perf.get("race_date", ""),
@@ -240,7 +241,7 @@ def _compare_to_standard(distance: int, seconds: float, condition: str) -> dict:
     base_time = STANDARD_TIMES[closest_distance]
     distance_diff = distance - closest_distance
     time_per_100m = base_time / closest_distance * 100
-    adjusted_standard = base_time + (distance_diff / 100) * (time_per_100m / closest_distance * 100)
+    adjusted_standard = base_time + (distance_diff / 100) * time_per_100m
 
     # 馬場補正
     condition_adjustment = {

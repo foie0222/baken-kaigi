@@ -198,7 +198,6 @@ def _evaluate_aptitude(condition_stats: dict, current_condition: str) -> dict:
     # 良馬場の成績と比較
     good_stats = condition_stats.get("良", {})
     good_win_rate = good_stats.get("win_rate", 0.0)
-    good_place_rate = good_stats.get("place_rate", 0.0)
 
     # 適性評価
     if runs == 0:
@@ -225,7 +224,7 @@ def _evaluate_aptitude(condition_stats: dict, current_condition: str) -> dict:
 
     is_mudder = False
     if heavy_runs >= 3:
-        mudder_win_rate = (heavy_wins / heavy_runs) * 100 if heavy_runs > 0 else 0
+        mudder_win_rate = (heavy_wins / heavy_runs) * 100
         if mudder_win_rate > good_win_rate:
             is_mudder = True
 
