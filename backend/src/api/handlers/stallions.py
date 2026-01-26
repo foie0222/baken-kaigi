@@ -1,12 +1,9 @@
 """種牡馬（スタリオン）API ハンドラー."""
-import logging
 from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
 from src.api.response import bad_request_response, not_found_response, success_response
-
-logger = logging.getLogger(__name__)
 
 
 def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
@@ -33,7 +30,7 @@ def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
     track_type = get_query_parameter(event, "track_type")
 
     # yearのバリデーション
-    year = None
+    year: int | None = None
     if year_str:
         try:
             year = int(year_str)

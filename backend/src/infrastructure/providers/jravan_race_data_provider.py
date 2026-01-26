@@ -690,9 +690,9 @@ class JraVanRaceDataProvider(RaceDataProvider):
             if track_type:
                 params["track_type"] = track_type
 
-            response = self.session.get(
-                f"{self.base_url}/api/stallions/{stallion_id}/offspring-stats",
-                timeout=self.timeout,
+            response = self._session.get(
+                f"{self._base_url}/api/stallions/{stallion_id}/offspring-stats",
+                timeout=self._timeout,
                 params=params if params else None,
             )
             if response.status_code == 404:
