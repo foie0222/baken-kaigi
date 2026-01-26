@@ -10,6 +10,7 @@ from src.domain.ports import (
     HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsDetailData,
+    OddsHistoryData,
     PastRaceStats,
     PedigreeData,
     PopularityStats,
@@ -187,6 +188,10 @@ class MockRaceDataProvider(RaceDataProvider):
         """馬の拡張血統情報を取得する（モック実装）."""
         return None
 
+    def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
+        """レースのオッズ履歴を取得する（モック実装）."""
+        return None
+
     def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
         """馬のコース適性を取得する（モック実装）."""
         return None
@@ -218,6 +223,7 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
         """厩舎成績統計を取得する（モック実装）."""
         return None, [], []
+
 
 
 class TestRaceDataProviderInterface:

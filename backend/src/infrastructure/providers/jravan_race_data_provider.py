@@ -23,6 +23,11 @@ from src.domain.ports import (
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
+    NotableMovementData,
+    OddsHistoryData,
+    OddsMovementData,
+    OddsSnapshotData,
+    OddsTimestampData,
     PastRaceStats,
     PedigreeData,
     PerformanceData,
@@ -681,6 +686,66 @@ class JraVanRaceDataProvider(RaceDataProvider):
             lineage_type=data.get("lineage_type"),
         )
 
+    def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
+        """レースのオッズ履歴を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/races/{race_id.value}/odds-history",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self._to_odds_history_data(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get odds history for race {race_id}: {e}")
+            return None
+
+    def _to_odds_history_data(self, data: dict) -> OddsHistoryData:
+        """APIレスポンスをOddsHistoryDataに変換する."""
+        odds_history = []
+        for timestamp_data in data.get("odds_history", []):
+            odds_list = [
+                OddsSnapshotData(
+                    horse_number=o["horse_number"],
+                    win_odds=o["win_odds"],
+                    place_odds_min=o.get("place_odds_min"),
+                    place_odds_max=o.get("place_odds_max"),
+                    popularity=o["popularity"],
+                )
+                for o in timestamp_data.get("odds", [])
+            ]
+            odds_history.append(OddsTimestampData(
+                timestamp=timestamp_data["timestamp"],
+                odds=odds_list,
+            ))
+
+        odds_movement = [
+            OddsMovementData(
+                horse_number=m["horse_number"],
+                initial_odds=m["initial_odds"],
+                final_odds=m["final_odds"],
+                change_rate=m["change_rate"],
+                trend=m["trend"],
+            )
+            for m in data.get("odds_movement", [])
+        ]
+
+        notable_movements = [
+            NotableMovementData(
+                horse_number=n["horse_number"],
+                description=n["description"],
+            )
+            for n in data.get("notable_movements", [])
+        ]
+
+        return OddsHistoryData(
+            race_id=data["race_id"],
+            odds_history=odds_history,
+            odds_movement=odds_movement,
+            notable_movements=notable_movements,
+        )
+
     def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
         """馬のコース適性を取得する."""
         try:
@@ -961,6 +1026,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
         ]
 
         return stats, track_stats, distance_stats, condition_stats, top_offspring
+
 
 
 class JraVanApiError(Exception):

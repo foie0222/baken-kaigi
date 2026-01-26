@@ -15,6 +15,11 @@ from src.domain.ports import (
     JockeyInfoData,
     JockeyStatsData,
     JockeyStatsDetailData,
+    NotableMovementData,
+    OddsHistoryData,
+    OddsMovementData,
+    OddsSnapshotData,
+    OddsTimestampData,
     PastRaceStats,
     PedigreeData,
     PerformanceData,
@@ -878,6 +883,113 @@ class MockRaceDataProvider(RaceDataProvider):
             lineage_type=lineage_type,
         )
 
+    def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
+        """レースのオッズ履歴を取得する（モック実装）."""
+        import random
+
+        race_id_str = str(race_id)
+
+        # nonexistent で始まるIDの場合はNoneを返す
+        if race_id_str.startswith("nonexistent"):
+            return None
+
+        random.seed(_stable_hash(race_id_str) % (2**32))
+
+        # 出走馬を取得
+        runners = self.get_runners(race_id)
+        if not runners:
+            return None
+
+        # 時系列オッズデータを生成（発売開始〜締切まで）
+        odds_history = []
+        timestamps = [
+            "09:00:00", "10:00:00", "11:00:00", "12:00:00",
+            "13:00:00", "14:00:00", "15:00:00", "15:30:00"
+        ]
+
+        initial_odds: dict[int, float] = {}
+        final_odds: dict[int, float] = {}
+
+        for ts_idx, ts in enumerate(timestamps):
+            timestamp = f"2024-01-20T{ts}+09:00"
+            odds_list = []
+
+            for runner in runners:
+                # 初期オッズを設定
+                if ts_idx == 0:
+                    base_odds = float(runner.odds)
+                    initial_odds[runner.horse_number] = base_odds
+                    current_odds = base_odds
+                else:
+                    # オッズの変動をシミュレート
+                    prev_odds = initial_odds[runner.horse_number]
+                    # 人気馬は下がる傾向、人気薄は上がる傾向
+                    trend_factor = 1.0 + (runner.popularity - 9) * 0.02 * (ts_idx / len(timestamps))
+                    noise = random.uniform(-0.1, 0.1)
+                    current_odds = max(1.1, prev_odds * trend_factor + noise)
+
+                if ts_idx == len(timestamps) - 1:
+                    final_odds[runner.horse_number] = current_odds
+
+                # 複勝オッズを生成（単勝の1/3〜1/2程度）
+                place_odds_min = current_odds * random.uniform(0.3, 0.4)
+                place_odds_max = place_odds_min * random.uniform(1.2, 1.5)
+
+                odds_list.append(OddsSnapshotData(
+                    horse_number=runner.horse_number,
+                    win_odds=round(current_odds, 1),
+                    place_odds_min=round(place_odds_min, 1),
+                    place_odds_max=round(place_odds_max, 1),
+                    popularity=runner.popularity,
+                ))
+
+            odds_history.append(OddsTimestampData(
+                timestamp=timestamp,
+                odds=odds_list,
+            ))
+
+        # オッズ推移データを生成
+        odds_movement = []
+        for runner in runners:
+            init_odds = initial_odds.get(runner.horse_number, float(runner.odds))
+            fin_odds = final_odds.get(runner.horse_number, init_odds)
+            change_rate = ((fin_odds - init_odds) / init_odds) * 100 if init_odds > 0 else 0
+
+            if change_rate < -10:
+                trend = "下降"
+            elif change_rate > 10:
+                trend = "上昇"
+            else:
+                trend = "横ばい"
+
+            odds_movement.append(OddsMovementData(
+                horse_number=runner.horse_number,
+                initial_odds=round(init_odds, 1),
+                final_odds=round(fin_odds, 1),
+                change_rate=round(change_rate, 1),
+                trend=trend,
+            ))
+
+        # 注目の変動データを生成（大きく動いた馬）
+        notable_movements = []
+        for mov in odds_movement:
+            if abs(mov.change_rate) > 15:
+                if mov.trend == "下降":
+                    desc = f"{mov.horse_number}番が人気急上昇（オッズ{mov.initial_odds}→{mov.final_odds}）"
+                else:
+                    desc = f"{mov.horse_number}番が人気急落（オッズ{mov.initial_odds}→{mov.final_odds}）"
+                notable_movements.append(NotableMovementData(
+                    horse_number=mov.horse_number,
+                    description=desc,
+                ))
+
+        return OddsHistoryData(
+            race_id=race_id_str,
+            odds_history=odds_history,
+            odds_movement=odds_movement,
+            notable_movements=notable_movements,
+        )
+
     def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
         """馬のコース適性を取得する（モック実装）."""
         import random
@@ -1139,6 +1251,7 @@ class MockRaceDataProvider(RaceDataProvider):
             ))
 
         return stats, track_stats, distance_stats, condition_stats, top_offspring
+
 
     def _generate_race_data(
         self, race_id: str, target_date: date, venue: str, race_number: int

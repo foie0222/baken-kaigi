@@ -225,6 +225,54 @@ class ExtendedPedigreeData:
 
 
 @dataclass(frozen=True)
+class OddsSnapshotData:
+    """オッズスナップショットデータ（馬ごと）."""
+
+    horse_number: int
+    win_odds: float
+    place_odds_min: float | None
+    place_odds_max: float | None
+    popularity: int
+
+
+@dataclass(frozen=True)
+class OddsTimestampData:
+    """時系列オッズデータ."""
+
+    timestamp: str  # ISO8601形式
+    odds: list[OddsSnapshotData]
+
+
+@dataclass(frozen=True)
+class OddsMovementData:
+    """オッズ推移データ."""
+
+    horse_number: int
+    initial_odds: float
+    final_odds: float
+    change_rate: float  # 変化率（%）
+    trend: str  # 上昇/下降/横ばい
+
+
+@dataclass(frozen=True)
+class NotableMovementData:
+    """注目のオッズ変動データ."""
+
+    horse_number: int
+    description: str
+
+
+@dataclass(frozen=True)
+class OddsHistoryData:
+    """オッズ履歴総合データ."""
+
+    race_id: str
+    odds_history: list[OddsTimestampData]
+    odds_movement: list[OddsMovementData]
+    notable_movements: list[NotableMovementData]
+
+
+@dataclass(frozen=True)
 class VenueAptitudeData:
     """競馬場別適性データ."""
 
@@ -601,6 +649,18 @@ class RaceDataProvider(ABC):
 
         Returns:
             拡張血統情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
+        """レースのオッズ履歴を取得する.
+
+        Args:
+            race_id: レースID
+
+        Returns:
+            オッズ履歴データ、見つからない場合はNone
         """
         pass
 

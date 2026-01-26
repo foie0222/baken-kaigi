@@ -199,3 +199,67 @@ def get_race_detail(event: dict, context: Any) -> dict:
         runners.append(runner_dict)
 
     return success_response({"race": race, "runners": runners})
+
+
+def get_odds_history(event: dict, context: Any) -> dict:
+    """レースのオッズ履歴を取得する.
+
+    GET /races/{race_id}/odds-history
+
+    Path Parameters:
+        race_id: レースID
+
+    Returns:
+        オッズ履歴データ
+    """
+    race_id_str = get_path_parameter(event, "race_id")
+    if not race_id_str:
+        return bad_request_response("race_id is required")
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    race_id = RaceId(race_id_str)
+    result = provider.get_odds_history(race_id)
+
+    if result is None:
+        return not_found_response("Race")
+
+    # レスポンス構築
+    response = {
+        "race_id": result.race_id,
+        "odds_history": [
+            {
+                "timestamp": ts.timestamp,
+                "odds": [
+                    {
+                        "horse_number": o.horse_number,
+                        "win_odds": o.win_odds,
+                        "place_odds_min": o.place_odds_min,
+                        "place_odds_max": o.place_odds_max,
+                        "popularity": o.popularity,
+                    }
+                    for o in ts.odds
+                ],
+            }
+            for ts in result.odds_history
+        ],
+        "odds_movement": [
+            {
+                "horse_number": m.horse_number,
+                "initial_odds": m.initial_odds,
+                "final_odds": m.final_odds,
+                "change_rate": m.change_rate,
+                "trend": m.trend,
+            }
+            for m in result.odds_movement
+        ],
+        "notable_movements": [
+            {
+                "horse_number": n.horse_number,
+                "description": n.description,
+            }
+            for n in result.notable_movements
+        ],
+    }
+
+    return success_response(response)
