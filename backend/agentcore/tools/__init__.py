@@ -17,6 +17,7 @@ from .jockey_analysis import analyze_jockey_factor
 from .odds_analysis import analyze_odds_movement
 from .weight_analysis import analyze_weight_trend
 from .gate_analysis import analyze_gate_position
+from .sire_analysis import analyze_sire_offspring
 
 __all__ = [
     "get_race_data",
@@ -35,4 +36,5 @@ __all__ = [
     "analyze_odds_movement",
     "analyze_weight_trend",
     "analyze_gate_position",
+    "analyze_sire_offspring",
 ]
