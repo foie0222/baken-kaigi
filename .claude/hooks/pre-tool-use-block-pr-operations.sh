@@ -74,6 +74,7 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr
 
   # Copilotレビューコメントと未解決コメントの確認（1回のクエリで取得）
   # ※レビューが「存在する」だけでなく「コメントが投稿済み」であることを確認
+  # ※各スレッドで最大10件のコメントを取得し、Copilotの返信コメントも検知
   COPILOT_QUERY=$(cat <<EOF
 query {
   repository(owner: "$OWNER", name: "$REPO") {
@@ -82,7 +83,7 @@ query {
         totalCount
         nodes {
           isResolved
-          comments(first: 1) {
+          comments(first: 10) {
             nodes {
               author { login }
             }
@@ -97,12 +98,32 @@ EOF
 
   QUERY_RESULT=$(gh api graphql -f query="$COPILOT_QUERY" 2>/dev/null || echo "")
   if [ -z "$QUERY_RESULT" ]; then
-    echo "BLOCK: PRの状態を確認できませんでした。" >&2
+    echo "BLOCK: PRの状態を確認できませんでした（APIリクエスト失敗）。" >&2
+    exit 2
+  fi
+
+  # GraphQLエラーの確認（.errors が存在する場合はエラー）
+  HAS_ERRORS=$(echo "$QUERY_RESULT" | jq 'has("errors")' 2>/dev/null || echo "true")
+  if [ "$HAS_ERRORS" = "true" ]; then
+    ERROR_MSG=$(echo "$QUERY_RESULT" | jq -r '.errors[0].message // "不明なエラー"' 2>/dev/null || echo "不明なエラー")
+    echo "BLOCK: PRの状態を確認できませんでした（GraphQLエラー: ${ERROR_MSG}）。" >&2
+    exit 2
+  fi
+
+  # .data.repository.pullRequest が null でないことを確認
+  PR_DATA=$(echo "$QUERY_RESULT" | jq '.data.repository.pullRequest' 2>/dev/null || echo "null")
+  if [ "$PR_DATA" = "null" ]; then
+    echo "BLOCK: PRの情報を取得できませんでした（PR番号が無効か、アクセス権限がありません）。" >&2
     exit 2
   fi
 
   # Copilotのコメント数を確認（コメントが1件以上投稿されているか）
-  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null || echo "0")
+  # jq失敗時は-1を返して後続のエラーチェックで検出
+  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null)
+  if [ -z "$COPILOT_COMMENT_COUNT" ] || ! echo "$COPILOT_COMMENT_COUNT" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: Copilotコメント数の取得に失敗しました（レスポンス解析エラー）。" >&2
+    exit 2
+  fi
 
   if [ "$COPILOT_COMMENT_COUNT" -eq 0 ]; then
     echo "BLOCK: Copilotのレビューコメントがありません。Copilotレビューが完了してからマージしてください。" >&2
