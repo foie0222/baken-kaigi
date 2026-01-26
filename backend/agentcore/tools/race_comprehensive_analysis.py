@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Any
 
 import requests
 from strands import tool
@@ -19,15 +18,10 @@ API_TIMEOUT_SECONDS = 30
 # 能力評価の閾値
 SCORE_EXCELLENT = 80
 SCORE_GOOD = 65
-SCORE_AVERAGE = 50
 
 # オッズ評価の閾値
 FAVORITE_ODDS_THRESHOLD = 5.0
 VALUE_ODDS_THRESHOLD = 15.0
-
-# レース品質の閾値
-RUNNER_COUNT_HIGH_QUALITY = 14
-RUNNER_COUNT_LOW_QUALITY = 10
 
 
 @tool
@@ -62,7 +56,7 @@ def analyze_race_comprehensive(race_id: str) -> dict:
 
         # 各馬の総合評価を計算
         runners_evaluation = _evaluate_all_runners(
-            race_id, runners, running_styles, odds_data, race_info
+            runners, running_styles, race_info
         )
 
         # ランキング順にソート
@@ -71,13 +65,13 @@ def analyze_race_comprehensive(race_id: str) -> dict:
             runner["rank"] = i
 
         # 展開予想
-        race_forecast = _predict_race_scenario(runners_evaluation, running_styles, race_info)
+        race_forecast = _predict_race_scenario(running_styles)
 
         # 注目馬の抽出
         notable_horses = _identify_notable_horses(runners_evaluation, odds_data)
 
         # 買い目提案
-        betting_suggestion = _generate_betting_suggestion(runners_evaluation, notable_horses)
+        betting_suggestion = _generate_betting_suggestion(notable_horses)
 
         # レース品質評価
         race_quality = _evaluate_race_quality(runners_evaluation, race_info)
@@ -133,7 +127,8 @@ def _get_runners(race_id: str) -> list[dict]:
         )
         response.raise_for_status()
         return response.json().get("runners", [])
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.error(f"Failed to get runners for race {race_id}: {e}")
         return []
 
 
@@ -146,8 +141,9 @@ def _get_running_styles(race_id: str) -> list[dict]:
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        return response.json()
-    except requests.RequestException:
+        return response.json().get("running_styles", [])
+    except requests.RequestException as e:
+        logger.error(f"Failed to get running styles for race {race_id}: {e}")
         return []
 
 
@@ -163,15 +159,14 @@ def _get_current_odds(race_id: str) -> dict:
         data = response.json()
         # 馬番をキーにしたマップに変換
         return {o.get("horse_number"): o.get("odds", 0) for o in data.get("odds", [])}
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.error(f"Failed to get current odds for race {race_id}: {e}")
         return {}
 
 
 def _evaluate_all_runners(
-    race_id: str,
     runners: list[dict],
     running_styles: list[dict],
-    odds_data: dict,
     race_info: dict,
 ) -> list[dict]:
     """全出走馬を評価する."""
@@ -189,7 +184,7 @@ def _evaluate_all_runners(
 
         # 強みと弱みの抽出
         strengths, weaknesses = _extract_strengths_weaknesses(
-            factors, horse_number, style_map, odds_data, race_info
+            factors, horse_number, style_map
         )
 
         # 総合スコア計算
@@ -210,9 +205,6 @@ def _evaluate_all_runners(
 
 def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
     """馬の各要素を評価する."""
-    # APIから詳細データを取得して評価
-    # 簡易評価としてランダムではなく固定ロジックで評価
-
     factors = {
         "form": "B",
         "course_aptitude": "B",
@@ -234,8 +226,8 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
             performances = data.get("performances", [])
             if performances:
                 factors["form"] = _evaluate_form_from_performances(performances)
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        logger.debug(f"Failed to get performances for horse {horse_id}: {e}")
 
     # コース適性評価
     try:
@@ -247,10 +239,9 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
         if response.status_code == 200:
             data = response.json()
             venue = race_info.get("venue", "")
-            track_type = race_info.get("track_type", "")
-            factors["course_aptitude"] = _evaluate_course_aptitude(data, venue, track_type)
-    except requests.RequestException:
-        pass
+            factors["course_aptitude"] = _evaluate_course_aptitude(data, venue)
+    except requests.RequestException as e:
+        logger.debug(f"Failed to get course aptitude for horse {horse_id}: {e}")
 
     return factors
 
@@ -275,7 +266,7 @@ def _evaluate_form_from_performances(performances: list[dict]) -> str:
         return "C"
 
 
-def _evaluate_course_aptitude(data: dict, venue: str, track_type: str) -> str:
+def _evaluate_course_aptitude(data: dict, venue: str) -> str:
     """コース適性を評価する."""
     venue_stats = data.get("venue_stats", {}).get(venue, {})
     if not venue_stats:
@@ -296,8 +287,6 @@ def _extract_strengths_weaknesses(
     factors: dict,
     horse_number: int,
     style_map: dict,
-    odds_data: dict,
-    race_info: dict,
 ) -> tuple[list[str], list[str]]:
     """強みと弱みを抽出する."""
     strengths = []
@@ -363,11 +352,7 @@ def _calculate_overall_score(factors: dict) -> int:
     return min(score, 100)
 
 
-def _predict_race_scenario(
-    runners_evaluation: list[dict],
-    running_styles: list[dict],
-    race_info: dict,
-) -> dict:
+def _predict_race_scenario(running_styles: list[dict]) -> dict:
     """レース展開を予測する."""
     # 脚質分布を集計
     style_counts = {"逃げ": 0, "先行": 0, "差し": 0, "追込": 0}
@@ -432,15 +417,17 @@ def _identify_notable_horses(
 
         # 穴馬候補（スコアは高いがオッズが妙味あり）
         if score >= SCORE_GOOD and odds >= VALUE_ODDS_THRESHOLD:
+            strengths = runner.get("strengths") or []
+            strengths_reason = strengths[0] if strengths else "能力上位"
             value_picks.append({
                 "number": horse_number,
                 "name": horse_name,
-                "reason": f"オッズ{odds}倍は妙味あり。{runner['strengths'][0] if runner['strengths'] else '能力上位'}",
+                "reason": f"オッズ{odds}倍は妙味あり。{strengths_reason}",
             })
 
         # 危険な人気馬（人気だがスコアが低い）
         if odds > 0 and odds <= FAVORITE_ODDS_THRESHOLD and score < SCORE_GOOD:
-            weaknesses = runner.get("weaknesses", [])
+            weaknesses = runner.get("weaknesses") or []
             reason = weaknesses[0] if weaknesses else "過剰人気の可能性"
             danger_favorites.append({
                 "number": horse_number,
@@ -457,7 +444,7 @@ def _identify_notable_horses(
 
 def _generate_top_pick_reason(runner: dict) -> str:
     """本命馬の推奨理由を生成する."""
-    strengths = runner.get("strengths", [])
+    strengths = runner.get("strengths") or []
     if len(strengths) >= 2:
         return f"{strengths[0]}・{strengths[1]}で総合力No.1"
     elif strengths:
@@ -465,10 +452,7 @@ def _generate_top_pick_reason(runner: dict) -> str:
     return "総合力で上位"
 
 
-def _generate_betting_suggestion(
-    runners_evaluation: list[dict],
-    notable_horses: dict,
-) -> dict:
+def _generate_betting_suggestion(notable_horses: dict) -> dict:
     """買い目提案を生成する."""
     top_picks = notable_horses.get("top_picks", [])
     value_picks = notable_horses.get("value_picks", [])
@@ -498,7 +482,6 @@ def _generate_betting_suggestion(
 def _evaluate_race_quality(runners_evaluation: list[dict], race_info: dict) -> str:
     """レースの品質を評価する."""
     grade = race_info.get("grade", "")
-    total_runners = len(runners_evaluation)
 
     # G1/G2は自動的にハイレベル
     if grade in ["G1", "G2"]:
