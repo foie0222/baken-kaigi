@@ -1,12 +1,9 @@
 """統計API ハンドラー."""
-import logging
 from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_query_parameter
 from src.api.response import bad_request_response, not_found_response, success_response
-
-logger = logging.getLogger(__name__)
 
 
 def get_gate_position_stats(event: dict, context: Any) -> dict:

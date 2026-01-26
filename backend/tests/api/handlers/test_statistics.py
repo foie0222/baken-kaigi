@@ -1,5 +1,6 @@
 """統計APIハンドラーのテスト."""
-from datetime import date, datetime
+import json
+from datetime import date
 
 import pytest
 
@@ -9,7 +10,11 @@ from src.domain.identifiers import RaceId
 from src.domain.ports import (
     CourseAptitudeData,
     ExtendedPedigreeData,
+    GateAnalysisData,
+    GatePositionConditionsData,
     GatePositionStatsData,
+    GateStatsData,
+    HorseNumberStatsData,
     HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
@@ -224,3 +229,65 @@ class TestGetGatePositionStats:
 
         assert result["statusCode"] == 400
         assert "limit must be between 1 and 500" in result["body"]
+
+    def test_正常に枠順統計を取得できる(self) -> None:
+        """正常に枠順統計を取得できることを確認."""
+        provider = MockRaceDataProvider()
+
+        # ダミーの統計データを作成
+        conditions = GatePositionConditionsData(
+            venue="阪神",
+            track_type="芝",
+            distance=1600,
+            track_condition=None,
+        )
+        by_gate = [
+            GateStatsData(
+                gate=1,
+                gate_range="1-2枠",
+                starts=100,
+                wins=20,
+                places=40,
+                win_rate=20.0,
+                place_rate=40.0,
+                avg_finish=5.2,
+            )
+        ]
+        by_horse_number = [
+            HorseNumberStatsData(
+                horse_number=1,
+                starts=50,
+                wins=10,
+                win_rate=20.0,
+            )
+        ]
+        analysis = GateAnalysisData(
+            favorable_gates=[1, 2],
+            unfavorable_gates=[7, 8],
+            comment="阪神芝1600mは内枠有利",
+        )
+        stats = GatePositionStatsData(
+            conditions=conditions,
+            total_races=100,
+            by_gate=by_gate,
+            by_horse_number=by_horse_number,
+            analysis=analysis,
+        )
+        provider.add_gate_position_stats("阪神_芝_1600_None", stats)
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {"venue": "阪神", "track_type": "芝", "distance": "1600"}}
+        result = get_gate_position_stats(event, {})
+
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["conditions"]["venue"] == "阪神"
+        assert body["conditions"]["track_type"] == "芝"
+        assert body["conditions"]["distance"] == 1600
+        assert body["total_races"] == 100
+        assert len(body["by_gate"]) == 1
+        assert body["by_gate"][0]["gate"] == 1
+        assert body["by_gate"][0]["win_rate"] == 20.0
+        assert len(body["by_horse_number"]) == 1
+        assert body["analysis"]["favorable_gates"] == [1, 2]
+        assert body["analysis"]["comment"] == "阪神芝1600mは内枠有利"
