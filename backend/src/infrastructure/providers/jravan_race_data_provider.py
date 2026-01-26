@@ -31,7 +31,16 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    StallionConditionStatsData,
+    StallionDistanceStatsData,
+    StallionOffspringStatsData,
+    StallionTrackStatsData,
+    TopOffspringData,
     TrackTypeAptitudeData,
+    TrainerClassStatsData,
+    TrainerInfoData,
+    TrainerStatsDetailData,
+    TrainerTrackStatsData,
     TrainingRecordData,
     TrainingSummaryData,
     VenueAptitudeData,
@@ -762,6 +771,196 @@ class JraVanRaceDataProvider(RaceDataProvider):
             by_running_position=by_running_position,
             aptitude_summary=aptitude_summary,
         )
+
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎（調教師）基本情報を取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/api/trainers/{trainer_id}/info",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            return self._to_trainer_info_data(data)
+        except requests.RequestException as e:
+            logger.error(f"Failed to get trainer info for {trainer_id}: {e}")
+            return None
+
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎（調教師）の成績統計を取得する."""
+        try:
+            params = {"period": period}
+            if year:
+                params["year"] = str(year)
+
+            response = self._session.get(
+                f"{self._base_url}/api/trainers/{trainer_id}/stats",
+                params=params,
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return None, [], []
+            response.raise_for_status()
+            data = response.json()
+
+            stats = self._to_trainer_stats_detail_data(data)
+            track_stats = [
+                TrainerTrackStatsData(
+                    track_type=t["track_type"],
+                    starts=t["starts"],
+                    wins=t["wins"],
+                    win_rate=t["win_rate"],
+                )
+                for t in data.get("by_track_type", [])
+            ]
+            class_stats = [
+                TrainerClassStatsData(
+                    grade_class=c["class"],
+                    starts=c["starts"],
+                    wins=c["wins"],
+                    win_rate=c["win_rate"],
+                )
+                for c in data.get("by_class", [])
+            ]
+            return stats, track_stats, class_stats
+        except requests.RequestException as e:
+            logger.error(f"Failed to get trainer stats for {trainer_id}: {e}")
+            return None, [], []
+
+    def _to_trainer_info_data(self, data: dict) -> TrainerInfoData:
+        """APIレスポンスをTrainerInfoDataに変換する."""
+        return TrainerInfoData(
+            trainer_id=data["trainer_id"],
+            trainer_name=data["trainer_name"],
+            trainer_name_kana=data.get("trainer_name_kana"),
+            affiliation=data.get("affiliation"),
+            stable_location=data.get("stable_location"),
+            license_year=data.get("license_year"),
+            career_wins=data.get("career_wins"),
+            career_starts=data.get("career_starts"),
+        )
+
+    def _to_trainer_stats_detail_data(self, data: dict) -> TrainerStatsDetailData:
+        """APIレスポンスをTrainerStatsDetailDataに変換する."""
+        stats = data.get("stats", {})
+        return TrainerStatsDetailData(
+            trainer_id=data["trainer_id"],
+            trainer_name=data["trainer_name"],
+            total_starts=stats.get("total_starts", 0),
+            wins=stats.get("wins", 0),
+            second_places=stats.get("places", 0) - stats.get("wins", 0) if stats.get("places") else 0,
+            third_places=0,  # APIから取得できない場合
+            win_rate=stats.get("win_rate", 0.0),
+            place_rate=stats.get("place_rate", 0.0),
+            prize_money=stats.get("prize_money"),
+            period=data.get("period", "all"),
+            year=data.get("year"),
+        )
+
+    def get_stallion_offspring_stats(
+        self,
+        stallion_id: str,
+        year: int | None = None,
+        track_type: str | None = None,
+    ) -> tuple[
+        StallionOffspringStatsData | None,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """種牡馬の産駒成績統計を取得する."""
+        try:
+            params = {}
+            if year:
+                params["year"] = year
+            if track_type:
+                params["track_type"] = track_type
+
+            response = self._session.get(
+                f"{self._base_url}/api/stallions/{stallion_id}/offspring-stats",
+                timeout=self._timeout,
+                params=params if params else None,
+            )
+            if response.status_code == 404:
+                return None, [], [], [], []
+            response.raise_for_status()
+            return self._to_stallion_offspring_stats(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get stallion offspring stats for {stallion_id}: {e}")
+            return None, [], [], [], []
+
+    def _to_stallion_offspring_stats(
+        self, data: dict
+    ) -> tuple[
+        StallionOffspringStatsData,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """APIレスポンスを産駒成績統計に変換する."""
+        stats_data = data.get("stats", {})
+        stats = StallionOffspringStatsData(
+            stallion_id=data["stallion_id"],
+            stallion_name=data["stallion_name"],
+            total_offspring=data.get("total_offspring", 0),
+            total_starts=stats_data.get("total_starts", 0),
+            wins=stats_data.get("wins", 0),
+            win_rate=stats_data.get("win_rate", 0.0),
+            place_rate=stats_data.get("place_rate", 0.0),
+            g1_wins=stats_data.get("g1_wins", 0),
+            earnings=stats_data.get("earnings"),
+        )
+
+        track_stats = [
+            StallionTrackStatsData(
+                track_type=t["track_type"],
+                starts=t["starts"],
+                wins=t["wins"],
+                win_rate=t["win_rate"],
+                avg_distance=t.get("avg_distance"),
+            )
+            for t in data.get("by_track_type", [])
+        ]
+
+        distance_stats = [
+            StallionDistanceStatsData(
+                distance_range=d["distance_range"],
+                starts=d["starts"],
+                wins=d["wins"],
+                win_rate=d["win_rate"],
+            )
+            for d in data.get("by_distance", [])
+        ]
+
+        condition_stats = [
+            StallionConditionStatsData(
+                condition=c["condition"],
+                starts=c["starts"],
+                wins=c["wins"],
+                win_rate=c["win_rate"],
+            )
+            for c in data.get("by_track_condition", [])
+        ]
+
+        top_offspring = [
+            TopOffspringData(
+                horse_name=o["horse_name"],
+                wins=o["wins"],
+                g1_wins=o["g1_wins"],
+            )
+            for o in data.get("top_offspring", [])
+        ]
+
+        return stats, track_stats, distance_stats, condition_stats, top_offspring
 
 
 class JraVanApiError(Exception):
