@@ -343,6 +343,20 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # 種牡馬API
+        get_stallion_offspring_stats_fn = lambda_.Function(
+            self,
+            "GetStallionOffspringStatsFunction",
+            handler="src.api.handlers.stallions.get_stallion_offspring_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-stallion-offspring-stats",
+            description="種牡馬産駒成績統計取得",
+            **lambda_common_props,
+        )
+
         # API Gateway
         api = apigw.RestApi(
             self,
@@ -459,6 +473,18 @@ class BakenKaigiApiStack(Stack):
         jockey_stats = jockey.add_resource("stats")
         jockey_stats.add_method(
             "GET", apigw.LambdaIntegration(get_jockey_stats_fn), api_key_required=True
+        )
+
+        # /stallions
+        stallions = api.root.add_resource("stallions")
+
+        # /stallions/{stallion_id}
+        stallion = stallions.add_resource("{stallion_id}")
+
+        # /stallions/{stallion_id}/offspring-stats
+        stallion_offspring_stats = stallion.add_resource("offspring-stats")
+        stallion_offspring_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_stallion_offspring_stats_fn), api_key_required=True
         )
 
         # /cart

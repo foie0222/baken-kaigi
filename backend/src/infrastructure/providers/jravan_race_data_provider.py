@@ -26,6 +26,11 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    StallionConditionStatsData,
+    StallionDistanceStatsData,
+    StallionOffspringStatsData,
+    StallionTrackStatsData,
+    TopOffspringData,
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
@@ -664,6 +669,104 @@ class JraVanRaceDataProvider(RaceDataProvider):
             inbreeding=inbreeding,
             lineage_type=data.get("lineage_type"),
         )
+
+    def get_stallion_offspring_stats(
+        self,
+        stallion_id: str,
+        year: int | None = None,
+        track_type: str | None = None,
+    ) -> tuple[
+        StallionOffspringStatsData | None,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """種牡馬の産駒成績統計を取得する."""
+        try:
+            params = {}
+            if year:
+                params["year"] = year
+            if track_type:
+                params["track_type"] = track_type
+
+            response = self._session.get(
+                f"{self._base_url}/api/stallions/{stallion_id}/offspring-stats",
+                timeout=self._timeout,
+                params=params if params else None,
+            )
+            if response.status_code == 404:
+                return None, [], [], [], []
+            response.raise_for_status()
+            return self._to_stallion_offspring_stats(response.json())
+        except requests.RequestException as e:
+            logger.warning(f"Could not get stallion offspring stats for {stallion_id}: {e}")
+            return None, [], [], [], []
+
+    def _to_stallion_offspring_stats(
+        self, data: dict
+    ) -> tuple[
+        StallionOffspringStatsData,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """APIレスポンスを産駒成績統計に変換する."""
+        stats_data = data.get("stats", {})
+        stats = StallionOffspringStatsData(
+            stallion_id=data["stallion_id"],
+            stallion_name=data["stallion_name"],
+            total_offspring=data.get("total_offspring", 0),
+            total_starts=stats_data.get("total_starts", 0),
+            wins=stats_data.get("wins", 0),
+            win_rate=stats_data.get("win_rate", 0.0),
+            place_rate=stats_data.get("place_rate", 0.0),
+            g1_wins=stats_data.get("g1_wins", 0),
+            earnings=stats_data.get("earnings"),
+        )
+
+        track_stats = [
+            StallionTrackStatsData(
+                track_type=t["track_type"],
+                starts=t["starts"],
+                wins=t["wins"],
+                win_rate=t["win_rate"],
+                avg_distance=t.get("avg_distance"),
+            )
+            for t in data.get("by_track_type", [])
+        ]
+
+        distance_stats = [
+            StallionDistanceStatsData(
+                distance_range=d["distance_range"],
+                starts=d["starts"],
+                wins=d["wins"],
+                win_rate=d["win_rate"],
+            )
+            for d in data.get("by_distance", [])
+        ]
+
+        condition_stats = [
+            StallionConditionStatsData(
+                condition=c["condition"],
+                starts=c["starts"],
+                wins=c["wins"],
+                win_rate=c["win_rate"],
+            )
+            for c in data.get("by_track_condition", [])
+        ]
+
+        top_offspring = [
+            TopOffspringData(
+                horse_name=o["horse_name"],
+                wins=o["wins"],
+                g1_wins=o["g1_wins"],
+            )
+            for o in data.get("top_offspring", [])
+        ]
+
+        return stats, track_stats, distance_stats, condition_stats, top_offspring
 
 
 class JraVanApiError(Exception):
