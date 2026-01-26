@@ -1,8 +1,10 @@
-"""GetRaceDetailUseCaseのテスト."""
+"""統計APIハンドラーのテスト."""
 from datetime import date, datetime
 
 import pytest
 
+from src.api.dependencies import Dependencies
+from src.api.handlers.statistics import get_gate_position_stats
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     CourseAptitudeData,
@@ -38,19 +40,14 @@ class MockRaceDataProvider(RaceDataProvider):
     """テスト用のモック実装."""
 
     def __init__(self) -> None:
-        self._races: dict[str, RaceData] = {}
-        self._runners: dict[str, list[RunnerData]] = {}
+        self._gate_position_stats: dict[str, GatePositionStatsData] = {}
 
-    def add_race(self, race: RaceData) -> None:
-        """テスト用にレースを追加."""
-        self._races[race.race_id] = race
-
-    def add_runners(self, race_id: str, runners: list[RunnerData]) -> None:
-        """テスト用に出走馬を追加."""
-        self._runners[race_id] = runners
+    def add_gate_position_stats(self, key: str, stats: GatePositionStatsData) -> None:
+        """テスト用に枠順統計を追加."""
+        self._gate_position_stats[key] = stats
 
     def get_race(self, race_id: RaceId) -> RaceData | None:
-        return self._races.get(str(race_id))
+        return None
 
     def get_races_by_date(
         self, target_date: date, venue: str | None = None
@@ -58,7 +55,7 @@ class MockRaceDataProvider(RaceDataProvider):
         return []
 
     def get_runners(self, race_id: RaceId) -> list[RunnerData]:
-        return self._runners.get(str(race_id), [])
+        return []
 
     def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
         return []
@@ -98,11 +95,9 @@ class MockRaceDataProvider(RaceDataProvider):
         grade_class: str | None = None,
         limit: int = 100
     ) -> PastRaceStats | None:
-        """過去の同条件レース統計を取得する（モック実装）."""
         return None
 
     def get_jockey_info(self, jockey_id: str) -> JockeyInfoData | None:
-        """騎手基本情報を取得する（モック実装）."""
         return None
 
     def get_jockey_stats_detail(
@@ -111,7 +106,6 @@ class MockRaceDataProvider(RaceDataProvider):
         year: int | None = None,
         period: str = "recent",
     ) -> JockeyStatsDetailData | None:
-        """騎手成績統計を取得する（モック実装）."""
         return None
 
     def get_horse_performances(
@@ -120,7 +114,6 @@ class MockRaceDataProvider(RaceDataProvider):
         limit: int = 5,
         track_type: str | None = None,
     ) -> list[HorsePerformanceData]:
-        """馬の過去成績を取得する（モック実装）."""
         return []
 
     def get_horse_training(
@@ -129,19 +122,15 @@ class MockRaceDataProvider(RaceDataProvider):
         limit: int = 5,
         days: int = 30,
     ) -> tuple[list[TrainingRecordData], TrainingSummaryData | None]:
-        """馬の調教データを取得する（モック実装）."""
         return [], None
 
     def get_extended_pedigree(self, horse_id: str) -> ExtendedPedigreeData | None:
-        """馬の拡張血統情報を取得する（モック実装）."""
         return None
 
     def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
-        """レースのオッズ履歴を取得する（モック実装）."""
         return None
 
     def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
-        """馬のコース適性を取得する（モック実装）."""
         return None
 
     def get_stallion_offspring_stats(
@@ -156,11 +145,9 @@ class MockRaceDataProvider(RaceDataProvider):
         list[StallionConditionStatsData],
         list[TopOffspringData],
     ]:
-        """種牡馬産駒成績を取得する（モック実装）."""
         return None, [], [], [], []
 
     def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
-        """厩舎基本情報を取得する（モック実装）."""
         return None
 
     def get_trainer_stats_detail(
@@ -169,7 +156,6 @@ class MockRaceDataProvider(RaceDataProvider):
         year: int | None = None,
         period: str = "all",
     ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
-        """厩舎成績統計を取得する（モック実装）."""
         return None, [], []
 
     def get_gate_position_stats(
@@ -181,88 +167,60 @@ class MockRaceDataProvider(RaceDataProvider):
         limit: int = 100,
     ) -> GatePositionStatsData | None:
         """枠順別成績統計を取得する（モック実装）."""
-        return None
+        key = f"{venue}_{track_type}_{distance}_{track_condition}"
+        return self._gate_position_stats.get(key)
 
 
+@pytest.fixture(autouse=True)
+def reset_dependencies():
+    """各テスト前に依存性をリセット."""
+    Dependencies.reset()
+    yield
+    Dependencies.reset()
 
-class TestGetRaceDetailUseCase:
-    """GetRaceDetailUseCaseの単体テスト."""
 
-    def test_レースIDでレース詳細を取得できる(self) -> None:
-        """レースIDでレース詳細を取得できることを確認."""
-        from src.application.use_cases.get_race_detail import GetRaceDetailUseCase
+class TestGetGatePositionStats:
+    """GET /statistics/gate-position ハンドラーのテスト."""
 
+    def test_必須パラメータvenueがない場合は400エラー(self) -> None:
+        """venueパラメータがない場合は400を返す."""
         provider = MockRaceDataProvider()
-        race = RaceData(
-            race_id="2024060111",
-            race_name="日本ダービー",
-            race_number=11,
-            venue="東京",
-            start_time=datetime(2024, 6, 1, 15, 40),
-            betting_deadline=datetime(2024, 6, 1, 15, 35),
-            track_condition="良",
-        )
-        runners = [
-            RunnerData(
-                horse_number=1,
-                horse_name="ダノンデサイル",
-                horse_id="horse1",
-                jockey_name="横山武史",
-                jockey_id="jockey1",
-                odds="3.5",
-                popularity=1,
-            ),
-            RunnerData(
-                horse_number=2,
-                horse_name="ジャスティンミラノ",
-                horse_id="horse2",
-                jockey_name="戸崎圭太",
-                jockey_id="jockey2",
-                odds="4.2",
-                popularity=2,
-            ),
-        ]
-        provider.add_race(race)
-        provider.add_runners("2024060111", runners)
-        use_case = GetRaceDetailUseCase(provider)
+        Dependencies.set_race_data_provider(provider)
 
-        result = use_case.execute(RaceId("2024060111"))
+        event = {"queryStringParameters": {}}
+        result = get_gate_position_stats(event, {})
 
-        assert result is not None
-        assert result.race.race_name == "日本ダービー"
-        assert len(result.runners) == 2
-        assert result.runners[0].horse_name == "ダノンデサイル"
+        assert result["statusCode"] == 400
+        assert "venue is required" in result["body"]
 
-    def test_存在しないレースIDでNoneを返す(self) -> None:
-        """存在しないレースIDでNoneが返ることを確認."""
-        from src.application.use_cases.get_race_detail import GetRaceDetailUseCase
-
+    def test_存在しない競馬場の場合は404エラー(self) -> None:
+        """存在しない競馬場の場合は404を返す."""
         provider = MockRaceDataProvider()
-        use_case = GetRaceDetailUseCase(provider)
+        Dependencies.set_race_data_provider(provider)
 
-        result = use_case.execute(RaceId("nonexistent"))
+        event = {"queryStringParameters": {"venue": "nonexistent"}}
+        result = get_gate_position_stats(event, {})
 
-        assert result is None
+        assert result["statusCode"] == 404
 
-    def test_出走馬がいないレースでも詳細を取得できる(self) -> None:
-        """出走馬がいないレースでも詳細を取得できることを確認."""
-        from src.application.use_cases.get_race_detail import GetRaceDetailUseCase
-
+    def test_無効なdistanceは400エラー(self) -> None:
+        """無効なdistanceパラメータは400を返す."""
         provider = MockRaceDataProvider()
-        race = RaceData(
-            race_id="2024060111",
-            race_name="日本ダービー",
-            race_number=11,
-            venue="東京",
-            start_time=datetime(2024, 6, 1, 15, 40),
-            betting_deadline=datetime(2024, 6, 1, 15, 35),
-            track_condition="良",
-        )
-        provider.add_race(race)
-        use_case = GetRaceDetailUseCase(provider)
+        Dependencies.set_race_data_provider(provider)
 
-        result = use_case.execute(RaceId("2024060111"))
+        event = {"queryStringParameters": {"venue": "阪神", "distance": "invalid"}}
+        result = get_gate_position_stats(event, {})
 
-        assert result is not None
-        assert result.race.race_name == "日本ダービー"
-        assert result.runners == []
+        assert result["statusCode"] == 400
+        assert "Invalid distance format" in result["body"]
+
+    def test_limit範囲外は400エラー(self) -> None:
+        """limit範囲外の場合は400を返す."""
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {"venue": "阪神", "limit": "1000"}}
+        result = get_gate_position_stats(event, {})
+
+        assert result["statusCode"] == 400
+        assert "limit must be between 1 and 500" in result["body"]

@@ -16,6 +16,7 @@ from src.domain.ports import (
     ConsultationSessionRepository,
     CourseAptitudeData,
     ExtendedPedigreeData,
+    GatePositionStatsData,
     HorsePerformanceData,
     JockeyInfoData,
     JockeyStatsData,
@@ -220,6 +221,17 @@ class MockRaceDataProvider(RaceDataProvider):
     ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
         """厩舎成績統計を取得する（モック実装）."""
         return None, [], []
+
+    def get_gate_position_stats(
+        self,
+        venue: str,
+        track_type: str | None = None,
+        distance: int | None = None,
+        track_condition: str | None = None,
+        limit: int = 100,
+    ) -> GatePositionStatsData | None:
+        """枠順別成績統計を取得する（モック実装）."""
+        return None
 
 
 
