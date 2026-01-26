@@ -329,6 +329,19 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        get_course_aptitude_fn = lambda_.Function(
+            self,
+            "GetCourseAptitudeFunction",
+            handler="src.api.handlers.horses.get_course_aptitude",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-course-aptitude",
+            description="馬のコース適性取得",
+            **lambda_common_props,
+        )
+
         # 騎手API
         get_jockey_info_fn = lambda_.Function(
             self,
@@ -353,6 +366,47 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-jockey-stats",
             description="騎手成績統計取得",
+            **lambda_common_props,
+        )
+
+        # 厩舎API
+        get_trainer_info_fn = lambda_.Function(
+            self,
+            "GetTrainerInfoFunction",
+            handler="src.api.handlers.trainers.get_trainer_info",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-trainer-info",
+            description="厩舎基本情報取得",
+            **lambda_common_props,
+        )
+
+        get_trainer_stats_fn = lambda_.Function(
+            self,
+            "GetTrainerStatsFunction",
+            handler="src.api.handlers.trainers.get_trainer_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-trainer-stats",
+            description="厩舎成績統計取得",
+            **lambda_common_props,
+        )
+
+        # 種牡馬API
+        get_stallion_offspring_stats_fn = lambda_.Function(
+            self,
+            "GetStallionOffspringStatsFunction",
+            handler="src.api.handlers.stallions.get_stallion_offspring_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-stallion-offspring-stats",
+            description="種牡馬産駒成績統計取得",
             **lambda_common_props,
         )
 
@@ -462,6 +516,12 @@ class BakenKaigiApiStack(Stack):
             "GET", apigw.LambdaIntegration(get_extended_pedigree_fn), api_key_required=True
         )
 
+        # /horses/{horse_id}/course-aptitude
+        horse_course_aptitude = horse.add_resource("course-aptitude")
+        horse_course_aptitude.add_method(
+            "GET", apigw.LambdaIntegration(get_course_aptitude_fn), api_key_required=True
+        )
+
         # /jockeys
         jockeys = api.root.add_resource("jockeys")
 
@@ -478,6 +538,36 @@ class BakenKaigiApiStack(Stack):
         jockey_stats = jockey.add_resource("stats")
         jockey_stats.add_method(
             "GET", apigw.LambdaIntegration(get_jockey_stats_fn), api_key_required=True
+        )
+
+        # /trainers
+        trainers = api.root.add_resource("trainers")
+
+        # /trainers/{trainer_id}
+        trainer = trainers.add_resource("{trainer_id}")
+
+        # /trainers/{trainer_id}/info
+        trainer_info = trainer.add_resource("info")
+        trainer_info.add_method(
+            "GET", apigw.LambdaIntegration(get_trainer_info_fn), api_key_required=True
+        )
+
+        # /trainers/{trainer_id}/stats
+        trainer_stats = trainer.add_resource("stats")
+        trainer_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_trainer_stats_fn), api_key_required=True
+        )
+
+        # /stallions
+        stallions = api.root.add_resource("stallions")
+
+        # /stallions/{stallion_id}
+        stallion = stallions.add_resource("{stallion_id}")
+
+        # /stallions/{stallion_id}/offspring-stats
+        stallion_offspring_stats = stallion.add_resource("offspring-stats")
+        stallion_offspring_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_stallion_offspring_stats_fn), api_key_required=True
         )
 
         # /cart

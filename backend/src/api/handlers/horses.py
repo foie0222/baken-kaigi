@@ -211,3 +211,85 @@ def get_extended_pedigree(event: dict, context: Any) -> dict:
         ],
         "lineage_type": extended_pedigree.lineage_type,
     })
+
+
+def get_course_aptitude(event: dict, context: Any) -> dict:
+    """馬のコース適性を取得する.
+
+    GET /horses/{horse_id}/course-aptitude
+
+    Path Parameters:
+        horse_id: 馬コード
+
+    Returns:
+        馬のコース適性（競馬場別、コース種別、距離別、馬場状態別、枠番別、サマリー）
+    """
+    horse_id = get_path_parameter(event, "horse_id")
+    if not horse_id:
+        return bad_request_response("horse_id is required")
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    aptitude = provider.get_course_aptitude(horse_id)
+
+    if not aptitude:
+        return not_found_response("Horse course aptitude")
+
+    return success_response({
+        "horse_id": aptitude.horse_id,
+        "horse_name": aptitude.horse_name,
+        "by_venue": [
+            {
+                "venue": v.venue,
+                "starts": v.starts,
+                "wins": v.wins,
+                "places": v.places,
+                "win_rate": v.win_rate,
+                "place_rate": v.place_rate,
+            }
+            for v in aptitude.by_venue
+        ],
+        "by_track_type": [
+            {
+                "track_type": t.track_type,
+                "starts": t.starts,
+                "wins": t.wins,
+                "win_rate": t.win_rate,
+            }
+            for t in aptitude.by_track_type
+        ],
+        "by_distance": [
+            {
+                "distance_range": d.distance_range,
+                "starts": d.starts,
+                "wins": d.wins,
+                "win_rate": d.win_rate,
+                "best_time": d.best_time,
+            }
+            for d in aptitude.by_distance
+        ],
+        "by_track_condition": [
+            {
+                "condition": c.condition,
+                "starts": c.starts,
+                "wins": c.wins,
+                "win_rate": c.win_rate,
+            }
+            for c in aptitude.by_track_condition
+        ],
+        "by_running_position": [
+            {
+                "position": p.position,
+                "starts": p.starts,
+                "wins": p.wins,
+                "win_rate": p.win_rate,
+            }
+            for p in aptitude.by_running_position
+        ],
+        "aptitude_summary": {
+            "best_venue": aptitude.aptitude_summary.best_venue,
+            "best_distance": aptitude.aptitude_summary.best_distance,
+            "preferred_condition": aptitude.aptitude_summary.preferred_condition,
+            "preferred_position": aptitude.aptitude_summary.preferred_position,
+        } if aptitude.aptitude_summary else None,
+    })

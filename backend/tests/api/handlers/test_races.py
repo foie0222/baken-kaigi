@@ -7,6 +7,7 @@ import pytest
 from src.api.dependencies import Dependencies
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    CourseAptitudeData,
     ExtendedPedigreeData,
     HorsePerformanceData,
     JockeyInfoData,
@@ -23,6 +24,15 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    StallionConditionStatsData,
+    StallionDistanceStatsData,
+    StallionOffspringStatsData,
+    StallionTrackStatsData,
+    TopOffspringData,
+    TrainerClassStatsData,
+    TrainerInfoData,
+    TrainerStatsDetailData,
+    TrainerTrackStatsData,
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
@@ -153,6 +163,38 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
         """レースのオッズ履歴を取得する（モック実装）."""
         return self._odds_history.get(str(race_id))
+
+    def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
+        """馬のコース適性を取得する（モック実装）."""
+        return None
+
+    def get_stallion_offspring_stats(
+        self,
+        stallion_id: str,
+        year: int | None = None,
+        track_type: str | None = None,
+    ) -> tuple[
+        StallionOffspringStatsData | None,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """種牡馬産駒成績を取得する（モック実装）."""
+        return None, [], [], [], []
+
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎基本情報を取得する（モック実装）."""
+        return None
+
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎成績統計を取得する（モック実装）."""
+        return None, [], []
 
 
 @pytest.fixture(autouse=True)

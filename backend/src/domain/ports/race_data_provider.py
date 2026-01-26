@@ -272,6 +272,189 @@ class OddsHistoryData:
     notable_movements: list[NotableMovementData]
 
 
+@dataclass(frozen=True)
+class VenueAptitudeData:
+    """競馬場別適性データ."""
+
+    venue: str
+    starts: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+
+
+@dataclass(frozen=True)
+class TrackTypeAptitudeData:
+    """コース種別適性データ."""
+
+    track_type: str  # 芝/ダート/障害
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class DistanceAptitudeData:
+    """距離別適性データ."""
+
+    distance_range: str  # 例: "1600-1800m"
+    starts: int
+    wins: int
+    win_rate: float
+    best_time: str | None = None
+
+
+@dataclass(frozen=True)
+class ConditionAptitudeData:
+    """馬場状態別適性データ."""
+
+    condition: str  # 良/稍/重/不
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class PositionAptitudeData:
+    """枠番位置別適性データ."""
+
+    position: str  # 例: "内枠(1-4)"
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class AptitudeSummaryData:
+    """適性サマリーデータ."""
+
+    best_venue: str | None
+    best_distance: str | None
+    preferred_condition: str | None
+    preferred_position: str | None
+
+
+@dataclass(frozen=True)
+class CourseAptitudeData:
+    """コース適性総合データ."""
+
+    horse_id: str
+    horse_name: str | None
+    by_venue: list[VenueAptitudeData]
+    by_track_type: list[TrackTypeAptitudeData]
+    by_distance: list[DistanceAptitudeData]
+    by_track_condition: list[ConditionAptitudeData]
+    by_running_position: list[PositionAptitudeData]
+    aptitude_summary: AptitudeSummaryData | None
+
+
+@dataclass(frozen=True)
+class TrainerInfoData:
+    """厩舎（調教師）基本情報."""
+
+    trainer_id: str
+    trainer_name: str
+    trainer_name_kana: str | None = None
+    affiliation: str | None = None  # 美浦/栗東
+    stable_location: str | None = None
+    license_year: int | None = None
+    career_wins: int | None = None
+    career_starts: int | None = None
+
+
+@dataclass(frozen=True)
+class TrainerStatsDetailData:
+    """厩舎（調教師）成績統計データ."""
+
+    trainer_id: str
+    trainer_name: str
+    total_starts: int
+    wins: int
+    second_places: int
+    third_places: int
+    win_rate: float
+    place_rate: float
+    prize_money: int | None = None
+    period: str = "all"  # recent/all/year
+    year: int | None = None
+
+
+@dataclass(frozen=True)
+class TrainerTrackStatsData:
+    """厩舎コース別成績."""
+
+    track_type: str  # 芝/ダート/障害
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class TrainerClassStatsData:
+    """厩舎クラス別成績."""
+
+    grade_class: str  # G1/G2/G3/OP/1勝/2勝/3勝/未勝利/新馬
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class StallionOffspringStatsData:
+    """種牡馬産駒成績統計データ."""
+
+    stallion_id: str
+    stallion_name: str
+    total_offspring: int
+    total_starts: int
+    wins: int
+    win_rate: float
+    place_rate: float
+    g1_wins: int
+    earnings: int | None = None
+
+
+@dataclass(frozen=True)
+class StallionTrackStatsData:
+    """種牡馬トラック別成績."""
+
+    track_type: str  # 芝/ダート/障害
+    starts: int
+    wins: int
+    win_rate: float
+    avg_distance: int | None = None
+
+
+@dataclass(frozen=True)
+class StallionDistanceStatsData:
+    """種牡馬距離別成績."""
+
+    distance_range: str  # 例: "1600-2000m"
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class StallionConditionStatsData:
+    """種牡馬馬場状態別成績."""
+
+    condition: str  # 良/稍/重/不
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class TopOffspringData:
+    """トップ産駒データ."""
+
+    horse_name: str
+    wins: int
+    g1_wins: int
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -478,5 +661,74 @@ class RaceDataProvider(ABC):
 
         Returns:
             オッズ履歴データ、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
+        """馬のコース適性を取得する.
+
+        Args:
+            horse_id: 馬コード
+
+        Returns:
+            コース適性データ、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎（調教師）基本情報を取得する.
+
+        Args:
+            trainer_id: 調教師コード
+
+        Returns:
+            厩舎基本情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎（調教師）の成績統計を取得する.
+
+        Args:
+            trainer_id: 調教師コード
+            year: 年（指定時はその年の成績）
+            period: 期間（recent=直近1年, all=通算）
+
+        Returns:
+            成績統計、コース別成績リスト、クラス別成績リストのタプル
+        """
+        pass
+
+    @abstractmethod
+    def get_stallion_offspring_stats(
+        self,
+        stallion_id: str,
+        year: int | None = None,
+        track_type: str | None = None,
+    ) -> tuple[
+        StallionOffspringStatsData | None,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """種牡馬の産駒成績統計を取得する.
+
+        Args:
+            stallion_id: 種牡馬コード（馬ID）
+            year: 集計年度（省略時は通算）
+            track_type: 芝/ダート/障害 でフィルタ
+
+        Returns:
+            (産駒成績統計, トラック別成績, 距離別成績, 馬場状態別成績, トップ産駒)
+            見つからない場合は(None, [], [], [], [])
         """
         pass
