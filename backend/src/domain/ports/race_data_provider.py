@@ -225,6 +225,83 @@ class ExtendedPedigreeData:
 
 
 @dataclass(frozen=True)
+class VenueAptitudeData:
+    """競馬場別適性データ."""
+
+    venue: str
+    starts: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+
+
+@dataclass(frozen=True)
+class TrackTypeAptitudeData:
+    """コース種別適性データ."""
+
+    track_type: str  # 芝/ダート/障害
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class DistanceAptitudeData:
+    """距離別適性データ."""
+
+    distance_range: str  # 例: "1600-1800m"
+    starts: int
+    wins: int
+    win_rate: float
+    best_time: str | None = None
+
+
+@dataclass(frozen=True)
+class ConditionAptitudeData:
+    """馬場状態別適性データ."""
+
+    condition: str  # 良/稍/重/不
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class PositionAptitudeData:
+    """枠番位置別適性データ."""
+
+    position: str  # 例: "内枠(1-4)"
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class AptitudeSummaryData:
+    """適性サマリーデータ."""
+
+    best_venue: str | None
+    best_distance: str | None
+    preferred_condition: str | None
+    preferred_position: str | None
+
+
+@dataclass(frozen=True)
+class CourseAptitudeData:
+    """コース適性総合データ."""
+
+    horse_id: str
+    horse_name: str | None
+    by_venue: list[VenueAptitudeData]
+    by_track_type: list[TrackTypeAptitudeData]
+    by_distance: list[DistanceAptitudeData]
+    by_track_condition: list[ConditionAptitudeData]
+    by_running_position: list[PositionAptitudeData]
+    aptitude_summary: AptitudeSummaryData | None
+
+
+@dataclass(frozen=True)
 class TrainerInfoData:
     """厩舎（調教師）基本情報."""
 
@@ -524,6 +601,18 @@ class RaceDataProvider(ABC):
 
         Returns:
             拡張血統情報、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_course_aptitude(self, horse_id: str) -> CourseAptitudeData | None:
+        """馬のコース適性を取得する.
+
+        Args:
+            horse_id: 馬コード
+
+        Returns:
+            コース適性データ、見つからない場合はNone
         """
         pass
 
