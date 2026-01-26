@@ -13,6 +13,7 @@ from .training_analysis import analyze_training_condition
 from .pedigree_analysis import analyze_pedigree_aptitude
 from .trainer_analysis import analyze_trainer_tendency
 from .course_aptitude_analysis import analyze_course_aptitude
+from .jockey_analysis import analyze_jockey_factor
 
 __all__ = [
     "get_race_data",
@@ -27,4 +28,5 @@ __all__ = [
     "analyze_pedigree_aptitude",
     "analyze_trainer_tendency",
     "analyze_course_aptitude",
+    "analyze_jockey_factor",
 ]
