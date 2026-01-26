@@ -424,6 +424,45 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        get_past_race_stats_fn = lambda_.Function(
+            self,
+            "GetPastRaceStatsFunction",
+            handler="src.api.handlers.statistics.get_past_race_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-past-race-stats",
+            description="過去レース統計取得",
+            **lambda_common_props,
+        )
+
+        get_jockey_course_stats_fn = lambda_.Function(
+            self,
+            "GetJockeyCourseStatsFunction",
+            handler="src.api.handlers.statistics.get_jockey_course_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-jockey-course-stats",
+            description="騎手コース別成績取得",
+            **lambda_common_props,
+        )
+
+        get_popularity_payout_stats_fn = lambda_.Function(
+            self,
+            "GetPopularityPayoutStatsFunction",
+            handler="src.api.handlers.statistics.get_popularity_payout_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-popularity-payout-stats",
+            description="人気別配当統計取得",
+            **lambda_common_props,
+        )
+
         # API Gateway
         api = apigw.RestApi(
             self,
@@ -591,6 +630,24 @@ class BakenKaigiApiStack(Stack):
         gate_position_stats = statistics.add_resource("gate-position")
         gate_position_stats.add_method(
             "GET", apigw.LambdaIntegration(get_gate_position_stats_fn), api_key_required=True
+        )
+
+        # /statistics/past-races
+        past_race_stats = statistics.add_resource("past-races")
+        past_race_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_past_race_stats_fn), api_key_required=True
+        )
+
+        # /statistics/jockey-course
+        jockey_course_stats = statistics.add_resource("jockey-course")
+        jockey_course_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_jockey_course_stats_fn), api_key_required=True
+        )
+
+        # /statistics/popularity-payout
+        popularity_payout_stats = statistics.add_resource("popularity-payout")
+        popularity_payout_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_popularity_payout_stats_fn), api_key_required=True
         )
 
         # /cart
