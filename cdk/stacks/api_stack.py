@@ -410,6 +410,74 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # レース結果API
+        get_race_results_fn = lambda_.Function(
+            self,
+            "GetRaceResultsFunction",
+            handler="src.api.handlers.races.get_race_results",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-race-results",
+            description="レース結果・払戻取得",
+            **lambda_common_props,
+        )
+
+        # 馬主API
+        get_owner_info_fn = lambda_.Function(
+            self,
+            "GetOwnerInfoFunction",
+            handler="src.api.handlers.owners.get_owner_info",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-owner-info",
+            description="馬主基本情報取得",
+            **lambda_common_props,
+        )
+
+        get_owner_stats_fn = lambda_.Function(
+            self,
+            "GetOwnerStatsFunction",
+            handler="src.api.handlers.owners.get_owner_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-owner-stats",
+            description="馬主成績統計取得",
+            **lambda_common_props,
+        )
+
+        # 生産者API
+        get_breeder_info_fn = lambda_.Function(
+            self,
+            "GetBreederInfoFunction",
+            handler="src.api.handlers.owners.get_breeder_info",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-breeder-info",
+            description="生産者基本情報取得",
+            **lambda_common_props,
+        )
+
+        get_breeder_stats_fn = lambda_.Function(
+            self,
+            "GetBreederStatsFunction",
+            handler="src.api.handlers.owners.get_breeder_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-breeder-stats",
+            description="生産者成績統計取得",
+            **lambda_common_props,
+        )
+
         # 統計API
         get_gate_position_stats_fn = lambda_.Function(
             self,
@@ -544,6 +612,12 @@ class BakenKaigiApiStack(Stack):
             "GET", apigw.LambdaIntegration(get_odds_history_fn), api_key_required=True
         )
 
+        # /races/{race_id}/results
+        race_results = race.add_resource("results")
+        race_results.add_method(
+            "GET", apigw.LambdaIntegration(get_race_results_fn), api_key_required=True
+        )
+
         # /horses
         horses = api.root.add_resource("horses")
 
@@ -621,6 +695,36 @@ class BakenKaigiApiStack(Stack):
         stallion_offspring_stats = stallion.add_resource("offspring-stats")
         stallion_offspring_stats.add_method(
             "GET", apigw.LambdaIntegration(get_stallion_offspring_stats_fn), api_key_required=True
+        )
+
+        # /owners
+        owners = api.root.add_resource("owners")
+
+        # /owners/{owner_id}
+        owner = owners.add_resource("{owner_id}")
+        owner.add_method(
+            "GET", apigw.LambdaIntegration(get_owner_info_fn), api_key_required=True
+        )
+
+        # /owners/{owner_id}/stats
+        owner_stats = owner.add_resource("stats")
+        owner_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_owner_stats_fn), api_key_required=True
+        )
+
+        # /breeders
+        breeders = api.root.add_resource("breeders")
+
+        # /breeders/{breeder_id}
+        breeder = breeders.add_resource("{breeder_id}")
+        breeder.add_method(
+            "GET", apigw.LambdaIntegration(get_breeder_info_fn), api_key_required=True
+        )
+
+        # /breeders/{breeder_id}/stats
+        breeder_stats = breeder.add_resource("stats")
+        breeder_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_breeder_stats_fn), api_key_required=True
         )
 
         # /statistics

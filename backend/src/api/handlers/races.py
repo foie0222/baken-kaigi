@@ -263,3 +263,61 @@ def get_odds_history(event: dict, context: Any) -> dict:
     }
 
     return success_response(response)
+
+
+def get_race_results(event: dict, context: Any) -> dict:
+    """レース結果・払戻金を取得する.
+
+    GET /races/{race_id}/results
+
+    Path Parameters:
+        race_id: レースID
+
+    Returns:
+        レース結果（着順、タイム）と払戻金情報
+    """
+    race_id_str = get_path_parameter(event, "race_id")
+    if not race_id_str:
+        return bad_request_response("race_id is required")
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    race_id = RaceId(race_id_str)
+    result = provider.get_race_results(race_id)
+
+    if result is None:
+        return not_found_response("Race results")
+
+    # レスポンス構築
+    response = {
+        "race_id": result.race_id,
+        "race_name": result.race_name,
+        "race_date": result.race_date,
+        "venue": result.venue,
+        "is_finalized": result.is_finalized,
+        "results": [
+            {
+                "horse_number": r.horse_number,
+                "horse_name": r.horse_name,
+                "finish_position": r.finish_position,
+                "time": r.time,
+                "margin": r.margin,
+                "last_3f": r.last_3f,
+                "popularity": r.popularity,
+                "odds": r.odds,
+                "jockey_name": r.jockey_name,
+            }
+            for r in result.results
+        ],
+        "payouts": [
+            {
+                "bet_type": p.bet_type,
+                "combination": p.combination,
+                "payout": p.payout,
+                "popularity": p.popularity,
+            }
+            for p in result.payouts
+        ],
+    }
+
+    return success_response(response)
