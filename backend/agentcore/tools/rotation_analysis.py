@@ -170,7 +170,7 @@ def _analyze_rotation_info(performances: list[dict], race_info: dict) -> dict:
     else:
         days = None
 
-    interval_type = _get_interval_label(days) if days else "不明"
+    interval_type = _get_interval_label(days) if days is not None else "不明"
 
     last_race = {
         "date": last_date_str,
@@ -189,7 +189,7 @@ def _analyze_rotation_info(performances: list[dict], race_info: dict) -> dict:
     }
 
 
-def _get_interval_label(days: int) -> str:
+def _get_interval_label(days: int | None) -> str:
     """日数から間隔ラベルを取得する."""
     if days is None or days < 0:
         return "不明"
@@ -404,12 +404,8 @@ def _analyze_step_race(performances: list[dict], race_info: dict) -> dict:
     # クラスの順序
     class_order = ["新馬", "未勝利", "1勝", "2勝", "3勝", "OP", "L", "G3", "G2", "G1"]
 
-    try:
-        prev_idx = class_order.index(previous_class) if previous_class in class_order else -1
-        curr_idx = class_order.index(current_class) if current_class in class_order else -1
-    except ValueError:
-        prev_idx = -1
-        curr_idx = -1
+    prev_idx = class_order.index(previous_class) if previous_class in class_order else -1
+    curr_idx = class_order.index(current_class) if current_class in class_order else -1
 
     # ステップタイプ判定
     if prev_idx < 0 or curr_idx < 0:
@@ -426,7 +422,7 @@ def _analyze_step_race(performances: list[dict], race_info: dict) -> dict:
         rating = "普通"
 
     # 類似パターンの成績
-    similar_record = _find_similar_step_record(performances, step_type)
+    similar_record = _find_similar_step_record(performances)
 
     # コメント
     comment = _generate_step_comment(step_type, previous_class, current_class, rating)
@@ -441,7 +437,7 @@ def _analyze_step_race(performances: list[dict], race_info: dict) -> dict:
     }
 
 
-def _find_similar_step_record(performances: list[dict], step_type: str) -> str:
+def _find_similar_step_record(performances: list[dict]) -> str:
     """類似ステップパターンの成績を検索する."""
     # 簡易実装：直近5走の成績を返す
     finishes = [p.get("finish_position", 0) for p in performances[:5] if p.get("finish_position", 0) > 0]
@@ -470,7 +466,7 @@ def _estimate_fitness(performances: list[dict], rotation_info: dict) -> dict:
     days = rotation_info.get("days_since_last_race")
 
     # 間隔による調整
-    if days:
+    if days is not None:
         if days <= 7:
             fitness -= 5  # 連闘は疲労懸念
         elif 21 <= days <= 35:
@@ -520,7 +516,11 @@ def _estimate_fitness(performances: list[dict], rotation_info: dict) -> dict:
     }
 
 
-def _generate_fitness_comment(fitness: int, days: int, tataki_count: int) -> str:
+def _generate_fitness_comment(
+    fitness: int,
+    days: int | None,
+    tataki_count: int,
+) -> str:
     """フィットネスコメントを生成する."""
     parts = []
 
@@ -529,9 +529,9 @@ def _generate_fitness_comment(fitness: int, days: int, tataki_count: int) -> str
     elif tataki_count >= 2:
         parts.append(f"叩き{tataki_count + 1}戦目")
 
-    if days and days >= 90:
+    if days is not None and days >= 90:
         parts.append("休み明け初戦は割引")
-    elif days and days <= 7:
+    elif days is not None and days <= 7:
         parts.append("連闘で疲労残り懸念")
 
     if fitness >= 85:
@@ -555,7 +555,7 @@ def _generate_overall_comment(
     # 直近レースからの間隔
     last_race = rotation_info.get("last_race", {})
     interval = rotation_info.get("interval_type", "")
-    if last_race and interval:
+    if last_race is not None and interval:
         last_name = last_race.get("name", "前走")
         last_result = last_race.get("result", "")
         parts.append(f"{last_name}{last_result}から{interval}")
