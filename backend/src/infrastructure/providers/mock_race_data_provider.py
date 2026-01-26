@@ -23,6 +23,10 @@ from src.domain.ports import (
     StallionOffspringStatsData,
     StallionTrackStatsData,
     TopOffspringData,
+    TrainerClassStatsData,
+    TrainerInfoData,
+    TrainerStatsDetailData,
+    TrainerTrackStatsData,
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
@@ -86,6 +90,26 @@ class MockRaceDataProvider(RaceDataProvider):
         "坂井瑠星",
         "吉田隼人",
         "浜中俊",
+    ]
+
+    # サンプルの調教師名
+    TRAINER_NAMES = [
+        "矢作芳人",
+        "国枝栄",
+        "堀宣行",
+        "藤沢和雄",
+        "友道康夫",
+        "池江泰寿",
+        "中内田充正",
+        "手塚貴久",
+        "須貝尚介",
+        "角居勝彦",
+        "音無秀孝",
+        "藤原英昭",
+        "松永幹夫",
+        "池添学",
+        "木村哲也",
+        "西村真幸",
     ]
 
     # サンプルのレース名
@@ -999,3 +1023,110 @@ class MockRaceDataProvider(RaceDataProvider):
             betting_deadline=betting_deadline,
             track_condition=track_condition,
         )
+
+    def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
+        """厩舎（調教師）基本情報を取得する（モック実装）."""
+        import random
+
+        # nonexistent で始まるIDの場合はNoneを返す
+        if trainer_id.startswith("nonexistent"):
+            return None
+
+        random.seed(_stable_hash(trainer_id) % (2**32))
+
+        # 調教師名を特定
+        try:
+            trainer_index = int(trainer_id.split("_")[1]) % len(self.TRAINER_NAMES)
+        except (IndexError, ValueError):
+            trainer_index = _stable_hash(trainer_id) % len(self.TRAINER_NAMES)
+        trainer_name = self.TRAINER_NAMES[trainer_index]
+
+        affiliation = random.choice(["美浦", "栗東"])
+        license_year = random.randint(1985, 2020)
+        career_wins = random.randint(100, 1500)
+        career_starts = random.randint(career_wins * 3, career_wins * 12)
+
+        return TrainerInfoData(
+            trainer_id=trainer_id,
+            trainer_name=trainer_name,
+            trainer_name_kana=None,  # モックではカナは省略
+            affiliation=affiliation,
+            stable_location=f"{affiliation}トレセン",
+            license_year=license_year,
+            career_wins=career_wins,
+            career_starts=career_starts,
+        )
+
+    def get_trainer_stats_detail(
+        self,
+        trainer_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> tuple[TrainerStatsDetailData | None, list[TrainerTrackStatsData], list[TrainerClassStatsData]]:
+        """厩舎（調教師）の成績統計を取得する（モック実装）."""
+        import random
+
+        # nonexistent で始まるIDの場合はNoneを返す
+        if trainer_id.startswith("nonexistent"):
+            return None, [], []
+
+        random.seed(_stable_hash(trainer_id + str(year) + period) % (2**32))
+
+        # 調教師名を特定
+        try:
+            trainer_index = int(trainer_id.split("_")[1]) % len(self.TRAINER_NAMES)
+        except (IndexError, ValueError):
+            trainer_index = _stable_hash(trainer_id) % len(self.TRAINER_NAMES)
+        trainer_name = self.TRAINER_NAMES[trainer_index]
+
+        total_starts = random.randint(200, 1000)
+        win_rate = random.uniform(0.08, 0.18)
+        wins = int(total_starts * win_rate)
+        second_places = int(total_starts * random.uniform(0.08, 0.12))
+        third_places = int(total_starts * random.uniform(0.08, 0.12))
+        places = wins + second_places + third_places
+        place_rate = round(places / total_starts * 100, 1) if total_starts > 0 else 0.0
+        prize_money = random.randint(100000000, 2000000000)
+
+        stats = TrainerStatsDetailData(
+            trainer_id=trainer_id,
+            trainer_name=trainer_name,
+            total_starts=total_starts,
+            wins=wins,
+            second_places=second_places,
+            third_places=third_places,
+            win_rate=round(win_rate * 100, 1),
+            place_rate=place_rate,
+            prize_money=prize_money,
+            period=period if not year else "year",
+            year=year,
+        )
+
+        # コース別成績
+        track_stats = []
+        for track_type in ["芝", "ダート", "障害"]:
+            track_starts = random.randint(50, 400)
+            track_win_rate = random.uniform(0.08, 0.20)
+            track_wins = int(track_starts * track_win_rate)
+            track_stats.append(TrainerTrackStatsData(
+                track_type=track_type,
+                starts=track_starts,
+                wins=track_wins,
+                win_rate=round(track_win_rate * 100, 1),
+            ))
+
+        # クラス別成績
+        class_stats = []
+        classes = ["G1", "G2", "G3", "OP", "3勝", "2勝", "1勝", "未勝利", "新馬"]
+        for grade_class in classes:
+            class_starts = random.randint(10, 200)
+            class_win_rate = random.uniform(0.05, 0.25)
+            class_wins = int(class_starts * class_win_rate)
+            class_stats.append(TrainerClassStatsData(
+                grade_class=grade_class,
+                starts=class_starts,
+                wins=class_wins,
+                win_rate=round(class_win_rate * 100, 1),
+            ))
+
+        return stats, track_stats, class_stats

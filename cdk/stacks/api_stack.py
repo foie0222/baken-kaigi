@@ -343,6 +343,33 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # 厩舎API
+        get_trainer_info_fn = lambda_.Function(
+            self,
+            "GetTrainerInfoFunction",
+            handler="src.api.handlers.trainers.get_trainer_info",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-trainer-info",
+            description="厩舎基本情報取得",
+            **lambda_common_props,
+        )
+
+        get_trainer_stats_fn = lambda_.Function(
+            self,
+            "GetTrainerStatsFunction",
+            handler="src.api.handlers.trainers.get_trainer_stats",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-trainer-stats",
+            description="厩舎成績統計取得",
+            **lambda_common_props,
+        )
+
         # 種牡馬API
         get_stallion_offspring_stats_fn = lambda_.Function(
             self,
@@ -473,6 +500,24 @@ class BakenKaigiApiStack(Stack):
         jockey_stats = jockey.add_resource("stats")
         jockey_stats.add_method(
             "GET", apigw.LambdaIntegration(get_jockey_stats_fn), api_key_required=True
+        )
+
+        # /trainers
+        trainers = api.root.add_resource("trainers")
+
+        # /trainers/{trainer_id}
+        trainer = trainers.add_resource("{trainer_id}")
+
+        # /trainers/{trainer_id}/info
+        trainer_info = trainer.add_resource("info")
+        trainer_info.add_method(
+            "GET", apigw.LambdaIntegration(get_trainer_info_fn), api_key_required=True
+        )
+
+        # /trainers/{trainer_id}/stats
+        trainer_stats = trainer.add_resource("stats")
+        trainer_stats.add_method(
+            "GET", apigw.LambdaIntegration(get_trainer_stats_fn), api_key_required=True
         )
 
         # /stallions
