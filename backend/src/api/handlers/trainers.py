@@ -71,8 +71,8 @@ def get_trainer_stats(event: dict, context: Any) -> dict:
     if year_str:
         try:
             year = int(year_str)
-            if year < 1970 or year > 2100:
-                return bad_request_response("year must be between 1970 and 2100")
+            if year < 1900 or year > 2100:
+                return bad_request_response("year must be between 1900 and 2100")
         except ValueError:
             return bad_request_response("year must be a valid integer")
 

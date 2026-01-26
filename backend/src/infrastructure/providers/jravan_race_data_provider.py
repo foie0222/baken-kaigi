@@ -672,9 +672,9 @@ class JraVanRaceDataProvider(RaceDataProvider):
     def get_trainer_info(self, trainer_id: str) -> TrainerInfoData | None:
         """厩舎（調教師）基本情報を取得する."""
         try:
-            response = self.session.get(
-                f"{self.base_url}/api/trainers/{trainer_id}/info",
-                timeout=self.timeout,
+            response = self._session.get(
+                f"{self._base_url}/api/trainers/{trainer_id}/info",
+                timeout=self._timeout,
             )
             if response.status_code == 404:
                 return None
@@ -697,10 +697,10 @@ class JraVanRaceDataProvider(RaceDataProvider):
             if year:
                 params["year"] = str(year)
 
-            response = self.session.get(
-                f"{self.base_url}/api/trainers/{trainer_id}/stats",
+            response = self._session.get(
+                f"{self._base_url}/api/trainers/{trainer_id}/stats",
                 params=params,
-                timeout=self.timeout,
+                timeout=self._timeout,
             )
             if response.status_code == 404:
                 return None, [], []
