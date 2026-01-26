@@ -14,6 +14,7 @@ from .pedigree_analysis import analyze_pedigree_aptitude
 from .trainer_analysis import analyze_trainer_tendency
 from .course_aptitude_analysis import analyze_course_aptitude
 from .jockey_analysis import analyze_jockey_factor
+from .odds_analysis import analyze_odds_movement
 
 __all__ = [
     "get_race_data",
@@ -29,4 +30,5 @@ __all__ = [
     "analyze_trainer_tendency",
     "analyze_course_aptitude",
     "analyze_jockey_factor",
+    "analyze_odds_movement",
 ]
