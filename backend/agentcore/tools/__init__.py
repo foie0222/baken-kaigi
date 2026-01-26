@@ -9,6 +9,7 @@ from .historical_analysis import (
     analyze_bet_roi,
 )
 from .horse_analysis import analyze_horse_performance
+from .training_analysis import analyze_training_condition
 
 __all__ = [
     "get_race_data",
@@ -19,4 +20,5 @@ __all__ = [
     "analyze_jockey_course_stats",
     "analyze_bet_roi",
     "analyze_horse_performance",
+    "analyze_training_condition",
 ]
