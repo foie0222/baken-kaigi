@@ -39,6 +39,11 @@ from src.domain.ports import (
     TrainingRecordData,
     TrainingSummaryData,
     WeightData,
+    BreederInfoData,
+    BreederStatsData,
+    OwnerInfoData,
+    OwnerStatsData,
+    RaceResultsData,
 )
 from src.domain.value_objects import BetSelection, HorseNumbers, Money
 
@@ -233,6 +238,35 @@ class MockRaceDataProvider(RaceDataProvider):
         """枠順別成績統計を取得する（モック実装）."""
         return None
 
+    def get_race_results(self, race_id: RaceId) -> RaceResultsData | None:
+        """レース結果・払戻金を取得する（モック実装）."""
+        return None
+
+    def get_owner_info(self, owner_id: str) -> OwnerInfoData | None:
+        """馬主基本情報を取得する（モック実装）."""
+        return None
+
+    def get_owner_stats(
+        self,
+        owner_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> OwnerStatsData | None:
+        """馬主成績統計を取得する（モック実装）."""
+        return None
+
+    def get_breeder_info(self, breeder_id: str) -> BreederInfoData | None:
+        """生産者基本情報を取得する（モック実装）."""
+        return None
+
+    def get_breeder_stats(
+        self,
+        breeder_id: str,
+        year: int | None = None,
+        period: str = "all",
+    ) -> BreederStatsData | None:
+        """生産者成績統計を取得する（モック実装）."""
+        return None
 
 
 class MockAIClient(AIClient):
