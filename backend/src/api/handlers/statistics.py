@@ -5,6 +5,15 @@ from src.api.dependencies import Dependencies
 from src.api.request import get_query_parameter
 from src.api.response import bad_request_response, not_found_response, success_response
 
+# トラックコード → トラック種別 変換マップ
+TRACK_TYPE_MAP = {"1": "芝", "2": "ダート", "3": "障害"}
+
+# 競馬場コード → 競馬場名 変換マップ
+KEIBAJO_MAP = {
+    "01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
+    "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉",
+}
+
 
 def get_gate_position_stats(event: dict, context: Any) -> dict:
     """枠順別成績統計を取得する.
@@ -135,14 +144,15 @@ def get_past_race_stats(event: dict, context: Any) -> dict:
     if limit_str:
         try:
             limit = int(limit_str)
-            if limit < 10 or limit > 500:
-                return bad_request_response("limit must be between 10 and 500")
+            if limit < 1 or limit > 500:
+                return bad_request_response("limit must be between 1 and 500")
         except ValueError:
             return bad_request_response("Invalid limit format")
 
-    # track_codeを track_type に変換
-    track_type_map = {"1": "芝", "2": "ダート", "3": "障害"}
-    track_type = track_type_map.get(track_code, "芝")
+    # track_codeを track_type に変換（不正なコードは400エラーとする）
+    if track_code not in TRACK_TYPE_MAP:
+        return bad_request_response("track_code must be one of 1, 2, 3")
+    track_type = TRACK_TYPE_MAP[track_code]
 
     provider = Dependencies.get_race_data_provider()
     result = provider.get_past_race_stats(
@@ -215,16 +225,20 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
 
     keibajo_code = get_query_parameter(event, "keibajo_code")
 
-    # 競馬場名に変換
-    keibajo_map = {
-        "01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
-        "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉",
-    }
-    venue = keibajo_map.get(keibajo_code) if keibajo_code else None
+    # keibajo_code が指定されている場合はバリデーションを行う
+    if keibajo_code:
+        if keibajo_code not in KEIBAJO_MAP:
+            return bad_request_response(
+                "Invalid keibajo_code. Valid values are '01' through '10'."
+            )
+        venue = KEIBAJO_MAP[keibajo_code]
+    else:
+        venue = None
 
-    # track_codeを track_type に変換
-    track_type_map = {"1": "芝", "2": "ダート", "3": "障害"}
-    track_type = track_type_map.get(track_code, "芝")
+    # track_codeを track_type に変換（不正なコードは400エラーとする）
+    if track_code not in TRACK_TYPE_MAP:
+        return bad_request_response("track_code must be one of 1, 2, 3")
+    track_type = TRACK_TYPE_MAP[track_code]
 
     # course 文字列を構築（例: "芝1600m"）
     course = f"{track_type}{distance}m"
@@ -242,7 +256,6 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
         "jockey_name": result.jockey_name,
         "total_rides": result.total_races,
         "wins": result.wins,
-        "places": int(result.total_races * result.place_rate / 100) if result.total_races > 0 else 0,
         "win_rate": result.win_rate,
         "place_rate": result.place_rate,
         "conditions": {
@@ -298,14 +311,15 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
     if limit_str:
         try:
             limit = int(limit_str)
-            if limit < 10 or limit > 500:
-                return bad_request_response("limit must be between 10 and 500")
+            if limit < 1 or limit > 500:
+                return bad_request_response("limit must be between 1 and 500")
         except ValueError:
             return bad_request_response("Invalid limit format")
 
-    # track_codeを track_type に変換
-    track_type_map = {"1": "芝", "2": "ダート", "3": "障害"}
-    track_type = track_type_map.get(track_code, "芝")
+    # track_codeを track_type に変換（不正なコードは400エラーとする）
+    if track_code not in TRACK_TYPE_MAP:
+        return bad_request_response("track_code must be one of 1, 2, 3")
+    track_type = TRACK_TYPE_MAP[track_code]
 
     # 過去レース統計から人気別データを取得
     provider = Dependencies.get_race_data_provider()

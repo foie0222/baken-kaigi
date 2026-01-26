@@ -352,11 +352,22 @@ class TestGetPastRaceStats:
         provider = MockRaceDataProvider()
         Dependencies.set_race_data_provider(provider)
 
-        event = {"queryStringParameters": {"track_code": "1", "distance": "1600", "limit": "5"}}
+        event = {"queryStringParameters": {"track_code": "1", "distance": "1600", "limit": "0"}}
         result = get_past_race_stats(event, {})
 
         assert result["statusCode"] == 400
-        assert "limit must be between 10 and 500" in result["body"]
+        assert "limit must be between 1 and 500" in result["body"]
+
+    def test_無効なtrack_codeは400エラー(self) -> None:
+        """無効なtrack_codeの場合は400を返す."""
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {"track_code": "999", "distance": "1600"}}
+        result = get_past_race_stats(event, {})
+
+        assert result["statusCode"] == 400
+        assert "track_code must be one of 1, 2, 3" in result["body"]
 
     def test_存在しないコースの場合は404エラー(self) -> None:
         """存在しないコースの場合は404を返す."""
@@ -463,6 +474,33 @@ class TestGetJockeyCourseStats:
 
         assert result["statusCode"] == 400
         assert "Invalid distance format" in result["body"]
+
+    def test_無効なtrack_codeは400エラー(self) -> None:
+        """無効なtrack_codeの場合は400を返す."""
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {"jockey_id": "00001", "track_code": "999", "distance": "1600"}}
+        result = get_jockey_course_stats(event, {})
+
+        assert result["statusCode"] == 400
+        assert "track_code must be one of 1, 2, 3" in result["body"]
+
+    def test_無効なkeibajo_codeは400エラー(self) -> None:
+        """無効なkeibajo_codeの場合は400を返す."""
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {
+            "jockey_id": "00001",
+            "track_code": "1",
+            "distance": "1600",
+            "keibajo_code": "99",  # 無効
+        }}
+        result = get_jockey_course_stats(event, {})
+
+        assert result["statusCode"] == 400
+        assert "Invalid keibajo_code" in result["body"]
 
     def test_存在しない騎手の場合は404エラー(self) -> None:
         """存在しない騎手の場合は404を返す."""
@@ -593,6 +631,17 @@ class TestGetPopularityPayoutStats:
         assert result["statusCode"] == 400
         assert "Invalid popularity format" in result["body"]
 
+    def test_無効なtrack_codeは400エラー(self) -> None:
+        """無効なtrack_codeの場合は400を返す."""
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"queryStringParameters": {"track_code": "999", "distance": "1600", "popularity": "1"}}
+        result = get_popularity_payout_stats(event, {})
+
+        assert result["statusCode"] == 400
+        assert "track_code must be one of 1, 2, 3" in result["body"]
+
     def test_存在しないコースの場合は404エラー(self) -> None:
         """存在しないコースの場合は404を返す."""
         provider = MockRaceDataProvider()
@@ -642,3 +691,5 @@ class TestGetPopularityPayoutStats:
         assert body["avg_place_payout"] == 200.0
         # 回収率推定: 500 * 30 / 100 = 150
         assert body["estimated_roi_win"] == 150.0
+        # 回収率推定: 200 * 60 / 100 = 120
+        assert body["estimated_roi_place"] == 120.0
