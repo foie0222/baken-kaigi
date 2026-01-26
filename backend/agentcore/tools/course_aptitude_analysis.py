@@ -367,18 +367,17 @@ def _analyze_gate_position_aptitude(
     """
     by_position = aptitude_data.get("by_running_position", [])
 
-    # 馬番から内/中/外枠を判定
-    # JRAの枠番は1-8（フルゲート18頭の場合）
+    # 馬番から枠番と内/中/外枠を判定
+    # JRAの枠番は1-8（フルゲート18頭の場合、馬番1-2が1枠、3-4が2枠、...）
     if horse_number > 0:
-        if horse_number <= 6:
+        current_gate = min((horse_number - 1) // 2 + 1, 8)  # 枠番は最大8
+        # 枠番1-4が内枠、5-6が中枠、7-8が外枠
+        if current_gate <= 4:
             current_position = "内枠(1-4)"
-            current_gate = min((horse_number - 1) // 2 + 1, 8)  # 枠番は最大8
-        elif horse_number <= 12:
+        elif current_gate <= 6:
             current_position = "中枠(5-6)"
-            current_gate = min((horse_number - 1) // 2 + 1, 8)
         else:
             current_position = "外枠(7-8)"
-            current_gate = min((horse_number - 1) // 2 + 1, 8)
     else:
         current_position = "不明"
         current_gate = 0
@@ -441,13 +440,13 @@ def _analyze_gate_position_aptitude(
 
     # コメント生成
     if inner_rate > outer_rate and "内枠" in current_position:
-        comment = f"内枠の方が成績良好。今回{horse_number}番枠は好材料"
+        comment = f"内枠の方が成績良好。今回{current_gate}枠は好材料"
     elif outer_rate > inner_rate and "外枠" in current_position:
-        comment = f"外枠の方が成績良好。今回{horse_number}番枠は好材料"
+        comment = f"外枠の方が成績良好。今回{current_gate}枠は好材料"
     elif "中枠" in current_position:
-        comment = f"中枠{horse_number}番は無難な枠順"
+        comment = f"中枠{current_gate}枠は無難な枠順"
     else:
-        comment = f"{horse_number}番枠は特に有利不利なし"
+        comment = f"{current_gate}枠は特に有利不利なし"
 
     return {
         "current_gate": current_gate,
