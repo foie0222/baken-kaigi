@@ -275,6 +275,61 @@ class TrainerClassStatsData:
     win_rate: float
 
 
+@dataclass(frozen=True)
+class StallionOffspringStatsData:
+    """種牡馬産駒成績統計データ."""
+
+    stallion_id: str
+    stallion_name: str
+    total_offspring: int
+    total_starts: int
+    wins: int
+    win_rate: float
+    place_rate: float
+    g1_wins: int
+    earnings: int | None = None
+
+
+@dataclass(frozen=True)
+class StallionTrackStatsData:
+    """種牡馬トラック別成績."""
+
+    track_type: str  # 芝/ダート/障害
+    starts: int
+    wins: int
+    win_rate: float
+    avg_distance: int | None = None
+
+
+@dataclass(frozen=True)
+class StallionDistanceStatsData:
+    """種牡馬距離別成績."""
+
+    distance_range: str  # 例: "1600-2000m"
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class StallionConditionStatsData:
+    """種牡馬馬場状態別成績."""
+
+    condition: str  # 良/稍/重/不
+    starts: int
+    wins: int
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class TopOffspringData:
+    """トップ産駒データ."""
+
+    horse_name: str
+    wins: int
+    g1_wins: int
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -500,5 +555,31 @@ class RaceDataProvider(ABC):
 
         Returns:
             成績統計、コース別成績リスト、クラス別成績リストのタプル
+        """
+        pass
+
+    @abstractmethod
+    def get_stallion_offspring_stats(
+        self,
+        stallion_id: str,
+        year: int | None = None,
+        track_type: str | None = None,
+    ) -> tuple[
+        StallionOffspringStatsData | None,
+        list[StallionTrackStatsData],
+        list[StallionDistanceStatsData],
+        list[StallionConditionStatsData],
+        list[TopOffspringData],
+    ]:
+        """種牡馬の産駒成績統計を取得する.
+
+        Args:
+            stallion_id: 種牡馬コード（馬ID）
+            year: 集計年度（省略時は通算）
+            track_type: 芝/ダート/障害 でフィルタ
+
+        Returns:
+            (産駒成績統計, トラック別成績, 距離別成績, 馬場状態別成績, トップ産駒)
+            見つからない場合は(None, [], [], [], [])
         """
         pass
