@@ -101,8 +101,15 @@ def analyze_odds_movement(
         return {"error": str(e)}
 
 
-def _analyze_market_overview(odds_history: list[dict]) -> dict:
-    """市場概要を分析する."""
+def _analyze_market_overview(odds_history: list[dict]) -> dict[str, dict | int | str | None]:
+    """市場概要を分析する.
+
+    Args:
+        odds_history: オッズ履歴データ
+
+    Returns:
+        市場概要分析結果
+    """
     if not odds_history:
         return {
             "favorite": None,
@@ -149,8 +156,16 @@ def _analyze_market_overview(odds_history: list[dict]) -> dict:
 
 def _analyze_movements(
     odds_history: list[dict], horse_numbers: list[int] | None
-) -> list[dict]:
-    """馬ごとのオッズ変動を分析する."""
+) -> list[dict[str, str | int | float]]:
+    """馬ごとのオッズ変動を分析する.
+
+    Args:
+        odds_history: オッズ履歴データ
+        horse_numbers: 分析対象馬番リスト
+
+    Returns:
+        オッズ変動分析結果のリスト
+    """
     if len(odds_history) < 2:
         return []
 
@@ -214,8 +229,16 @@ def _analyze_movements(
 
 def _analyze_value(
     odds_history: list[dict], horse_numbers: list[int] | None
-) -> list[dict]:
-    """妙味分析を行う."""
+) -> list[dict[str, str | int | float]]:
+    """妙味分析を行う.
+
+    Args:
+        odds_history: オッズ履歴データ
+        horse_numbers: 分析対象馬番リスト
+
+    Returns:
+        妙味分析結果のリスト
+    """
     if not odds_history:
         return []
 
@@ -268,7 +291,14 @@ def _analyze_value(
 
 
 def _estimate_fair_odds(popularity: int) -> float:
-    """人気順位から適正オッズを推定する."""
+    """人気順位から適正オッズを推定する.
+
+    Args:
+        popularity: 人気順位
+
+    Returns:
+        適正オッズの推定値
+    """
     # 簡易的な推定式
     fair_odds_by_pop = {
         1: 3.0,
@@ -285,9 +315,16 @@ def _estimate_fair_odds(popularity: int) -> float:
     return fair_odds_by_pop.get(popularity, 100.0)
 
 
-def _analyze_betting_patterns(movements: list[dict]) -> dict:
-    """投票パターンを分析する."""
-    pro_money_horses = []
+def _analyze_betting_patterns(movements: list[dict]) -> dict[str, list[int] | int | str | None]:
+    """投票パターンを分析する.
+
+    Args:
+        movements: オッズ変動データ
+
+    Returns:
+        投票パターン分析結果
+    """
+    pro_money_horses: list[int] = []
     public_favorite = None
 
     for m in movements:
@@ -317,8 +354,17 @@ def _generate_odds_comment(
     value_analysis: list[dict],
     betting_patterns: dict,
 ) -> str:
-    """総合コメントを生成する."""
-    parts = []
+    """総合コメントを生成する.
+
+    Args:
+        movements: オッズ変動データ
+        value_analysis: 妙味分析結果
+        betting_patterns: 投票パターン分析結果
+
+    Returns:
+        総合コメント
+    """
+    parts: list[str] = []
 
     # オッズ急変馬
     sharp_moves = [m for m in movements if m.get("trend") in ("急落", "急騰")]

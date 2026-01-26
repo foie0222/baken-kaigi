@@ -118,8 +118,15 @@ def analyze_jockey_factor(
         return {"error": str(e)}
 
 
-def _create_jockey_overview(stats_data: dict) -> dict:
-    """騎手概要を作成する."""
+def _create_jockey_overview(stats_data: dict) -> dict[str, str | float | int]:
+    """騎手概要を作成する.
+
+    Args:
+        stats_data: 騎手成績データ
+
+    Returns:
+        騎手概要（調子、勝率、複勝率、順位）
+    """
     stats = stats_data.get("stats", {})
     win_rate = stats.get("win_rate", 0.0)
     place_rate = stats.get("place_rate", 0.0)
@@ -144,8 +151,18 @@ def _create_jockey_overview(stats_data: dict) -> dict:
 
 def _analyze_course_performance(
     stats_data: dict, venue: str, track_type: str, distance: int
-) -> dict:
-    """コース成績を分析する."""
+) -> dict[str, str | float | int]:
+    """コース成績を分析する.
+
+    Args:
+        stats_data: 騎手成績データ
+        venue: 競馬場名
+        track_type: コース種別
+        distance: 距離
+
+    Returns:
+        コース成績分析結果
+    """
     by_venue = stats_data.get("by_venue", [])
     by_track = stats_data.get("by_track_type", [])
 
@@ -212,8 +229,17 @@ def _analyze_course_performance(
 
 def _analyze_horse_compatibility(
     jockey_id: str, horse_id: str, horse_name: str
-) -> dict:
-    """馬との相性を分析する."""
+) -> dict[str, str | float | list]:
+    """馬との相性を分析する.
+
+    Args:
+        jockey_id: 騎手コード
+        horse_id: 馬コード
+        horse_name: 馬名
+
+    Returns:
+        馬との相性分析結果
+    """
     if not horse_id:
         return {
             "combination_history": [],
@@ -235,15 +261,14 @@ def _analyze_horse_compatibility(
         if performances_response.status_code == 200:
             performances = performances_response.json().get("performances", [])
 
-            # この騎手との出走を抽出
+            # この騎手との出走を抽出（騎手IDで比較）
             combination_races = []
             wins = 0
             places = 0
             for p in performances:
-                # 騎手名で比較（IDがない場合）
-                if p.get("jockey_id") == jockey_id or jockey_id in str(
-                    p.get("jockey_name", "")
-                ):
+                perf_jockey_id = p.get("jockey_id", "")
+                # 騎手IDが一致する場合のみ（文字列照合は避ける）
+                if perf_jockey_id and perf_jockey_id == jockey_id:
                     finish = p.get("finish_position", 0)
                     combination_races.append({
                         "date": p.get("race_date", ""),
@@ -279,8 +304,9 @@ def _analyze_horse_compatibility(
                     "rating": rating,
                     "comment": comment,
                 }
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        # API呼び出し失敗時はログを記録して初騎乗として扱う
+        logger.warning(f"馬の過去成績取得に失敗（初騎乗として処理）: {e}")
 
     return {
         "combination_history": [],
@@ -291,8 +317,12 @@ def _analyze_horse_compatibility(
     }
 
 
-def _analyze_jockey_change() -> dict:
-    """乗り替わり分析（簡易版）."""
+def _analyze_jockey_change() -> dict[str, str | bool]:
+    """乗り替わり分析（簡易版）.
+
+    Returns:
+        乗り替わり分析結果
+    """
     # 現時点では前走騎手データがないため、簡易的な返却
     return {
         "is_change": False,
@@ -303,9 +333,26 @@ def _analyze_jockey_change() -> dict:
     }
 
 
-def _analyze_popularity_reliability(stats_data: dict, popularity: int) -> dict:
-    """人気別信頼度を分析する."""
+def _analyze_popularity_reliability(stats_data: dict, popularity: int) -> dict[str, str | float | int]:
+    """人気別信頼度を分析する.
+
+    Args:
+        stats_data: 騎手成績データ
+        popularity: 人気順位
+
+    Returns:
+        人気別信頼度分析結果
+    """
     by_popularity = stats_data.get("by_popularity", [])
+
+    # 人気が未設定（0以下）の場合
+    if popularity <= 0:
+        return {
+            "current_popularity": popularity,
+            "win_rate_at_popularity": 0.0,
+            "rating": "データなし",
+            "comment": "人気データなし",
+        }
 
     pop_data = None
     for p in by_popularity:
@@ -313,7 +360,7 @@ def _analyze_popularity_reliability(stats_data: dict, popularity: int) -> dict:
             pop_data = p
             break
 
-    if not pop_data and popularity > 0:
+    if not pop_data:
         # 人気帯で検索
         if popularity <= 3:
             pop_range = "1-3番人気"
@@ -382,7 +429,22 @@ def _generate_jockey_comment(
     distance: int,
     popularity: int,
 ) -> str:
-    """総合コメントを生成する."""
+    """総合コメントを生成する.
+
+    Args:
+        jockey_name: 騎手名
+        jockey_overview: 騎手概要
+        course_performance: コース成績
+        horse_compatibility: 馬との相性
+        popularity_reliability: 人気別信頼度
+        venue: 競馬場名
+        track_type: コース種別
+        distance: 距離
+        popularity: 人気
+
+    Returns:
+        総合コメント
+    """
     parts = []
 
     # コース成績

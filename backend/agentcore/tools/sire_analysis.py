@@ -115,8 +115,16 @@ def analyze_sire_offspring(
         return {"error": str(e)}
 
 
-def _analyze_sire(sire_name: str, sire_stats: dict | None) -> dict:
-    """父馬を分析する."""
+def _analyze_sire(sire_name: str, sire_stats: dict | None) -> dict[str, str | int | float]:
+    """父馬を分析する.
+
+    Args:
+        sire_name: 父馬名
+        sire_stats: 種牡馬産駒成績
+
+    Returns:
+        父馬分析結果
+    """
     if not sire_stats:
         return {
             "sire_name": sire_name or "不明",
@@ -156,8 +164,18 @@ def _analyze_condition_aptitude(
     track_type: str,
     distance: int,
     condition: str,
-) -> dict:
-    """条件適性を分析する."""
+) -> dict[str, str | int | float]:
+    """条件適性を分析する.
+
+    Args:
+        sire_stats: 種牡馬産駒成績
+        track_type: コース種別
+        distance: 距離
+        condition: 馬場状態
+
+    Returns:
+        条件適性分析結果
+    """
     if not sire_stats:
         return {
             "track_type": track_type,
@@ -241,8 +259,16 @@ def _analyze_condition_aptitude(
     }
 
 
-def _analyze_nicks(sire_name: str, broodmare_sire: str) -> dict:
-    """母父相性（ニックス）を分析する."""
+def _analyze_nicks(sire_name: str, broodmare_sire: str) -> dict[str, str]:
+    """母父相性（ニックス）を分析する.
+
+    Args:
+        sire_name: 父馬名
+        broodmare_sire: 母父馬名
+
+    Returns:
+        ニックス分析結果
+    """
     # 有名なニックス組み合わせ
     famous_nicks = {
         ("ディープインパクト", "Storm Cat"): {"rating": "A", "effect": "スピード強化"},
@@ -274,8 +300,16 @@ def _analyze_nicks(sire_name: str, broodmare_sire: str) -> dict:
     }
 
 
-def _analyze_growth(sire_name: str, horse_age: int) -> dict:
-    """成長曲線を分析する."""
+def _analyze_growth(sire_name: str, horse_age: int) -> dict[str, str | int]:
+    """成長曲線を分析する.
+
+    Args:
+        sire_name: 父馬名
+        horse_age: 馬齢
+
+    Returns:
+        成長曲線分析結果
+    """
     # 種牡馬別の成長傾向
     growth_patterns = {
         "ディープインパクト": {"peak": "3〜4歳", "type": "早熟〜普通"},
@@ -330,8 +364,21 @@ def _generate_sire_comment(
     track_type: str,
     distance: int,
 ) -> str:
-    """総合コメントを生成する."""
-    parts = []
+    """総合コメントを生成する.
+
+    Args:
+        horse_name: 馬名
+        sire_analysis: 父馬分析結果
+        condition_aptitude: 条件適性分析結果
+        nicks_analysis: ニックス分析結果
+        growth_analysis: 成長曲線分析結果
+        track_type: コース種別
+        distance: 距離
+
+    Returns:
+        総合コメント
+    """
+    parts: list[str] = []
 
     # 父馬評価
     sire_name = sire_analysis.get("sire_name", "")

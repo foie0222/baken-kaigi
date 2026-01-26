@@ -128,8 +128,16 @@ def analyze_trainer_tendency(
         return {"error": str(e)}
 
 
-def _create_stable_overview(info_data: dict, stats_data: dict) -> dict:
-    """厩舎概要を作成する."""
+def _create_stable_overview(info_data: dict, stats_data: dict) -> dict[str, str | float]:
+    """厩舎概要を作成する.
+
+    Args:
+        info_data: 厩舎基本情報
+        stats_data: 厩舎成績データ
+
+    Returns:
+        厩舎概要（所属、調子、勝率、複勝率）
+    """
     affiliation = info_data.get("affiliation", "")
     if not affiliation:
         stable_location = info_data.get("stable_location", "")
@@ -159,8 +167,18 @@ def _create_stable_overview(info_data: dict, stats_data: dict) -> dict:
 
 def _analyze_race_condition_fit(
     stats_data: dict, track_type: str, distance: int, grade_class: str
-) -> dict:
-    """条件適合度を分析する."""
+) -> dict[str, str]:
+    """条件適合度を分析する.
+
+    Args:
+        stats_data: 厩舎成績データ
+        track_type: コース種別（芝/ダート）
+        distance: レース距離
+        grade_class: クラス
+
+    Returns:
+        条件適合度（トラック評価、距離評価、クラス評価、コメント）
+    """
     by_track = stats_data.get("by_track_type", [])
     by_class = stats_data.get("by_class", [])
 
@@ -205,7 +223,14 @@ def _analyze_race_condition_fit(
 
 
 def _win_rate_to_rating(win_rate: float) -> str:
-    """勝率から評価を算出."""
+    """勝率から評価を算出.
+
+    Args:
+        win_rate: 勝率（%）
+
+    Returns:
+        評価（A/B/C/D）
+    """
     if win_rate >= WIN_RATE_EXCELLENT:
         return "A"
     elif win_rate >= WIN_RATE_GOOD:
@@ -216,8 +241,15 @@ def _win_rate_to_rating(win_rate: float) -> str:
         return "D"
 
 
-def _analyze_patterns(stats_data: dict) -> dict:
-    """パターン分析を行う."""
+def _analyze_patterns(stats_data: dict) -> dict[str, dict[str, str | float | int]]:
+    """パターン分析を行う.
+
+    Args:
+        stats_data: 厩舎成績データ
+
+    Returns:
+        パターン分析結果（休み明け傾向、出走間隔）
+    """
     # 現時点では簡易的なデータ
     # 将来的にはより詳細な休み明け・間隔データを分析
     return {
@@ -234,8 +266,17 @@ def _analyze_patterns(stats_data: dict) -> dict:
 
 def _analyze_jockey_compatibility(
     trainer_id: str, jockey_id: str, trainer_name: str
-) -> dict:
-    """騎手との相性を分析する."""
+) -> dict[str, str | int | float]:
+    """騎手との相性を分析する.
+
+    Args:
+        trainer_id: 調教師コード
+        jockey_id: 騎手コード
+        trainer_name: 調教師名（表示用）
+
+    Returns:
+        騎手相性分析結果
+    """
     if not jockey_id:
         return {
             "combination_starts": 0,
@@ -282,8 +323,8 @@ def _analyze_jockey_compatibility(
                 "rating": rating,
                 "comment": comment,
             }
-    except requests.RequestException:
-        pass
+    except requests.RequestException as e:
+        logger.warning(f"騎手情報の取得に失敗: {e}")
 
     return {
         "combination_starts": 0,
@@ -298,9 +339,18 @@ def _analyze_target_race_signal(
     stable_overview: dict,
     race_condition_fit: dict,
     jockey_compatibility: dict,
-) -> dict:
-    """勝負気配を判定する."""
-    signals = []
+) -> dict[str, bool | list[str] | str]:
+    """勝負気配を判定する.
+
+    Args:
+        stable_overview: 厩舎概要
+        race_condition_fit: 条件適合度
+        jockey_compatibility: 騎手相性
+
+    Returns:
+        勝負気配判定結果
+    """
+    signals: list[str] = []
     score = 0
 
     # 厩舎の調子
@@ -345,8 +395,20 @@ def _generate_trainer_comment(
     track_type: str,
     grade_class: str,
 ) -> str:
-    """総合コメントを生成する."""
-    parts = []
+    """総合コメントを生成する.
+
+    Args:
+        trainer_name: 調教師名
+        stable_overview: 厩舎概要
+        race_condition_fit: 条件適合度
+        jockey_compatibility: 騎手相性
+        track_type: コース種別
+        grade_class: クラス
+
+    Returns:
+        総合コメント
+    """
+    parts: list[str] = []
 
     # 厩舎名と調子
     affiliation = stable_overview.get("affiliation", "")

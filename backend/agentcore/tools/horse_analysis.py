@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Any
 
 import requests
 from strands import tool
@@ -36,7 +35,7 @@ CONSISTENCY_LOW_THRESHOLD = 4.0
 def analyze_horse_performance(
     horse_id: str,
     horse_name: str,
-    limit: int = 5,
+    limit: int = DEFAULT_PERFORMANCE_LIMIT,
 ) -> dict:
     """馬の過去成績を分析し、傾向や能力を判断する。
 
@@ -117,7 +116,14 @@ def analyze_horse_performance(
 
 
 def _evaluate_form(finishes: list[int]) -> str:
-    """調子を評価する."""
+    """直近の着順から調子を評価する.
+
+    Args:
+        finishes: 直近の着順リスト（新しい順）
+
+    Returns:
+        調子評価（好調/上昇中/普通/不調/データなし）
+    """
     if not finishes:
         return "データなし"
 
@@ -130,9 +136,10 @@ def _evaluate_form(finishes: list[int]) -> str:
     avg_finish = sum(valid_finishes) / len(valid_finishes) if valid_finishes else 10
 
     # 直近3走の傾向（改善傾向かどうか）
+    # 着順は小さい方が良いので、直近が3走前より小さければ改善
     if len(finishes) >= 3:
         recent_3 = finishes[:3]
-        improving = recent_3[0] < recent_3[-1]  # 直近が良くなっている
+        improving = recent_3[0] < recent_3[-1]  # 直近の着順 < 3走前の着順
     else:
         improving = False
 
@@ -146,8 +153,15 @@ def _evaluate_form(finishes: list[int]) -> str:
         return "不調"
 
 
-def _analyze_ability(performances: list[dict]) -> dict:
-    """能力を分析する."""
+def _analyze_ability(performances: list[dict]) -> dict[str, str]:
+    """過去成績から能力を分析する.
+
+    Args:
+        performances: 過去成績データのリスト
+
+    Returns:
+        能力分析結果（finishing_speed, stamina, consistency）
+    """
     # 上がり3F分析
     last_3f_times = []
     for p in performances:
@@ -186,13 +200,18 @@ def _analyze_ability(performances: list[dict]) -> dict:
     # スタミナ評価（長距離での成績）
     long_distance_perfs = [p for p in performances if p.get("distance", 0) >= 2000]
     if long_distance_perfs:
-        long_avg = sum(p.get("finish_position", 10) for p in long_distance_perfs) / len(long_distance_perfs)
-        if long_avg <= 3:
-            stamina = "A"
-        elif long_avg <= 5:
-            stamina = "B"
+        # finish_positionが取得できない場合は評価対象外とする（大きな値でペナルティを与えない）
+        long_finishes = [p.get("finish_position") for p in long_distance_perfs if p.get("finish_position") is not None]
+        if long_finishes:
+            long_avg = sum(long_finishes) / len(long_finishes)
+            if long_avg <= 3:
+                stamina = "A"
+            elif long_avg <= 5:
+                stamina = "B"
+            else:
+                stamina = "C"
         else:
-            stamina = "C"
+            stamina = "データなし"
     else:
         stamina = "データなし"
 
@@ -203,8 +222,15 @@ def _analyze_ability(performances: list[dict]) -> dict:
     }
 
 
-def _analyze_class(performances: list[dict]) -> dict:
-    """クラス適性を分析する."""
+def _analyze_class(performances: list[dict]) -> dict[str, str | bool]:
+    """過去成績からクラス適性を分析する.
+
+    Args:
+        performances: 過去成績データのリスト
+
+    Returns:
+        クラス分析結果（current_class, suitable_class, class_up_potential）
+    """
     # クラス分布を集計
     class_results: dict[str, list[int]] = {}
     for p in performances:
@@ -237,15 +263,32 @@ def _analyze_class(performances: list[dict]) -> dict:
             if avg <= 2.5:  # 現クラスで平均2.5着以内なら上昇余地あり
                 class_up_potential = True
 
+    # 適性クラスをソートして結合（可読性向上のため分割）
+    if suitable_classes:
+        sorted_classes = sorted(
+            suitable_classes,
+            key=lambda x: class_order.index(x) if x in class_order else 99
+        )
+        suitable_class = "〜".join(sorted_classes[:2])
+    else:
+        suitable_class = current_class
+
     return {
         "current_class": current_class,
-        "suitable_class": "〜".join(sorted(suitable_classes, key=lambda x: class_order.index(x) if x in class_order else 99)[:2]) if suitable_classes else current_class,
+        "suitable_class": suitable_class,
         "class_up_potential": class_up_potential,
     }
 
 
-def _analyze_distance(performances: list[dict]) -> dict:
-    """距離適性を分析する."""
+def _analyze_distance(performances: list[dict]) -> dict[str, str]:
+    """過去成績から距離適性を分析する.
+
+    Args:
+        performances: 過去成績データのリスト
+
+    Returns:
+        距離適性分析結果（best_range, short_performance, middle_performance, long_performance）
+    """
     # 距離カテゴリ別の成績
     short_perfs = [p for p in performances if p.get("distance", 0) < 1600]
     middle_perfs = [p for p in performances if 1600 <= p.get("distance", 0) < 2000]
@@ -269,14 +312,30 @@ def _analyze_distance(performances: list[dict]) -> dict:
         else:
             return "苦手"
 
-    # ベスト距離の判定
-    distances = [p.get("distance", 0) for p in performances if p.get("distance", 0) > 0]
-    if distances:
-        min_dist = min(distances)
-        max_dist = max(distances)
-        best_range = f"{min_dist}-{max_dist}m"
+    # ベスト距離の判定（最も成績が良い距離帯）
+    distance_scores: dict[str, tuple[float | None, str]] = {
+        "短距離(~1600m)": (short_avg, "~1600m"),
+        "中距離(1600-2000m)": (middle_avg, "1600-2000m"),
+        "長距離(2000m~)": (long_avg, "2000m~"),
+    }
+
+    # 平均着順が最も良い（小さい）距離帯を選択
+    best_category = None
+    best_avg = float("inf")
+    for category, (avg, _) in distance_scores.items():
+        if avg is not None and avg < best_avg:
+            best_avg = avg
+            best_category = category
+
+    if best_category:
+        best_range = distance_scores[best_category][1]
     else:
-        best_range = "データなし"
+        # データがない場合は経験距離の範囲を返す
+        distances = [p.get("distance", 0) for p in performances if p.get("distance", 0) > 0]
+        if distances:
+            best_range = f"{min(distances)}-{max(distances)}m"
+        else:
+            best_range = "データなし"
 
     return {
         "best_range": best_range,
@@ -290,9 +349,19 @@ def _generate_performance_comment(
     horse_name: str,
     finishes: list[int],
     form_rating: str,
-    ability: dict,
+    ability: dict[str, str],
 ) -> str:
-    """成績分析のコメントを生成する."""
+    """成績分析のコメントを生成する.
+
+    Args:
+        horse_name: 馬名
+        finishes: 直近の着順リスト
+        form_rating: 調子評価
+        ability: 能力分析結果
+
+    Returns:
+        分析コメント文字列
+    """
     # 馬券圏内回数
     in_money = sum(1 for f in finishes if 1 <= f <= 3)
 

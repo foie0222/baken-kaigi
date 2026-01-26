@@ -110,9 +110,16 @@ def analyze_weight_trend(
         return {"error": str(e)}
 
 
-def _extract_weight_history(performances: list[dict]) -> list[dict]:
-    """成績データから体重履歴を抽出する."""
-    history = []
+def _extract_weight_history(performances: list[dict]) -> list[dict[str, str | int]]:
+    """成績データから体重履歴を抽出する.
+
+    Args:
+        performances: 過去成績データのリスト
+
+    Returns:
+        体重履歴のリスト
+    """
+    history: list[dict[str, str | int]] = []
     for p in performances:
         weight = p.get("horse_weight")
         if weight and weight > 0:
@@ -136,8 +143,15 @@ def _extract_weight_history(performances: list[dict]) -> list[dict]:
     return history
 
 
-def _analyze_trend(weight_history: list[dict]) -> dict:
-    """馬体重のトレンドを分析する."""
+def _analyze_trend(weight_history: list[dict]) -> dict[str, str | int]:
+    """馬体重のトレンドを分析する.
+
+    Args:
+        weight_history: 体重履歴のリスト
+
+    Returns:
+        トレンド分析結果
+    """
     if not weight_history:
         return {
             "trend": "データなし",
@@ -197,8 +211,15 @@ def _analyze_trend(weight_history: list[dict]) -> dict:
     }
 
 
-def _estimate_optimal_weight(weight_history: list[dict]) -> dict:
-    """ベスト体重を推定する."""
+def _estimate_optimal_weight(weight_history: list[dict]) -> dict[str, int | str]:
+    """ベスト体重を推定する.
+
+    Args:
+        weight_history: 体重履歴のリスト
+
+    Returns:
+        ベスト体重推定結果
+    """
     if not weight_history:
         return {
             "estimated_best": 0,
@@ -238,8 +259,15 @@ def _estimate_optimal_weight(weight_history: list[dict]) -> dict:
     }
 
 
-def _analyze_weight_performance_correlation(weight_history: list[dict]) -> dict:
-    """体重変動と成績の相関を分析する."""
+def _analyze_weight_performance_correlation(weight_history: list[dict]) -> dict[str, str | int]:
+    """体重変動と成績の相関を分析する.
+
+    Args:
+        weight_history: 体重履歴のリスト
+
+    Returns:
+        体重変動と成績の相関分析結果
+    """
     # 増加時と減少時の成績を比較
     increase_results = []
     decrease_results = []
@@ -307,8 +335,18 @@ def _evaluate_current_weight(
     current_weight_diff: int | None,
     optimal_weight: dict,
     weight_history: list[dict],
-) -> dict:
-    """当日馬体重を評価する."""
+) -> dict[str, int | str | None]:
+    """当日馬体重を評価する.
+
+    Args:
+        current_weight: 当日馬体重
+        current_weight_diff: 前走比増減
+        optimal_weight: ベスト体重情報
+        weight_history: 体重履歴
+
+    Returns:
+        当日馬体重評価結果
+    """
     if not current_weight:
         return {
             "weight": None,
@@ -372,8 +410,18 @@ def _generate_weight_comment(
     trend_analysis: dict,
     optimal_weight: dict,
 ) -> str:
-    """総合コメントを生成する."""
-    parts = []
+    """総合コメントを生成する.
+
+    Args:
+        horse_name: 馬名
+        current_weight_evaluation: 当日馬体重評価
+        trend_analysis: トレンド分析
+        optimal_weight: ベスト体重
+
+    Returns:
+        総合コメント
+    """
+    parts: list[str] = []
 
     weight = current_weight_evaluation.get("weight")
     diff = current_weight_evaluation.get("diff", "")
