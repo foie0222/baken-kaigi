@@ -19,6 +19,7 @@ from .weight_analysis import analyze_weight_trend
 from .gate_analysis import analyze_gate_position
 from .sire_analysis import analyze_sire_offspring
 from .race_comprehensive_analysis import analyze_race_comprehensive
+from .bet_combinations import suggest_bet_combinations
 
 __all__ = [
     "get_race_data",
@@ -39,4 +40,5 @@ __all__ = [
     "analyze_gate_position",
     "analyze_sire_offspring",
     "analyze_race_comprehensive",
+    "suggest_bet_combinations",
 ]
