@@ -34,19 +34,26 @@ class TestAnalyzeGatePosition:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "gate_stats": {
-                "inner": {"runs": 10, "wins": 3, "place_rate": 40.0},
-                "middle": {"runs": 8, "wins": 2, "place_rate": 37.5},
-                "outer": {"runs": 5, "wins": 1, "place_rate": 40.0},
-            }
+            "by_gate": [
+                {"gate": 1, "win_rate": 12.0},
+                {"gate": 2, "win_rate": 10.0},
+                {"gate": 3, "win_rate": 11.0},
+            ],
+            "analysis": {"summary": "内枠有利"},
+            "by_running_position": [
+                {"position": "内", "starts": 10, "wins": 3},
+            ],
+            "aptitude_summary": {},
         }
         mock_get.return_value = mock_response
 
         result = analyze_gate_position(
+            race_id="20260125_06_11",
+            horse_number=3,
             horse_id="horse_001",
             horse_name="テスト馬",
-            gate_number=3,
-            race_course="東京",
+            running_style="先行",
+            venue="東京",
             track_type="芝",
             distance=1600,
         )
@@ -59,9 +66,9 @@ class TestAnalyzeGatePosition:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_gate_position(
+            horse_number=3,
             horse_id="horse_001",
             horse_name="テスト馬",
-            gate_number=3,
         )
 
         assert "error" in result

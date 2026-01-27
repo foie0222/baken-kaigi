@@ -34,18 +34,19 @@ class TestAnalyzeDistanceChange:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "last_distance": 1600,
-            "current_distance": 2000,
-            "distance_change_stats": {
-                "extension_win_rate": 15.0,
-            },
+            "distance": 2000,
+            "track_type": "芝",
+            "performances": [
+                {"distance": 1600, "finish_position": 1},
+                {"distance": 1800, "finish_position": 2},
+            ],
         }
         mock_get.return_value = mock_response
 
         result = analyze_distance_change(
+            race_id="20260125_06_11",
             horse_id="horse_001",
             horse_name="テスト馬",
-            race_distance=2000,
         )
 
         assert "error" not in result or "warning" in result
@@ -56,6 +57,7 @@ class TestAnalyzeDistanceChange:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_distance_change(
+            race_id="20260125_06_11",
             horse_id="horse_001",
             horse_name="テスト馬",
         )

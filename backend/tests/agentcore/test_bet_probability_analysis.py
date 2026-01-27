@@ -34,17 +34,23 @@ class TestAnalyzeBetProbability:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "runners": [
-                {"horse_number": 1, "odds": 2.5, "popularity": 1},
-                {"horse_number": 2, "odds": 5.0, "popularity": 2},
+            "race_name": "テストレース",
+            "distance": 1600,
+            "track_type": "芝",
+            "total_races": 100,
+            "popularity_stats": [
+                {"popularity": 1, "win_rate": 30.0, "place_rate": 60.0},
+                {"popularity": 2, "win_rate": 20.0, "place_rate": 50.0},
             ],
+            "avg_win_payout": 500,
+            "avg_place_payout": 200,
         }
         mock_get.return_value = mock_response
 
         result = analyze_bet_probability(
             race_id="20260125_06_11",
-            bet_type="trio",
-            horse_numbers=[1, 2, 3],
+            bet_type="単勝",
+            analysis_scope="条件別",
         )
 
         assert "error" not in result or "warning" in result
@@ -56,8 +62,7 @@ class TestAnalyzeBetProbability:
 
         result = analyze_bet_probability(
             race_id="20260125_06_11",
-            bet_type="win",
-            horse_numbers=[1],
+            bet_type="単勝",
         )
 
         assert "error" in result

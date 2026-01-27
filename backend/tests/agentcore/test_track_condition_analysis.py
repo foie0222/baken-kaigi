@@ -34,7 +34,9 @@ class TestAnalyzeTrackConditionImpact:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "race": {"track_condition": "重", "track_type": "芝"},
+            "track_condition": "重",
+            "track_type": "芝",
+            "distance": 1600,
             "performances": [
                 {"track_condition": "重", "finish_position": 1},
                 {"track_condition": "良", "finish_position": 3},

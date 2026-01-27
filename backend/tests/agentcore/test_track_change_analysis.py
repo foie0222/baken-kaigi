@@ -34,12 +34,13 @@ class TestTrackCourseConditionChange:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "race": {"race_name": "テストレース", "track_condition": "重"},
-            "condition_history": [
-                {"time": "10:00", "condition": "良"},
-                {"time": "12:00", "condition": "稍"},
-                {"time": "14:00", "condition": "重"},
-            ],
+            "race_name": "テストレース",
+            "track_condition": "重",
+            "track_type": "芝",
+            "venue": "東京",
+            "distance": 1600,
+            "race_number": 11,
+            "race_date": "2026-01-25",
         }
         mock_get.return_value = mock_response
 

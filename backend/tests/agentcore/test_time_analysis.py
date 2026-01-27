@@ -35,7 +35,7 @@ class TestAnalyzeTimePerformance:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "performances": [
-                {"distance": 1600, "time": 95.5, "last_3f": 34.0, "track_condition": "良"},
+                {"distance": 1600, "time": "1:33.5", "last_3f": "34.0", "track_condition": "良", "race_name": "テストレース", "race_date": "2026-01-01"},
             ]
         }
         mock_get.return_value = mock_response
@@ -43,6 +43,7 @@ class TestAnalyzeTimePerformance:
         result = analyze_time_performance(
             horse_id="horse_001",
             horse_name="テスト馬",
+            race_id="20260125_06_11",
         )
 
         assert "error" not in result or "warning" in result

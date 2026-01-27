@@ -34,13 +34,21 @@ class TestAnalyzeScratchImpact:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "race": {"race_name": "テストレース", "distance": 1600},
-            "runners": [
-                {"horse_number": 1, "horse_name": "馬1", "running_style": "逃げ"},
-                {"horse_number": 2, "horse_name": "馬2", "running_style": "先行"},
-            ],
+            "race_name": "テストレース",
+            "distance": 1600,
+            "track_type": "芝",
         }
-        mock_get.return_value = mock_response
+
+        # 別のレスポンスを設定（出走馬情報用）
+        mock_runners_response = MagicMock()
+        mock_runners_response.status_code = 200
+        mock_runners_response.json.return_value = [
+            {"horse_number": 1, "horse_name": "馬1", "running_style": "逃げ", "popularity": 1, "odds": 2.5},
+            {"horse_number": 2, "horse_name": "馬2", "running_style": "先行", "popularity": 2, "odds": 5.0},
+        ]
+
+        # 複数の呼び出しに対応
+        mock_get.side_effect = [mock_response, mock_runners_response]
 
         result = analyze_scratch_impact(
             race_id="20260125_06_11",

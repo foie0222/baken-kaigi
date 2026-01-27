@@ -44,7 +44,8 @@ class TestSuggestBetCombinations:
 
         result = suggest_bet_combinations(
             race_id="20260125_06_11",
-            strategy="バランス型",
+            axis_horses=[1],
+            bet_type="馬連",
             budget=1000,
         )
 
@@ -57,7 +58,9 @@ class TestSuggestBetCombinations:
 
         result = suggest_bet_combinations(
             race_id="20260125_06_11",
-            strategy="バランス型",
+            axis_horses=[1],
+            bet_type="馬連",
+            budget=1000,
         )
 
         assert "error" in result

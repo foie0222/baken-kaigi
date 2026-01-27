@@ -35,11 +35,20 @@ class TestAnalyzeOddsMovement:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "odds_history": [
-                {"horse_number": 1, "time": "10:00", "odds": 5.5},
-                {"horse_number": 1, "time": "11:00", "odds": 4.5},
-            ],
-            "current_odds": [
-                {"horse_number": 1, "odds": 4.5},
+                {
+                    "timestamp": "10:00",
+                    "odds": [
+                        {"horse_number": 1, "horse_name": "馬1", "odds": 5.5, "popularity": 1},
+                    ],
+                    "total_pool": 1000000,
+                },
+                {
+                    "timestamp": "11:00",
+                    "odds": [
+                        {"horse_number": 1, "horse_name": "馬1", "odds": 4.5, "popularity": 1},
+                    ],
+                    "total_pool": 2000000,
+                },
             ],
         }
         mock_get.return_value = mock_response

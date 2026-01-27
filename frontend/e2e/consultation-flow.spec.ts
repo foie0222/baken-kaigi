@@ -62,8 +62,13 @@ test.describe("コンサルテーションフロー", () => {
     const cartContent = page.locator(
       '[data-testid="cart-content"], [data-testid="empty-cart"]'
     );
-    // メインコンテンツが表示されていれば成功
-    await expect(page.locator("body")).toBeVisible();
+    // カートコンテンツまたはメインコンテンツが表示されていれば成功
+    const isCartVisible = await cartContent
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
+    if (!isCartVisible) {
+      await expect(page.locator("body")).toBeVisible();
+    }
   });
 });
 

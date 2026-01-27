@@ -34,15 +34,20 @@ class TestAnalyzeClassFactor:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "current_class": "3勝",
-            "suitable_class": "OP",
+            "grade_class": "OP",
+            "distance": 1600,
+            "track_type": "芝",
+            "performances": [
+                {"grade_class": "3勝", "finish_position": 1},
+                {"grade_class": "3勝", "finish_position": 2},
+            ],
         }
         mock_get.return_value = mock_response
 
         result = analyze_class_factor(
+            race_id="20260125_06_11",
             horse_id="horse_001",
             horse_name="テスト馬",
-            race_class="OP",
         )
 
         assert "error" not in result or "warning" in result
@@ -53,6 +58,7 @@ class TestAnalyzeClassFactor:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_class_factor(
+            race_id="20260125_06_11",
             horse_id="horse_001",
             horse_name="テスト馬",
         )

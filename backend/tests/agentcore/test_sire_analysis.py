@@ -65,6 +65,8 @@ class TestAnalyzeSireOffspring:
             horse_id="horse_001",
             horse_name="テスト馬",
             sire_name="ディープインパクト",
+            track_type="芝",
+            race_distance=2000,
         )
 
         assert "error" in result
