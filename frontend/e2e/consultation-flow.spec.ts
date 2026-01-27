@@ -17,11 +17,16 @@ test.describe("コンサルテーションフロー", () => {
     // レースカードまたはリストアイテムを探す
     const raceItem = page.locator('[data-testid="race-item"]').first();
 
-    // レースアイテムが存在する場合はクリック
-    if (await raceItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+    // レースアイテムの存在確認（count()で安全にチェック）
+    const raceItemCount = await raceItem.count();
+    if (raceItemCount > 0) {
+      await expect(raceItem).toBeVisible();
       await raceItem.click();
       // レース詳細ページに遷移したことを確認
       await expect(page).toHaveURL(/\/races\//);
+    } else {
+      // レースアイテムがない場合でもテストは成功（データがない場合を許容）
+      console.log("No race items found - skipping navigation test");
     }
   });
 
@@ -37,17 +42,24 @@ test.describe("コンサルテーションフロー", () => {
       'textarea[placeholder*="メッセージ"], input[type="text"][placeholder*="メッセージ"], [data-testid="message-input"]'
     );
 
-    if (await messageInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+    // メッセージ入力欄の存在確認
+    const inputCount = await messageInput.count();
+    if (inputCount > 0) {
+      await expect(messageInput.first()).toBeVisible();
       // メッセージを入力
-      await messageInput.fill("テストメッセージです");
+      await messageInput.first().fill("テストメッセージです");
 
       // 送信ボタンを探してクリック
       const sendButton = page.locator(
         'button[type="submit"], [data-testid="send-button"]'
       );
-      if (await sendButton.isEnabled()) {
-        await sendButton.click();
+      const buttonCount = await sendButton.count();
+      if (buttonCount > 0 && (await sendButton.first().isEnabled())) {
+        await sendButton.first().click();
       }
+    } else {
+      // メッセージ入力欄がない場合（UIが異なる可能性）
+      console.log("No message input found - UI may differ from expected");
     }
   });
 
@@ -58,16 +70,22 @@ test.describe("コンサルテーションフロー", () => {
     // カートページが表示されることを確認
     await expect(page.locator("main")).toBeVisible();
 
-    // カートが空の場合のメッセージまたはカート内容が表示される
+    // カートが空の場合のメッセージまたはカート内容を探す
     const cartContent = page.locator(
       '[data-testid="cart-content"], [data-testid="empty-cart"]'
     );
-    // カートコンテンツまたはメインコンテンツが表示されていれば成功
-    const isCartVisible = await cartContent
-      .isVisible({ timeout: 3000 })
-      .catch(() => false);
-    if (!isCartVisible) {
-      await expect(page.locator("body")).toBeVisible();
+
+    // カートコンテンツの存在確認
+    const cartContentCount = await cartContent.count();
+    if (cartContentCount > 0) {
+      // カートコンテンツが存在する場合、表示を確認
+      await expect(cartContent.first()).toBeVisible();
+    } else {
+      // data-testidがない場合でも、ページ自体は正常に表示されている
+      // この場合はmainが表示されていることで成功とする
+      console.log(
+        "Cart content with expected data-testid not found - page rendered without specific markers"
+      );
     }
   });
 });
@@ -86,9 +104,17 @@ test.describe("レース分析フロー", () => {
 
     // レース情報またはエラーメッセージが表示される
     const content = page.locator("main, [role='main']");
-    await expect(content).toBeVisible({ timeout: 10000 }).catch(() => {
-      // ページ自体は表示されている
-    });
+    const contentCount = await content.count();
+
+    if (contentCount > 0) {
+      // メインコンテンツが存在する場合は表示を確認
+      await expect(content.first()).toBeVisible({ timeout: 10000 });
+    } else {
+      // メインコンテンツがない場合（404ページなど）でもbodyは表示されている
+      console.log(
+        "Main content not found - page may be showing 404 or error state"
+      );
+    }
   });
 
   test("ダッシュボードページの表示", async ({ page }) => {

@@ -58,7 +58,8 @@ class TestAnalyzeScratchImpact:
             scratched_horses=[{"horse_number": 5, "horse_name": "取消馬", "reason": "取消"}],
         )
 
-        assert "error" not in result or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.scratch_impact_analysis.requests.get")
     def test_RequestException時にエラーを返す(self, mock_get):

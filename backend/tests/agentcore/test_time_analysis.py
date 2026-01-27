@@ -46,7 +46,8 @@ class TestAnalyzeTimePerformance:
             race_id="20260125_06_11",
         )
 
-        assert "error" not in result or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.time_analysis.requests.get")
     def test_RequestException時にwarningが返る(self, mock_get):
@@ -58,5 +59,7 @@ class TestAnalyzeTimePerformance:
             horse_name="テスト馬",
         )
 
-        # time_analysis は内部でエラーをハンドリングし、warningで結果を返す
-        assert "warning" in result or "error" in result
+        # time_analysis は内部でエラーをハンドリングし、warningまたはerrorを設定する
+        has_warning = "warning" in result
+        has_error = "error" in result
+        assert has_warning or has_error, "Expected either 'warning' or 'error' key in result"

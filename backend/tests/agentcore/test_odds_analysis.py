@@ -58,7 +58,8 @@ class TestAnalyzeOddsMovement:
             horse_numbers=[1],
         )
 
-        assert "error" not in result or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.odds_analysis.requests.get")
     def test_RequestException時にエラーを返す(self, mock_get):

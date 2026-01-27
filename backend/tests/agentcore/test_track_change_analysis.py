@@ -60,7 +60,8 @@ class TestTrackCourseConditionChange:
             race_id="20260125_06_11",
         )
 
-        assert "error" not in result or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.track_change_analysis.requests.get")
     def test_RequestException時にエラーを返す(self, mock_get):

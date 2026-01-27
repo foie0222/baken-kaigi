@@ -84,9 +84,12 @@ class BakenKaigiUser(HttpUser):
                 except json.JSONDecodeError:
                     pass
                 response.success()
-            elif response.status_code in [404, 500]:
-                # APIが存在しない場合もテスト継続
+            elif response.status_code == 404:
+                # APIエンドポイントが存在しない場合は許容（開発環境）
                 response.success()
+            elif response.status_code >= 500:
+                # サーバーエラーは失敗として記録
+                response.failure(f"Server error: {response.status_code}")
             else:
                 response.failure(f"Failed: {response.status_code}")
 
@@ -106,10 +109,13 @@ class BakenKaigiUser(HttpUser):
             catch_response=True,
             name="/api/consultation/message"
         ) as response:
-            if response.status_code in [200, 404, 500]:
+            if response.status_code in [200, 404]:
                 response.success()
+            elif response.status_code >= 500:
+                # サーバーエラーは失敗として記録
+                response.failure(f"Server error: {response.status_code}")
             else:
-                response.failure(f"Failed: {response.status_code}")
+                response.failure(f"Client error: {response.status_code}")
 
     @task(1)
     def get_cart(self):
@@ -140,10 +146,13 @@ class BakenKaigiUser(HttpUser):
             catch_response=True,
             name="/api/cart/add"
         ) as response:
-            if response.status_code in [200, 201, 404, 500]:
+            if response.status_code in [200, 201, 404]:
                 response.success()
+            elif response.status_code >= 500:
+                # サーバーエラーは失敗として記録
+                response.failure(f"Server error: {response.status_code}")
             else:
-                response.failure(f"Failed: {response.status_code}")
+                response.failure(f"Client error: {response.status_code}")
 
 
 class HighLoadUser(HttpUser):
@@ -153,23 +162,36 @@ class HighLoadUser(HttpUser):
 
     @task(1)
     def health_check(self):
-        """ヘルスチェック."""
+        """ヘルスチェック.
+
+        Note: 高負荷テストでは接続性の確認が主目的のため、
+        ステータスコードに関わらず成功としてカウントする。
+        ただしサーバーエラーはログに記録する。
+        """
         with self.client.get(
             "/api/health",
             catch_response=True,
             name="/api/health"
         ) as response:
-            # どのステータスでも成功として扱う（接続テスト目的）
+            if response.status_code >= 500:
+                # サーバーエラーは記録するが、接続テストとしては成功
+                print(f"Health check returned {response.status_code}")
             response.success()
 
     @task(3)
     def get_races(self):
-        """レース一覧取得（軽量API）."""
+        """レース一覧取得（軽量API）.
+
+        Note: 高負荷テストでは接続性の確認が主目的のため、
+        ステータスコードに関わらず成功としてカウントする。
+        """
         with self.client.get(
             "/api/races",
             catch_response=True,
             name="/api/races"
         ) as response:
+            if response.status_code >= 500:
+                print(f"Get races returned {response.status_code}")
             response.success()
 
 

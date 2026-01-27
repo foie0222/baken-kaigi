@@ -58,7 +58,8 @@ class TestAnalyzeGatePosition:
             distance=1600,
         )
 
-        assert "error" not in result or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.gate_analysis.requests.get")
     def test_RequestException時にwarningが返る(self, mock_get):
@@ -72,4 +73,6 @@ class TestAnalyzeGatePosition:
         )
 
         # gate_analysis は内部でエラーをハンドリングし、デフォルト値で結果を返す
-        assert "horse_name" in result or "error" in result
+        has_horse_name = "horse_name" in result
+        has_error = "error" in result
+        assert has_horse_name or has_error, "Expected 'horse_name' (graceful degradation) or 'error' key"
