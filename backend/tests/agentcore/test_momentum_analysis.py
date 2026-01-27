@@ -47,7 +47,8 @@ class TestAnalyzeMomentum:
             horse_name="テスト馬",
         )
 
-        assert "error" not in result or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.momentum_analysis.requests.get")
     def test_RequestException時にwarningを返す(self, mock_get):
@@ -60,4 +61,6 @@ class TestAnalyzeMomentum:
         )
 
         # _get_performancesがexceptionをキャッチして空リストを返すので、warningになる
-        assert "warning" in result or "error" in result
+        has_warning = "warning" in result
+        has_error = "error" in result
+        assert has_warning or has_error, "Expected 'warning' or 'error' on RequestException"

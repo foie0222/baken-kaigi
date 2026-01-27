@@ -290,4 +290,6 @@ class TestSchemaValidationIntegration:
 
         for schema_class, data in schemas:
             result = schema_class(**data)
-            assert result.error == "エラー" or hasattr(result, "error")
+            # エラーレスポンスの検証: error属性が存在し、期待値と一致することを確認
+            assert hasattr(result, "error"), f"{schema_class.__name__} lacks 'error' attribute"
+            assert result.error == "エラー", f"{schema_class.__name__}: expected 'エラー', got {result.error}"

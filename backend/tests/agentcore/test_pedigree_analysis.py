@@ -53,7 +53,8 @@ class TestAnalyzePedigreeAptitude:
             track_type="芝",
         )
 
-        assert "sire_analysis" in result or "warning" not in result or "error" not in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.pedigree_analysis.requests.get")
     def test_404エラーで警告を返す(self, mock_get):
@@ -64,7 +65,10 @@ class TestAnalyzePedigreeAptitude:
 
         result = analyze_pedigree_aptitude("horse_999", "不明馬")
 
-        assert "warning" in result or "error" in result
+        # 404の場合はwarningを返すべき
+        has_warning = "warning" in result
+        has_error = "error" in result
+        assert has_warning or has_error, "Expected 'warning' or 'error' for 404 response"
 
     @patch("tools.pedigree_analysis.requests.get")
     def test_RequestException時にエラーを返す(self, mock_get):

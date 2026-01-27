@@ -60,8 +60,10 @@ class TestAnalyzeTrainingCondition:
 
         result = analyze_training_condition("horse_001", "テスト馬")
 
-        assert "last_workout" in result or "warning" not in result
-        assert result.get("horse_name") == "テスト馬" or "warning" in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
+        # 調教データがあればhorse_nameを持つはず
+        assert result.get("horse_name") == "テスト馬"
 
     @patch("tools.training_analysis.requests.get")
     def test_404エラーで警告を返す(self, mock_get):

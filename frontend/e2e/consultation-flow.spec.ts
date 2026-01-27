@@ -147,17 +147,24 @@ test.describe("ナビゲーションフロー", () => {
       { path: "/settings", name: "設定" },
     ];
 
+    // ページエラーを収集（ループの外で1回だけ登録）
+    const pageErrors: { route: string; error: string }[] = [];
+    page.on("pageerror", (error) => {
+      pageErrors.push({ route: page.url(), error: error.message });
+    });
+
     for (const route of routes) {
       await page.goto(route.path);
 
       // ページが正常に表示されることを確認
       await expect(page.locator("body")).toBeVisible();
-
-      // コンソールエラーがないことを確認
-      page.on("pageerror", (error) => {
-        console.error(`Page error on ${route.name}: ${error.message}`);
-      });
     }
+
+    // テスト終了時にページエラーがないことを確認
+    if (pageErrors.length > 0) {
+      console.error("Page errors detected:", pageErrors);
+    }
+    expect(pageErrors).toHaveLength(0);
   });
 
   test("レスポンシブデザインの確認", async ({ page }) => {

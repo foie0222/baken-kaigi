@@ -47,7 +47,8 @@ class TestAnalyzeTrainerTendency:
             distance=1600,
         )
 
-        assert "stable_overview" in result or "warning" not in result or "error" not in result
+        # 正常系では明示的にerrorがないことを確認
+        assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
     @patch("tools.trainer_analysis.requests.get")
     def test_404エラーで警告を返す(self, mock_get):
