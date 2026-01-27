@@ -34,17 +34,18 @@ class TestAnalyzeTrackConditionImpact:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "track_condition": "重",
-            "impact_analysis": {
-                "favor_heavy_runners": True,
-            },
+            "race": {"track_condition": "重", "track_type": "芝"},
+            "performances": [
+                {"track_condition": "重", "finish_position": 1},
+                {"track_condition": "良", "finish_position": 3},
+            ],
         }
         mock_get.return_value = mock_response
 
         result = analyze_track_condition_impact(
+            race_id="20260125_06_11",
             horse_id="horse_001",
             horse_name="テスト馬",
-            track_condition="重",
         )
 
         assert "error" not in result or "warning" in result
@@ -55,6 +56,7 @@ class TestAnalyzeTrackConditionImpact:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_track_condition_impact(
+            race_id="20260125_06_11",
             horse_id="horse_001",
             horse_name="テスト馬",
         )

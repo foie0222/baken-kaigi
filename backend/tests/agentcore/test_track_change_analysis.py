@@ -34,18 +34,17 @@ class TestTrackCourseConditionChange:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "turf_to_dirt_stats": {
-                "win_rate": 12.0,
-                "place_rate": 35.0,
-            },
+            "race": {"race_name": "テストレース", "track_condition": "重"},
+            "condition_history": [
+                {"time": "10:00", "condition": "良"},
+                {"time": "12:00", "condition": "稍"},
+                {"time": "14:00", "condition": "重"},
+            ],
         }
         mock_get.return_value = mock_response
 
         result = track_course_condition_change(
-            horse_id="horse_001",
-            horse_name="テスト馬",
-            from_track="芝",
-            to_track="ダート",
+            race_id="20260125_06_11",
         )
 
         assert "error" not in result or "warning" in result
@@ -56,8 +55,7 @@ class TestTrackCourseConditionChange:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = track_course_condition_change(
-            horse_id="horse_001",
-            horse_name="テスト馬",
+            race_id="20260125_06_11",
         )
 
         assert "error" in result

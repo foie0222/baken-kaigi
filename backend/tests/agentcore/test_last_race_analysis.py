@@ -45,6 +45,7 @@ class TestAnalyzeLastRaceDetail:
         result = analyze_last_race_detail(
             horse_id="horse_001",
             horse_name="テスト馬",
+            race_id="20260125_06_11",
         )
 
         assert "error" not in result or "warning" in result
@@ -57,6 +58,7 @@ class TestAnalyzeLastRaceDetail:
         result = analyze_last_race_detail(
             horse_id="horse_001",
             horse_name="テスト馬",
+            race_id="20260125_06_11",
         )
 
         assert "error" in result

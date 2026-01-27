@@ -34,17 +34,15 @@ class TestAnalyzeTimePerformance:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "best_times": [
-                {"distance": 1600, "time": "1:33.5"},
-            ],
-            "speed_rating": 95,
+            "performances": [
+                {"distance": 1600, "time": 95.5, "last_3f": 34.0, "track_condition": "良"},
+            ]
         }
         mock_get.return_value = mock_response
 
         result = analyze_time_performance(
             horse_id="horse_001",
             horse_name="テスト馬",
-            race_distance=1600,
         )
 
         assert "error" not in result or "warning" in result

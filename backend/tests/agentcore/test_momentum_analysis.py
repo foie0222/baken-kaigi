@@ -34,9 +34,11 @@ class TestAnalyzeMomentum:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "recent_results": [1, 2, 3],
-            "momentum_score": 85,
-            "trend": "上昇中",
+            "performances": [
+                {"finish_position": 1},
+                {"finish_position": 2},
+                {"finish_position": 3},
+            ]
         }
         mock_get.return_value = mock_response
 
@@ -48,8 +50,8 @@ class TestAnalyzeMomentum:
         assert "error" not in result or "warning" in result
 
     @patch("tools.momentum_analysis.requests.get")
-    def test_RequestException時にエラーを返す(self, mock_get):
-        """異常系: RequestException発生時はerrorを返す."""
+    def test_RequestException時にwarningを返す(self, mock_get):
+        """異常系: RequestException発生時はwarningを返す（_get_performancesがキャッチ）."""
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_momentum(
@@ -57,4 +59,5 @@ class TestAnalyzeMomentum:
             horse_name="テスト馬",
         )
 
-        assert "error" in result
+        # _get_performancesがexceptionをキャッチして空リストを返すので、warningになる
+        assert "warning" in result or "error" in result

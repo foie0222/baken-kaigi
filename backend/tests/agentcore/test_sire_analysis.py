@@ -34,20 +34,24 @@ class TestAnalyzeSireOffspring:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "sire_name": "ディープインパクト",
-            "offspring_stats": {
-                "total_wins": 500,
-                "turf_win_rate": 15.5,
-                "dirt_win_rate": 8.2,
+            "sire": {
+                "name": "ディープインパクト",
+                "sire_line": "サンデーサイレンス系",
+            },
+            "stats": {
+                "total_offspring": 500,
+                "wins": 100,
+                "win_rate": 15.5,
             }
         }
         mock_get.return_value = mock_response
 
         result = analyze_sire_offspring(
-            sire_id="sire_001",
+            horse_id="horse_001",
+            horse_name="テスト馬",
             sire_name="ディープインパクト",
             track_type="芝",
-            distance=2000,
+            race_distance=2000,
         )
 
         assert "error" not in result or "warning" in result
@@ -58,7 +62,8 @@ class TestAnalyzeSireOffspring:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_sire_offspring(
-            sire_id="sire_001",
+            horse_id="horse_001",
+            horse_name="テスト馬",
             sire_name="ディープインパクト",
         )
 

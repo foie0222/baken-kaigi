@@ -34,17 +34,19 @@ class TestAnalyzeOddsMovement:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "current_odds": 5.5,
-            "opening_odds": 8.0,
-            "odds_trend": "下降中",
-            "bet_concentration": "高い",
+            "odds_history": [
+                {"horse_number": 1, "time": "10:00", "odds": 5.5},
+                {"horse_number": 1, "time": "11:00", "odds": 4.5},
+            ],
+            "current_odds": [
+                {"horse_number": 1, "odds": 4.5},
+            ],
         }
         mock_get.return_value = mock_response
 
         result = analyze_odds_movement(
             race_id="20260125_06_11",
-            horse_number=1,
-            horse_name="テスト馬",
+            horse_numbers=[1],
         )
 
         assert "error" not in result or "warning" in result
@@ -56,8 +58,7 @@ class TestAnalyzeOddsMovement:
 
         result = analyze_odds_movement(
             race_id="20260125_06_11",
-            horse_number=1,
-            horse_name="テスト馬",
+            horse_numbers=[1],
         )
 
         assert "error" in result

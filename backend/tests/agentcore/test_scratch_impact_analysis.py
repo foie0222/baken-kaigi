@@ -34,16 +34,17 @@ class TestAnalyzeScratchImpact:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "scratched_horses": [
-                {"horse_number": 5, "horse_name": "取消馬"},
+            "race": {"race_name": "テストレース", "distance": 1600},
+            "runners": [
+                {"horse_number": 1, "horse_name": "馬1", "running_style": "逃げ"},
+                {"horse_number": 2, "horse_name": "馬2", "running_style": "先行"},
             ],
-            "impact_on_pace": "ペースが緩くなる見込み",
         }
         mock_get.return_value = mock_response
 
         result = analyze_scratch_impact(
             race_id="20260125_06_11",
-            scratched_numbers=[5],
+            scratched_horses=[{"horse_number": 5, "horse_name": "取消馬", "reason": "取消"}],
         )
 
         assert "error" not in result or "warning" in result
@@ -55,7 +56,7 @@ class TestAnalyzeScratchImpact:
 
         result = analyze_scratch_impact(
             race_id="20260125_06_11",
-            scratched_numbers=[5],
+            scratched_horses=[{"horse_number": 5, "horse_name": "取消馬", "reason": "取消"}],
         )
 
         assert "error" in result
