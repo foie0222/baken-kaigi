@@ -31,24 +31,27 @@ class TestAnalyzeScratchImpact:
     @patch("tools.scratch_impact_analysis.requests.get")
     def test_正常系_取消影響を分析(self, mock_get):
         """正常系: 出走取消の影響を正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        # 1回目: レース情報取得
+        mock_race_response = MagicMock()
+        mock_race_response.status_code = 200
+        mock_race_response.json.return_value = {
             "race_name": "テストレース",
             "distance": 1600,
             "track_type": "芝",
         }
+        mock_race_response.raise_for_status = MagicMock()
 
-        # 別のレスポンスを設定（出走馬情報用）
+        # 2回目: 出走馬情報取得
         mock_runners_response = MagicMock()
         mock_runners_response.status_code = 200
         mock_runners_response.json.return_value = [
             {"horse_number": 1, "horse_name": "馬1", "running_style": "逃げ", "popularity": 1, "odds": 2.5},
             {"horse_number": 2, "horse_name": "馬2", "running_style": "先行", "popularity": 2, "odds": 5.0},
+            {"horse_number": 5, "horse_name": "取消馬", "running_style": "差し", "popularity": 3, "odds": 8.0},
         ]
 
         # 複数の呼び出しに対応
-        mock_get.side_effect = [mock_response, mock_runners_response]
+        mock_get.side_effect = [mock_race_response, mock_runners_response]
 
         result = analyze_scratch_impact(
             race_id="20260125_06_11",

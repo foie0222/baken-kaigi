@@ -31,16 +31,45 @@ class TestAnalyzeLastRaceDetail:
     @patch("tools.last_race_analysis.requests.get")
     def test_正常系_前走を分析(self, mock_get):
         """正常系: 前走データを正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "last_race": {
-                "race_name": "前走レース",
-                "finish_position": 2,
-                "margin": "クビ",
-            },
+        # 1回目: レース情報取得
+        mock_race_response = MagicMock()
+        mock_race_response.status_code = 200
+        mock_race_response.json.return_value = {
+            "race_name": "今回のレース",
+            "distance": 1600,
+            "track_type": "芝",
+            "track_condition": "良",
+            "grade_class": "3勝",
+            "venue": "東京",
         }
-        mock_get.return_value = mock_response
+        mock_race_response.raise_for_status = MagicMock()
+
+        # 2回目: 過去成績取得
+        mock_perf_response = MagicMock()
+        mock_perf_response.status_code = 200
+        mock_perf_response.json.return_value = {
+            "performances": [
+                {
+                    "race_name": "前走レース",
+                    "finish_position": 2,
+                    "margin": "クビ",
+                    "distance": 1600,
+                    "track_type": "芝",
+                    "track_condition": "良",
+                    "venue": "東京",
+                    "race_date": "2026-01-10",
+                    "last_3f": "33.8",
+                    "time": "1:33.5",
+                    "popularity": 2,
+                    "odds": 5.0,
+                    "grade_class": "3勝",
+                    "total_runners": 16,
+                },
+            ]
+        }
+        mock_perf_response.raise_for_status = MagicMock()
+
+        mock_get.side_effect = [mock_race_response, mock_perf_response]
 
         result = analyze_last_race_detail(
             horse_id="horse_001",

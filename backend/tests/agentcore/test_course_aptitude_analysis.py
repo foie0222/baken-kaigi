@@ -54,7 +54,7 @@ class TestAnalyzeCourseAptitude:
         result = analyze_course_aptitude(
             horse_id="horse_001",
             horse_name="テスト馬",
-            race_course="東京",
+            venue="東京",
             track_type="芝",
             distance=1600,
         )

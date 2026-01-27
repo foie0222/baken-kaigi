@@ -31,9 +31,10 @@ class TestTrackCourseConditionChange:
     @patch("tools.track_change_analysis.requests.get")
     def test_正常系_馬場変更を分析(self, mock_get):
         """正常系: 馬場変更を正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        # 1回目: レース情報取得
+        mock_race_response = MagicMock()
+        mock_race_response.status_code = 200
+        mock_race_response.json.return_value = {
             "race_name": "テストレース",
             "track_condition": "重",
             "track_type": "芝",
@@ -42,7 +43,18 @@ class TestTrackCourseConditionChange:
             "race_number": 11,
             "race_date": "2026-01-25",
         }
-        mock_get.return_value = mock_response
+        mock_race_response.raise_for_status = MagicMock()
+
+        # 2回目: 当日レース情報取得
+        mock_daily_response = MagicMock()
+        mock_daily_response.status_code = 200
+        mock_daily_response.json.return_value = [
+            {"race_number": 1, "track_type": "芝", "track_condition": "良"},
+            {"race_number": 5, "track_type": "芝", "track_condition": "稍重"},
+            {"race_number": 9, "track_type": "芝", "track_condition": "重"},
+        ]
+
+        mock_get.side_effect = [mock_race_response, mock_daily_response]
 
         result = track_course_condition_change(
             race_id="20260125_06_11",
