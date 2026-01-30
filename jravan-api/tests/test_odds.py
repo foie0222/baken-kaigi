@@ -9,8 +9,6 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
-
 # pg8000 のモックを追加（Linuxテスト環境用）
 mock_pg8000 = MagicMock()
 sys.modules['pg8000'] = mock_pg8000

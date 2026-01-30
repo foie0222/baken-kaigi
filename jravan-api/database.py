@@ -303,15 +303,27 @@ def get_runners_by_race(race_id: str) -> list[dict]:
 
 
 def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
-    """jvd_o1テーブルからリアルタイムオッズを取得.
+    """jvd_o1テーブルからリアルタイムオッズ（発売中オッズ）を取得.
+
+    JRA-VANのjvd_o1テーブルには発売中（レース開始前）のオッズが格納されています。
+    レース終了後の確定オッズはjvd_seテーブルに格納されます。
 
     Args:
         race_id: レースID（YYYYMMDD_XX_RR形式）
+            例: "20260105_09_01" = 2026年1月5日 阪神 1R
 
     Returns:
         馬番をキー、オッズと人気を値とする辞書。
         例: {1: {"odds": 3.5, "popularity": 1}, 2: {"odds": 5.8, "popularity": 2}}
         テーブルが存在しない、またはデータがない場合はNone。
+
+    Note:
+        - jvd_o1テーブルのカラム:
+          - umaban: 馬番（文字列）
+          - odds: 単勝オッズ（10倍で格納、例: 35 = 3.5倍）
+          - ninki: 人気順位（整数）
+        - オッズが10倍で格納されているのはJRA-VANの仕様
+        - jvd_o1テーブルが存在しない環境ではNoneを返す
     """
     try:
         kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
@@ -321,8 +333,6 @@ def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
     try:
         with get_db() as conn:
             cur = conn.cursor()
-            # jvd_o1テーブルから単勝オッズを取得
-            # カラム名はJRA-VANの仕様に基づく（umaban, odds, ninki）
             cur.execute("""
                 SELECT
                     umaban,
@@ -344,7 +354,8 @@ def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
                 odds_raw = row[1]
                 popularity_raw = row[2]
 
-                # オッズは10倍で格納されている
+                # オッズは10倍で格納されている（JRA-VAN仕様）
+                # odds_raw=0は「オッズなし」を意味するためNoneとして扱う
                 odds = float(odds_raw) / 10 if odds_raw else None
                 popularity = int(popularity_raw) if popularity_raw else None
 
@@ -352,8 +363,10 @@ def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
                     result[horse_number] = {"odds": odds, "popularity": popularity}
 
             return result if result else None
-    except Exception as e:
-        # テーブルが存在しない等のエラーはNoneを返す
+    except (EnvironmentError, OSError, Exception) as e:
+        # DB接続エラー（テーブル不在含む）はNoneを返す
+        # Note: pg8000のDatabaseErrorはExceptionを直接継承しているため、
+        # Exception も含めてキャッチする必要がある
         logger.debug(f"Failed to get realtime odds: {e}")
         return None
 
