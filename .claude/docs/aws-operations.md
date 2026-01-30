@@ -31,8 +31,10 @@ npx cdk deploy --all --context jravan=true --require-approval never
 
 EC2（JRA-VAN API）の操作は以下のスキルを使用:
 
-- `/ec2-sync` - データ同期・EC2操作の簡易インターフェース
+- `/ec2-sync` - EC2操作の簡易インターフェース
 - `/jravan-ec2` - 詳細なSSMコマンドリファレンス
+
+> **Note**: JRA-VANデータの同期はPC-KEIBAソフトで行います。
 
 ### よく使うコマンド
 
@@ -46,11 +48,7 @@ aws ec2 describe-instances \
 /ec2-sync status
 
 # ファイル送信
-/ec2-sync upload sync_jvlink.py
-
-# データ同期
-/ec2-sync sync
-/ec2-sync sync-from 20260101
+/ec2-sync upload main.py
 
 # ログ確認
 /ec2-sync logs

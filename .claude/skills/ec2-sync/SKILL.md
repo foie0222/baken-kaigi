@@ -188,7 +188,7 @@ aws ssm describe-instance-information \
 
 ## 参照
 
-- **CLAUDE.md**: `main/CLAUDE.md` の「EC2操作」セクション
+- **AWS操作ガイド**: `.claude/docs/aws-operations.md` の「EC2操作」セクション
 - **AWS SSM**: https://docs.aws.amazon.com/systems-manager/
 - **CloudWatch Logs**: https://docs.aws.amazon.com/cloudwatch/
 
