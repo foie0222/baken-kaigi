@@ -258,7 +258,9 @@ export function HorseCheckboxList({
             <div className="horse-name">{horse.name}</div>
             <div className="horse-jockey">{horse.jockey}</div>
           </div>
-          <div className="horse-odds">{horse.odds}</div>
+          <div className="horse-odds">
+            {horse.odds && !Number.isNaN(horse.odds) ? horse.odds : '-'}
+          </div>
           <div className="horse-checkboxes">
             {columnConfig.map(col => (
               <div key={col.id} className={`checkbox-col ${col.colorClass}`}>
