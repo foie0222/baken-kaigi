@@ -82,6 +82,8 @@ class BakenKaigiUser(HttpUser):
                     data = response.json()
                     self.consultation_id = data.get("consultation_id")
                 except json.JSONDecodeError:
+                    # JSONパースに失敗してもconsultation_idはNoneのまま継続
+                    # 後続のsend_messageでデフォルトIDが使用される
                     pass
                 response.success()
             elif response.status_code == 404:
