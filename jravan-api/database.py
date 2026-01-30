@@ -318,10 +318,9 @@ def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
         テーブルが存在しない、またはデータがない場合はNone。
 
     Note:
-        - jvd_o1テーブルのカラム:
-          - umaban: 馬番（文字列）
-          - odds: 単勝オッズ（10倍で格納、例: 35 = 3.5倍）
-          - ninki: 人気順位（整数）
+        - jvd_o1テーブルのodds_tanshoカラムは全馬のオッズが連結された文字列:
+          馬番(2桁) + オッズ(4桁, 10で割る) + 人気(2桁) = 8桁/馬
+          例: "01055709" = 馬番1, オッズ55.7倍, 人気9位
         - オッズが10倍で格納されているのはJRA-VANの仕様
         - jvd_o1テーブルが存在しない環境ではNoneを返す
     """
@@ -334,33 +333,42 @@ def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
         with get_db() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT
-                    umaban,
-                    odds,
-                    ninki
+                SELECT odds_tansho
                 FROM jvd_o1
                 WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
                   AND keibajo_code = %s AND race_bango = %s
-                ORDER BY umaban::integer
             """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
-            rows = cur.fetchall()
+            row = cur.fetchone()
 
-            if not rows:
+            if not row or not row[0]:
                 return None
 
+            odds_str = row[0].strip()
+            if not odds_str:
+                return None
+
+            # odds_tansho文字列を解析: 8桁/馬（馬番2 + オッズ4 + 人気2）
             result = {}
-            for row in rows:
-                horse_number = int(row[0]) if row[0] else 0
-                odds_raw = row[1]
-                popularity_raw = row[2]
+            for i in range(0, len(odds_str), 8):
+                if i + 8 > len(odds_str):
+                    break
+                chunk = odds_str[i:i+8]
+                if chunk.strip() == "" or len(chunk) < 8:
+                    continue
 
-                # オッズは10倍で格納されている（JRA-VAN仕様）
-                # odds_raw=0は「オッズなし」を意味するためNoneとして扱う
-                odds = float(odds_raw) / 10 if odds_raw else None
-                popularity = int(popularity_raw) if popularity_raw else None
+                try:
+                    horse_number = int(chunk[0:2])
+                    odds_raw = int(chunk[2:6])
+                    popularity_raw = int(chunk[6:8])
 
-                if horse_number > 0:
-                    result[horse_number] = {"odds": odds, "popularity": popularity}
+                    # オッズは10倍で格納されている（JRA-VAN仕様）
+                    odds = odds_raw / 10.0 if odds_raw > 0 else None
+                    popularity = popularity_raw if popularity_raw > 0 else None
+
+                    if horse_number > 0:
+                        result[horse_number] = {"odds": odds, "popularity": popularity}
+                except (ValueError, IndexError):
+                    continue
 
             return result if result else None
     except (EnvironmentError, OSError, Exception) as e:
