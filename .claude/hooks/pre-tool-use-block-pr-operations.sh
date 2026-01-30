@@ -43,11 +43,29 @@ if echo "$COMMAND" | grep -qE 'gh[[:space:]]+api.*pulls/[0-9]+/(merge|update)'; 
   exit 2
 fi
 
+# git commit 単体（コマンドチェーンなし）の場合のみスキップ
+# git commit && gh pr merge のようなチェーンは引き続きチェック対象
+if echo "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+commit' && \
+   ! echo "$COMMAND" | grep -qE '[;&|][[:space:]]*(cd|gh)[[:space:]]'; then
+  exit 0
+fi
+
 # gh pr merge を条件付きで許可
-if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:space:]]+pr[[:space:]]+merge\b'; then
+# 注: cd && gh pr merge のようなコマンドチェーンにも対応するため、
+#     行頭アンカー(^)を使わず、コマンド区切り文字の後も許可
+# 注: \b はPOSIX EREで非対応のため、末尾境界を明示
+if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:space:]]+pr[[:space:]]+merge($|[[:space:];&|])'; then
   # --help フラグは許可
   if echo "$COMMAND" | grep -qE '\-\-help|\-h'; then
     exit 0
+  fi
+
+  # コマンドに cd が含まれる場合、そのディレクトリに移動してから処理を実行
+  if echo "$COMMAND" | grep -qE '^[[:space:]]*cd[[:space:]]+'; then
+    TARGET_DIR=$(echo "$COMMAND" | sed -n 's/^[[:space:]]*cd[[:space:]]\+\([^;&|]*\).*/\1/p' | sed 's/[[:space:]]*$//')
+    if [ -n "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
+      cd "$TARGET_DIR" || exit 2
+    fi
   fi
 
   # PR番号を抽出（POSIX準拠：sedを使用）
@@ -76,6 +94,7 @@ if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:space:]]+p
   fi
 
   # リポジトリ情報を取得してバリデーション（Copilotコメント確認に必要）
+  # 注: 先に cd を実行しているので、現在のディレクトリから取得
   REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"' 2>/dev/null || echo "")
   OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
   REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
