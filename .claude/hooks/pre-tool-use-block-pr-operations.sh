@@ -121,7 +121,7 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
 query {
   repository(owner: "$OWNER", name: "$REPO") {
     pullRequest(number: $PR_NUMBER) {
-      reviews(first: 20) {
+      reviews(first: 100) {
         nodes {
           author { login }
           body
@@ -166,15 +166,23 @@ EOF
   fi
 
   # Copilotのレビュー本文（body）の存在確認
-  # bodyが空でないレビューをカウント
-  COPILOT_REVIEW_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviews.nodes[] | select(.author.login == "copilot-pull-request-reviewer" and .body != null and .body != "")] | length' 2>/dev/null || echo "0")
+  # bodyが空でないレビューをカウント（author が null の場合も考慮）
+  COPILOT_REVIEW_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviews.nodes[] | select(.author != null and .author.login == "copilot-pull-request-reviewer" and .body != null and .body != "")] | length' 2>/dev/null)
+  if [ -z "$COPILOT_REVIEW_COUNT" ] || ! echo "$COPILOT_REVIEW_COUNT" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: PRの状態を確認できませんでした（Copilotレビュー数の取得に失敗）。" >&2
+    exit 2
+  fi
 
-  # Copilotのコード行コメント数を確認
-  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null || echo "0")
+  # Copilotのコード行コメント数を確認（author が null の場合も考慮）
+  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author != null and .author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null)
+  if [ -z "$COPILOT_COMMENT_COUNT" ] || ! echo "$COPILOT_COMMENT_COUNT" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: PRの状態を確認できませんでした（Copilotコメント数の取得に失敗）。" >&2
+    exit 2
+  fi
 
   # レビュー本文またはコード行コメントのいずれかが存在すればOK
   if [ "$COPILOT_REVIEW_COUNT" -eq 0 ] && [ "$COPILOT_COMMENT_COUNT" -eq 0 ]; then
-    echo "BLOCK: Copilotのレビューがありません。Copilotレビューが完了してからマージしてください。" >&2
+    echo "BLOCK: Copilotのレビュー本文またはコード行コメントがありません。Copilotレビューが完了してからマージしてください。" >&2
     exit 2
   fi
 
