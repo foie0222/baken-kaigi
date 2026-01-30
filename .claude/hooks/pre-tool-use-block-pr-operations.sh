@@ -2,7 +2,7 @@
 # PreToolUse hook: PRマージを条件付きで許可
 #
 # stdin から JSON を受け取り、以下の制御を行う:
-# - gh pr merge: Copilotレビューコメント投稿済み + 全コメント解決済みの場合のみ許可
+# - gh pr merge: Copilotレビュー投稿済み + 全コメント解決済みの場合のみ許可
 # - GitHub API 直接呼び出し: ブロック（hookバイパス防止）
 # - gh pr close: 許可
 # - resolveReviewThread: 許可
@@ -62,7 +62,7 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
 
   # コマンドに cd が含まれる場合、そのディレクトリに移動してから処理を実行
   if echo "$COMMAND" | grep -qE '^[[:space:]]*cd[[:space:]]+'; then
-    TARGET_DIR=$(echo "$COMMAND" | sed -n 's/^[[:space:]]*cd[[:space:]]\+\([^;&|]*\).*/\1/p' | sed 's/[[:space:]]*$//')
+    TARGET_DIR=$(echo "$COMMAND" | sed -n 's/^[[:space:]]*cd[[:space:]][[:space:]]*\([^;&|]*\).*/\1/p' | sed 's/[[:space:]]*$//')
     if [ -n "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
       cd "$TARGET_DIR" || exit 2
     fi
@@ -114,13 +114,19 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
     exit 2
   fi
 
-  # Copilotレビューコメントと未解決コメントの確認（1回のクエリで取得）
-  # ※レビューが「存在する」だけでなく「コメントが投稿済み」であることを確認
+  # Copilotレビューとコメントの確認（1回のクエリで取得）
+  # ※レビュー本文（body）またはコード行コメントのいずれかが存在すればOK
   # ※各スレッドで最大10件のコメントを取得し、Copilotの返信コメントも検知
   COPILOT_QUERY=$(cat <<EOF
 query {
   repository(owner: "$OWNER", name: "$REPO") {
     pullRequest(number: $PR_NUMBER) {
+      reviews(first: 20) {
+        nodes {
+          author { login }
+          body
+        }
+      }
       reviewThreads(first: 100) {
         totalCount
         nodes {
@@ -159,16 +165,16 @@ EOF
     exit 2
   fi
 
-  # Copilotのコメント数を確認（コメントが1件以上投稿されているか）
-  # jq失敗時は-1を返して後続のエラーチェックで検出
-  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null)
-  if [ -z "$COPILOT_COMMENT_COUNT" ] || ! echo "$COPILOT_COMMENT_COUNT" | grep -qE '^[0-9]+$'; then
-    echo "BLOCK: Copilotコメント数の取得に失敗しました（レスポンス解析エラー）。" >&2
-    exit 2
-  fi
+  # Copilotのレビュー本文（body）の存在確認
+  # bodyが空でないレビューをカウント
+  COPILOT_REVIEW_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviews.nodes[] | select(.author.login == "copilot-pull-request-reviewer" and .body != null and .body != "")] | length' 2>/dev/null || echo "0")
 
-  if [ "$COPILOT_COMMENT_COUNT" -eq 0 ]; then
-    echo "BLOCK: Copilotのレビューコメントがありません。Copilotレビューが完了してからマージしてください。" >&2
+  # Copilotのコード行コメント数を確認
+  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null || echo "0")
+
+  # レビュー本文またはコード行コメントのいずれかが存在すればOK
+  if [ "$COPILOT_REVIEW_COUNT" -eq 0 ] && [ "$COPILOT_COMMENT_COUNT" -eq 0 ]; then
+    echo "BLOCK: Copilotのレビューがありません。Copilotレビューが完了してからマージしてください。" >&2
     exit 2
   fi
 
