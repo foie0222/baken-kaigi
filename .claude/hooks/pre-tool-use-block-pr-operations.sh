@@ -3,6 +3,7 @@
 #
 # stdin から JSON を受け取り、以下の制御を行う:
 # - gh pr merge: Copilotレビューコメント投稿済み + 全コメント解決済みの場合のみ許可
+# - curl での GitHub API 直接呼び出し: ブロック（hookバイパス防止）
 # - gh pr close: 許可
 # - resolveReviewThread: 許可
 
@@ -19,6 +20,21 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 
 # コマンドを取得
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
+
+# curl での GitHub API 直接呼び出しをブロック（hookバイパス防止）
+# PR merge, PR update などの操作を検出
+if echo "$COMMAND" | grep -qE 'curl.*api\.github\.com.*/pulls/[0-9]+/(merge|update-branch)'; then
+  echo "BLOCK: curlでのGitHub API直接呼び出しは禁止されています。" >&2
+  echo "gh CLIを使用してください: gh pr merge <PR番号>" >&2
+  exit 2
+fi
+
+# GitHub GraphQL API への直接呼び出しもブロック（mergePullRequest mutation など）
+if echo "$COMMAND" | grep -qE 'curl.*api\.github\.com/graphql.*mergePullRequest'; then
+  echo "BLOCK: curlでのGitHub GraphQL API直接呼び出しは禁止されています。" >&2
+  echo "gh CLIを使用してください: gh pr merge <PR番号>" >&2
+  exit 2
+fi
 
 # gh pr merge を条件付きで許可
 if echo "$COMMAND" | grep -qE '^[[:space:]]*([[:alnum:]/._-]+/)?gh[[:space:]]+pr[[:space:]]+merge\b'; then
