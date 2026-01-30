@@ -23,6 +23,7 @@ class TestGetRealtimeOdds:
     """get_realtime_odds関数の単体テスト.
 
     jvd_o1テーブルからリアルタイムオッズを取得する機能をテスト。
+    odds_tanshoカラムは馬番(2桁)+オッズ(4桁)+人気(2桁)が連結された文字列。
     """
 
     @patch("database.get_db")
@@ -32,12 +33,11 @@ class TestGetRealtimeOdds:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        # jvd_o1からのオッズデータ
-        mock_cursor.fetchall.return_value = [
-            (1, 35, 1),   # 馬番1: オッズ3.5倍（10倍で格納）, 人気1
-            (2, 58, 2),   # 馬番2: オッズ5.8倍, 人気2
-            (3, 120, 3),  # 馬番3: オッズ12.0倍, 人気3
-        ]
+        # odds_tansho形式: 馬番(2桁)+オッズ(4桁)+人気(2桁)
+        # 馬番1: オッズ3.5倍(0035), 人気1 → "01003501"
+        # 馬番2: オッズ5.8倍(0058), 人気2 → "02005802"
+        # 馬番3: オッズ12.0倍(0120), 人気3 → "03012003"
+        mock_cursor.fetchone.return_value = ("010035010200580203012003",)
 
         mock_get_db.return_value.__enter__.return_value = mock_conn
 
@@ -57,7 +57,22 @@ class TestGetRealtimeOdds:
         mock_conn.cursor.return_value = mock_cursor
 
         # データなし
-        mock_cursor.fetchall.return_value = []
+        mock_cursor.fetchone.return_value = None
+
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        result = get_realtime_odds("20260105_09_01")
+
+        assert result is None
+
+    @patch("database.get_db")
+    def test_odds_tanshoが空文字の場合Noneを返す(self, mock_get_db):
+        """odds_tanshoが空文字の場合はNoneを返す."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        mock_cursor.fetchone.return_value = ("",)
 
         mock_get_db.return_value.__enter__.return_value = mock_conn
 
