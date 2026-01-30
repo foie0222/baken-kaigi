@@ -62,7 +62,7 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
 
   # コマンドに cd が含まれる場合、そのディレクトリに移動してから処理を実行
   if echo "$COMMAND" | grep -qE '^[[:space:]]*cd[[:space:]]+'; then
-    TARGET_DIR=$(echo "$COMMAND" | sed -n 's/^[[:space:]]*cd[[:space:]]\+\([^;&|]*\).*/\1/p' | sed 's/[[:space:]]*$//')
+    TARGET_DIR=$(echo "$COMMAND" | sed -n 's/^[[:space:]]*cd[[:space:]][[:space:]]*\([^;&|]*\).*/\1/p' | sed 's/[[:space:]]*$//')
     if [ -n "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
       cd "$TARGET_DIR" || exit 2
     fi
