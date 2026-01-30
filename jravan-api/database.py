@@ -251,6 +251,10 @@ def get_race_by_id(race_id: str) -> dict | None:
 def get_runners_by_race(race_id: str) -> list[dict]:
     """出走馬一覧を取得.
 
+    オッズの優先順位:
+    1. jvd_o1テーブルのリアルタイムオッズ（発売中オッズ）
+    2. jvd_seテーブルの確定オッズ
+
     Args:
         race_id: レースID（YYYYMMDD_XX_RR形式）
     """
@@ -258,6 +262,9 @@ def get_runners_by_race(race_id: str) -> list[dict]:
         kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
     except ValueError:
         return []
+
+    # リアルタイムオッズを先に取得（jvd_o1テーブル）
+    realtime_odds = get_realtime_odds(race_id)
 
     with get_db() as conn:
         cur = conn.cursor()
@@ -281,7 +288,87 @@ def get_runners_by_race(race_id: str) -> list[dict]:
             ORDER BY umaban::integer
         """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
         rows = _fetch_all_as_dicts(cur)
-        return [_to_runner_dict(row) for row in rows]
+        runners = [_to_runner_dict(row) for row in rows]
+
+        # リアルタイムオッズがある場合は上書き
+        if realtime_odds:
+            for runner in runners:
+                horse_number = runner.get("horse_number")
+                if horse_number and horse_number in realtime_odds:
+                    rt_odds = realtime_odds[horse_number]
+                    runner["odds"] = rt_odds.get("odds")
+                    runner["popularity"] = rt_odds.get("popularity")
+
+        return runners
+
+
+def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
+    """jvd_o1テーブルからリアルタイムオッズ（発売中オッズ）を取得.
+
+    JRA-VANのjvd_o1テーブルには発売中（レース開始前）のオッズが格納されています。
+    レース終了後の確定オッズはjvd_seテーブルに格納されます。
+
+    Args:
+        race_id: レースID（YYYYMMDD_XX_RR形式）
+            例: "20260105_09_01" = 2026年1月5日 阪神 1R
+
+    Returns:
+        馬番をキー、オッズと人気を値とする辞書。
+        例: {1: {"odds": 3.5, "popularity": 1}, 2: {"odds": 5.8, "popularity": 2}}
+        テーブルが存在しない、またはデータがない場合はNone。
+
+    Note:
+        - jvd_o1テーブルのカラム:
+          - umaban: 馬番（文字列）
+          - odds: 単勝オッズ（10倍で格納、例: 35 = 3.5倍）
+          - ninki: 人気順位（整数）
+        - オッズが10倍で格納されているのはJRA-VANの仕様
+        - jvd_o1テーブルが存在しない環境ではNoneを返す
+    """
+    try:
+        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
+    except ValueError:
+        return None
+
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT
+                    umaban,
+                    odds,
+                    ninki
+                FROM jvd_o1
+                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s
+                ORDER BY umaban::integer
+            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+            rows = cur.fetchall()
+
+            if not rows:
+                return None
+
+            result = {}
+            for row in rows:
+                horse_number = int(row[0]) if row[0] else 0
+                odds_raw = row[1]
+                popularity_raw = row[2]
+
+                # オッズは10倍で格納されている（JRA-VAN仕様）
+                # odds_raw=0は「オッズなし」を意味するためNoneとして扱う
+                odds = float(odds_raw) / 10 if odds_raw else None
+                popularity = int(popularity_raw) if popularity_raw else None
+
+                if horse_number > 0:
+                    result[horse_number] = {"odds": odds, "popularity": popularity}
+
+            return result if result else None
+    except (EnvironmentError, OSError, Exception) as e:
+        # DB接続エラー（テーブル不在含む）はNoneを返す
+        # Note: pg8000のDatabaseErrorはExceptionを直接継承しているため、
+        # Exception も含めてキャッチする必要がある
+        logger.debug(f"Failed to get realtime odds: {e}")
+        return None
 
 
 def get_horse_count(race_id: str) -> int:
