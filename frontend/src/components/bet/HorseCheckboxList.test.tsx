@@ -20,7 +20,7 @@ function createHorse(overrides: Partial<Horse> = {}): Horse {
 
 describe('HorseCheckboxList', () => {
   const defaultProps = {
-    betType: 'tansho' as const,
+    betType: 'win' as const,
     method: 'normal' as const,
     selections: { col1: [], col2: [], col3: [] } as ColumnSelections,
     onSelectionChange: vi.fn(),
