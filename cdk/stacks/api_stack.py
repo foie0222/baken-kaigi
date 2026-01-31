@@ -3,12 +3,14 @@ from pathlib import Path
 
 from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
+from aws_cdk import aws_bedrockagentcore as bedrockagentcore
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
+from aws_cdk import aws_s3_assets as s3_assets
 from constructs import Construct
 
 
@@ -254,13 +256,62 @@ class BakenKaigiApiStack(Stack):
             )
         )
 
-        # AgentCore Runtime ロール ARN を出力
+        # ========================================
+        # AgentCore Runtime (CDK管理)
+        # ========================================
+        # エージェントコードをS3にアップロード（CDK Assetで自動管理）
+        agentcore_code_path = project_root / "backend" / "agentcore"
+        agent_code_asset = s3_assets.Asset(
+            self,
+            "AgentCodeAsset",
+            path=str(agentcore_code_path),
+            exclude=[
+                ".bedrock_agentcore",
+                ".bedrock_agentcore.yaml",
+                "__pycache__",
+                "*.pyc",
+            ],
+        )
+
+        # AgentCore Runtime (L1 Construct) - CodeConfiguration（direct_code_deploy相当）
+        agent_runtime = bedrockagentcore.CfnRuntime(
+            self,
+            "BakenKaigiAgentRuntime",
+            agent_runtime_name="baken_kaigi_agent",
+            agent_runtime_artifact=bedrockagentcore.CfnRuntime.AgentRuntimeArtifactProperty(
+                code_configuration=bedrockagentcore.CfnRuntime.CodeConfigurationProperty(
+                    code=bedrockagentcore.CfnRuntime.CodeProperty(
+                        s3=bedrockagentcore.CfnRuntime.S3LocationProperty(
+                            bucket=agent_code_asset.s3_bucket_name,
+                            prefix=agent_code_asset.s3_object_key,
+                        )
+                    ),
+                    entry_point=["agent.py"],
+                    runtime="PYTHON_3_12",
+                )
+            ),
+            network_configuration=bedrockagentcore.CfnRuntime.NetworkConfigurationProperty(
+                network_mode="PUBLIC"
+            ),
+            protocol_configuration="HTTP",
+            role_arn=agentcore_runtime_role.role_arn,
+            description="馬券会議 AI相談エージェント",
+        )
+
+        # AgentCore Runtime ARN を出力
         CfnOutput(
             self,
-            "AgentCoreRuntimeRoleArn",
-            value=agentcore_runtime_role.role_arn,
-            description="AgentCore Runtime Role ARN for .bedrock_agentcore.yaml",
-            export_name="BakenKaigiAgentCoreRuntimeRoleArn",
+            "AgentCoreRuntimeArn",
+            value=agent_runtime.attr_agent_runtime_arn,
+            description="AgentCore Runtime ARN",
+            export_name="BakenKaigiAgentCoreRuntimeArn",
+        )
+
+        CfnOutput(
+            self,
+            "AgentCoreRuntimeId",
+            value=agent_runtime.attr_agent_runtime_id,
+            description="AgentCore Runtime ID",
         )
 
         # ========================================
@@ -1003,7 +1054,8 @@ class BakenKaigiApiStack(Stack):
             layers=[deps_layer],
             environment={
                 "PYTHONPATH": "/var/task:/opt/python",
-                "AGENTCORE_AGENT_ARN": "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_agent-t4nITfFpZQ",
+                # CDK管理のAgentCore Runtime ARNを動的参照
+                "AGENTCORE_AGENT_ARN": agent_runtime.attr_agent_runtime_arn,
             },
         )
 

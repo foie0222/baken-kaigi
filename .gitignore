@@ -34,10 +34,9 @@ jravan-api/test_*.py
 # JRA-VAN environment file (contains secrets)
 jravan-api/.env
 
-# Bedrock AgentCore
+# Bedrock AgentCore (CLI artifacts - Runtime is now managed by CDK)
 .bedrock_agentcore/
 .bedrock_agentcore.yaml
-!backend/agentcore/.bedrock_agentcore.yaml
 
 # uv lock file
 uv.lock
