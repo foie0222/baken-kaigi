@@ -244,6 +244,52 @@ class TestMakeResponse:
         assert response["headers"]["Access-Control-Allow-Origin"] == "*"
 
 
+class TestInvokeAgentcore:
+    """invoke_agentcore 関数のテスト."""
+
+    def test_returns_500_when_agentcore_arn_not_set(self):
+        """AGENTCORE_AGENT_ARN 環境変数が未設定の場合は500エラーを返す."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", None):
+            from agentcore_handler import invoke_agentcore
+
+            event = {"body": '{"prompt": "テスト"}'}
+            context = MagicMock()
+
+            response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 500
+            body = json.loads(response["body"])
+            assert "AGENTCORE_AGENT_ARN" in body["error"]
+
+    def test_returns_400_when_prompt_missing(self):
+        """prompt が含まれていない場合は400エラーを返す."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            event = {"body": '{"cart_items": []}'}
+            context = MagicMock()
+
+            response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 400
+            body = json.loads(response["body"])
+            assert "prompt is required" in body["error"]
+
+    def test_returns_400_when_invalid_json_body(self):
+        """不正なJSONボディの場合は400エラーを返す."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            event = {"body": "invalid json"}
+            context = MagicMock()
+
+            response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 400
+            body = json.loads(response["body"])
+            assert "Invalid JSON" in body["error"]
+
+
 class TestGetBody:
     """_get_body 関数のテスト."""
 

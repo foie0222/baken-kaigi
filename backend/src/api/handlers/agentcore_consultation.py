@@ -4,18 +4,22 @@ AgentCore Runtime にリクエストをプロキシする。
 このファイルは他のバックエンドモジュールに依存せず、独立して動作する。
 """
 import json
+import logging
 import os
 import uuid
 from typing import Any
 
 import boto3
+
+# ロガー設定
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 from botocore.config import Config
 
 
 # AgentCore Runtime の ARN（CDKで動的に設定される）
+# Lambda実行時に環境変数から取得（テスト時はNoneでもインポート可能）
 AGENTCORE_AGENT_ARN = os.environ.get("AGENTCORE_AGENT_ARN")
-if not AGENTCORE_AGENT_ARN:
-    raise RuntimeError("AGENTCORE_AGENT_ARN environment variable is required")
 
 # AWS リージョン
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
@@ -60,6 +64,14 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         message: AI からの応答
         session_id: セッションID
     """
+    # 環境変数チェック（Lambda実行時のみ必須）
+    if not AGENTCORE_AGENT_ARN:
+        logger.error("AGENTCORE_AGENT_ARN environment variable is not configured")
+        return _make_response(
+            {"error": "AGENTCORE_AGENT_ARN environment variable is not configured"},
+            500
+        )
+
     try:
         body = _get_body(event)
     except ValueError as e:
