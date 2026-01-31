@@ -243,7 +243,6 @@ def get_race_by_id(race_id: str) -> dict | None:
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
-                LIMIT 1
         """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
         row = _fetch_one_as_dict(cur)
         return _to_race_dict(row) if row else None
@@ -286,7 +285,6 @@ def get_runners_by_race(race_id: str) -> list[dict]:
             FROM jvd_se
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
-                LIMIT 1
             ORDER BY umaban::integer
         """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
         rows = _fetch_all_as_dicts(cur)
@@ -339,7 +337,6 @@ def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
                 FROM jvd_o1
                 WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
                   AND keibajo_code = %s AND race_bango = %s
-                LIMIT 1
             """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
             row = cur.fetchone()
 
@@ -396,7 +393,6 @@ def get_horse_count(race_id: str) -> int:
             FROM jvd_se
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
-                LIMIT 1
         """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
         row = cur.fetchone()
         return row[0] if row else 0
@@ -510,7 +506,6 @@ def get_race_weights(race_id: str) -> list[dict]:
             FROM jvd_se
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
               AND keibajo_code = %s AND race_bango = %s
-                LIMIT 1
             ORDER BY umaban::integer
         """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
         rows = _fetch_all_as_dicts(cur)
