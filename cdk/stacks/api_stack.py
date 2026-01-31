@@ -172,6 +172,27 @@ class BakenKaigiApiStack(Stack):
             )
         )
 
+        # ECR イメージ取得権限（AgentCore Runtimeがコンテナを起動するために必要）
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="ECRImageAccess",
+                actions=[
+                    "ecr:BatchGetImage",
+                    "ecr:GetDownloadUrlForLayer",
+                ],
+                resources=[f"arn:aws:ecr:{self.region}:{self.account}:repository/*"],
+            )
+        )
+
+        # ECR 認証トークン取得権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="ECRTokenAccess",
+                actions=["ecr:GetAuthorizationToken"],
+                resources=["*"],
+            )
+        )
+
         # Bedrock Model 呼び出し権限
         agentcore_runtime_role.add_to_policy(
             iam.PolicyStatement(
