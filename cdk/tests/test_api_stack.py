@@ -25,12 +25,12 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が30個作成されること."""
-        template.resource_count_is("AWS::Lambda::Function", 30)
+        """Lambda関数が31個作成されること（API 30 + バッチ 1）."""
+        template.resource_count_is("AWS::Lambda::Function", 31)
 
     def test_lambda_layer_created(self, template):
-        """Lambda Layerが1個作成されること."""
-        template.resource_count_is("AWS::Lambda::LayerVersion", 1)
+        """Lambda Layerが2個作成されること（API用 + バッチ用）."""
+        template.resource_count_is("AWS::Lambda::LayerVersion", 2)
 
     def test_api_gateway_created(self, template):
         """API Gatewayが作成されること."""
@@ -299,6 +299,41 @@ class TestApiStack:
             {
                 "FunctionName": "baken-kaigi-get-breeder-stats",
                 "Handler": "src.api.handlers.owners.get_breeder_stats",
+            },
+        )
+
+    def test_ai_shisu_scraper_lambda(self, template):
+        """AI指数スクレイピングLambdaが存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-ai-shisu-scraper",
+                "Handler": "batch.ai_shisu_scraper.handler",
+                "Timeout": 300,
+                "MemorySize": 512,
+            },
+        )
+
+    def test_ai_predictions_dynamodb_table(self, template):
+        """AI予想データ用DynamoDBテーブルが存在すること."""
+        template.has_resource_properties(
+            "AWS::DynamoDB::Table",
+            {
+                "TableName": "baken-kaigi-ai-predictions",
+                "KeySchema": [
+                    {"AttributeName": "race_id", "KeyType": "HASH"},
+                    {"AttributeName": "source", "KeyType": "RANGE"},
+                ],
+            },
+        )
+
+    def test_eventbridge_rule_for_scraper(self, template):
+        """スクレイパー用EventBridgeルールが存在すること."""
+        template.has_resource_properties(
+            "AWS::Events::Rule",
+            {
+                "Name": "baken-kaigi-ai-shisu-scraper-rule",
+                "ScheduleExpression": "cron(0 21 ? * * *)",  # UTC 21:00 = JST 06:00
             },
         )
 

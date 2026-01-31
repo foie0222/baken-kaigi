@@ -31,6 +31,8 @@ from .momentum_analysis import analyze_momentum
 from .track_change_analysis import track_course_condition_change
 from .scratch_impact_analysis import analyze_scratch_impact
 from .time_analysis import analyze_time_performance
+# AI予想データ
+from .ai_prediction import get_ai_prediction, list_ai_predictions_for_date
 
 __all__ = [
     "get_race_data",
@@ -63,4 +65,7 @@ __all__ = [
     "track_course_condition_change",
     "analyze_scratch_impact",
     "analyze_time_performance",
+    # AI予想データ
+    "get_ai_prediction",
+    "list_ai_predictions_for_date",
 ]

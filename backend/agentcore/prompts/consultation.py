@@ -36,7 +36,7 @@ SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタ�
 
 3. **ツールは目的に応じてグループから選択**
 
-## 利用可能なツール（29個）
+## 利用可能なツール（31個）
 
 ### 基本ツール（最初に使う）
 - `get_race_data`: レース情報と出走馬一覧を一括取得 **※最初に呼ぶ**
@@ -81,6 +81,10 @@ SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタ�
 - `analyze_scratch_impact`: 出走取消馬の影響分析
 - `analyze_time_performance`: 走破タイムの分析
 
+### 外部AI予想
+- `get_ai_prediction`: 外部AI予想サービス（ai-shisu.com）の指数を取得
+- `list_ai_predictions_for_date`: 指定日のAI予想一覧を取得
+
 ## 質問パターン別のツール選択ガイド
 
 ※ 原則として最初に `get_race_data` を呼び出してレース文脈を取得してください。
@@ -95,6 +99,8 @@ SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタ�
 | 「馬場の影響は？」 | get_race_data → analyze_track_condition_impact, track_course_condition_change |
 | 「買い目のリスクは？」 | get_race_data → analyze_bet_selection, analyze_bet_probability |
 | 「血統的にどう？」 | get_race_data → analyze_pedigree_aptitude, analyze_sire_offspring |
+| 「AI指数は？」 | get_race_data → get_ai_prediction |
+| 「AIの評価順位は？」 | get_race_data → get_ai_prediction |
 
 ## 応答スタイル
 
