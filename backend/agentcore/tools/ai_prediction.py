@@ -9,11 +9,14 @@ import boto3
 from botocore.exceptions import ClientError
 from strands import tool
 
+# AWSリージョン（AgentCore環境ではAWS_REGION未設定の場合があるため明示指定）
+AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
+
 
 def get_dynamodb_table():
     """DynamoDB テーブルを取得."""
     table_name = os.environ.get("AI_PREDICTIONS_TABLE_NAME", "baken-kaigi-ai-predictions")
-    dynamodb = boto3.resource("dynamodb")
+    dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
     return dynamodb.Table(table_name)
 
 
