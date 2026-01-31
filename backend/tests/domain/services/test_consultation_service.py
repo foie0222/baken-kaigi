@@ -1,10 +1,10 @@
 """ConsultationServiceの単体テスト."""
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
-from src.domain.entities import Cart, CartItem, ConsultationSession, Message
+from src.domain.entities import Cart, ConsultationSession
 from src.domain.enums import BetType, SessionStatus
 from src.domain.identifiers import ItemId, RaceId, UserId
 from src.domain.ports import AIClient, ConsultationContext
