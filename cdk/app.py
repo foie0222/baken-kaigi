@@ -11,6 +11,10 @@ Usage:
     # 既存 VPC を使用する場合
     cdk deploy --all --context jravan=true --context vpc_id=vpc-xxxxxxxxx
 
+    # 開発用オリジン（localhost）を許可する場合
+    # 注意: 本番環境では絶対に使用しないこと
+    cdk deploy --all --context jravan=true --context allow_dev_origins=true
+
     # GitHub OIDC スタックをデプロイ（初回セットアップ時のみ）
     # 注意: このスタックは明示的に github_oidc=true を指定した場合のみデプロイされます
     cdk deploy GitHubOidcStack --context github_oidc=true
@@ -27,6 +31,7 @@ app = cdk.App()
 # コンテキストから設定を取得
 use_jravan = app.node.try_get_context("jravan") == "true"
 use_github_oidc = app.node.try_get_context("github_oidc") == "true"
+allow_dev_origins = app.node.try_get_context("allow_dev_origins") == "true"
 vpc_id = app.node.try_get_context("vpc_id")
 
 # 環境設定
@@ -79,6 +84,7 @@ if use_jravan:
         "BakenKaigiApiStack",
         vpc=jravan_stack.vpc,
         jravan_api_url=jravan_stack.api_url,
+        allow_dev_origins=allow_dev_origins,
         env=env,
     )
 
@@ -90,6 +96,7 @@ else:
     BakenKaigiApiStack(
         app,
         "BakenKaigiApiStack",
+        allow_dev_origins=allow_dev_origins,
         env=env,
     )
 
