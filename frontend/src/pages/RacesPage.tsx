@@ -256,12 +256,10 @@ export function RacesPage() {
     }
 
     // 1分ごとに自動更新
-    const intervalId = setInterval(() => {
-      const refreshRaces = async () => {
-        await fetchRaces(selectedDate, false); // ローディング表示なしで更新
-      };
-      refreshRaces();
-    }, 60 * 1000);
+    const intervalId = setInterval(
+      () => void fetchRaces(selectedDate, false), // ローディング表示なしで更新
+      60 * 1000
+    );
 
     return () => clearInterval(intervalId);
   }, [selectedDateIdx, dateButtons, fetchRaces]);
