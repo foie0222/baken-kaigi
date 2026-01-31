@@ -1,5 +1,4 @@
 """馬券会議 API スタック."""
-import os
 from pathlib import Path
 
 from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
@@ -23,6 +22,7 @@ class BakenKaigiApiStack(Stack):
         construct_id: str,
         vpc: ec2.IVpc | None = None,
         jravan_api_url: str | None = None,
+        allow_dev_origins: bool = False,
         **kwargs,
     ) -> None:
         """スタックを初期化する.
@@ -32,6 +32,7 @@ class BakenKaigiApiStack(Stack):
             construct_id: コンストラクト ID
             vpc: VPC（JRA-VAN 連携時に必要）
             jravan_api_url: JRA-VAN API の URL（例: http://10.0.1.100:8000）
+            allow_dev_origins: 開発用オリジン（localhost）を許可するかどうか
             **kwargs: その他のスタックパラメータ
         """
         super().__init__(scope, construct_id, **kwargs)
@@ -533,13 +534,12 @@ class BakenKaigiApiStack(Stack):
 
         # API Gateway
         # CORS設定: 本番環境は特定オリジンのみ許可
-        # 環境変数 ALLOW_DEV_ORIGINS=true で開発用オリジンも許可
-        allow_dev = os.environ.get("ALLOW_DEV_ORIGINS", "false").lower() == "true"
+        # --context allow_dev_origins=true で開発用オリジンも許可
         cors_origins = [
             "https://bakenkaigi.com",
             "https://www.bakenkaigi.com",
         ]
-        if allow_dev:
+        if allow_dev_origins:
             cors_origins.extend([
                 "http://localhost:5173",
                 "http://localhost:3000",
