@@ -33,6 +33,24 @@
             "command": ".claude/hooks/pre-tool-use-block-main-edit-write.sh"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/track-usage.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/track-usage.sh"
+          }
+        ]
       }
     ]
   }
