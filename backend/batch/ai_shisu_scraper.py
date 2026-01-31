@@ -263,7 +263,9 @@ def scrape_races() -> dict[str, Any]:
     # 今日の日付リンクを探す
     today_url = find_today_event_date_url(dates_soup, target_date)
     if not today_url:
-        results["errors"].append(f"No event found for date {target_date}")
+        # 開催がない日（月曜など）は正常終了扱い
+        logger.info(f"No JRA event scheduled for {target_date}")
+        results["races_scraped"] = 0
         return results
 
     logger.info(f"Found today's event page: {today_url}")
@@ -281,7 +283,9 @@ def scrape_races() -> dict[str, Any]:
     logger.info(f"Found {len(venues)} JRA venues")
 
     if not venues:
-        results["errors"].append("No JRA venues found for today")
+        # JRA開催がない（地方のみ）の場合は正常終了
+        logger.info(f"No JRA venues found for {target_date} (local races only)")
+        results["races_scraped"] = 0
         return results
 
     # Step 3: 各競馬場ページからレースリストを取得
