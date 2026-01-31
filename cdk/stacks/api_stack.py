@@ -112,6 +112,117 @@ class BakenKaigiApiStack(Stack):
         )
 
         # ========================================
+        # AgentCore Runtime 用 IAM ロール
+        # ========================================
+        # AgentCore Runtime が使用するロール（ツールからAWSリソースにアクセスするため）
+        agentcore_runtime_role = iam.Role(
+            self,
+            "AgentCoreRuntimeRole",
+            role_name="baken-kaigi-agentcore-runtime-role",
+            assumed_by=iam.CompositePrincipal(
+                iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+                iam.ServicePrincipal("bedrock.amazonaws.com"),
+            ),
+            description="IAM role for AgentCore Runtime to access AWS resources",
+        )
+
+        # CloudWatch Logs 権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="CloudWatchLogs",
+                actions=[
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:DescribeLogStreams",
+                    "logs:DescribeLogGroups",
+                ],
+                resources=["arn:aws:logs:ap-northeast-1:*:log-group:/aws/bedrock-agentcore/*"],
+            )
+        )
+
+        # X-Ray 権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="XRay",
+                actions=[
+                    "xray:PutTraceSegments",
+                    "xray:PutTelemetryRecords",
+                    "xray:GetSamplingRules",
+                    "xray:GetSamplingTargets",
+                ],
+                resources=["*"],
+            )
+        )
+
+        # Bedrock Model 呼び出し権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="BedrockModelInvocation",
+                actions=[
+                    "bedrock:InvokeModel",
+                    "bedrock:InvokeModelWithResponseStream",
+                    "bedrock:ApplyGuardrail",
+                ],
+                resources=[
+                    "arn:aws:bedrock:*::foundation-model/*",
+                    "arn:aws:bedrock:*:*:inference-profile/*",
+                    f"arn:aws:bedrock:ap-northeast-1:{Stack.of(self).account}:*",
+                ],
+            )
+        )
+
+        # DynamoDB 読み取り権限（AI予想テーブル）
+        ai_predictions_table.grant_read_data(agentcore_runtime_role)
+
+        # API Gateway APIキー取得権限（JRA-VAN API用）
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="ApiGatewayGetApiKey",
+                actions=["apigateway:GET"],
+                resources=[f"arn:aws:apigateway:ap-northeast-1::/apikeys/*"],
+            )
+        )
+
+        # AgentCore Identity 関連権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="AgentCoreIdentity",
+                actions=[
+                    "bedrock-agentcore:GetResourceApiKey",
+                    "bedrock-agentcore:GetResourceOauth2Token",
+                    "bedrock-agentcore:CreateWorkloadIdentity",
+                    "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
+                ],
+                resources=[
+                    f"arn:aws:bedrock-agentcore:ap-northeast-1:{Stack.of(self).account}:token-vault/*",
+                    f"arn:aws:bedrock-agentcore:ap-northeast-1:{Stack.of(self).account}:workload-identity-directory/*",
+                ],
+            )
+        )
+
+        # CloudWatch Metrics 権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="CloudWatchMetrics",
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                conditions={
+                    "StringEquals": {"cloudwatch:namespace": "bedrock-agentcore"},
+                },
+            )
+        )
+
+        # AgentCore Runtime ロール ARN を出力
+        CfnOutput(
+            self,
+            "AgentCoreRuntimeRoleArn",
+            value=agentcore_runtime_role.role_arn,
+            description="AgentCore Runtime Role ARN for .bedrock_agentcore.yaml",
+            export_name="BakenKaigiAgentCoreRuntimeRoleArn",
+        )
+
+        # ========================================
         # Lambda Layer（デプロイ時に自動で依存関係をインストール）
         # ========================================
         lambda_layer_path = project_root / "cdk" / "lambda_layer"

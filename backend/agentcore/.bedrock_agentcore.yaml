@@ -10,8 +10,8 @@ agents:
     container_runtime: null
     source_path: .
     aws:
-      execution_role: null
-      execution_role_auto_create: true
+      execution_role: arn:aws:iam::688567287706:role/baken-kaigi-agentcore-runtime-role
+      execution_role_auto_create: false
       account: null
       region: ap-northeast-1
       ecr_repository: null
