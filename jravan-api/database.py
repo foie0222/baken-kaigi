@@ -1068,11 +1068,65 @@ def get_past_race_statistics(
                 except (ValueError, TypeError, ZeroDivisionError):
                     continue
 
+            # 平均配当を取得（jvd_hr テーブルから）
+            payout_query = """
+                SELECT
+                    AVG(NULLIF(hr.tansho_haraimodoshi_1, '')::numeric / 10) AS avg_win_payout,
+                    AVG(
+                        COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_1, '')::numeric / 10,
+                            0
+                        ) +
+                        COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric / 10,
+                            0
+                        ) +
+                        COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric / 10,
+                            0
+                        )
+                    ) / NULLIF(
+                        (CASE WHEN NULLIF(hr.fukusho_haraimodoshi_1, '') IS NOT NULL THEN 1 ELSE 0 END) +
+                        (CASE WHEN NULLIF(hr.fukusho_haraimodoshi_2, '') IS NOT NULL THEN 1 ELSE 0 END) +
+                        (CASE WHEN NULLIF(hr.fukusho_haraimodoshi_3, '') IS NOT NULL THEN 1 ELSE 0 END),
+                        0
+                    ) AS avg_place_payout
+                FROM jvd_hr hr
+                WHERE (hr.kaisai_nen, hr.kaisai_tsukihi, hr.keibajo_code, hr.race_bango) IN (
+                    SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
+                    FROM jvd_ra ra
+                    WHERE ra.track_code LIKE %s
+                      AND ra.kyori = %s
+            """
+            payout_params = [f"{track_code}%", distance]
+
+            if grade_code is not None:
+                payout_query += " AND ra.grade_code = %s"
+                payout_params.append(grade_code)
+
+            payout_query += """
+                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                    LIMIT %s
+                )
+            """
+            payout_params.append(limit_races)
+
+            cur.execute(payout_query, payout_params)
+            payout_row = cur.fetchone()
+
+            avg_win_payout = None
+            avg_place_payout = None
+            if payout_row:
+                if payout_row[0] is not None:
+                    avg_win_payout = round(float(payout_row[0]), 1)
+                if payout_row[1] is not None:
+                    avg_place_payout = round(float(payout_row[1]), 1)
+
             return {
                 "total_races": total_races,
                 "popularity_stats": popularity_stats,
-                "avg_win_payout": None,
-                "avg_place_payout": None,
+                "avg_win_payout": avg_win_payout,
+                "avg_place_payout": avg_place_payout,
                 "conditions": {
                     "track_code": track_code,
                     "distance": distance,
