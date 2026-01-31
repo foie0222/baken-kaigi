@@ -52,13 +52,16 @@ function getGradeBadgeText(grade: RaceGrade | undefined): string {
   }
 }
 
-// 投票期限までの残り時間をフォーマット
+// 投票期限を日本時間でフォーマット
 function formatBettingDeadline(bettingDeadline: string | undefined): string {
   if (!bettingDeadline) return '';
   const deadline = new Date(bettingDeadline);
-  const hours = deadline.getHours().toString().padStart(2, '0');
-  const minutes = deadline.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes}`;
+  return deadline.toLocaleTimeString('ja-JP', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+    hour12: false,
+  });
 }
 
 export function NextRacesPanel({ races, isToday }: NextRacesPanelProps) {
