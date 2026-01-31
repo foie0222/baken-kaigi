@@ -137,50 +137,48 @@ def parse_race_list(soup: BeautifulSoup, venue: str) -> list[dict]:
 def parse_race_predictions(soup: BeautifulSoup) -> list[dict]:
     """レースページからAI指数データを抽出.
 
+    テーブル構造:
+    | 順位 | 指数 | 馬番 | 馬名 |
+    |  1   | 691  |  8   | ピースワンデュック |
+
     Returns:
         list of dict: [{"rank": 1, "score": 691, "horse_number": 8, "horse_name": "xxx"}, ...]
     """
     predictions = []
 
     # テーブルからデータを探す
-    # AI指数は「指数」「順位」などのヘッダーを持つテーブルにある
     tables = soup.find_all("table")
 
     for table in tables:
         rows = table.find_all("tr")
 
         for row in rows:
-            cells = row.find_all(["td", "th"])
-            if len(cells) < 4:
+            cells = row.find_all("td")
+            if len(cells) != 4:
                 continue
 
             # セルのテキストを取得
             cell_texts = [cell.get_text(strip=True) for cell in cells]
 
-            # "1位", "691点", "8番", "馬名" のようなパターンを探す
-            for i, text in enumerate(cell_texts):
-                # 順位パターン（1位、2位など）
-                rank_match = re.match(r"(\d+)位", text)
-                if rank_match and i + 3 < len(cell_texts):
-                    rank = int(rank_match.group(1))
+            # 4つのセルが全て数値または馬名であることを確認
+            # 順位, 指数, 馬番 は数値、馬名は文字列
+            try:
+                rank = int(cell_texts[0])
+                score = int(cell_texts[1])
+                horse_number = int(cell_texts[2])
+                horse_name = cell_texts[3]
 
-                    # 次のセルからスコアを取得
-                    score_match = re.search(r"(\d+)点?", cell_texts[i + 1])
-                    # 馬番を取得
-                    number_match = re.search(r"(\d+)番?", cell_texts[i + 2])
-
-                    if score_match and number_match:
-                        score = int(score_match.group(1))
-                        horse_number = int(number_match.group(1))
-                        horse_name = cell_texts[i + 3] if i + 3 < len(cell_texts) else ""
-
-                        predictions.append({
-                            "rank": rank,
-                            "score": score,
-                            "horse_number": horse_number,
-                            "horse_name": horse_name,
-                        })
-                    break
+                # 有効なデータかチェック（順位は1以上、指数は正の値）
+                if rank >= 1 and score > 0 and horse_number >= 1 and horse_name:
+                    predictions.append({
+                        "rank": rank,
+                        "score": score,
+                        "horse_number": horse_number,
+                        "horse_name": horse_name,
+                    })
+            except (ValueError, IndexError):
+                # 数値変換に失敗した場合はスキップ（ヘッダー行など）
+                continue
 
     # 順位でソート
     predictions.sort(key=lambda x: x["rank"])
