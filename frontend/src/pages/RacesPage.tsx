@@ -234,7 +234,11 @@ export function RacesPage() {
     }
 
     const selectedDate = dateButtons[selectedDateIdx];
-    fetchRaces(selectedDate, true);
+
+    const loadRaces = async () => {
+      await fetchRaces(selectedDate, true);
+    };
+    loadRaces();
   }, [selectedDateIdx, dateButtons, fetchRaces]);
 
   // 今日の場合は1分ごとにレース一覧を自動更新
@@ -252,9 +256,10 @@ export function RacesPage() {
     }
 
     // 1分ごとに自動更新
-    const intervalId = setInterval(() => {
-      fetchRaces(selectedDate, false); // ローディング表示なしで更新
-    }, 60 * 1000);
+    const intervalId = setInterval(
+      () => void fetchRaces(selectedDate, false), // ローディング表示なしで更新
+      60 * 1000
+    );
 
     return () => clearInterval(intervalId);
   }, [selectedDateIdx, dateButtons, fetchRaces]);
