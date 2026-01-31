@@ -40,6 +40,8 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
     def save(self, session: ConsultationSession) -> None:
         """セッションを保存する."""
         item = self._to_dynamodb_item(session)
+        # DynamoDBはfloat非対応のため、Decimalに変換
+        item = self._convert_floats_to_decimal(item)
         self._table.put_item(Item=item)
 
     def find_by_id(self, session_id: SessionId) -> ConsultationSession | None:
@@ -260,3 +262,14 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
         if isinstance(value, Decimal):
             return int(value)
         return value
+
+    @classmethod
+    def _convert_floats_to_decimal(cls, obj: Any) -> Any:
+        """再帰的にfloatをDecimalに変換（DynamoDB用）."""
+        if isinstance(obj, float):
+            return Decimal(str(obj))
+        if isinstance(obj, dict):
+            return {k: cls._convert_floats_to_decimal(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [cls._convert_floats_to_decimal(item) for item in obj]
+        return obj
