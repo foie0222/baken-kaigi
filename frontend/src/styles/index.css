@@ -1248,6 +1248,10 @@ main {
     animation: fadeIn 0.3s ease;
 }
 
+.toast-error {
+    background: #dc2626;
+}
+
 /* Dashboard */
 .dashboard-summary {
     background: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);

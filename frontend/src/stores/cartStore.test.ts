@@ -35,8 +35,9 @@ describe('cartStore', () => {
   describe('addItem', () => {
     it('アイテムをカートに追加できる', () => {
       const item = createMockCartItem()
-      useCartStore.getState().addItem(item)
+      const result = useCartStore.getState().addItem(item)
 
+      expect(result).toBe(true)
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(1)
       expect(state.items[0].raceName).toBe('テストレース')
@@ -52,13 +53,44 @@ describe('cartStore', () => {
       expect(state.items[0].id).toMatch(/^item_/)
     })
 
-    it('複数のアイテムを追加できる', () => {
-      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース1' }))
-      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース2' }))
-      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース3' }))
+    it('同一レースの買い目を複数追加できる', () => {
+      const raceId = 'race_001'
+      useCartStore.getState().addItem(createMockCartItem({ raceId, raceName: 'レース1', horseNumbers: [1, 2] }))
+      useCartStore.getState().addItem(createMockCartItem({ raceId, raceName: 'レース1', horseNumbers: [3, 4] }))
+      useCartStore.getState().addItem(createMockCartItem({ raceId, raceName: 'レース1', horseNumbers: [5, 6] }))
 
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(3)
+    })
+
+    it('異なるレースの買い目は追加できない', () => {
+      useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_001' }))
+      const result = useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_002' }))
+
+      expect(result).toBe(false)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].raceId).toBe('race_001')
+    })
+
+    it('カートが空の場合は任意のレースを追加できる', () => {
+      const result = useCartStore.getState().addItem(createMockCartItem({ raceId: 'any_race' }))
+
+      expect(result).toBe(true)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].raceId).toBe('any_race')
+    })
+
+    it('カートクリア後は別のレースを追加できる', () => {
+      useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_001' }))
+      useCartStore.getState().clearCart()
+      const result = useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_002' }))
+
+      expect(result).toBe(true)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].raceId).toBe('race_002')
     })
   })
 
@@ -244,6 +276,28 @@ describe('cartStore', () => {
 
       const state = useCartStore.getState()
       expect(state.items[0].amount).toBe(100000)
+    })
+  })
+
+  describe('getCurrentRaceId', () => {
+    it('カートが空の場合はnullを返す', () => {
+      const raceId = useCartStore.getState().getCurrentRaceId()
+      expect(raceId).toBeNull()
+    })
+
+    it('カートにアイテムがある場合は最初のアイテムのraceIdを返す', () => {
+      useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_123' }))
+
+      const raceId = useCartStore.getState().getCurrentRaceId()
+      expect(raceId).toBe('race_123')
+    })
+
+    it('複数のアイテムがある場合も最初のアイテムのraceIdを返す', () => {
+      useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_abc' }))
+      useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_abc' }))
+
+      const raceId = useCartStore.getState().getCurrentRaceId()
+      expect(raceId).toBe('race_abc')
     })
   })
 
