@@ -138,7 +138,7 @@ def list_ai_predictions_for_date(date: str, source: str = "ai-shisu") -> dict:
                 "top_predictions": top_predictions,
             })
 
-        # レース番号でソート
+        # 競馬場名→レース番号の順でソート
         races.sort(key=lambda x: (x.get("venue", ""), x.get("race_number", 0)))
 
         return {

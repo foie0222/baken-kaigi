@@ -3,7 +3,6 @@
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
-import pytest
 from bs4 import BeautifulSoup
 
 # テスト対象のモジュールをインポート

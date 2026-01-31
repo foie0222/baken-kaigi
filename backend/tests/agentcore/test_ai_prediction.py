@@ -4,19 +4,10 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
+# agentcoreモジュールをインポートできるようにパスを追加
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
-# strandsモジュールが利用できない場合はスキップ
-try:
-    # agentcoreモジュールをインポートできるようにパスを追加
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
-
-    from tools.ai_prediction import get_ai_prediction, list_ai_predictions_for_date
-    STRANDS_AVAILABLE = True
-except ImportError:
-    STRANDS_AVAILABLE = False
-
-pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
+from tools.ai_prediction import get_ai_prediction, list_ai_predictions_for_date
 
 
 @pytest.fixture
