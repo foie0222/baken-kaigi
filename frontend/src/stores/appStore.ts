@@ -27,7 +27,8 @@ interface AppState {
 
   // トースト
   toastMessage: string | null;
-  showToast: (message: string) => void;
+  toastType: 'success' | 'error' | null;
+  showToast: (message: string, type?: 'success' | 'error') => void;
   hideToast: () => void;
 }
 
@@ -67,9 +68,10 @@ export const useAppStore = create<AppState>((set) => ({
 
   // トースト
   toastMessage: null,
-  showToast: (message) => {
-    set({ toastMessage: message });
-    setTimeout(() => set({ toastMessage: null }), 2000);
+  toastType: null,
+  showToast: (message, type = 'success') => {
+    set({ toastMessage: message, toastType: type });
+    setTimeout(() => set({ toastMessage: null, toastType: null }), 2000);
   },
-  hideToast: () => set({ toastMessage: null }),
+  hideToast: () => set({ toastMessage: null, toastType: null }),
 }));

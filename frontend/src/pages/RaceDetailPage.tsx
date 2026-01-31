@@ -108,7 +108,7 @@ export function RaceDetailPage() {
     // 表示用文字列を生成
     const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
 
-    addItem({
+    const success = addItem({
       raceId: race.id,
       raceName: race.name,
       raceVenue: race.venue,
@@ -120,6 +120,11 @@ export function RaceDetailPage() {
       betCount,
       amount: betAmount * betCount,
     });
+
+    if (!success) {
+      showToast('カートには同じレースの買い目のみ追加できます', 'error');
+      return;
+    }
 
     setSelections(initialSelections);
     setBetAmount(100);

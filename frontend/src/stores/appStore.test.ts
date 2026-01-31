@@ -26,6 +26,7 @@ describe('appStore', () => {
       betAmount: 1000,
       consultationSessionId: null,
       toastMessage: null,
+      toastType: null,
     })
   })
 
@@ -161,11 +162,23 @@ describe('appStore', () => {
     it('デフォルトでnull', () => {
       const state = useAppStore.getState()
       expect(state.toastMessage).toBeNull()
+      expect(state.toastType).toBeNull()
     })
 
     it('トーストを表示できる', () => {
       useAppStore.getState().showToast('テストメッセージ')
       expect(useAppStore.getState().toastMessage).toBe('テストメッセージ')
+    })
+
+    it('デフォルトでtoastTypeがsuccessになる', () => {
+      useAppStore.getState().showToast('成功メッセージ')
+      expect(useAppStore.getState().toastType).toBe('success')
+    })
+
+    it('errorタイプを指定できる', () => {
+      useAppStore.getState().showToast('エラーメッセージ', 'error')
+      expect(useAppStore.getState().toastMessage).toBe('エラーメッセージ')
+      expect(useAppStore.getState().toastType).toBe('error')
     })
 
     it('トーストは2秒後に自動的に消える', () => {
@@ -178,10 +191,25 @@ describe('appStore', () => {
       expect(useAppStore.getState().toastMessage).toBeNull()
     })
 
+    it('2秒後にtoastTypeもnullになる', () => {
+      useAppStore.getState().showToast('テストメッセージ', 'error')
+      expect(useAppStore.getState().toastType).toBe('error')
+
+      vi.advanceTimersByTime(2000)
+
+      expect(useAppStore.getState().toastType).toBeNull()
+    })
+
     it('手動でトーストを非表示にできる', () => {
       useAppStore.getState().showToast('テストメッセージ')
       useAppStore.getState().hideToast()
       expect(useAppStore.getState().toastMessage).toBeNull()
+    })
+
+    it('hideToastでtoastTypeもnullになる', () => {
+      useAppStore.getState().showToast('テストメッセージ', 'error')
+      useAppStore.getState().hideToast()
+      expect(useAppStore.getState().toastType).toBeNull()
     })
   })
 })
