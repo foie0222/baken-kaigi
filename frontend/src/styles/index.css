@@ -1687,3 +1687,132 @@ main {
 .next-race-time-value {
     font-weight: 600;
 }
+
+/* ========================================
+   チャット入力欄
+   ======================================== */
+.chat-input-container {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border-top: 1px solid var(--color-neutral-200);
+}
+
+.chat-input {
+    flex: 1;
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--color-neutral-200);
+    border-radius: 24px;
+    font-size: var(--font-size-base);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+    border-color: var(--color-calm-green);
+}
+
+.chat-input:disabled {
+    background: var(--color-neutral-100);
+    color: var(--color-neutral-400);
+}
+
+.chat-send-btn {
+    padding: var(--space-3) var(--space-5);
+    background: var(--color-calm-green);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.chat-send-btn:hover {
+    opacity: 0.9;
+}
+
+.chat-send-btn:disabled {
+    background: var(--color-neutral-300);
+    cursor: not-allowed;
+}
+
+/* ========================================
+   簡素化された買い目カード
+   ======================================== */
+.bet-card-simple {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-2);
+    overflow: hidden;
+}
+
+.bet-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-neutral-50);
+}
+
+.bet-venue {
+    font-weight: 700;
+    color: var(--color-calm-green);
+}
+
+.bet-type {
+    background: var(--color-calm-green);
+    color: white;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.bet-numbers {
+    font-weight: 600;
+}
+
+.bet-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3);
+}
+
+.bet-amount {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-calm-green);
+}
+
+.bet-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.bet-action-btn {
+    background: var(--color-neutral-100);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--color-neutral-600);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.bet-action-btn:hover {
+    background: var(--color-neutral-200);
+}
+
+.bet-action-btn.delete {
+    background: var(--color-alert-red-bg);
+    color: var(--color-alert-red);
+}
+
+.bet-action-btn.delete:hover {
+    background: #fecaca;
+}
