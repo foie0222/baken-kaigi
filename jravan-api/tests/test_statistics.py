@@ -256,7 +256,7 @@ class TestGetPastRaceStatistics:
         payout_stats = (550.5, 215.3)  # avg_win_payout, avg_place_payout
 
         mock_cursor.fetchall.side_effect = [races, popularity_stats]
-        mock_cursor.fetchone.return_value = payout_stats
+        mock_cursor.fetchone.side_effect = [payout_stats]
         mock_cursor.description = [
             ("popularity",), ("total_runs",), ("wins",), ("places",)
         ]
@@ -290,7 +290,7 @@ class TestGetPastRaceStatistics:
         payout_stats = (None, None)  # 配当データなし
 
         mock_cursor.fetchall.side_effect = [races, popularity_stats]
-        mock_cursor.fetchone.return_value = payout_stats
+        mock_cursor.fetchone.side_effect = [payout_stats]
         mock_cursor.description = [
             ("popularity",), ("total_runs",), ("wins",), ("places",)
         ]
@@ -336,7 +336,7 @@ class TestGetPastRaceStatistics:
         payout_stats = (320.0, 150.0)
 
         mock_cursor.fetchall.side_effect = [races, popularity_stats]
-        mock_cursor.fetchone.return_value = payout_stats
+        mock_cursor.fetchone.side_effect = [payout_stats]
         mock_cursor.description = [
             ("popularity",), ("total_runs",), ("wins",), ("places",)
         ]
