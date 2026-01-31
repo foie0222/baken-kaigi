@@ -376,7 +376,7 @@ export function RaceDetailPage() {
             className="btn-ai-confirm mt-3"
             onClick={() => navigate('/cart')}
           >
-            AIと一緒に確認する（{itemCount}件） →
+            カートを確認する（{itemCount}件） →
           </button>
         )}
       </div>
