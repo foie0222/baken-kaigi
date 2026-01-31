@@ -43,7 +43,7 @@
 
   "errorLens.enabledDiagnosticLevels": ["error", "warning"],
 
-  "git.autoRepositoryDetection": "openEditors",
+  "git.autoRepositoryDetection": true,
 
   "search.exclude": {
     "**/node_modules": true,
