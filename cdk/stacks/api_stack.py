@@ -532,13 +532,28 @@ class BakenKaigiApiStack(Stack):
         )
 
         # API Gateway
+        # CORS設定: 本番環境は特定オリジンのみ許可
+        # 環境変数 ALLOW_DEV_ORIGINS=true で開発用オリジンも許可
+        allow_dev = os.environ.get("ALLOW_DEV_ORIGINS", "false").lower() == "true"
+        cors_origins = [
+            "https://bakenkaigi.com",
+            "https://www.bakenkaigi.com",
+        ]
+        if allow_dev:
+            cors_origins.extend([
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:3000",
+            ])
+
         api = apigw.RestApi(
             self,
             "BakenKaigiApi",
             rest_api_name="baken-kaigi-api",
             description="馬券会議 API",
             default_cors_preflight_options=apigw.CorsOptions(
-                allow_origins=apigw.Cors.ALL_ORIGINS,
+                allow_origins=cors_origins,
                 allow_methods=apigw.Cors.ALL_METHODS,
                 allow_headers=["Content-Type", "Authorization", "x-api-key"],
             ),
