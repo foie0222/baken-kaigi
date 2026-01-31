@@ -11,6 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from batch.ai_shisu_scraper import (
+    find_today_event_date_url,
+    parse_venue_list,
     parse_race_list,
     parse_race_predictions,
     generate_race_id,
@@ -22,55 +24,119 @@ from batch.ai_shisu_scraper import (
 TEST_PARSER = "html.parser"
 
 
-class TestParseRaceList:
-    """レース一覧ページのパースのテスト."""
+class TestFindTodayEventDateUrl:
+    """開催日URLを探すテスト."""
 
-    def test_JRA中央競馬場のレースを抽出(self):
-        """正常系: JRA中央競馬場のレースリンクを抽出できる."""
+    def test_今日の日付リンクを取得(self):
+        """正常系: 今日の日付ページURLを取得できる."""
         html = """
         <html>
         <body>
             <ul>
-                <li><a href="/races/114771">東京 11R</a></li>
-                <li><a href="/races/114772">京都 12R</a></li>
-                <li><a href="/races/114773">小倉 1R</a></li>
+                <li><a href="/event_dates/2494">1/30(金)</a></li>
+                <li><a href="/event_dates/2495">1/31(土)</a></li>
+                <li><a href="/event_dates/2496">2/1(日)</a></li>
             </ul>
         </body>
         </html>
         """
         soup = BeautifulSoup(html, TEST_PARSER)
-        races = parse_race_list(soup)
+        url = find_today_event_date_url(soup, "1/31")
 
-        assert len(races) == 3
-        assert races[0] == {"url": "/races/114771", "venue": "東京", "race_number": 11}
-        assert races[1] == {"url": "/races/114772", "venue": "京都", "race_number": 12}
-        assert races[2] == {"url": "/races/114773", "venue": "小倉", "race_number": 1}
+        assert url == "/event_dates/2495"
+
+    def test_日付が見つからない場合(self):
+        """正常系: 該当日付がない場合はNone."""
+        html = """
+        <html>
+        <body>
+            <ul>
+                <li><a href="/event_dates/2494">1/30(金)</a></li>
+            </ul>
+        </body>
+        </html>
+        """
+        soup = BeautifulSoup(html, TEST_PARSER)
+        url = find_today_event_date_url(soup, "1/31")
+
+        assert url is None
+
+
+class TestParseVenueList:
+    """競馬場リストのパースのテスト."""
+
+    def test_JRA競馬場を抽出(self):
+        """正常系: JRA中央競馬場のリンクを抽出できる."""
+        html = """
+        <html>
+        <body>
+            <ul>
+                <li><a href="/event_places/9887">東京</a></li>
+                <li><a href="/event_places/9888">京都</a></li>
+                <li><a href="/event_places/9889">小倉</a></li>
+            </ul>
+        </body>
+        </html>
+        """
+        soup = BeautifulSoup(html, TEST_PARSER)
+        venues = parse_venue_list(soup)
+
+        assert len(venues) == 3
+        assert venues[0] == {"url": "/event_places/9887", "venue": "東京"}
+        assert venues[1] == {"url": "/event_places/9888", "venue": "京都"}
+        assert venues[2] == {"url": "/event_places/9889", "venue": "小倉"}
 
     def test_地方競馬場は除外(self):
-        """正常系: 地方競馬場のレースは除外される."""
+        """正常系: 地方競馬場は除外される."""
         html = """
         <html>
         <body>
             <ul>
-                <li><a href="/races/114771">東京 11R</a></li>
-                <li><a href="/races/114799">佐賀 3R</a></li>
-                <li><a href="/races/114800">大井 5R</a></li>
+                <li><a href="/event_places/9887">東京</a></li>
+                <li><a href="/event_places/9890">佐賀</a></li>
+                <li><a href="/event_places/9891">大井</a></li>
             </ul>
         </body>
         </html>
         """
         soup = BeautifulSoup(html, TEST_PARSER)
-        races = parse_race_list(soup)
+        venues = parse_venue_list(soup)
 
-        # 佐賀、大井は除外される
-        assert len(races) == 1
-        assert races[0]["venue"] == "東京"
+        assert len(venues) == 1
+        assert venues[0]["venue"] == "東京"
+
+
+class TestParseRaceList:
+    """競馬場ページからのレース一覧パースのテスト."""
+
+    def test_レース一覧を抽出(self):
+        """正常系: 競馬場ページからレースリンクを抽出できる."""
+        html = """
+        <html>
+        <body>
+            <ul>
+                <li><a href="/races/114761">1R 10:05</a></li>
+                <li><a href="/races/114762">2R 10:35</a></li>
+                <li><a href="/races/114771">11R 15:45</a></li>
+                <li><a href="/races/114772">12R 16:25</a></li>
+            </ul>
+        </body>
+        </html>
+        """
+        soup = BeautifulSoup(html, TEST_PARSER)
+        races = parse_race_list(soup, "東京")
+
+        assert len(races) == 4
+        assert races[0] == {"url": "/races/114761", "venue": "東京", "race_number": 1}
+        assert races[1] == {"url": "/races/114762", "venue": "東京", "race_number": 2}
+        assert races[2] == {"url": "/races/114771", "venue": "東京", "race_number": 11}
+        assert races[3] == {"url": "/races/114772", "venue": "東京", "race_number": 12}
 
     def test_レースがない場合(self):
         """正常系: レースがない場合は空リスト."""
         html = "<html><body><p>レースはありません</p></body></html>"
         soup = BeautifulSoup(html, TEST_PARSER)
-        races = parse_race_list(soup)
+        races = parse_race_list(soup, "東京")
 
         assert races == []
 

@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # 定数
-BASE_URL = "https://ai-shisu.com"
-RECENT_RACES_URL = f"{BASE_URL}/event_dates/recent_show"
+BASE_URL = "https://www.ai-shisu.com"
+EVENT_DATES_URL = f"{BASE_URL}/event_dates"
 SOURCE_NAME = "ai-shisu"
 TTL_DAYS = 7
 REQUEST_DELAY_SECONDS = 1.0  # サーバー負荷軽減のための遅延
@@ -64,8 +64,52 @@ def fetch_page(url: str) -> BeautifulSoup | None:
         return None
 
 
-def parse_race_list(soup: BeautifulSoup) -> list[dict]:
-    """レース一覧ページからレース情報を抽出.
+def find_today_event_date_url(soup: BeautifulSoup, target_date: str) -> str | None:
+    """開催日一覧ページから今日の日付リンクを探す.
+
+    Args:
+        soup: /event_dates ページのBeautifulSoup
+        target_date: 対象日付 (例: "1/31")
+
+    Returns:
+        str | None: 日付ページURL (例: "/event_dates/2495") または None
+    """
+    for link in soup.find_all("a", href=re.compile(r"^/event_dates/\d+")):
+        text = link.get_text(strip=True)
+        # "1/31(土)" のようなパターンから日付部分を抽出
+        if target_date in text:
+            return link.get("href", "")
+    return None
+
+
+def parse_venue_list(soup: BeautifulSoup) -> list[dict]:
+    """日付ページから競馬場リストを抽出.
+
+    Returns:
+        list of dict: [{"url": "/event_places/9887", "venue": "東京"}, ...]
+    """
+    venues = []
+
+    for link in soup.find_all("a", href=re.compile(r"^/event_places/\d+")):
+        href = link.get("href", "")
+        venue = link.get_text(strip=True)
+
+        # JRA中央競馬場のみ対象
+        if venue in VENUE_CODE_MAP:
+            venues.append({
+                "url": href,
+                "venue": venue,
+            })
+
+    return venues
+
+
+def parse_race_list(soup: BeautifulSoup, venue: str) -> list[dict]:
+    """競馬場ページからレース一覧を抽出.
+
+    Args:
+        soup: 競馬場ページのBeautifulSoup
+        venue: 競馬場名 (例: "東京")
 
     Returns:
         list of dict: [{"url": "/races/xxx", "venue": "東京", "race_number": 11}, ...]
@@ -77,19 +121,15 @@ def parse_race_list(soup: BeautifulSoup) -> list[dict]:
         href = link.get("href", "")
         text = link.get_text(strip=True)
 
-        # "東京 11R" のようなパターンを解析
-        match = re.match(r"(.+?)\s*(\d+)R", text)
+        # "1R 10:05" のようなパターンからレース番号を抽出
+        match = re.match(r"(\d+)R", text)
         if match:
-            venue = match.group(1).strip()
-            race_number = int(match.group(2))
-
-            # JRA中央競馬場のみ対象
-            if venue in VENUE_CODE_MAP:
-                races.append({
-                    "url": href,
-                    "venue": venue,
-                    "race_number": race_number,
-                })
+            race_number = int(match.group(1))
+            races.append({
+                "url": href,
+                "venue": venue,
+                "race_number": race_number,
+            })
 
     return races
 
@@ -192,12 +232,19 @@ def save_predictions(
 def scrape_races() -> dict[str, Any]:
     """メインのスクレイピング処理.
 
+    フロー:
+    1. /event_dates から今日の日付ページURLを取得
+    2. 日付ページから競馬場リストを取得
+    3. 各競馬場ページから全レースリンクを取得
+    4. 各レースページからAI指数をスクレイピング
+
     Returns:
         dict: {"success": bool, "races_scraped": int, "errors": list}
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
     date_str = scraped_at.strftime("%Y%m%d")
+    target_date = f"{scraped_at.month}/{scraped_at.day}"  # "1/31" 形式
 
     results = {
         "success": True,
@@ -205,31 +252,70 @@ def scrape_races() -> dict[str, Any]:
         "errors": [],
     }
 
-    # レース一覧ページを取得
-    logger.info(f"Fetching race list from {RECENT_RACES_URL}")
-    soup = fetch_page(RECENT_RACES_URL)
-    if not soup:
+    # Step 1: 開催日一覧ページを取得
+    logger.info(f"Fetching event dates from {EVENT_DATES_URL}")
+    dates_soup = fetch_page(EVENT_DATES_URL)
+    if not dates_soup:
         results["success"] = False
-        results["errors"].append("Failed to fetch race list page")
+        results["errors"].append("Failed to fetch event dates page")
         return results
 
-    # レース情報を抽出
-    races = parse_race_list(soup)
-    logger.info(f"Found {len(races)} races")
-
-    if not races:
-        results["errors"].append("No races found on the page")
+    # 今日の日付リンクを探す
+    today_url = find_today_event_date_url(dates_soup, target_date)
+    if not today_url:
+        results["errors"].append(f"No event found for date {target_date}")
         return results
 
-    # 各レースのAI指数を取得
-    for race_info in races:
+    logger.info(f"Found today's event page: {today_url}")
+
+    # Step 2: 日付ページから競馬場リストを取得
+    time.sleep(REQUEST_DELAY_SECONDS)
+    date_page_url = BASE_URL + today_url
+    date_soup = fetch_page(date_page_url)
+    if not date_soup:
+        results["success"] = False
+        results["errors"].append(f"Failed to fetch date page: {today_url}")
+        return results
+
+    venues = parse_venue_list(date_soup)
+    logger.info(f"Found {len(venues)} JRA venues")
+
+    if not venues:
+        results["errors"].append("No JRA venues found for today")
+        return results
+
+    # Step 3: 各競馬場ページからレースリストを取得
+    all_races = []
+    for venue_info in venues:
+        venue_url = BASE_URL + venue_info["url"]
+        venue = venue_info["venue"]
+
+        logger.info(f"Fetching races for {venue}: {venue_url}")
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+        venue_soup = fetch_page(venue_url)
+        if not venue_soup:
+            results["errors"].append(f"Failed to fetch venue page: {venue}")
+            continue
+
+        races = parse_race_list(venue_soup, venue)
+        logger.info(f"Found {len(races)} races at {venue}")
+        all_races.extend(races)
+
+    if not all_races:
+        results["errors"].append("No races found")
+        return results
+
+    logger.info(f"Total races to scrape: {len(all_races)}")
+
+    # Step 4: 各レースのAI指数を取得
+    for race_info in all_races:
         race_url = BASE_URL + race_info["url"]
         venue = race_info["venue"]
         race_number = race_info["race_number"]
 
         logger.info(f"Scraping {venue} {race_number}R: {race_url}")
 
-        # サーバー負荷軽減のための遅延
         time.sleep(REQUEST_DELAY_SECONDS)
 
         race_soup = fetch_page(race_url)
@@ -242,10 +328,8 @@ def scrape_races() -> dict[str, Any]:
             results["errors"].append(f"No predictions found for {venue} {race_number}R")
             continue
 
-        # race_id生成
         race_id = generate_race_id(date_str, venue, race_number)
 
-        # DynamoDBに保存
         try:
             save_predictions(
                 table=table,
