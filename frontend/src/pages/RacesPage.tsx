@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Race, RaceGrade } from '../types';
 import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
+import { NextRacesPanel } from '../components/NextRacesPanel';
 
 // グレードバッジのCSSクラスを取得
 function getGradeBadgeClass(grade: RaceGrade | undefined): string {
@@ -201,45 +202,62 @@ export function RacesPage() {
     }
   }, [datesLoading, dateButtons.length]);
 
+  // レース一覧を取得する関数
+  const fetchRaces = useCallback(async (date: string, showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
+    setError(null);
+
+    const response = await apiClient.getRaces(date);
+
+    if (response.success && response.data) {
+      setRaces(response.data.races);
+      setVenues(response.data.venues);
+      // 初回のみ最初の会場を選択
+      if (!isInitialVenueSet.current && response.data.venues.length > 0) {
+        setSelectedVenue(response.data.venues[0]);
+        isInitialVenueSet.current = true;
+      }
+    } else {
+      setError(response.error || 'レースの取得に失敗しました');
+      setRaces([]);
+    }
+
+    setLoading(false);
+  }, []);
+
   // レース一覧を取得
   useEffect(() => {
     if (dateButtons.length === 0 || selectedDateIdx >= dateButtons.length) {
       return;
     }
 
-    let isMounted = true;
     const selectedDate = dateButtons[selectedDateIdx];
+    fetchRaces(selectedDate, true);
+  }, [selectedDateIdx, dateButtons, fetchRaces]);
 
-    const fetchRaces = async () => {
-      setLoading(true);
-      setError(null);
+  // 今日の場合は1分ごとにレース一覧を自動更新
+  useEffect(() => {
+    if (dateButtons.length === 0 || selectedDateIdx >= dateButtons.length) {
+      return;
+    }
 
-      const response = await apiClient.getRaces(selectedDate);
+    const selectedDate = dateButtons[selectedDateIdx];
+    const todayStr = getTodayDateStr();
 
-      if (!isMounted) return;
+    // 今日の日付でない場合は自動更新しない
+    if (selectedDate !== todayStr) {
+      return;
+    }
 
-      if (response.success && response.data) {
-        setRaces(response.data.races);
-        setVenues(response.data.venues);
-        // 初回のみ最初の会場を選択
-        if (!isInitialVenueSet.current && response.data.venues.length > 0) {
-          setSelectedVenue(response.data.venues[0]);
-          isInitialVenueSet.current = true;
-        }
-      } else {
-        setError(response.error || 'レースの取得に失敗しました');
-        setRaces([]);
-      }
+    // 1分ごとに自動更新
+    const intervalId = setInterval(() => {
+      fetchRaces(selectedDate, false); // ローディング表示なしで更新
+    }, 60 * 1000);
 
-      setLoading(false);
-    };
-
-    fetchRaces();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedDateIdx, dateButtons]);
+    return () => clearInterval(intervalId);
+  }, [selectedDateIdx, dateButtons, fetchRaces]);
 
   // 選択された会場でフィルタリング
   const filteredRaces = selectedVenue
@@ -250,8 +268,15 @@ export function RacesPage() {
     ? formatDateLabel(dateButtons[selectedDateIdx])
     : '';
 
+  // 今日の日付を選択しているかどうか
+  const selectedDate = dateButtons[selectedDateIdx] || '';
+  const isToday = selectedDate === getTodayDateStr();
+
   return (
     <div className="fade-in">
+      {/* 次のレースパネル（今日の場合のみ表示） */}
+      <NextRacesPanel races={races} isToday={isToday} />
+
       <div className="race-date-selector">
         {datesLoading ? (
           <span className="loading-text">日程を読み込み中...</span>

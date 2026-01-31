@@ -1503,3 +1503,183 @@ main {
 .btn-ai-confirm.mt-3 {
     margin-top: var(--space-3);
 }
+
+/* ========================================
+   次のレースパネル
+   ======================================== */
+.next-races-panel {
+    background: linear-gradient(135deg, #1a5f2a 0%, #2d8a3e 100%);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    color: white;
+}
+
+.next-races-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+}
+
+.next-races-panel-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.next-races-panel-title-icon {
+    font-size: var(--font-size-lg);
+}
+
+.next-races-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.next-race-card {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.next-race-card:active {
+    transform: scale(0.98);
+}
+
+.next-race-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.next-race-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-2);
+}
+
+.next-race-venue-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.next-race-venue-badge {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.next-race-number {
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+}
+
+.next-race-countdown {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.next-race-countdown-label {
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+.next-race-countdown-time {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.next-race-countdown-time.urgent {
+    color: #ffcdd2;
+    animation: pulse-urgent 1s infinite;
+}
+
+@keyframes pulse-urgent {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.next-race-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: var(--space-1);
+}
+
+.next-race-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    opacity: 0.9;
+}
+
+.next-race-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.next-race-grade-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.9);
+    color: #1a5f2a;
+}
+
+.next-race-grade-badge.g1 {
+    background: #1a5fb4;
+    color: white;
+}
+
+.next-race-grade-badge.g2 {
+    background: #c0392b;
+    color: white;
+}
+
+.next-race-grade-badge.g3 {
+    background: #26a269;
+    color: white;
+}
+
+.next-race-time-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: var(--font-size-xs);
+}
+
+.next-race-time-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.next-race-time-label {
+    opacity: 0.8;
+}
+
+.next-race-time-value {
+    font-weight: 600;
+}

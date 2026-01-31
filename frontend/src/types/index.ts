@@ -105,6 +105,9 @@ export interface Race {
   condition: string;
   venue: string;
   date: string;
+  // 発走時刻・投票期限（ISO形式）
+  startTime?: string;
+  bettingDeadline?: string;
   // 追加フィールド（モック用）
   trackType?: string;   // 芝/ダート
   distance?: number;    // 距離（メートル）
@@ -159,6 +162,9 @@ export function mapApiRaceToRace(apiRace: ApiRace): Race {
     condition: apiRace.track_condition,
     venue: apiRace.venue,
     date: apiRace.start_time.split('T')[0],
+    // 発走時刻・投票期限（ISO形式をそのまま保持）
+    startTime: apiRace.start_time,
+    bettingDeadline: apiRace.betting_deadline,
     trackType,
     distance: apiRace.distance,
     horseCount: apiRace.horse_count,
