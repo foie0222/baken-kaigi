@@ -20,7 +20,7 @@ logger.setLevel(logging.INFO)
 # AgentCore Runtime の ARN
 AGENTCORE_AGENT_ARN = os.environ.get(
     "AGENTCORE_AGENT_ARN",
-    "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_ai-dfTUpICY2G"
+    "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_agent-t4nITfFpZQ"
 )
 
 # AWS リージョン
