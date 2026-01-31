@@ -1,7 +1,8 @@
 #!/bin/bash
-# PreToolUse hook: mainブランチでの編集操作をブロック
+# PreToolUse hook: mainワークツリーでの編集操作をブロック
 #
-# mainブランチでEdit/Writeツールが呼ばれた場合にエラーを返す
+# mainワークツリー内のファイルに対してEdit/Writeツールが呼ばれた場合にエラーを返す
+# 注意: git rev-parse ではなくファイルパスで判定する（worktree対応）
 
 set -e
 
@@ -11,13 +12,17 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 # Edit/Write以外は許可
 [ "$TOOL_NAME" != "Edit" ] && [ "$TOOL_NAME" != "Write" ] && exit 0
 
-# 現在のブランチを取得
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+# 編集対象のファイルパスを取得
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
 
-# mainブランチの場合はブロック
-if [ "$CURRENT_BRANCH" = "main" ]; then
-  echo "BLOCK: mainブランチでのファイル編集は禁止されています。" >&2
-  echo "worktreeで作業してください: git worktree add <name> -b feature/<name>" >&2
+# ファイルパスが空の場合は許可
+[ -z "$FILE_PATH" ] && exit 0
+
+# mainワークツリー内のファイル編集をブロック
+# パターン: /baken-kaigi/main/ を含むパス
+if echo "$FILE_PATH" | grep -q "/baken-kaigi/main/"; then
+  echo "BLOCK: mainワークツリー内のファイル編集は禁止されています。" >&2
+  echo "featureブランチのworktreeで作業してください: git worktree add <name> -b feature/<name>" >&2
   exit 2
 fi
 
