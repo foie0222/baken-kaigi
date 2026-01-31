@@ -150,17 +150,17 @@ class TestParseRacePredictions:
         <html>
         <body>
             <table>
-                <tr><th>指数</th><th>順位</th></tr>
+                <tr><th>順位</th><th>指数</th><th>馬番</th><th>馬名</th></tr>
                 <tr>
-                    <td>1位</td>
-                    <td>691点</td>
-                    <td>8番</td>
+                    <td>1</td>
+                    <td>691</td>
+                    <td>8</td>
                     <td>ピースワンデュック</td>
                 </tr>
                 <tr>
-                    <td>2位</td>
-                    <td>650点</td>
-                    <td>3番</td>
+                    <td>2</td>
+                    <td>650</td>
+                    <td>3</td>
                     <td>テスト馬</td>
                 </tr>
             </table>
@@ -184,9 +184,9 @@ class TestParseRacePredictions:
         <html>
         <body>
             <table>
-                <tr><td>3位</td><td>500点</td><td>1番</td><td>馬C</td></tr>
-                <tr><td>1位</td><td>700点</td><td>2番</td><td>馬A</td></tr>
-                <tr><td>2位</td><td>600点</td><td>3番</td><td>馬B</td></tr>
+                <tr><td>3</td><td>500</td><td>1</td><td>馬C</td></tr>
+                <tr><td>1</td><td>700</td><td>2</td><td>馬A</td></tr>
+                <tr><td>2</td><td>600</td><td>3</td><td>馬B</td></tr>
             </table>
         </body>
         </html>

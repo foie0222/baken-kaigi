@@ -867,6 +867,9 @@ class BakenKaigiApiStack(Stack):
             )
         )
 
+        # AI予想テーブルへの読み取り権限
+        ai_predictions_table.grant_read_data(agentcore_consultation_fn)
+
         # /api/consultation
         api_resource = api.root.add_resource("api")
         consultation_resource = api_resource.add_resource("consultation")
