@@ -67,63 +67,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployed Stacks" >> $GITHUB_STEP_SUMMARY
           cdk ls --context jravan=true >> $GITHUB_STEP_SUMMARY
-        working-directory: cdk
-
-  # AgentCoreデプロイジョブ
-  deploy-agentcore:
-    name: Deploy AgentCore
-    needs: [ci, deploy-cdk]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: |
-      github.ref == 'refs/heads/main' && 
-      github.repository == 'foie0222/baken-kaigi' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ap-northeast-1
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: '0.4.30'
-
-      - name: Verify uv installation
-        run: uv --version
-
-      - name: Install AgentCore CLI
-        run: pip install bedrock-agentcore-starter-toolkit
-
-      - name: Verify AgentCore configuration
-        run: |
-          if [ ! -f .bedrock_agentcore.yaml ]; then
-            echo "Error: .bedrock_agentcore.yaml not found"
-            exit 1
-          fi
-        working-directory: backend/agentcore
-
-      - name: Deploy AgentCore
-        run: agentcore deploy --auto-update-on-conflict
-        working-directory: backend/agentcore
-        env:
-          UV_SYSTEM_PYTHON: '1'
-
-      - name: Output AgentCore deployment summary
-        run: |
-          echo "## AgentCore Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "- AWS Region: ap-northeast-1" >> $GITHUB_STEP_SUMMARY
-        working-directory: backend/agentcore
+          echo "### AgentCore Runtime" >> $GITHUB_STEP_SUMMARY
+          echo "- AgentCore Runtime is now managed by CDK (CfnRuntime)" >> $GITHUB_STEP_SUMMARY
+        working-directory: cdk
