@@ -241,22 +241,18 @@ class TestGetPastRaceStatistics:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        # 1回目: レース取得クエリ（3レース分）
-        races = [
-            ("2026", "0125", "09", "01"),
-            ("2026", "0118", "09", "02"),
-            ("2026", "0111", "09", "03"),
-        ]
-        # 2回目: 人気別統計クエリ
+        # 1回目: レース数取得クエリ（CTEを使用）
+        count_result = (3,)  # total_races
+        # 2回目: 人気別統計クエリ（CTEを使用）
         popularity_stats = [
             ("1", 100, 30, 60),  # popularity, total_runs, wins, places
             ("2", 100, 20, 45),
         ]
-        # 3回目: 配当クエリ
+        # 3回目: 配当クエリ（CTEを使用）
         payout_stats = (550.5, 215.3)  # avg_win_payout, avg_place_payout
 
-        mock_cursor.fetchall.side_effect = [races, popularity_stats]
-        mock_cursor.fetchone.return_value = payout_stats
+        mock_cursor.fetchone.side_effect = [count_result, payout_stats]
+        mock_cursor.fetchall.return_value = popularity_stats
         mock_cursor.description = [
             ("popularity",), ("total_runs",), ("wins",), ("places",)
         ]
@@ -285,12 +281,12 @@ class TestGetPastRaceStatistics:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        races = [("2026", "0125", "09", "01")]
+        count_result = (1,)  # 1レース
         popularity_stats = [("1", 50, 15, 30)]
         payout_stats = (None, None)  # 配当データなし
 
-        mock_cursor.fetchall.side_effect = [races, popularity_stats]
-        mock_cursor.fetchone.return_value = payout_stats
+        mock_cursor.fetchone.side_effect = [count_result, payout_stats]
+        mock_cursor.fetchall.return_value = popularity_stats
         mock_cursor.description = [
             ("popularity",), ("total_runs",), ("wins",), ("places",)
         ]
@@ -313,7 +309,8 @@ class TestGetPastRaceStatistics:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        mock_cursor.fetchall.return_value = []  # レースなし
+        # CTEでレース数0を返す
+        mock_cursor.fetchone.return_value = (0,)
 
         mock_get_db.return_value.__enter__.return_value = mock_conn
 
@@ -331,12 +328,12 @@ class TestGetPastRaceStatistics:
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        races = [("2026", "0125", "09", "11")]
+        count_result = (1,)  # 1レース
         popularity_stats = [("1", 20, 8, 12)]
         payout_stats = (320.0, 150.0)
 
-        mock_cursor.fetchall.side_effect = [races, popularity_stats]
-        mock_cursor.fetchone.return_value = payout_stats
+        mock_cursor.fetchone.side_effect = [count_result, payout_stats]
+        mock_cursor.fetchall.return_value = popularity_stats
         mock_cursor.description = [
             ("popularity",), ("total_runs",), ("wins",), ("places",)
         ]

@@ -986,36 +986,46 @@ def get_past_race_statistics(
         with get_db() as conn:
             cur = conn.cursor()
 
-            # 基本的な条件でレースを絞り込む
-            base_query = """
-                SELECT
-                    ra.kaisai_nen,
-                    ra.kaisai_tsukihi,
-                    ra.keibajo_code,
-                    ra.race_bango
-                FROM jvd_ra ra
-                WHERE ra.track_code LIKE %s
-                  AND ra.kyori = %s
+            # CTEを使用してtarget_racesを一度だけ計算
+            # これにより、人気別統計と配当統計で同じサブクエリが重複実行されることを防ぐ
+            cte_query = """
+                WITH target_races AS (
+                    SELECT
+                        ra.kaisai_nen,
+                        ra.kaisai_tsukihi,
+                        ra.keibajo_code,
+                        ra.race_bango
+                    FROM jvd_ra ra
+                    WHERE ra.track_code LIKE %s
+                      AND ra.kyori = %s
             """
             params = [f"{track_code}%", distance]
 
             if grade_code is not None:
-                base_query += " AND ra.grade_code = %s"
+                cte_query += " AND ra.grade_code = %s"
                 params.append(grade_code)
 
-            base_query += " ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC LIMIT %s"
+            cte_query += """
+                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                    LIMIT %s
+                )
+            """
             params.append(limit_races)
 
-            cur.execute(base_query, params)
-            races = cur.fetchall()
-
-            if not races:
+            # レース数を取得
+            count_query = cte_query + """
+                SELECT COUNT(*) FROM target_races
+            """
+            cur.execute(count_query, params)
+            count_result = cur.fetchone()
+            
+            if not count_result or count_result[0] == 0:
                 return None
-
-            total_races = len(races)
+            
+            total_races = count_result[0]
 
             # 人気別統計を集計（kakutei_chakujun: 確定着順）
-            stats_query = """
+            stats_query = cte_query + """
                 SELECT
                     se.tansho_ninkijun AS popularity,
                     COUNT(*) AS total_runs,
@@ -1023,29 +1033,16 @@ def get_past_race_statistics(
                     SUM(CASE WHEN se.kakutei_chakujun IN ('1', '2', '3') THEN 1 ELSE 0 END) AS places
                 FROM jvd_se se
                 WHERE (se.kaisai_nen, se.kaisai_tsukihi, se.keibajo_code, se.race_bango) IN (
-                    SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
-                    FROM jvd_ra ra
-                    WHERE ra.track_code LIKE %s
-                      AND ra.kyori = %s
-            """
-            stats_params = [f"{track_code}%", distance]
-
-            if grade_code is not None:
-                stats_query += " AND ra.grade_code = %s"
-                stats_params.append(grade_code)
-
-            stats_query += """
-                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
-                    LIMIT %s
+                    SELECT kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango
+                    FROM target_races
                 )
                 AND se.tansho_ninkijun IS NOT NULL
                 AND se.tansho_ninkijun != ''
                 GROUP BY se.tansho_ninkijun
                 ORDER BY se.tansho_ninkijun::integer
             """
-            stats_params.append(limit_races)
 
-            cur.execute(stats_query, stats_params)
+            cur.execute(stats_query, params)
             popularity_rows = _fetch_all_as_dicts(cur)
 
             # 人気別統計を整形
@@ -1069,7 +1066,7 @@ def get_past_race_statistics(
                     continue
 
             # 平均配当を取得（jvd_hr テーブルから）
-            payout_query = """
+            payout_query = cte_query + """
                 SELECT
                     AVG(NULLIF(hr.tansho_haraimodoshi_1, '')::numeric / 10) AS avg_win_payout,
                     AVG(
@@ -1093,25 +1090,12 @@ def get_past_race_statistics(
                     ) AS avg_place_payout
                 FROM jvd_hr hr
                 WHERE (hr.kaisai_nen, hr.kaisai_tsukihi, hr.keibajo_code, hr.race_bango) IN (
-                    SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
-                    FROM jvd_ra ra
-                    WHERE ra.track_code LIKE %s
-                      AND ra.kyori = %s
-            """
-            payout_params = [f"{track_code}%", distance]
-
-            if grade_code is not None:
-                payout_query += " AND ra.grade_code = %s"
-                payout_params.append(grade_code)
-
-            payout_query += """
-                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
-                    LIMIT %s
+                    SELECT kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango
+                    FROM target_races
                 )
             """
-            payout_params.append(limit_races)
 
-            cur.execute(payout_query, payout_params)
+            cur.execute(payout_query, params)
             payout_row = cur.fetchone()
 
             avg_win_payout = None
