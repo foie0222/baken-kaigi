@@ -12,49 +12,7 @@ from strands import Agent
 from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
-# 基本ツール
-from tools.race_data import get_race_data
-from tools.bet_analysis import analyze_bet_selection
-from tools.pace_analysis import analyze_race_development, analyze_running_style_match
-from tools.historical_analysis import (
-    analyze_past_race_trends,
-    analyze_jockey_course_stats,
-    analyze_bet_roi,
-)
-
-# 馬・血統分析ツール
-from tools.horse_analysis import analyze_horse_performance
-from tools.training_analysis import analyze_training_condition
-from tools.pedigree_analysis import analyze_pedigree_aptitude
-from tools.course_aptitude_analysis import analyze_course_aptitude
-from tools.weight_analysis import analyze_weight_trend
-from tools.sire_analysis import analyze_sire_offspring
-
-# 騎手・厩舎分析ツール
-from tools.jockey_analysis import analyze_jockey_factor
-from tools.trainer_analysis import analyze_trainer_tendency
-
-# レース分析ツール
-from tools.odds_analysis import analyze_odds_movement
-from tools.gate_analysis import analyze_gate_position
-from tools.rotation_analysis import analyze_rotation
-from tools.race_comprehensive_analysis import analyze_race_comprehensive
-
-# 馬券提案ツール
-from tools.bet_combinations import suggest_bet_combinations
-
-# Issue #102-111 追加ツール
-from tools.bet_probability_analysis import analyze_bet_probability
-from tools.track_condition_analysis import analyze_track_condition_impact
-from tools.last_race_analysis import analyze_last_race_detail
-from tools.class_analysis import analyze_class_factor
-from tools.distance_change_analysis import analyze_distance_change
-from tools.momentum_analysis import analyze_momentum
-from tools.track_change_analysis import track_course_condition_change
-from tools.scratch_impact_analysis import analyze_scratch_impact
-from tools.time_analysis import analyze_time_performance
-
-# AI予想データ
+# AI予想データ（コールドスタート軽減のためツールを絞り込み）
 from tools.ai_prediction import get_ai_prediction, list_ai_predictions_for_date
 
 from prompts.consultation import SYSTEM_PROMPT
@@ -65,54 +23,11 @@ bedrock_model = BedrockModel(
     temperature=0.3,
 )
 
-# エージェント初期化（全29ツール登録）
+# エージェント初期化（コールドスタート軽減のためツールを2つに絞り込み）
 agent = Agent(
     model=bedrock_model,
     system_prompt=SYSTEM_PROMPT,
     tools=[
-        # === 基本ツール（最初に使う） ===
-        get_race_data,  # レース情報と出走馬を一括取得
-        analyze_bet_selection,  # 買い目分析
-
-        # === 展開・ペース分析 ===
-        analyze_race_development,  # 展開予想
-        analyze_running_style_match,  # 脚質適性
-
-        # === 馬の分析 ===
-        analyze_horse_performance,  # 過去成績分析
-        analyze_training_condition,  # 調教状態分析
-        analyze_pedigree_aptitude,  # 血統適性分析
-        analyze_course_aptitude,  # コース適性分析
-        analyze_weight_trend,  # 馬体重傾向分析
-        analyze_sire_offspring,  # 種牡馬産駒分析
-
-        # === 騎手・厩舎分析 ===
-        analyze_jockey_factor,  # 騎手要因分析
-        analyze_jockey_course_stats,  # 騎手コース成績
-        analyze_trainer_tendency,  # 厩舎傾向分析
-
-        # === レース分析 ===
-        analyze_odds_movement,  # オッズ変動分析
-        analyze_gate_position,  # 枠順分析
-        analyze_rotation,  # ローテーション分析
-        analyze_race_comprehensive,  # レース総合分析
-        analyze_past_race_trends,  # 過去統計傾向
-
-        # === 馬券・回収率分析 ===
-        analyze_bet_roi,  # 回収率分析
-        analyze_bet_probability,  # 的中率分析
-        suggest_bet_combinations,  # 馬券組合せ提案
-
-        # === 条件・環境分析 ===
-        analyze_track_condition_impact,  # 馬場影響分析
-        analyze_last_race_detail,  # 前走詳細分析
-        analyze_class_factor,  # クラス要因分析
-        analyze_distance_change,  # 距離変更影響分析
-        analyze_momentum,  # 勢い・連勝分析
-        track_course_condition_change,  # 馬場変化追跡
-        analyze_scratch_impact,  # 出走取消影響分析
-        analyze_time_performance,  # タイム分析
-
         # === 外部AI予想 ===
         get_ai_prediction,  # AI指数取得（ai-shisu.com）
         list_ai_predictions_for_date,  # 日別AI予想一覧
