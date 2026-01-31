@@ -15,7 +15,7 @@ sys.modules['pg8000'] = mock_pg8000
 # テスト対象モジュールへのパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database import get_jockey_course_stats, get_popularity_payout_stats
+from database import get_jockey_course_stats, get_popularity_payout_stats, get_past_race_statistics
 
 
 class TestGetJockeyCourseStats:
@@ -225,3 +225,100 @@ class TestGetPopularityPayoutStats:
         call_args = mock_cursor.execute.call_args
         params = call_args[0][1]
         assert 200 in params  # limit_racesの値
+
+
+class TestGetPastRaceStats:
+    """get_past_race_statistics関数の単体テスト（平均配当機能）."""
+
+    @patch("database._fetch_all_as_dicts")
+    @patch("database.get_db")
+    def test_正常系_平均配当を取得できる(self, mock_get_db, mock_fetch_dicts):
+        """正常なデータで平均配当を取得できることを確認."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        # レース一覧クエリの結果
+        races = [
+            ("2026", "0131", "05", "01"),
+            ("2026", "0131", "05", "02"),
+        ]
+
+        # 人気別統計クエリの結果
+        popularity_rows = [
+            {"popularity": "1", "total_runs": 100, "wins": 33, "places": 60},
+            {"popularity": "2", "total_runs": 100, "wins": 20, "places": 50},
+        ]
+
+        # 平均配当クエリの結果
+        avg_payouts = (238.5, 128.0)
+
+        mock_cursor.fetchall.return_value = races
+        mock_fetch_dicts.return_value = popularity_rows
+        mock_cursor.fetchone.return_value = avg_payouts
+
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        result = get_past_race_statistics(
+            track_code="1",
+            distance=1600,
+            grade_code=None,
+            limit_races=100,
+        )
+
+        assert result is not None
+        assert result["total_races"] == 2
+        assert result["avg_win_payout"] == 238.5
+        assert result["avg_place_payout"] == 128.0
+
+    @patch("database._fetch_all_as_dicts")
+    @patch("database.get_db")
+    def test_配当データがない場合Noneを返す(self, mock_get_db, mock_fetch_dicts):
+        """配当データが取得できない場合もNoneでなく適切に処理することを確認."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        # レース一覧
+        races = [("2026", "0131", "05", "01")]
+
+        # 人気別統計
+        popularity_rows = [
+            {"popularity": "1", "total_runs": 50, "wins": 15, "places": 30},
+        ]
+
+        # 平均配当がNone
+        avg_payouts = (None, None)
+
+        mock_cursor.fetchall.return_value = races
+        mock_fetch_dicts.return_value = popularity_rows
+        mock_cursor.fetchone.return_value = avg_payouts
+
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        result = get_past_race_statistics(
+            track_code="1",
+            distance=1600,
+        )
+
+        assert result is not None
+        assert result["avg_win_payout"] is None
+        assert result["avg_place_payout"] is None
+
+    @patch("database.get_db")
+    def test_レースが存在しない場合Noneを返す(self, mock_get_db):
+        """該当レースが存在しない場合Noneを返すことを確認."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        mock_cursor.fetchall.return_value = []
+
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        result = get_past_race_statistics(
+            track_code="1",
+            distance=9999,  # 存在しない距離
+        )
+
+        assert result is None

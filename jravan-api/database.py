@@ -1068,11 +1068,53 @@ def get_past_race_statistics(
                 except (ValueError, TypeError, ZeroDivisionError):
                     continue
 
+            # 平均配当を集計（jvd_hrテーブルから取得）
+            payout_query = """
+                SELECT
+                    AVG(NULLIF(hr.tansho_haraimodoshi_1, '')::numeric / 10) AS avg_win_payout,
+                    AVG(
+                        COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_1, '')::numeric,
+                            0
+                        ) +
+                        COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric,
+                            0
+                        ) +
+                        COALESCE(
+                            NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric,
+                            0
+                        )
+                    ) / 30 AS avg_place_payout
+                FROM jvd_hr hr
+                INNER JOIN jvd_ra ra ON
+                    hr.kaisai_nen = ra.kaisai_nen AND
+                    hr.kaisai_tsukihi = ra.kaisai_tsukihi AND
+                    hr.keibajo_code = ra.keibajo_code AND
+                    hr.race_bango = ra.race_bango
+                WHERE ra.track_code LIKE %s
+                  AND ra.kyori = %s
+            """
+            payout_params = [f"{track_code}%", distance]
+
+            if grade_code is not None:
+                payout_query += " AND ra.grade_code = %s"
+                payout_params.append(grade_code)
+
+            cur.execute(payout_query, payout_params)
+            payout_row = cur.fetchone()
+
+            avg_win_payout = None
+            avg_place_payout = None
+            if payout_row:
+                avg_win_payout = round(float(payout_row[0]), 1) if payout_row[0] else None
+                avg_place_payout = round(float(payout_row[1]), 1) if payout_row[1] else None
+
             return {
                 "total_races": total_races,
                 "popularity_stats": popularity_stats,
-                "avg_win_payout": None,
-                "avg_place_payout": None,
+                "avg_win_payout": avg_win_payout,
+                "avg_place_payout": avg_place_payout,
                 "conditions": {
                     "track_code": track_code,
                     "distance": distance,
