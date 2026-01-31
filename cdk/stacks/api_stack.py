@@ -851,7 +851,7 @@ class BakenKaigiApiStack(Stack):
             layers=[deps_layer],
             environment={
                 "PYTHONPATH": "/var/task:/opt/python",
-                "AGENTCORE_AGENT_ARN": "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_ai-dfTUpICY2G",
+                "AGENTCORE_AGENT_ARN": "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_agent-t4nITfFpZQ",
             },
         )
 
