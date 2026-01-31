@@ -12,11 +12,10 @@ import boto3
 from botocore.config import Config
 
 
-# AgentCore Runtime の ARN
-AGENTCORE_AGENT_ARN = os.environ.get(
-    "AGENTCORE_AGENT_ARN",
-    "arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_agent-t4nITfFpZQ"
-)
+# AgentCore Runtime の ARN（CDKで動的に設定される）
+AGENTCORE_AGENT_ARN = os.environ.get("AGENTCORE_AGENT_ARN")
+if not AGENTCORE_AGENT_ARN:
+    raise RuntimeError("AGENTCORE_AGENT_ARN environment variable is required")
 
 # AWS リージョン
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
