@@ -262,7 +262,12 @@ export function ConsultationPage() {
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
             placeholder="AIに質問する..."
             disabled={isLoading}
             className="chat-input"
