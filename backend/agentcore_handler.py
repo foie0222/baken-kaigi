@@ -66,6 +66,7 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     """
     # 環境変数チェック（Lambda実行時のみ必須）
     if not AGENTCORE_AGENT_ARN:
+        logger.error("AGENTCORE_AGENT_ARN environment variable is not configured")
         return _make_response(
             {"error": "AGENTCORE_AGENT_ARN environment variable is not configured"},
             500
