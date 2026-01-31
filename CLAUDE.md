@@ -64,11 +64,36 @@ cd backend && pytest
 - AWS操作: `.claude/docs/aws-operations.md`
 - Git運用: `.claude/docs/git-workflow.md`
 
-## スキル
+## タスク別ワークフロー
 
-- `/deploy-prep` - デプロイ前チェック実行
-- `/ec2-sync` - EC2データ同期
-- `/copilot-review` - PRレビュー対応
+### 新機能実装時
+`tdd-generator` エージェントを使用してTDD駆動で実装する。
+- Red → Green → Refactor サイクルを自動実行
+
+### API拡張時
+1. `/ddd-check` でドメイン設計との整合性を検証
+2. `/api-extend` で6段階ワークフロー実行（ports → provider → handler → Mock → テスト → フロント型 → UI）
+3. `frontend-mapper` エージェントでTypeScript型を自動生成
+
+### UI実装時
+- `/ui-component` でReact + Tailwind CSSパターンを適用
+- コンポーネント設計のベストプラクティスに従う
+
+### PR対応時
+- `/copilot-review` でGitHub Copilotレビューコメントを取得→修正→返信→解決
+
+### デプロイ前（必須）
+- `/deploy-prep` でチェックスクリプト実行（テスト、リント、CDK Synth検証）
+
+### Issue対応時
+- `/issue-to-task` でGitHub Issueからタスク分解・チェックリスト生成
+
+### EC2操作時
+- `/ec2-sync` でSSMコマンドを簡素化
+- `/jravan-ec2` でJRA-VAN APIへのファイル送信
+
+### コードベース調査時
+`Explore` エージェントを使用して効率的に調査する。
 
 ## 注意事項
 
