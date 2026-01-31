@@ -19,6 +19,9 @@ from batch.ai_shisu_scraper import (
     VENUE_CODE_MAP,
 )
 
+# テスト用パーサー（lxmlはLambda環境でのみ利用可能）
+TEST_PARSER = "html.parser"
+
 
 class TestParseRaceList:
     """レース一覧ページのパースのテスト."""
@@ -36,7 +39,7 @@ class TestParseRaceList:
         </body>
         </html>
         """
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, TEST_PARSER)
         races = parse_race_list(soup)
 
         assert len(races) == 3
@@ -57,7 +60,7 @@ class TestParseRaceList:
         </body>
         </html>
         """
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, TEST_PARSER)
         races = parse_race_list(soup)
 
         # 佐賀、大井は除外される
@@ -67,7 +70,7 @@ class TestParseRaceList:
     def test_レースがない場合(self):
         """正常系: レースがない場合は空リスト."""
         html = "<html><body><p>レースはありません</p></body></html>"
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, TEST_PARSER)
         races = parse_race_list(soup)
 
         assert races == []
@@ -99,7 +102,7 @@ class TestParseRacePredictions:
         </body>
         </html>
         """
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, TEST_PARSER)
         predictions = parse_race_predictions(soup)
 
         assert len(predictions) == 2
@@ -123,7 +126,7 @@ class TestParseRacePredictions:
         </body>
         </html>
         """
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, TEST_PARSER)
         predictions = parse_race_predictions(soup)
 
         assert predictions[0]["rank"] == 1
@@ -133,7 +136,7 @@ class TestParseRacePredictions:
     def test_データがない場合(self):
         """正常系: AI指数データがない場合は空リスト."""
         html = "<html><body><p>データなし</p></body></html>"
-        soup = BeautifulSoup(html, "lxml")
+        soup = BeautifulSoup(html, TEST_PARSER)
         predictions = parse_race_predictions(soup)
 
         assert predictions == []
