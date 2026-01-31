@@ -5,6 +5,8 @@ from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
@@ -91,6 +93,24 @@ class BakenKaigiApiStack(Stack):
             ),
         )
 
+        # AI予想データテーブル
+        ai_predictions_table = dynamodb.Table(
+            self,
+            "AiPredictionsTable",
+            table_name="baken-kaigi-ai-predictions",
+            partition_key=dynamodb.Attribute(
+                name="race_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="source",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,  # 開発環境用
+            time_to_live_attribute="ttl",
+        )
+
         # ========================================
         # Lambda Layer（デプロイ時に自動で依存関係をインストール）
         # ========================================
@@ -117,6 +137,7 @@ class BakenKaigiApiStack(Stack):
             "PYTHONPATH": "/var/task:/opt/python",
             "CART_TABLE_NAME": cart_table.table_name,
             "SESSION_TABLE_NAME": session_table.table_name,
+            "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -854,6 +875,69 @@ class BakenKaigiApiStack(Stack):
             apigw.LambdaIntegration(agentcore_consultation_fn),
             api_key_required=True,
         )
+
+        # ========================================
+        # AI予想スクレイピングバッチ
+        # ========================================
+
+        # スクレイピングバッチ用 Lambda Layer
+        batch_layer_path = project_root / "cdk" / "batch_layer"
+        batch_deps_layer = lambda_.LayerVersion(
+            self,
+            "BatchDepsLayer",
+            code=lambda_.Code.from_asset(
+                str(batch_layer_path),
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output/python",
+                    ],
+                ),
+            ),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
+            description="Dependencies layer for batch processing (beautifulsoup4, requests)",
+        )
+
+        # AI指数スクレイピング Lambda
+        ai_shisu_scraper_fn = lambda_.Function(
+            self,
+            "AiShisuScraperFunction",
+            handler="batch.ai_shisu_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-ai-shisu-scraper",
+            description="AI指数スクレイピング（ai-shisu.com）",
+            timeout=Duration.seconds(300),  # スクレイピングは時間がかかる
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            },
+        )
+
+        # AI指数スクレイピング Lambda に DynamoDB 書き込み権限を付与
+        ai_predictions_table.grant_write_data(ai_shisu_scraper_fn)
+
+        # EventBridge ルール（毎朝 6:00 JST = 21:00 UTC 前日）
+        scraper_rule = events.Rule(
+            self,
+            "AiShisuScraperRule",
+            rule_name="baken-kaigi-ai-shisu-scraper-rule",
+            description="AI指数スクレイピングを毎朝6:00 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="21",  # UTC 21:00 = JST 06:00
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        scraper_rule.add_target(targets.LambdaFunction(ai_shisu_scraper_fn))
 
         # ========================================
         # DynamoDB アクセス権限

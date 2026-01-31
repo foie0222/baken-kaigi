@@ -54,6 +54,9 @@ from tools.track_change_analysis import track_course_condition_change
 from tools.scratch_impact_analysis import analyze_scratch_impact
 from tools.time_analysis import analyze_time_performance
 
+# AI予想データ
+from tools.ai_prediction import get_ai_prediction, list_ai_predictions_for_date
+
 from prompts.consultation import SYSTEM_PROMPT
 
 # Amazon Nova 2 Lite モデル（JP inference profile）
@@ -109,6 +112,10 @@ agent = Agent(
         track_course_condition_change,  # 馬場変化追跡
         analyze_scratch_impact,  # 出走取消影響分析
         analyze_time_performance,  # タイム分析
+
+        # === 外部AI予想 ===
+        get_ai_prediction,  # AI指数取得（ai-shisu.com）
+        list_ai_predictions_for_date,  # 日別AI予想一覧
     ],
 )
 
