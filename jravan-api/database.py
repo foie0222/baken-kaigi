@@ -1096,9 +1096,7 @@ def get_past_race_statistics(
                         AND hr.keibajo_code = tr.keibajo_code
                         AND hr.race_bango = tr.race_bango
                     WHERE NULLIF(hr.fukusho_haraimodoshi_1, '') IS NOT NULL
-                    
                     UNION ALL
-                    
                     SELECT NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric / 10 AS place_payout
                     FROM jvd_hr hr
                     INNER JOIN target_races tr
@@ -1107,9 +1105,7 @@ def get_past_race_statistics(
                         AND hr.keibajo_code = tr.keibajo_code
                         AND hr.race_bango = tr.race_bango
                     WHERE NULLIF(hr.fukusho_haraimodoshi_2, '') IS NOT NULL
-                    
                     UNION ALL
-                    
                     SELECT NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric / 10 AS place_payout
                     FROM jvd_hr hr
                     INNER JOIN target_races tr
