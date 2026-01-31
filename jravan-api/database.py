@@ -1068,11 +1068,81 @@ def get_past_race_statistics(
                 except (ValueError, TypeError, ZeroDivisionError):
                     continue
 
+            # 平均配当を取得（jvd_hr テーブルから）
+            # 複勝配当は各レースの1着〜3着それぞれの配当を個別に平均化
+            payout_query = """
+                WITH target_races AS (
+                    SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
+                    FROM jvd_ra ra
+                    WHERE ra.track_code LIKE %s
+                      AND ra.kyori = %s
+            """
+            payout_params = [f"{track_code}%", distance]
+
+            if grade_code is not None:
+                payout_query += " AND ra.grade_code = %s"
+                payout_params.append(grade_code)
+
+            payout_query += """
+                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                    LIMIT %s
+                ),
+                all_place_payouts AS (
+                    SELECT NULLIF(hr.fukusho_haraimodoshi_1, '')::numeric / 10 AS payout
+                    FROM jvd_hr hr
+                    INNER JOIN target_races tr ON
+                        hr.kaisai_nen = tr.kaisai_nen AND
+                        hr.kaisai_tsukihi = tr.kaisai_tsukihi AND
+                        hr.keibajo_code = tr.keibajo_code AND
+                        hr.race_bango = tr.race_bango
+                    WHERE NULLIF(hr.fukusho_haraimodoshi_1, '') IS NOT NULL
+                    UNION ALL
+                    SELECT NULLIF(hr.fukusho_haraimodoshi_2, '')::numeric / 10 AS payout
+                    FROM jvd_hr hr
+                    INNER JOIN target_races tr ON
+                        hr.kaisai_nen = tr.kaisai_nen AND
+                        hr.kaisai_tsukihi = tr.kaisai_tsukihi AND
+                        hr.keibajo_code = tr.keibajo_code AND
+                        hr.race_bango = tr.race_bango
+                    WHERE NULLIF(hr.fukusho_haraimodoshi_2, '') IS NOT NULL
+                    UNION ALL
+                    SELECT NULLIF(hr.fukusho_haraimodoshi_3, '')::numeric / 10 AS payout
+                    FROM jvd_hr hr
+                    INNER JOIN target_races tr ON
+                        hr.kaisai_nen = tr.kaisai_nen AND
+                        hr.kaisai_tsukihi = tr.kaisai_tsukihi AND
+                        hr.keibajo_code = tr.keibajo_code AND
+                        hr.race_bango = tr.race_bango
+                    WHERE NULLIF(hr.fukusho_haraimodoshi_3, '') IS NOT NULL
+                )
+                SELECT
+                    (SELECT AVG(NULLIF(hr.tansho_haraimodoshi_1, '')::numeric / 10)
+                     FROM jvd_hr hr
+                     INNER JOIN target_races tr ON
+                         hr.kaisai_nen = tr.kaisai_nen AND
+                         hr.kaisai_tsukihi = tr.kaisai_tsukihi AND
+                         hr.keibajo_code = tr.keibajo_code AND
+                         hr.race_bango = tr.race_bango) AS avg_win_payout,
+                    (SELECT AVG(payout) FROM all_place_payouts) AS avg_place_payout
+            """
+            payout_params.append(limit_races)
+
+            cur.execute(payout_query, payout_params)
+            payout_row = cur.fetchone()
+
+            avg_win_payout = None
+            avg_place_payout = None
+            if payout_row:
+                if payout_row[0] is not None:
+                    avg_win_payout = round(float(payout_row[0]), 1)
+                if payout_row[1] is not None:
+                    avg_place_payout = round(float(payout_row[1]), 1)
+
             return {
                 "total_races": total_races,
                 "popularity_stats": popularity_stats,
-                "avg_win_payout": None,
-                "avg_place_payout": None,
+                "avg_win_payout": avg_win_payout,
+                "avg_place_payout": avg_place_payout,
                 "conditions": {
                     "track_code": track_code,
                     "distance": distance,
