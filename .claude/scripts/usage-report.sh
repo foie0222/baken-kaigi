@@ -7,7 +7,16 @@
 
 set -euo pipefail
 
-LOG_FILE="${HOME}/dev/baken-kaigi/.claude/logs/usage-log.jsonl"
+# jq コマンドの存在確認
+if ! command -v jq &> /dev/null; then
+    echo "エラー: jq コマンドが見つかりません。インストールしてください。" >&2
+    exit 1
+fi
+
+# スクリプトの場所から相対的にプロジェクトルートを取得
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+LOG_FILE="${PROJECT_ROOT}/.claude/logs/usage-log.jsonl"
 
 # ログファイルが存在しない場合
 if [[ ! -f "${LOG_FILE}" ]]; then
@@ -53,9 +62,9 @@ case "${1:-}" in
         ;;
 esac
 
-# フィルタリングされたログを取得
+# フィルタリングされたログを取得（日付部分のみで比較）
 if [[ -n "${FILTER_DATE}" ]]; then
-    FILTERED_LOG=$(jq -c "select(.timestamp >= \"${FILTER_DATE}\")" "${LOG_FILE}" 2>/dev/null || true)
+    FILTERED_LOG=$(jq -c "select(.timestamp[:10] >= \"${FILTER_DATE}\")" "${LOG_FILE}" 2>/dev/null || true)
 else
     FILTERED_LOG=$(cat "${LOG_FILE}")
 fi
@@ -73,8 +82,8 @@ echo ""
 
 # 総使用回数
 TOTAL_COUNT=$(echo "${FILTERED_LOG}" | wc -l | tr -d ' ')
-SKILL_COUNT=$(echo "${FILTERED_LOG}" | jq -r 'select(.type == "skill")' | grep -c '"type"' || echo "0")
-AGENT_COUNT=$(echo "${FILTERED_LOG}" | jq -r 'select(.type == "agent")' | grep -c '"type"' || echo "0")
+SKILL_COUNT=$(echo "${FILTERED_LOG}" | jq -r 'select(.type == "skill")' 2>/dev/null | grep -c '"type"' 2>/dev/null || echo "0")
+AGENT_COUNT=$(echo "${FILTERED_LOG}" | jq -r 'select(.type == "agent")' 2>/dev/null | grep -c '"type"' 2>/dev/null || echo "0")
 
 echo "📊 総使用回数: ${TOTAL_COUNT}"
 echo "   - スキル: ${SKILL_COUNT}"
