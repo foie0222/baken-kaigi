@@ -126,18 +126,35 @@ class BakenKaigiApiStack(Stack):
             description="IAM role for AgentCore Runtime to access AWS resources",
         )
 
-        # CloudWatch Logs 権限
+        # CloudWatch Logs の ARN（リージョン / アカウントはスタックから取得）
+        bedrock_logs_group_arn = (
+            f"arn:aws:logs:{self.region}:{self.account}:log-group:/aws/bedrock-agentcore/*"
+        )
+        bedrock_logs_stream_arn = f"{bedrock_logs_group_arn}:*"
+
+        # CloudWatch Logs 権限（ロググループ作成）
         agentcore_runtime_role.add_to_policy(
             iam.PolicyStatement(
-                sid="CloudWatchLogs",
+                sid="CloudWatchLogsCreateGroup",
+                actions=["logs:CreateLogGroup"],
+                resources=["*"],
+            )
+        )
+
+        # CloudWatch Logs 権限（ログストリーム作成 / 書き込み / 参照）
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="CloudWatchLogsStreams",
                 actions=[
-                    "logs:CreateLogGroup",
                     "logs:CreateLogStream",
                     "logs:PutLogEvents",
                     "logs:DescribeLogStreams",
                     "logs:DescribeLogGroups",
                 ],
-                resources=["arn:aws:logs:ap-northeast-1:*:log-group:/aws/bedrock-agentcore/*"],
+                resources=[
+                    bedrock_logs_group_arn,
+                    bedrock_logs_stream_arn,
+                ],
             )
         )
 
@@ -165,9 +182,12 @@ class BakenKaigiApiStack(Stack):
                     "bedrock:ApplyGuardrail",
                 ],
                 resources=[
-                    "arn:aws:bedrock:*::foundation-model/*",
-                    "arn:aws:bedrock:*:*:inference-profile/*",
-                    f"arn:aws:bedrock:ap-northeast-1:{Stack.of(self).account}:*",
+                    # Foundation Model 呼び出し
+                    f"arn:aws:bedrock:{self.region}::foundation-model/*",
+                    # Inference Profile 呼び出し
+                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/*",
+                    # Guardrail 適用
+                    f"arn:aws:bedrock:{self.region}:{self.account}:guardrail/*",
                 ],
             )
         )
@@ -180,7 +200,7 @@ class BakenKaigiApiStack(Stack):
             iam.PolicyStatement(
                 sid="ApiGatewayGetApiKey",
                 actions=["apigateway:GET"],
-                resources=[f"arn:aws:apigateway:ap-northeast-1::/apikeys/*"],
+                resources=[f"arn:aws:apigateway:{self.region}::/apikeys/*"],
             )
         )
 
@@ -195,8 +215,8 @@ class BakenKaigiApiStack(Stack):
                     "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
                 ],
                 resources=[
-                    f"arn:aws:bedrock-agentcore:ap-northeast-1:{Stack.of(self).account}:token-vault/*",
-                    f"arn:aws:bedrock-agentcore:ap-northeast-1:{Stack.of(self).account}:workload-identity-directory/*",
+                    f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:token-vault/*",
+                    f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:workload-identity-directory/*",
                 ],
             )
         )
