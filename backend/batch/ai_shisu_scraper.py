@@ -168,8 +168,8 @@ def parse_race_predictions(soup: BeautifulSoup) -> list[dict]:
                 horse_number = int(cell_texts[2])
                 horse_name = cell_texts[3]
 
-                # 有効なデータかチェック（順位は1以上、指数は正の値）
-                if rank >= 1 and score > 0 and horse_number >= 1 and horse_name:
+                # 有効なデータかチェック（順位は1以上、指数は正の値、馬番は1-18）
+                if rank >= 1 and score > 0 and 1 <= horse_number <= 18 and horse_name:
                     predictions.append({
                         "rank": rank,
                         "score": score,
