@@ -8,9 +8,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def template():
-    """CloudFormationテンプレートを生成."""
+    """CloudFormationテンプレートを生成.
+
+    scope="module"により、このファイル内で1回のみスタック合成を実行。
+    テストはテンプレートを読み取るのみで変更しないため、共有可能。
+    """
     import aws_cdk as cdk
     from aws_cdk import assertions
 
@@ -18,6 +22,38 @@ def template():
 
     app = cdk.App()
     stack = BakenKaigiApiStack(app, "TestStack")
+    return assertions.Template.from_stack(stack)
+
+
+@pytest.fixture(scope="module")
+def template_with_dev_origins():
+    """開発オリジン有効のCloudFormationテンプレートを生成.
+
+    TestCorsConfiguration用。scope="module"で1回のみ合成。
+    """
+    import aws_cdk as cdk
+    from aws_cdk import assertions
+
+    from stacks.api_stack import BakenKaigiApiStack
+
+    app = cdk.App()
+    stack = BakenKaigiApiStack(app, "TestStackWithDevOrigins", allow_dev_origins=True)
+    return assertions.Template.from_stack(stack)
+
+
+@pytest.fixture(scope="module")
+def template_without_dev_origins():
+    """開発オリジン無効のCloudFormationテンプレートを生成.
+
+    TestCorsConfiguration用。scope="module"で1回のみ合成。
+    """
+    import aws_cdk as cdk
+    from aws_cdk import assertions
+
+    from stacks.api_stack import BakenKaigiApiStack
+
+    app = cdk.App()
+    stack = BakenKaigiApiStack(app, "TestStackDefault", allow_dev_origins=False)
     return assertions.Template.from_stack(stack)
 
 
@@ -428,37 +464,19 @@ class TestAgentCoreRuntimeRole:
 class TestCorsConfiguration:
     """CORS設定のテスト."""
 
-    def test_cors_allows_dev_origins_when_enabled(self):
+    def test_cors_allows_dev_origins_when_enabled(self, template_with_dev_origins):
         """allow_dev_origins=Trueの場合、開発用オリジンも許可されること."""
-        import aws_cdk as cdk
-        from aws_cdk import assertions
-
-        from stacks.api_stack import BakenKaigiApiStack
-
-        app = cdk.App()
-        stack = BakenKaigiApiStack(app, "TestStackWithDevOrigins", allow_dev_origins=True)
-        template = assertions.Template.from_stack(stack)
-
         # REST API の CORS 設定に localhost が含まれることを確認
         # （内部的に複数のオリジンが設定されている）
-        template.has_resource_properties(
+        template_with_dev_origins.has_resource_properties(
             "AWS::ApiGateway::Method",
             {"HttpMethod": "OPTIONS"},
         )
 
-    def test_cors_denies_dev_origins_by_default(self):
+    def test_cors_denies_dev_origins_by_default(self, template_without_dev_origins):
         """デフォルトで開発用オリジンは許可されないこと."""
-        import aws_cdk as cdk
-        from aws_cdk import assertions
-
-        from stacks.api_stack import BakenKaigiApiStack
-
-        app = cdk.App()
-        stack = BakenKaigiApiStack(app, "TestStackDefault", allow_dev_origins=False)
-        template = assertions.Template.from_stack(stack)
-
         # OPTIONS メソッドが存在（CORS有効）
-        template.has_resource_properties(
+        template_without_dev_origins.has_resource_properties(
             "AWS::ApiGateway::Method",
             {"HttpMethod": "OPTIONS"},
         )

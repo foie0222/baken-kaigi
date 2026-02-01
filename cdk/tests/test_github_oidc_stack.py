@@ -8,9 +8,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def template():
-    """CloudFormationテンプレートを生成."""
+    """CloudFormationテンプレートを生成.
+
+    scope="module"により、このファイル内で1回のみスタック合成を実行。
+    テストはテンプレートを読み取るのみで変更しないため、共有可能。
+    """
     import aws_cdk as cdk
     from aws_cdk import assertions
 
@@ -20,6 +24,28 @@ def template():
     stack = GitHubOidcStack(
         app,
         "TestGitHubOidcStack",
+        env=cdk.Environment(account="123456789012", region="ap-northeast-1"),
+    )
+    return assertions.Template.from_stack(stack)
+
+
+@pytest.fixture(scope="module")
+def template_custom_repo():
+    """カスタムリポジトリ設定のCloudFormationテンプレートを生成.
+
+    TestGitHubOidcStackCustomOwnerRepo用。scope="module"で1回のみ合成。
+    """
+    import aws_cdk as cdk
+    from aws_cdk import assertions
+
+    from stacks.github_oidc_stack import GitHubOidcStack
+
+    app = cdk.App()
+    stack = GitHubOidcStack(
+        app,
+        "TestCustomStack",
+        github_owner="custom-org",
+        github_repo="custom-repo",
         env=cdk.Environment(account="123456789012", region="ap-northeast-1"),
     )
     return assertions.Template.from_stack(stack)
@@ -147,24 +173,9 @@ class TestGitHubOidcStack:
 class TestGitHubOidcStackCustomOwnerRepo:
     """カスタム owner/repo 設定のテスト."""
 
-    def test_custom_owner_repo(self):
+    def test_custom_owner_repo(self, template_custom_repo):
         """カスタムの owner/repo を設定できること."""
-        import aws_cdk as cdk
-        from aws_cdk import assertions
-
-        from stacks.github_oidc_stack import GitHubOidcStack
-
-        app = cdk.App()
-        stack = GitHubOidcStack(
-            app,
-            "TestCustomStack",
-            github_owner="custom-org",
-            github_repo="custom-repo",
-            env=cdk.Environment(account="123456789012", region="ap-northeast-1"),
-        )
-        template = assertions.Template.from_stack(stack)
-
-        template.has_resource_properties(
+        template_custom_repo.has_resource_properties(
             "AWS::IAM::Role",
             {
                 "AssumeRolePolicyDocument": {
