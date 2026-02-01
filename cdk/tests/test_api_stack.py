@@ -188,6 +188,17 @@ class TestApiStack:
             {"FunctionName": "baken-kaigi-get-consultation"},
         )
 
+    def test_agentcore_consultation_lambda(self, template):
+        """AgentCore相談Lambdaが120秒タイムアウトで存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-agentcore-consultation",
+                "Handler": "agentcore_handler.invoke_agentcore",
+                "Timeout": 120,
+            },
+        )
+
     def test_jockey_endpoints(self, template):
         """騎手APIのLambda関数が存在すること."""
         template.has_resource_properties(
