@@ -8,7 +8,9 @@ import { apiClient } from '../api/client'
 vi.mock('../api/client', () => ({
   apiClient: {
     isAgentCoreAvailable: vi.fn(() => false),
+    isStreamingAvailable: vi.fn(() => false), // ストリーミングは無効化
     consultWithAgent: vi.fn(),
+    consultWithAgentStreaming: vi.fn(),
   },
 }))
 
