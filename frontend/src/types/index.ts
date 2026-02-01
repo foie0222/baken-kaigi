@@ -255,6 +255,23 @@ export type BetMethod =
   | 'nagashi_2_multi'  // 軸2頭マルチ（三連単）
   | 'formation';       // フォーメーション
 
+// 買い方ラベル（表示用）
+export const BetMethodLabels: Record<BetMethod, string> = {
+  normal: '',
+  box: 'BOX',
+  nagashi: '流し',
+  nagashi_1: '1着流',
+  nagashi_2: '2着流',
+  nagashi_3: '3着流',
+  nagashi_multi: 'マルチ',
+  nagashi_1_multi: '1着流マルチ',
+  nagashi_12: '軸2頭1-2着',
+  nagashi_13: '軸2頭1-3着',
+  nagashi_23: '軸2頭2-3着',
+  nagashi_2_multi: '軸2頭マルチ',
+  formation: 'フォメ',
+};
+
 export interface BetMethodConfig {
   id: BetMethod;
   label: string;

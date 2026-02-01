@@ -129,4 +129,143 @@ describe('ConsultationPage', () => {
       expect(deleteButton).toHaveAttribute('title', '買い目を削除')
     })
   })
+
+  describe('買い方バッジと点数表示', () => {
+    it('BOX買いの場合にBOXバッジが表示される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        amount: 600,
+      })
+
+      render(<ConsultationPage />)
+
+      // BOXバッジが表示される
+      expect(await screen.findByText('BOX')).toBeInTheDocument()
+      // betDisplayの内容が表示される
+      expect(await screen.findByText('1,2,3,4')).toBeInTheDocument()
+    })
+
+    it('流し買いの場合に流しバッジが表示される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'nagashi',
+        horseNumbers: [3, 1, 5, 7],
+        betDisplay: '軸:3 → 相手:1,5,7',
+        betCount: 3,
+        amount: 300,
+      })
+
+      render(<ConsultationPage />)
+
+      // 流しバッジが表示される
+      expect(await screen.findByText('流し')).toBeInTheDocument()
+      // betDisplayの内容が表示される
+      expect(await screen.findByText('軸:3 → 相手:1,5,7')).toBeInTheDocument()
+    })
+
+    it('通常買いの場合はバッジが表示されない', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'normal',
+        horseNumbers: [1, 2],
+        betDisplay: '1-2',
+        betCount: 1,
+        amount: 100,
+      })
+
+      render(<ConsultationPage />)
+
+      // 買い目は表示される
+      expect(await screen.findByText('1-2')).toBeInTheDocument()
+      // BOXや流しバッジは表示されない
+      expect(screen.queryByText('BOX')).not.toBeInTheDocument()
+      expect(screen.queryByText('流し')).not.toBeInTheDocument()
+    })
+
+    it('複数点の買い目で点数詳細が表示される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        amount: 600,
+      })
+
+      render(<ConsultationPage />)
+
+      // 点数詳細が表示される（6点 @¥100）
+      expect(await screen.findByText('6点 @¥100')).toBeInTheDocument()
+    })
+
+    it('1点の買い目では点数詳細が表示されない', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'normal',
+        horseNumbers: [1, 2],
+        betDisplay: '1-2',
+        betCount: 1,
+        amount: 100,
+      })
+
+      render(<ConsultationPage />)
+
+      // 買い目は表示される
+      expect(await screen.findByText('1-2')).toBeInTheDocument()
+      // 1点の場合は点数詳細が表示されない
+      expect(screen.queryByText(/点 @¥/)).not.toBeInTheDocument()
+    })
+
+    it('betCountが0の場合は点数詳細が表示されない（除算ゼロ防止）', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'normal',
+        horseNumbers: [1, 2],
+        betDisplay: '1-2',
+        betCount: 0,
+        amount: 100,
+      })
+
+      render(<ConsultationPage />)
+
+      // 買い目は表示される
+      expect(await screen.findByText('1-2')).toBeInTheDocument()
+      // betCountが0の場合は点数詳細が表示されない
+      expect(screen.queryByText(/点 @¥/)).not.toBeInTheDocument()
+    })
+  })
 })

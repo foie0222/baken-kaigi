@@ -1853,3 +1853,20 @@ main {
 .btn-delete:hover {
     background: var(--color-alert-red-hover);
 }
+
+/* 買い方バッジ */
+.bet-style {
+    background: #ff9800;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 点数詳細 */
+.bet-detail {
+    font-size: 11px;
+    color: var(--color-neutral-500);
+}
