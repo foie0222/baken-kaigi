@@ -457,7 +457,7 @@ describe('ConsultationPage', () => {
       vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
       vi.mocked(apiClient.consultWithAgent).mockResolvedValue({
         success: false,
-        data: null,
+        data: undefined,
       })
 
       render(<ConsultationPage />)
