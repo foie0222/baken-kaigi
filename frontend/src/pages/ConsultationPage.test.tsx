@@ -81,4 +81,52 @@ describe('ConsultationPage', () => {
       expect(sendButton).toBeInTheDocument()
     })
   })
+
+  describe('買い目グルーピング表示', () => {
+    it('買い目一覧のタイトルとレース情報が表示される', async () => {
+      render(<ConsultationPage />)
+
+      // 「買い目一覧」というタイトルが表示される
+      expect(await screen.findByText('買い目一覧')).toBeInTheDocument()
+
+      // レース情報が表示される（東京 1R）
+      expect(await screen.findByText('東京 1R')).toBeInTheDocument()
+    })
+
+    it('同一レースの複数買い目がグループ内にまとめて表示される', async () => {
+      // 同一レースに追加の買い目を追加
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'normal',
+        horseNumbers: [1, 2],
+        betDisplay: '1-2',
+        betCount: 1,
+        amount: 500,
+      })
+
+      render(<ConsultationPage />)
+
+      // 「買い目一覧」は1つだけ表示される（同一レースなのでグループは1つ）
+      const titles = await screen.findAllByText('買い目一覧')
+      expect(titles).toHaveLength(1)
+
+      // 2つの買い目が表示される
+      expect(await screen.findByText('単勝')).toBeInTheDocument()
+      expect(await screen.findByText('馬連')).toBeInTheDocument()
+      expect(await screen.findByText('1')).toBeInTheDocument()
+      expect(await screen.findByText('1-2')).toBeInTheDocument()
+    })
+
+    it('削除ボタンにアクセシビリティ属性が設定されている', async () => {
+      render(<ConsultationPage />)
+
+      const deleteButton = await screen.findByRole('button', { name: '買い目を削除' })
+      expect(deleteButton).toBeInTheDocument()
+      expect(deleteButton).toHaveAttribute('title', '買い目を削除')
+    })
+  })
 })
