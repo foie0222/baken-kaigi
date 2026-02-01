@@ -1048,7 +1048,9 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-agentcore-consultation",
             description="AgentCore AI 相談",
-            timeout=Duration.seconds(60),  # AgentCore は時間がかかる場合がある
+            # Lambda Function URL (ストリーミング) を使用するためタイムアウトを延長
+            # API Gateway 経由の場合は29秒制限があるが、Function URL では最大15分
+            timeout=Duration.seconds(300),
             memory_size=256,
             runtime=lambda_.Runtime.PYTHON_3_12,
             layers=[deps_layer],
@@ -1081,6 +1083,69 @@ class BakenKaigiApiStack(Stack):
             "POST",
             apigw.LambdaIntegration(agentcore_consultation_fn),
             api_key_required=True,
+        )
+
+        # ========================================
+        # ストリーミング用 Lambda Function URL (AWS_IAM認証)
+        # API Gateway の 29秒タイムアウト制限を回避
+        # ========================================
+        agentcore_streaming_fn_url = agentcore_consultation_fn.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.AWS_IAM,  # IAM認証
+            invoke_mode=lambda_.InvokeMode.RESPONSE_STREAM,  # ストリーミング有効化
+            cors=lambda_.FunctionUrlCorsOptions(
+                allowed_origins=cors_origins,
+                allowed_methods=[lambda_.HttpMethod.POST, lambda_.HttpMethod.OPTIONS],
+                allowed_headers=[
+                    "Content-Type",
+                    "Authorization",
+                    "X-Amz-Date",
+                    "X-Amz-Security-Token",
+                    "X-Amz-Content-Sha256",
+                ],
+            ),
+        )
+
+        # フロントエンド用IAMユーザー（SigV4署名用）
+        streaming_user = iam.User(
+            self,
+            "StreamingApiUser",
+            user_name="baken-kaigi-streaming-user",
+        )
+
+        # Lambda Function URL 呼び出し権限
+        streaming_user.add_to_policy(
+            iam.PolicyStatement(
+                actions=["lambda:InvokeFunctionUrl"],
+                resources=[agentcore_consultation_fn.function_arn],
+            )
+        )
+
+        # アクセスキー作成
+        streaming_access_key = iam.CfnAccessKey(
+            self,
+            "StreamingApiAccessKey",
+            user_name=streaming_user.user_name,
+        )
+
+        CfnOutput(
+            self,
+            "AgentCoreStreamingUrl",
+            value=agentcore_streaming_fn_url.url,
+            description="AgentCore Streaming URL (AWS_IAM認証)",
+        )
+
+        CfnOutput(
+            self,
+            "StreamingAccessKeyId",
+            value=streaming_access_key.ref,
+            description="Streaming API Access Key ID",
+        )
+
+        CfnOutput(
+            self,
+            "StreamingSecretAccessKey",
+            value=streaming_access_key.attr_secret_access_key,
+            description="Streaming API Secret Access Key",
         )
 
         # ========================================

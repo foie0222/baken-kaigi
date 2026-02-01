@@ -10,11 +10,14 @@ import type {
   ApiRaceDetailResponse,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
+import { signRequest, isSigningAvailable } from '../utils/awsSigV4';
 
 // API ベース URL（環境変数から取得）
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const AGENTCORE_ENDPOINT = import.meta.env.VITE_AGENTCORE_ENDPOINT || '';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
+// ストリーミングエンドポイント（Lambda Function URL）
+const STREAMING_ENDPOINT = import.meta.env.VITE_STREAMING_ENDPOINT || '';
 
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
@@ -40,11 +43,18 @@ class ApiClient {
   private baseUrl: string;
   private agentCoreEndpoint: string;
   private apiKey: string;
+  private streamingEndpoint: string;
 
-  constructor(baseUrl: string, agentCoreEndpoint: string = '', apiKey: string = '') {
+  constructor(
+    baseUrl: string,
+    agentCoreEndpoint: string = '',
+    apiKey: string = '',
+    streamingEndpoint: string = ''
+  ) {
     this.baseUrl = baseUrl;
     this.agentCoreEndpoint = agentCoreEndpoint;
     this.apiKey = apiKey;
+    this.streamingEndpoint = streamingEndpoint;
   }
 
   /**
@@ -259,6 +269,81 @@ class ApiClient {
   isAgentCoreAvailable(): boolean {
     return !!this.agentCoreEndpoint;
   }
+
+  /**
+   * ストリーミングAPIが利用可能かどうか
+   * Lambda Function URL + SigV4署名が設定されている場合に true
+   */
+  isStreamingAvailable(): boolean {
+    return !!(this.streamingEndpoint && isSigningAvailable());
+  }
+
+  /**
+   * ストリーミング対応の AgentCore 相談 API
+   *
+   * Lambda Function URL (AWS_IAM認証) を使用し、API Gateway の 29秒タイムアウトを回避。
+   * 現在の実装では真のストリーミングではなく、長いタイムアウトでの一括レスポンス。
+   *
+   * @param request - 相談リクエスト
+   * @param onComplete - 完了時コールバック
+   * @param onError - エラー時コールバック
+   */
+  async consultWithAgentStreaming(
+    request: AgentCoreConsultationRequest,
+    onComplete: (response: AgentCoreConsultationResponse) => void,
+    onError: (error: string) => void
+  ): Promise<void> {
+    if (!this.streamingEndpoint) {
+      onError('Streaming endpoint is not configured');
+      return;
+    }
+
+    if (!isSigningAvailable()) {
+      onError('AWS credentials are not configured for streaming');
+      return;
+    }
+
+    const body = JSON.stringify(request);
+
+    try {
+      // SigV4署名を取得
+      const signedHeaders = await signRequest(this.streamingEndpoint, body);
+
+      const response = await fetch(this.streamingEndpoint, {
+        method: 'POST',
+        headers: signedHeaders,
+        body,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+        onError(errorMessage);
+        return;
+      }
+
+      const data = await response.json();
+      onComplete({
+        message: data.message || '',
+        session_id: data.session_id || '',
+      });
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL, AGENTCORE_ENDPOINT, API_KEY);
+export const apiClient = new ApiClient(
+  API_BASE_URL,
+  AGENTCORE_ENDPOINT,
+  API_KEY,
+  STREAMING_ENDPOINT
+);

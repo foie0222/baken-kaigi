@@ -266,3 +266,136 @@ def _handle_streaming_response(response) -> dict:
                 continue
 
     return {"message": complete_text or "応答を取得できませんでした"}
+
+
+# ========================================
+# Lambda Response Streaming 対応ハンドラー
+# Lambda Function URL (RESPONSE_STREAM mode) 用
+# ========================================
+
+
+def invoke_agentcore_streaming(event: dict, context: Any) -> dict:
+    """Lambda Response Streaming でレスポンスを返す.
+
+    Lambda Function URL (RESPONSE_STREAM mode) から呼び出される。
+    SSE (Server-Sent Events) 形式でレスポンスをストリーミング。
+
+    注意: Lambda Response Streaming は awslambdaric の response_stream デコレーターを
+    使用する必要があるが、現時点では boto3 の StreamingBody を直接ストリーミングする
+    方法が限られているため、通常のレスポンスと同じ処理を行い、
+    フロントエンドでは fetch + ReadableStream でストリーミングを行う。
+    """
+    # 環境変数チェック
+    if not AGENTCORE_AGENT_ARN:
+        logger.error("AGENTCORE_AGENT_ARN environment variable is not configured")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"error": "AGENTCORE_AGENT_ARN is not configured"}),
+        }
+
+    try:
+        body = _get_body(event)
+    except ValueError as e:
+        return {
+            "statusCode": 400,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"error": str(e)}),
+        }
+
+    if "prompt" not in body:
+        return {
+            "statusCode": 400,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"error": "prompt is required"}),
+        }
+
+    session_id = body.get("session_id") or str(uuid.uuid4())
+
+    payload = {
+        "prompt": body.get("prompt", ""),
+        "cart_items": body.get("cart_items", []),
+    }
+
+    try:
+        config = Config(
+            read_timeout=300,  # ストリーミング用に長めに設定
+            connect_timeout=30,
+            retries={"max_attempts": 2},
+        )
+
+        data_plane_endpoint = f"https://bedrock-agentcore.{AWS_REGION}.amazonaws.com"
+
+        client = boto3.client(
+            "bedrock-agentcore",
+            region_name=AWS_REGION,
+            endpoint_url=data_plane_endpoint,
+            config=config,
+        )
+
+        response = client.invoke_agent_runtime(
+            agentRuntimeArn=AGENTCORE_AGENT_ARN,
+            qualifier="DEFAULT",
+            runtimeSessionId=session_id,
+            payload=json.dumps(payload, ensure_ascii=False),
+            contentType="application/json",
+        )
+
+        # レスポンスを処理
+        result = _handle_response(response)
+        session_id = result.get("session_id", session_id)
+        message = result.get("message", "応答を取得できませんでした")
+
+        if isinstance(message, dict):
+            content = message.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                first_content = content[0]
+                if isinstance(first_content, dict) and "text" in first_content:
+                    message = first_content["text"]
+                elif isinstance(first_content, str):
+                    message = first_content
+                else:
+                    message = str(first_content)
+            else:
+                message = str(message)
+
+        # SSE 形式でレスポンスを構築
+        # Lambda Response Streaming では body をジェネレータにできないため、
+        # 通常の JSON レスポンスを返す
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": (
+                    "Content-Type,Authorization,X-Amz-Date,"
+                    "X-Amz-Security-Token,X-Amz-Content-Sha256"
+                ),
+                "Access-Control-Allow-Methods": "POST,OPTIONS",
+            },
+            "body": json.dumps({
+                "message": message,
+                "session_id": session_id,
+            }, ensure_ascii=False),
+        }
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.exception("AgentCore streaming error: %s", error_msg)
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"error": f"AgentCore invocation failed: {error_msg}"}),
+        }

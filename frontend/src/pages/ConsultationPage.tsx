@@ -41,9 +41,75 @@ export function ConsultationPage() {
   } | null>(null);
   const [editAmount, setEditAmount] = useState(0);
 
+  /**
+   * AI 相談を実行する共通関数
+   * ストリーミング API が利用可能な場合は優先的に使用（タイムアウト回避）
+   */
+  const consultWithAI = useCallback(
+    async (
+      prompt: string,
+      onSuccess: (message: string, newSessionId: string) => void,
+      onError: (message: string) => void
+    ) => {
+      const request = {
+        prompt,
+        cart_items: items.map((item) => ({
+          raceId: item.raceId,
+          raceName: item.raceName,
+          betType: item.betType,
+          horseNumbers: item.horseNumbers,
+          amount: item.amount,
+        })),
+        session_id: sessionId,
+      };
+
+      /**
+       * 通常 API へのフォールバック（内部関数）
+       */
+      const fallbackToNormalAPI = async () => {
+        if (!apiClient.isAgentCoreAvailable()) {
+          onError('AI分析機能は現在利用できません。');
+          return;
+        }
+
+        try {
+          const response = await apiClient.consultWithAgent(request);
+          if (response.success && response.data) {
+            onSuccess(response.data.message, response.data.session_id);
+          } else {
+            onError(response.error || '分析中に問題が発生しました。');
+          }
+        } catch {
+          onError('通信エラーが発生しました。');
+        }
+      };
+
+      // ストリーミング API を優先的に使用（29秒タイムアウト回避）
+      if (apiClient.isStreamingAvailable()) {
+        await apiClient.consultWithAgentStreaming(
+          request,
+          (response) => {
+            onSuccess(response.message, response.session_id);
+          },
+          (error) => {
+            console.error('Streaming API error:', error);
+            // ストリーミング失敗時は通常 API にフォールバック
+            fallbackToNormalAPI();
+          }
+        );
+        return;
+      }
+
+      // 通常 API を使用
+      await fallbackToNormalAPI();
+    },
+    [items, sessionId]
+  );
+
   // 初回ロード時に AI からの初期分析を取得
   const fetchInitialAnalysis = useCallback(async () => {
-    if (!apiClient.isAgentCoreAvailable()) {
+    // ストリーミング API も通常 API も利用不可の場合
+    if (!apiClient.isAgentCoreAvailable() && !apiClient.isStreamingAvailable()) {
       setMessages([
         {
           type: 'ai',
@@ -55,42 +121,29 @@ export function ConsultationPage() {
     }
 
     setIsLoading(true);
-    try {
-      const response = await apiClient.consultWithAgent({
-        prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
-        cart_items: items.map((item) => ({
-          raceId: item.raceId,
-          raceName: item.raceName,
-          betType: item.betType,
-          horseNumbers: item.horseNumbers,
-          amount: item.amount,
-        })),
-      });
 
-      if (response.success && response.data) {
-        setMessages([{ type: 'ai', text: response.data.message }]);
-        setSessionId(response.data.session_id);
-      } else {
+    await consultWithAI(
+      'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
+      (message, newSessionId) => {
+        setMessages([{ type: 'ai', text: message }]);
+        setSessionId(newSessionId);
+        setIsLoading(false);
+      },
+      (errorMessage) => {
         setMessages([
           {
             type: 'ai',
-            text: '分析中に問題が発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
+            text: `${errorMessage}\n再度お試しいただくか、買い目一覧をご確認ください。`,
           },
         ]);
+        setIsLoading(false);
       }
-    } catch {
-      setMessages([
-        {
-          type: 'ai',
-          text: '通信エラーが発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [items]);
+    );
+  }, [consultWithAI]);
 
   useEffect(() => {
+    // 初回マウント時に AI 分析を取得（setState は意図的）
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchInitialAnalysis();
   }, [fetchInitialAnalysis]);
 
@@ -102,7 +155,8 @@ export function ConsultationPage() {
     setInputText('');
     setMessages((prev) => [...prev, { type: 'user', text: message }]);
 
-    if (!apiClient.isAgentCoreAvailable()) {
+    // ストリーミング API も通常 API も利用不可の場合
+    if (!apiClient.isAgentCoreAvailable() && !apiClient.isStreamingAvailable()) {
       setMessages((prev) => [
         ...prev,
         {
@@ -114,43 +168,25 @@ export function ConsultationPage() {
     }
 
     setIsLoading(true);
-    try {
-      const response = await apiClient.consultWithAgent({
-        prompt: message,
-        cart_items: items.map((item) => ({
-          raceId: item.raceId,
-          raceName: item.raceName,
-          betType: item.betType,
-          horseNumbers: item.horseNumbers,
-          amount: item.amount,
-        })),
-        session_id: sessionId,
-      });
 
-      if (response.success && response.data) {
-        const data = response.data;
-        setMessages((prev) => [...prev, { type: 'ai', text: data.message }]);
-        setSessionId(data.session_id);
-      } else {
+    await consultWithAI(
+      message,
+      (responseMessage, newSessionId) => {
+        setMessages((prev) => [...prev, { type: 'ai', text: responseMessage }]);
+        setSessionId(newSessionId);
+        setIsLoading(false);
+      },
+      (errorMessage) => {
         setMessages((prev) => [
           ...prev,
           {
             type: 'ai',
-            text: '申し訳ございません。分析中に問題が発生しました。',
+            text: `申し訳ございません。${errorMessage}`,
           },
         ]);
+        setIsLoading(false);
       }
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: 'ai',
-          text: '申し訳ございません。通信エラーが発生しました。',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
   const handlePurchase = () => {
