@@ -14,17 +14,33 @@ SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタ�
 
 ## 利用可能なツール（2個）
 
-- `get_ai_prediction`: 外部AI予想サービス（ai-shisu.com）の指数を取得。レースIDを指定して順位・スコア・馬番・馬名を取得
-- `list_ai_predictions_for_date`: 指定日のAI予想一覧を取得
+### 1. get_ai_prediction
+外部AI予想サービス（ai-shisu.com）の指数を取得する。
 
-## ツールの使い方
+**引数**:
+- `race_id` (必須): レースID。カート情報に含まれる形式（例: "20260201_05_11"）
 
-| 質問タイプ | 使用ツール |
-|-----------|-----------|
-| 「AI指数は？」 | get_ai_prediction |
-| 「AIの評価順位は？」 | get_ai_prediction |
+**戻り値**:
+- `venue`: 競馬場名
+- `race_number`: レース番号
+- `predictions`: 予想リスト（AI指数の高い順）
+  - `rank`: 順位（1が最も高評価）
+  - `score`: AI指数（数値が高いほど高評価）
+  - `horse_number`: 馬番
+  - `horse_name`: 馬名
 
-| 「今日のAI予想は？」 | list_ai_predictions_for_date |
+### 2. list_ai_predictions_for_date
+指定日の全レースのAI予想一覧を取得する。
+
+**引数**:
+- `date` (必須): 日付（例: "20260201"）
+
+**戻り値**:
+- `races`: レース一覧
+  - `race_id`: レースID
+  - `venue`: 競馬場名
+  - `race_number`: レース番号
+  - `top_predictions`: 上位3頭の予想
 
 ## 初回相談への対応
 
