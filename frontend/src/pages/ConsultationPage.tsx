@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
 import { useAppStore } from '../stores/appStore';
-import { BetTypeLabels, getVenueName } from '../types';
+import { BetTypeLabels, BetMethodLabels, getVenueName } from '../types';
 import type { CartItem } from '../types';
 import { apiClient } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
@@ -307,10 +307,18 @@ export function ConsultationPage() {
                 <div className="bet-row" key={item.id}>
                   <span className="bet-card-type">{BetTypeLabels[item.betType]}</span>
                   <div className="bet-numbers-wrap">
-                    <span className="bet-numbers">{item.horseNumbers.join('-')}</span>
+                    <span className="bet-numbers">
+                      {item.betDisplay || item.horseNumbers.join('-')}
+                    </span>
+                    {item.betMethod && item.betMethod !== 'normal' && (
+                      <span className="bet-style">{BetMethodLabels[item.betMethod]}</span>
+                    )}
                   </div>
                   <div className="bet-price-c">
                     <span className="bet-amount">¥{item.amount.toLocaleString()}</span>
+                    {item.betCount && item.betCount > 1 && (
+                      <span className="bet-detail">{item.betCount}点 @¥{(item.amount / item.betCount).toLocaleString()}</span>
+                    )}
                   </div>
                   <div className="bet-actions">
                     <button className="btn-edit" onClick={() => handleEditAmount(item.id, item.amount)}>変更</button>
