@@ -317,7 +317,7 @@ export function ConsultationPage() {
                   <div className="bet-price-c">
                     <span className="bet-amount">¥{item.amount.toLocaleString()}</span>
                     {item.betCount && item.betCount > 1 && (
-                      <span className="bet-detail">{item.betCount}点 @¥{(item.amount / item.betCount).toLocaleString()}</span>
+                      <span className="bet-detail">{item.betCount}点 @¥{Math.floor(item.amount / item.betCount).toLocaleString()}</span>
                     )}
                   </div>
                   <div className="bet-actions">
