@@ -57,7 +57,7 @@ export function ConsultationPage() {
     setIsLoading(true);
     try {
       const response = await apiClient.consultWithAgent({
-        prompt: 'カートの買い目を分析してください',
+        prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
         cart_items: items.map((item) => ({
           raceId: item.raceId,
           raceName: item.raceName,
