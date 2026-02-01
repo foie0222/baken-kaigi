@@ -915,6 +915,11 @@ def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race
         row = cur.fetchone()
 
         if row is None:
+            logger.warning(
+                f"base_value not found for venue_code={venue_code}, kaisai_kai={kaisai_kai}, "
+                f"kaisai_nichime={kaisai_nichime}, race_number={race_number}. "
+                "Register via POST /jra-checksum endpoint."
+            )
             return None
 
         base_value = row[0]
