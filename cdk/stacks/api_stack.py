@@ -259,7 +259,12 @@ class BakenKaigiApiStack(Stack):
         # ========================================
         # AgentCore Runtime (CDK管理)
         # ========================================
-        # エージェントコードをS3にアップロード（CDK Assetで自動管理）
+        # エージェントコードをS3にアップロード（依存関係を含めてバンドル）
+        # AgentCore Runtime は ARM64 アーキテクチャのため、ARM64用の依存関係が必要
+        #
+        # 注意: デプロイ前に以下のコマンドで依存関係をバンドルすること:
+        #   ./scripts/bundle-agentcore.sh
+        #
         agentcore_code_path = project_root / "backend" / "agentcore"
         agent_code_asset = s3_assets.Asset(
             self,
@@ -270,6 +275,7 @@ class BakenKaigiApiStack(Stack):
                 ".bedrock_agentcore.yaml",
                 "__pycache__",
                 "*.pyc",
+                "*.dist-info",
             ],
         )
 
