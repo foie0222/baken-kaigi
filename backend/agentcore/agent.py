@@ -57,7 +57,7 @@ def invoke(payload: dict, context: dict) -> dict:
 
     # promptが空でもcart_itemsがあれば分析を開始
     if not user_message and cart_items:
-        user_message = "カートの買い目を分析してください"
+        user_message = "カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。"
 
     # カート情報をコンテキストとして追加
     if cart_items:
