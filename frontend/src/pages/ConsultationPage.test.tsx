@@ -68,13 +68,17 @@ describe('ConsultationPage', () => {
     })
   })
 
-  describe('クイックリプライ', () => {
-    it('デフォルトのクイックリプライが表示される', async () => {
+  describe('テキスト入力欄', () => {
+    it('テキスト入力欄と送信ボタンが表示される', async () => {
       render(<ConsultationPage />)
 
-      // ローディング完了後にクイックリプライが表示される
-      const quickReplyButton = await screen.findByRole('button', { name: '過去の成績' }, { timeout: 3000 })
-      expect(quickReplyButton).toBeInTheDocument()
+      // テキスト入力欄が表示される
+      const input = await screen.findByPlaceholderText('AIに質問する...')
+      expect(input).toBeInTheDocument()
+
+      // 送信ボタンが表示される
+      const sendButton = await screen.findByRole('button', { name: '送信' })
+      expect(sendButton).toBeInTheDocument()
     })
   })
 })
