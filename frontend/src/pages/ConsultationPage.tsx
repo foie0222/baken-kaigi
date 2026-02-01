@@ -47,7 +47,7 @@ export function ConsultationPage() {
       setMessages([
         {
           type: 'ai',
-          text: '買い目の分析準備ができました。\n何か質問があればお聞きください。',
+          text: 'AI分析機能は現在利用できません。\n買い目一覧をご確認の上、ご判断ください。',
         },
       ]);
       setIsLoading(false);
@@ -74,7 +74,7 @@ export function ConsultationPage() {
         setMessages([
           {
             type: 'ai',
-            text: '買い目の分析準備ができました。\n何か質問があればお聞きください。',
+            text: '分析中に問題が発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
           },
         ]);
       }
@@ -82,7 +82,7 @@ export function ConsultationPage() {
       setMessages([
         {
           type: 'ai',
-          text: '買い目の分析準備ができました。\n何か質問があればお聞きください。',
+          text: '通信エラーが発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
         },
       ]);
     } finally {
