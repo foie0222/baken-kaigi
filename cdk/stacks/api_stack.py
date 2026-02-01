@@ -273,6 +273,9 @@ class BakenKaigiApiStack(Stack):
             ],
         )
 
+        # AgentCore Runtime にS3からコードをダウンロードする権限を付与
+        agent_code_asset.grant_read(agentcore_runtime_role)
+
         # AgentCore Runtime (L1 Construct) - CodeConfiguration（direct_code_deploy相当）
         agent_runtime = bedrockagentcore.CfnRuntime(
             self,
