@@ -268,4 +268,140 @@ describe('ConsultationPage', () => {
       expect(screen.queryByText(/点 @¥/)).not.toBeInTheDocument()
     })
   })
+
+  describe('金額編集（1点あたり金額）', () => {
+    it('単勝（1点）の場合は「掛け金の変更」タイトルで表示される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        betCount: 1,
+        amount: 500,
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // 「掛け金の変更」タイトルが表示される
+      expect(await screen.findByText('掛け金の変更')).toBeInTheDocument()
+      // 合計金額プレビューは表示されない
+      expect(screen.queryByText(/合計:/)).not.toBeInTheDocument()
+    })
+
+    it('複数点買い目の場合は「1点あたりの金額」タイトルで表示される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        amount: 600,
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // 「1点あたりの金額」タイトルが表示される
+      expect(await screen.findByText('1点あたりの金額')).toBeInTheDocument()
+      // 合計金額プレビューが表示される
+      expect(await screen.findByText(/合計:/)).toBeInTheDocument()
+    })
+
+    it('複数点買い目で合計金額プレビューが表示される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        amount: 600,
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // 初期値は1点あたり100円なので、合計600円と表示される（amount-previewクラス内）
+      const preview = await screen.findByText(/合計: ¥600/)
+      expect(preview).toBeInTheDocument()
+      expect(preview).toHaveClass('amount-preview')
+    })
+
+    it('複数点買い目の初期値が1点あたり金額になっている', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        amount: 1200, // 6点で1200円 = 1点あたり200円
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // 入力欄の値が1点あたり200円になっている
+      const input = await screen.findByRole('spinbutton')
+      expect(input).toHaveValue(200)
+    })
+
+    it('複数点買い目で＋ボタンが上限に達すると無効化される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        // MAX_BET_AMOUNT = 100000なので、6点の場合1点あたり上限は16666円（切り捨て）
+        amount: 99996, // 6点 × 16666円
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // ＋ボタンが無効化されている（上限に達しているため）
+      const plusButton = await screen.findByRole('button', { name: '＋' })
+      expect(plusButton).toBeDisabled()
+    })
+  })
 })

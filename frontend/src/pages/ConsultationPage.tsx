@@ -37,6 +37,7 @@ export function ConsultationPage() {
   const [editTarget, setEditTarget] = useState<{
     id: string;
     amount: number;
+    betCount?: number;
   } | null>(null);
   const [editAmount, setEditAmount] = useState(0);
 
@@ -185,9 +186,13 @@ export function ConsultationPage() {
     }
   };
 
-  const handleEditAmount = (itemId: string, currentAmount: number) => {
-    setEditTarget({ id: itemId, amount: currentAmount });
-    setEditAmount(currentAmount);
+  const handleEditAmount = (item: CartItem) => {
+    // 複数点の場合は1点あたり金額をセット
+    const amountPerBet = item.betCount && item.betCount > 1
+      ? Math.floor(item.amount / item.betCount)
+      : item.amount;
+    setEditTarget({ id: item.id, amount: item.amount, betCount: item.betCount });
+    setEditAmount(amountPerBet);
   };
 
   const confirmEditAmount = () => {
@@ -195,22 +200,46 @@ export function ConsultationPage() {
       return;
     }
 
-    if (editAmount < MIN_BET_AMOUNT || editAmount > MAX_BET_AMOUNT) {
-      showToast(
-        `金額は${MIN_BET_AMOUNT.toLocaleString()}〜${MAX_BET_AMOUNT.toLocaleString()}円の範囲で入力してください`
-      );
+    // 1点あたり金額のバリデーション（100円単位）
+    if (editAmount < MIN_BET_AMOUNT || editAmount % 100 !== 0) {
+      showToast('金額は100円単位で入力してください');
       return;
     }
 
-    updateItemAmount(editTarget.id, editAmount);
+    // 合計金額の計算と上限チェック
+    const itemTotalAmount = editTarget.betCount && editTarget.betCount > 1
+      ? editAmount * editTarget.betCount
+      : editAmount;
+
+    if (itemTotalAmount > MAX_BET_AMOUNT) {
+      showToast(`合計金額が${MAX_BET_AMOUNT.toLocaleString()}円を超えています`);
+      return;
+    }
+
+    updateItemAmount(editTarget.id, itemTotalAmount);
     setEditTarget(null);
     showToast('金額を変更しました');
   };
 
-  const isEditAmountValid = editAmount >= MIN_BET_AMOUNT && editAmount <= MAX_BET_AMOUNT;
+  // 1点あたり金額の上限（複数点の場合は合計金額の上限を考慮）
+  const maxAmountPerBet = useMemo(() => {
+    return editTarget?.betCount && editTarget.betCount > 1
+      ? Math.floor(MAX_BET_AMOUNT / editTarget.betCount)
+      : MAX_BET_AMOUNT;
+  }, [editTarget]);
+
+  // 1点あたり金額の検証
+  const isEditAmountValid = useMemo(() => {
+    if (editAmount < MIN_BET_AMOUNT || editAmount % 100 !== 0) return false;
+    // 複数点の場合は合計金額の上限チェック
+    const itemTotalAmount = editTarget?.betCount && editTarget.betCount > 1
+      ? editAmount * editTarget.betCount
+      : editAmount;
+    return itemTotalAmount <= MAX_BET_AMOUNT;
+  }, [editAmount, editTarget]);
 
   const adjustEditAmount = (delta: number) => {
-    setEditAmount((prev) => Math.max(MIN_BET_AMOUNT, Math.min(MAX_BET_AMOUNT, prev + delta)));
+    setEditAmount((prev) => Math.max(MIN_BET_AMOUNT, Math.min(maxAmountPerBet, prev + delta)));
   };
 
   // 削除対象のアイテム情報
@@ -321,7 +350,7 @@ export function ConsultationPage() {
                     )}
                   </div>
                   <div className="bet-actions">
-                    <button className="btn-edit" onClick={() => handleEditAmount(item.id, item.amount)}>変更</button>
+                    <button className="btn-edit" onClick={() => handleEditAmount(item)}>変更</button>
                     <button
                       className="btn-delete"
                       onClick={() => handleDeleteItem(item.id)}
@@ -442,7 +471,7 @@ export function ConsultationPage() {
       <BottomSheet
         isOpen={editTarget !== null}
         onClose={() => setEditTarget(null)}
-        title="掛け金の変更"
+        title={editTarget?.betCount && editTarget.betCount > 1 ? '1点あたりの金額' : '掛け金の変更'}
       >
         <div style={{ padding: '8px 0' }}>
           {/* 金額入力 - RaceDetailPageと同じスタイル */}
@@ -506,7 +535,7 @@ export function ConsultationPage() {
             </div>
             <button
               onClick={() => adjustEditAmount(100)}
-              disabled={editAmount >= MAX_BET_AMOUNT}
+              disabled={editAmount >= maxAmountPerBet}
               style={{
                 width: 44,
                 height: 44,
@@ -514,8 +543,8 @@ export function ConsultationPage() {
                 background: '#e8e8e8',
                 fontSize: 20,
                 fontWeight: 600,
-                color: editAmount >= MAX_BET_AMOUNT ? '#999' : '#333',
-                cursor: editAmount >= MAX_BET_AMOUNT ? 'not-allowed' : 'pointer',
+                color: editAmount >= maxAmountPerBet ? '#999' : '#333',
+                cursor: editAmount >= maxAmountPerBet ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -525,6 +554,15 @@ export function ConsultationPage() {
               ＋
             </button>
           </div>
+
+          {/* 複数点の場合は合計金額をプレビュー */}
+          {editTarget?.betCount && editTarget.betCount > 1 && (
+            <div className="amount-preview">
+              合計: ¥{(editAmount * editTarget.betCount).toLocaleString()}
+              （{editTarget.betCount}点 × ¥{editAmount.toLocaleString()}）
+            </div>
+          )}
+
           {/* プリセットボタン */}
           <div
             style={{
