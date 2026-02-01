@@ -1048,7 +1048,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-agentcore-consultation",
             description="AgentCore AI 相談",
-            timeout=Duration.seconds(60),  # AgentCore は時間がかかる場合がある
+            timeout=Duration.seconds(120),  # API Gateway統合タイムアウトに合わせて延長
             memory_size=256,
             runtime=lambda_.Runtime.PYTHON_3_12,
             layers=[deps_layer],
@@ -1079,7 +1079,10 @@ class BakenKaigiApiStack(Stack):
         consultation_resource = api_resource.add_resource("consultation")
         consultation_resource.add_method(
             "POST",
-            apigw.LambdaIntegration(agentcore_consultation_fn),
+            apigw.LambdaIntegration(
+                agentcore_consultation_fn,
+                timeout=Duration.seconds(120),  # 統合タイムアウトを120秒に延長
+            ),
             api_key_required=True,
         )
 
