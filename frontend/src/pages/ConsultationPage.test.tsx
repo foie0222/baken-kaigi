@@ -350,5 +350,58 @@ describe('ConsultationPage', () => {
       expect(preview).toBeInTheDocument()
       expect(preview).toHaveClass('amount-preview')
     })
+
+    it('複数点買い目の初期値が1点あたり金額になっている', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        amount: 1200, // 6点で1200円 = 1点あたり200円
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // 入力欄の値が1点あたり200円になっている
+      const input = await screen.findByRole('spinbutton')
+      expect(input).toHaveValue(200)
+    })
+
+    it('複数点買い目で＋ボタンが上限に達すると無効化される', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '05',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [1, 2, 3, 4],
+        betDisplay: '1,2,3,4',
+        betCount: 6,
+        // MAX_BET_AMOUNT = 100000なので、6点の場合1点あたり上限は16666円（切り捨て）
+        amount: 99996, // 6点 × 16666円
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 変更ボタンをクリック
+      const editButton = await screen.findByRole('button', { name: '変更' })
+      await user.click(editButton)
+
+      // ＋ボタンが無効化されている（上限に達しているため）
+      const plusButton = await screen.findByRole('button', { name: '＋' })
+      expect(plusButton).toBeDisabled()
+    })
   })
 })

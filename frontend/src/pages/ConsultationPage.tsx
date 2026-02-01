@@ -207,35 +207,38 @@ export function ConsultationPage() {
     }
 
     // 合計金額の計算と上限チェック
-    const totalAmount = editTarget.betCount && editTarget.betCount > 1
+    const itemTotalAmount = editTarget.betCount && editTarget.betCount > 1
       ? editAmount * editTarget.betCount
       : editAmount;
 
-    if (totalAmount > MAX_BET_AMOUNT) {
+    if (itemTotalAmount > MAX_BET_AMOUNT) {
       showToast(`合計金額が${MAX_BET_AMOUNT.toLocaleString()}円を超えています`);
       return;
     }
 
-    updateItemAmount(editTarget.id, totalAmount);
+    updateItemAmount(editTarget.id, itemTotalAmount);
     setEditTarget(null);
     showToast('金額を変更しました');
   };
+
+  // 1点あたり金額の上限（複数点の場合は合計金額の上限を考慮）
+  const maxAmountPerBet = useMemo(() => {
+    return editTarget?.betCount && editTarget.betCount > 1
+      ? Math.floor(MAX_BET_AMOUNT / editTarget.betCount)
+      : MAX_BET_AMOUNT;
+  }, [editTarget]);
 
   // 1点あたり金額の検証
   const isEditAmountValid = useMemo(() => {
     if (editAmount < MIN_BET_AMOUNT || editAmount % 100 !== 0) return false;
     // 複数点の場合は合計金額の上限チェック
-    const totalAmount = editTarget?.betCount && editTarget.betCount > 1
+    const itemTotalAmount = editTarget?.betCount && editTarget.betCount > 1
       ? editAmount * editTarget.betCount
       : editAmount;
-    return totalAmount <= MAX_BET_AMOUNT;
+    return itemTotalAmount <= MAX_BET_AMOUNT;
   }, [editAmount, editTarget]);
 
   const adjustEditAmount = (delta: number) => {
-    // 1点あたりの金額を調整（複数点の場合は合計金額の上限を考慮）
-    const maxAmountPerBet = editTarget?.betCount && editTarget.betCount > 1
-      ? Math.floor(MAX_BET_AMOUNT / editTarget.betCount)
-      : MAX_BET_AMOUNT;
     setEditAmount((prev) => Math.max(MIN_BET_AMOUNT, Math.min(maxAmountPerBet, prev + delta)));
   };
 
@@ -532,7 +535,7 @@ export function ConsultationPage() {
             </div>
             <button
               onClick={() => adjustEditAmount(100)}
-              disabled={!isEditAmountValid && editAmount >= MIN_BET_AMOUNT}
+              disabled={editAmount >= maxAmountPerBet}
               style={{
                 width: 44,
                 height: 44,
@@ -540,8 +543,8 @@ export function ConsultationPage() {
                 background: '#e8e8e8',
                 fontSize: 20,
                 fontWeight: 600,
-                color: !isEditAmountValid && editAmount >= MIN_BET_AMOUNT ? '#999' : '#333',
-                cursor: !isEditAmountValid && editAmount >= MIN_BET_AMOUNT ? 'not-allowed' : 'pointer',
+                color: editAmount >= maxAmountPerBet ? '#999' : '#333',
+                cursor: editAmount >= maxAmountPerBet ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
