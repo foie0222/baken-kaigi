@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '../test/utils'
+import { render, screen, waitFor } from '../test/utils'
 import { ConsultationPage } from './ConsultationPage'
 import { useCartStore } from '../stores/cartStore'
+import { apiClient } from '../api/client'
 
 // APIクライアントをモック
 vi.mock('../api/client', () => ({
@@ -402,6 +403,78 @@ describe('ConsultationPage', () => {
       // ＋ボタンが無効化されている（上限に達しているため）
       const plusButton = await screen.findByRole('button', { name: '＋' })
       expect(plusButton).toBeDisabled()
+    })
+  })
+
+  describe('AgentCore初回分析', () => {
+    it('AgentCore利用可能時に新しいプロンプトでconsultWithAgentが呼び出される', async () => {
+      // AgentCoreを利用可能に設定
+      vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
+      vi.mocked(apiClient.consultWithAgent).mockResolvedValue({
+        success: true,
+        data: {
+          message: 'AI分析結果です。期待値は1.5です。',
+          session_id: 'test-session-id',
+        },
+      })
+
+      render(<ConsultationPage />)
+
+      // consultWithAgentが正しいプロンプトで呼び出される
+      await waitFor(() => {
+        expect(apiClient.consultWithAgent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
+            cart_items: expect.arrayContaining([
+              expect.objectContaining({
+                raceId: 'test-race-1',
+                betType: 'win',
+                horseNumbers: [1],
+              }),
+            ]),
+          })
+        )
+      })
+
+      // AIの分析結果が表示される
+      expect(await screen.findByText(/AI分析結果です/)).toBeInTheDocument()
+    })
+
+    it('AgentCore利用不可時にフォールバックメッセージが表示される', async () => {
+      // AgentCoreを利用不可に設定
+      vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(false)
+
+      render(<ConsultationPage />)
+
+      // フォールバックメッセージが表示される
+      expect(await screen.findByText(/AI分析機能は現在利用できません/)).toBeInTheDocument()
+      // consultWithAgentは呼び出されない
+      expect(apiClient.consultWithAgent).not.toHaveBeenCalled()
+    })
+
+    it('API失敗時にエラーメッセージが表示される', async () => {
+      // AgentCoreを利用可能に設定
+      vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
+      vi.mocked(apiClient.consultWithAgent).mockResolvedValue({
+        success: false,
+        data: undefined,
+      })
+
+      render(<ConsultationPage />)
+
+      // エラーメッセージが表示される
+      expect(await screen.findByText(/分析中に問題が発生しました/)).toBeInTheDocument()
+    })
+
+    it('通信エラー時にエラーメッセージが表示される', async () => {
+      // AgentCoreを利用可能に設定
+      vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
+      vi.mocked(apiClient.consultWithAgent).mockRejectedValue(new Error('Network error'))
+
+      render(<ConsultationPage />)
+
+      // エラーメッセージが表示される
+      expect(await screen.findByText(/通信エラーが発生しました/)).toBeInTheDocument()
     })
   })
 })

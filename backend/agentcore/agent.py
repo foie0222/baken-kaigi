@@ -8,14 +8,11 @@ import os
 # ツール承認をバイパス（自動化のため）
 os.environ["BYPASS_TOOL_CONSENT"] = "true"
 
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from prompts.consultation import SYSTEM_PROMPT
 from strands import Agent
 from strands.models import BedrockModel
-from bedrock_agentcore.runtime import BedrockAgentCoreApp
-
-# AI予想データ（コールドスタート軽減のためツールを絞り込み）
-from tools.ai_prediction import get_ai_prediction, list_ai_predictions_for_date
-
-from prompts.consultation import SYSTEM_PROMPT
+from tools.ai_prediction import get_ai_prediction
 
 # Amazon Nova 2 Lite モデル（JP inference profile）
 bedrock_model = BedrockModel(
@@ -23,14 +20,12 @@ bedrock_model = BedrockModel(
     temperature=0.3,
 )
 
-# エージェント初期化（コールドスタート軽減のためツールを2つに絞り込み）
+# エージェント初期化（コールドスタート軽減のためツールを1つに絞り込み）
 agent = Agent(
     model=bedrock_model,
     system_prompt=SYSTEM_PROMPT,
     tools=[
-        # === 外部AI予想 ===
         get_ai_prediction,  # AI指数取得（ai-shisu.com）
-        list_ai_predictions_for_date,  # 日別AI予想一覧
     ],
 )
 
@@ -49,8 +44,20 @@ def invoke(payload: dict, context: dict) -> dict:
         "session_id": "..."   # オプション: セッションID
     }
     """
-    user_message = payload.get("prompt", "こんにちは")
+    user_message = payload.get("prompt", "")
     cart_items = payload.get("cart_items", [])
+
+    # 入力バリデーション
+    if not user_message and not cart_items:
+        return {
+            "message": "カートに買い目を追加してからご相談ください。",
+            "session_id": context.get("session_id"),
+            "suggested_questions": [],
+        }
+
+    # promptが空でもcart_itemsがあれば分析を開始
+    if not user_message and cart_items:
+        user_message = "カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。"
 
     # カート情報をコンテキストとして追加
     if cart_items:
@@ -68,7 +75,7 @@ def invoke(payload: dict, context: dict) -> dict:
 
     return {
         "message": message_text,
-        "session_id": context.session_id,
+        "session_id": context.get("session_id"),
         "suggested_questions": suggested_questions,
     }
 

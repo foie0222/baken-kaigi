@@ -47,7 +47,7 @@ export function ConsultationPage() {
       setMessages([
         {
           type: 'ai',
-          text: '買い目の分析準備ができました。\n何か質問があればお聞きください。',
+          text: 'AI分析機能は現在利用できません。\n買い目一覧をご確認の上、ご判断ください。',
         },
       ]);
       setIsLoading(false);
@@ -57,7 +57,7 @@ export function ConsultationPage() {
     setIsLoading(true);
     try {
       const response = await apiClient.consultWithAgent({
-        prompt: 'カートの買い目を分析してください',
+        prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
         cart_items: items.map((item) => ({
           raceId: item.raceId,
           raceName: item.raceName,
@@ -74,7 +74,7 @@ export function ConsultationPage() {
         setMessages([
           {
             type: 'ai',
-            text: '買い目の分析準備ができました。\n何か質問があればお聞きください。',
+            text: '分析中に問題が発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
           },
         ]);
       }
@@ -82,7 +82,7 @@ export function ConsultationPage() {
       setMessages([
         {
           type: 'ai',
-          text: '買い目の分析準備ができました。\n何か質問があればお聞きください。',
+          text: '通信エラーが発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
         },
       ]);
     } finally {
