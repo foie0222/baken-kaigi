@@ -1739,47 +1739,79 @@ main {
 }
 
 /* ========================================
-   簡素化された買い目カード
+   買い目リスト（ConsultationPage用）
    ======================================== */
-.bet-card-simple {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
-    border-radius: var(--radius-md);
-    margin-bottom: var(--space-2);
-    overflow: hidden;
-}
-
-.bet-card-header {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3);
+.bet-list {
+    padding: 16px;
     background: var(--color-neutral-50);
 }
 
-.bet-venue {
+.bet-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.bet-list-title {
+    font-size: 13px;
+    color: var(--color-neutral-500);
+}
+
+.bet-list-race {
+    font-size: 14px;
     font-weight: 700;
     color: var(--color-calm-green);
 }
 
-.bet-type {
+.bet-table {
+    background: white;
+    border: 1px solid var(--color-neutral-200);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.bet-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.bet-row:last-child {
+    border-bottom: none;
+}
+
+.bet-card-type {
     background: var(--color-calm-green);
     color: white;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
     font-weight: 600;
+    min-width: 56px;
+    text-align: center;
+}
+
+.bet-numbers-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
 }
 
 .bet-numbers {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 16px;
 }
 
-.bet-card-footer {
+.bet-price-c {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-3);
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 70px;
 }
 
 .bet-amount {
@@ -1793,26 +1825,30 @@ main {
     gap: var(--space-2);
 }
 
-.bet-action-btn {
+.btn-edit {
+    padding: 6px 10px;
     background: var(--color-neutral-100);
     border: none;
-    border-radius: var(--radius-md);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--font-size-xs);
+    border-radius: 6px;
+    font-size: 11px;
     color: var(--color-neutral-600);
     cursor: pointer;
-    transition: background 0.2s;
 }
 
-.bet-action-btn:hover {
+.btn-edit:hover {
     background: var(--color-neutral-200);
 }
 
-.bet-action-btn.delete {
-    background: var(--color-alert-red-bg);
+.btn-delete {
+    padding: 6px 10px;
+    background: #ffebee;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
     color: var(--color-alert-red);
+    cursor: pointer;
 }
 
-.bet-action-btn.delete:hover {
+.btn-delete:hover {
     background: #fecaca;
 }

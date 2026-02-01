@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels, getVenueName } from '../types';
+import type { CartItem } from '../types';
 import { apiClient } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
@@ -217,6 +218,17 @@ export function ConsultationPage() {
     ? items.find((item) => item.id === deleteTarget)
     : null;
 
+  // レースごとにグループ化
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, CartItem[]> = {};
+    items.forEach((item) => {
+      const key = `${item.raceVenue}-${item.raceNumber}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+    return groups;
+  }, [items]);
+
   return (
     <div className="fade-in">
       <button className="back-btn" onClick={() => navigate('/cart')}>
@@ -281,55 +293,45 @@ export function ConsultationPage() {
           </button>
         </div>
 
-        {/* 買い目カード（簡素化） */}
-        <div className="data-feedback">
-          <div className="feedback-title">買い目一覧</div>
-
-          {items.map((item) => (
-            <div key={item.id} className="bet-card-simple">
-              <div className="bet-card-header">
-                <span className="bet-venue">
-                  {getVenueName(item.raceVenue)} {item.raceNumber}R
-                </span>
-                <span className="bet-type">{BetTypeLabels[item.betType]}</span>
-                <span className="bet-numbers">{item.horseNumbers.join('-')}</span>
-              </div>
-              <div className="bet-card-footer">
-                <span className="bet-amount">¥{item.amount.toLocaleString()}</span>
-                <div className="bet-actions">
-                  <button
-                    className="bet-action-btn"
-                    onClick={() => handleEditAmount(item.id, item.amount)}
-                  >
-                    金額変更
-                  </button>
-                  <button
-                    className="bet-action-btn delete"
-                    onClick={() => handleDeleteItem(item.id)}
-                  >
-                    削除
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          <div
-            style={{
-              marginTop: 16,
-              paddingTop: 16,
-              borderTop: '2px solid #e0e0e0',
-            }}
-          >
-            <div className="feedback-item" style={{ fontSize: 16 }}>
-              <span className="feedback-label">合計掛け金</span>
-              <span
-                className="feedback-value"
-                style={{ fontSize: 18, color: '#1a5f2a' }}
-              >
-                ¥{totalAmount.toLocaleString()}
+        {/* 買い目リスト（レースごとにグループ化） */}
+        {Object.entries(groupedItems).map(([key, raceItems]) => (
+          <div className="bet-list" key={key}>
+            <div className="bet-list-header">
+              <span className="bet-list-title">買い目一覧</span>
+              <span className="bet-list-race">
+                {getVenueName(raceItems[0].raceVenue)} {raceItems[0].raceNumber}
               </span>
             </div>
+            <div className="bet-table">
+              {raceItems.map((item) => (
+                <div className="bet-row" key={item.id}>
+                  <span className="bet-card-type">{BetTypeLabels[item.betType]}</span>
+                  <div className="bet-numbers-wrap">
+                    <span className="bet-numbers">{item.horseNumbers.join('-')}</span>
+                  </div>
+                  <div className="bet-price-c">
+                    <span className="bet-amount">¥{item.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="bet-actions">
+                    <button className="btn-edit" onClick={() => handleEditAmount(item.id, item.amount)}>変更</button>
+                    <button className="btn-delete" onClick={() => handleDeleteItem(item.id)}>×</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* 合計金額 */}
+        <div className="data-feedback">
+          <div className="feedback-item" style={{ fontSize: 16 }}>
+            <span className="feedback-label">合計掛け金</span>
+            <span
+              className="feedback-value"
+              style={{ fontSize: 18, color: '#1a5f2a' }}
+            >
+              ¥{totalAmount.toLocaleString()}
+            </span>
           </div>
         </div>
 
