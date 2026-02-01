@@ -314,7 +314,14 @@ export function ConsultationPage() {
                   </div>
                   <div className="bet-actions">
                     <button className="btn-edit" onClick={() => handleEditAmount(item.id, item.amount)}>変更</button>
-                    <button className="btn-delete" onClick={() => handleDeleteItem(item.id)}>×</button>
+                    <button
+                      className="btn-delete"
+                      onClick={() => handleDeleteItem(item.id)}
+                      aria-label="買い目を削除"
+                      title="買い目を削除"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
               ))}

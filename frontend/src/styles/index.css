@@ -9,6 +9,7 @@
     --color-alert-amber-bg: #fffbeb;
     --color-alert-red: #dc2626;
     --color-alert-red-bg: #fef2f2;
+    --color-alert-red-hover: #fecaca;
 
     /* 中立色: データの客観的表示 */
     --color-neutral-50: #f9fafb;
@@ -1841,7 +1842,7 @@ main {
 
 .btn-delete {
     padding: 6px 10px;
-    background: #ffebee;
+    background: var(--color-alert-red-bg);
     border: none;
     border-radius: 6px;
     font-size: 11px;
@@ -1850,5 +1851,5 @@ main {
 }
 
 .btn-delete:hover {
-    background: #fecaca;
+    background: var(--color-alert-red-hover);
 }
