@@ -38,7 +38,7 @@ find . -maxdepth 1 -name "*.so" -delete 2>/dev/null || true
 # ARM64用の依存関係をインストール
 echo ""
 echo "ARM64用の依存関係をインストール中..."
-pip install \
+uv run --with pip pip install \
     --platform manylinux2014_aarch64 \
     --implementation cp \
     --python-version 3.12 \
