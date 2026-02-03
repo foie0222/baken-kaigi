@@ -385,91 +385,10 @@ class TestApiStack:
         )
 
 
-class TestAgentCoreRuntimeRole:
-    """AgentCore Runtimeロールのテスト."""
-
-    def test_agentcore_runtime_role_created(self, template):
-        """AgentCore Runtime用IAMロールが作成されること."""
-        template.has_resource_properties(
-            "AWS::IAM::Role",
-            {
-                "RoleName": "baken-kaigi-agentcore-runtime-role",
-            },
-        )
-
-    def test_agentcore_role_has_ecr_image_access(self, template):
-        """AgentCoreロールにECRイメージ取得権限があること."""
-        # ECRImageAccess権限のステートメントが存在することを確認
-        resources = template.find_resources("AWS::IAM::Policy")
-        ecr_actions_found = False
-        for resource in resources.values():
-            statements = resource.get("Properties", {}).get("PolicyDocument", {}).get("Statement", [])
-            for stmt in statements:
-                actions = stmt.get("Action", [])
-                if isinstance(actions, list):
-                    if "ecr:BatchGetImage" in actions and "ecr:GetDownloadUrlForLayer" in actions:
-                        ecr_actions_found = True
-                        break
-        assert ecr_actions_found, "ECR イメージ取得権限（BatchGetImage, GetDownloadUrlForLayer）が見つかりません"
-
-    def test_agentcore_role_has_ecr_token_access(self, template):
-        """AgentCoreロールにECR認証トークン取得権限があること."""
-        resources = template.find_resources("AWS::IAM::Policy")
-        ecr_token_found = False
-        for resource in resources.values():
-            statements = resource.get("Properties", {}).get("PolicyDocument", {}).get("Statement", [])
-            for stmt in statements:
-                actions = stmt.get("Action", [])
-                if isinstance(actions, str) and actions == "ecr:GetAuthorizationToken":
-                    ecr_token_found = True
-                    break
-                if isinstance(actions, list) and "ecr:GetAuthorizationToken" in actions:
-                    ecr_token_found = True
-                    break
-        assert ecr_token_found, "ECR認証トークン取得権限（GetAuthorizationToken）が見つかりません"
-
-    def test_agentcore_role_has_cloudwatch_metrics(self, template):
-        """AgentCoreロールにCloudWatch Metrics送信権限があること."""
-        resources = template.find_resources("AWS::IAM::Policy")
-        cw_metrics_found = False
-        for resource in resources.values():
-            statements = resource.get("Properties", {}).get("PolicyDocument", {}).get("Statement", [])
-            for stmt in statements:
-                actions = stmt.get("Action", [])
-                if isinstance(actions, str) and actions == "cloudwatch:PutMetricData":
-                    cw_metrics_found = True
-                    break
-                if isinstance(actions, list) and "cloudwatch:PutMetricData" in actions:
-                    cw_metrics_found = True
-                    break
-        assert cw_metrics_found, "CloudWatch Metrics送信権限（PutMetricData）が見つかりません"
-
-    def test_agentcore_role_has_xray_permissions(self, template):
-        """AgentCoreロールにX-Ray権限があること."""
-        resources = template.find_resources("AWS::IAM::Policy")
-        xray_found = False
-        for resource in resources.values():
-            statements = resource.get("Properties", {}).get("PolicyDocument", {}).get("Statement", [])
-            for stmt in statements:
-                actions = stmt.get("Action", [])
-                if isinstance(actions, list) and "xray:PutTraceSegments" in actions:
-                    xray_found = True
-                    break
-        assert xray_found, "X-Ray権限（PutTraceSegments）が見つかりません"
-
-    def test_agentcore_role_has_bedrock_permissions(self, template):
-        """AgentCoreロールにBedrock Model呼び出し権限があること."""
-        resources = template.find_resources("AWS::IAM::Policy")
-        bedrock_found = False
-        for resource in resources.values():
-            statements = resource.get("Properties", {}).get("PolicyDocument", {}).get("Statement", [])
-            for stmt in statements:
-                actions = stmt.get("Action", [])
-                if isinstance(actions, list):
-                    if "bedrock:InvokeModel" in actions and "bedrock:InvokeModelWithResponseStream" in actions:
-                        bedrock_found = True
-                        break
-        assert bedrock_found, "Bedrock Model呼び出し権限（InvokeModel）が見つかりません"
+# NOTE: AgentCore RuntimeはCDKではなくagentcore CLIで管理するようになったため、
+# TestAgentCoreRuntimeRoleテストクラスは削除されました。
+# 詳細: CDK管理のAgentCore Runtimeは30秒初期化タイムアウトで失敗するため、
+# agentcore CLIでデプロイしたAgentを使用するように変更。
 
 
 class TestCorsConfiguration:

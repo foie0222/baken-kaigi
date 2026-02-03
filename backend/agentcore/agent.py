@@ -3,39 +3,73 @@
 AgentCore Runtime にデプロイされるメインエージェント。
 """
 
+import logging
 import os
+import sys
+from typing import Any
+
+# ロギング設定
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
+logger.info("Agent module loading started")
 
 # ツール承認をバイパス（自動化のため）
 os.environ["BYPASS_TOOL_CONSENT"] = "true"
 
+# 最小限のインポートのみモジュールレベルで実行（30秒以内に完了必須）
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from prompts.consultation import SYSTEM_PROMPT
-from strands import Agent
-from strands.models import BedrockModel
-from tools.ai_prediction import get_ai_prediction
 
-# Amazon Nova 2 Lite モデル（JP inference profile）
-bedrock_model = BedrockModel(
-    model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
-    temperature=0.3,
-)
+logger.info("BedrockAgentCoreApp imported")
 
-# エージェント初期化（コールドスタート軽減のためツールを1つに絞り込み）
-agent = Agent(
-    model=bedrock_model,
-    system_prompt=SYSTEM_PROMPT,
-    tools=[
-        get_ai_prediction,  # AI指数取得（ai-shisu.com）
-    ],
-)
-
-# AgentCore アプリ初期化
+# AgentCore アプリ初期化（軽量なので即座に実行）
 app = BedrockAgentCoreApp()
+logger.info("BedrockAgentCoreApp created")
+
+# エージェントは遅延初期化（初回呼び出し時に初期化）
+# NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
+# 並行リクエストによる競合状態（race condition）は発生しない。
+# スレッドロックは不要。
+_agent = None
+
+
+def _get_agent():
+    """エージェントを遅延初期化して取得する."""
+    global _agent
+    if _agent is None:
+        logger.info("Lazy initializing agent...")
+
+        from prompts.consultation import SYSTEM_PROMPT
+        from strands import Agent
+        from strands.models import BedrockModel
+        from tools.ai_prediction import get_ai_prediction
+
+        bedrock_model = BedrockModel(
+            model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
+            temperature=0.3,
+        )
+        logger.info(f"BedrockModel created with model_id: {bedrock_model.config.get('model_id')}")
+
+        _agent = Agent(
+            model=bedrock_model,
+            system_prompt=SYSTEM_PROMPT,
+            tools=[
+                get_ai_prediction,  # AI指数取得（ai-shisu.com）
+            ],
+        )
+        logger.info("Agent created successfully")
+    return _agent
 
 
 @app.entrypoint
-def invoke(payload: dict, context: dict) -> dict:
+def invoke(payload: dict, context: Any) -> dict:
     """エージェント呼び出しハンドラー.
+
+    NOTE: context は bedrock_agentcore が提供する RequestContext (Pydantic) オブジェクト。
+    dict ではないため getattr() でアクセスする。
 
     payload 形式:
     {
@@ -51,7 +85,7 @@ def invoke(payload: dict, context: dict) -> dict:
     if not user_message and not cart_items:
         return {
             "message": "カートに買い目を追加してからご相談ください。",
-            "session_id": context.get("session_id"),
+            "session_id": getattr(context, "session_id", None),
             "suggested_questions": [],
         }
 
@@ -64,7 +98,8 @@ def invoke(payload: dict, context: dict) -> dict:
         cart_summary = _format_cart_summary(cart_items)
         user_message = f"【現在のカート】\n{cart_summary}\n\n【質問】\n{user_message}"
 
-    # エージェント実行
+    # エージェント実行（遅延初期化）
+    agent = _get_agent()
     result = agent(user_message)
 
     # レスポンスからテキストを抽出
@@ -75,7 +110,7 @@ def invoke(payload: dict, context: dict) -> dict:
 
     return {
         "message": message_text,
-        "session_id": context.get("session_id"),
+        "session_id": getattr(context, "session_id", None),
         "suggested_questions": suggested_questions,
     }
 
