@@ -3,14 +3,12 @@ from pathlib import Path
 
 from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
-from aws_cdk import aws_bedrockagentcore as bedrockagentcore
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
-from aws_cdk import aws_s3_assets as s3_assets
 from constructs import Construct
 
 
@@ -114,213 +112,14 @@ class BakenKaigiApiStack(Stack):
         )
 
         # ========================================
-        # AgentCore Runtime 用 IAM ロール
+        # AgentCore Runtime
         # ========================================
-        # AgentCore Runtime が使用するロール（ツールからAWSリソースにアクセスするため）
-        agentcore_runtime_role = iam.Role(
-            self,
-            "AgentCoreRuntimeRole",
-            role_name="baken-kaigi-agentcore-runtime-role",
-            assumed_by=iam.CompositePrincipal(
-                iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-                iam.ServicePrincipal("bedrock.amazonaws.com"),
-            ),
-            description="IAM role for AgentCore Runtime to access AWS resources",
-        )
-
-        # CloudWatch Logs の ARN（リージョン / アカウントはスタックから取得）
-        bedrock_logs_group_arn = (
-            f"arn:aws:logs:{self.region}:{self.account}:log-group:/aws/bedrock-agentcore/*"
-        )
-        bedrock_logs_stream_arn = f"{bedrock_logs_group_arn}:*"
-
-        # CloudWatch Logs 権限（ロググループ作成）
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="CloudWatchLogsCreateGroup",
-                actions=["logs:CreateLogGroup"],
-                resources=["*"],
-            )
-        )
-
-        # CloudWatch Logs 権限（ログストリーム作成 / 書き込み / 参照）
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="CloudWatchLogsStreams",
-                actions=[
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents",
-                    "logs:DescribeLogStreams",
-                    "logs:DescribeLogGroups",
-                ],
-                resources=[
-                    bedrock_logs_group_arn,
-                    bedrock_logs_stream_arn,
-                ],
-            )
-        )
-
-        # X-Ray 権限
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="XRay",
-                actions=[
-                    "xray:PutTraceSegments",
-                    "xray:PutTelemetryRecords",
-                    "xray:GetSamplingRules",
-                    "xray:GetSamplingTargets",
-                ],
-                resources=["*"],
-            )
-        )
-
-        # ECR イメージ取得権限（AgentCore Runtimeがコンテナを起動するために必要）
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="ECRImageAccess",
-                actions=[
-                    "ecr:BatchGetImage",
-                    "ecr:GetDownloadUrlForLayer",
-                ],
-                resources=[f"arn:aws:ecr:{self.region}:{self.account}:repository/*"],
-            )
-        )
-
-        # ECR 認証トークン取得権限
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="ECRTokenAccess",
-                actions=["ecr:GetAuthorizationToken"],
-                resources=["*"],
-            )
-        )
-
-        # Bedrock Model 呼び出し権限
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="BedrockModelInvocation",
-                actions=[
-                    "bedrock:InvokeModel",
-                    "bedrock:InvokeModelWithResponseStream",
-                    "bedrock:ApplyGuardrail",
-                ],
-                resources=[
-                    # Foundation Model 呼び出し
-                    f"arn:aws:bedrock:{self.region}::foundation-model/*",
-                    # Inference Profile 呼び出し
-                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/*",
-                    # Guardrail 適用
-                    f"arn:aws:bedrock:{self.region}:{self.account}:guardrail/*",
-                ],
-            )
-        )
-
-        # DynamoDB 読み取り権限（AI予想テーブル）
-        ai_predictions_table.grant_read_data(agentcore_runtime_role)
-
-        # API Gateway APIキー取得権限（JRA-VAN API用）
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="ApiGatewayGetApiKey",
-                actions=["apigateway:GET"],
-                resources=[f"arn:aws:apigateway:{self.region}::/apikeys/*"],
-            )
-        )
-
-        # AgentCore Identity 関連権限
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="AgentCoreIdentity",
-                actions=[
-                    "bedrock-agentcore:GetResourceApiKey",
-                    "bedrock-agentcore:GetResourceOauth2Token",
-                    "bedrock-agentcore:CreateWorkloadIdentity",
-                    "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
-                ],
-                resources=[
-                    f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:token-vault/*",
-                    f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:workload-identity-directory/*",
-                ],
-            )
-        )
-
-        # CloudWatch Metrics 権限
-        agentcore_runtime_role.add_to_policy(
-            iam.PolicyStatement(
-                sid="CloudWatchMetrics",
-                actions=["cloudwatch:PutMetricData"],
-                resources=["*"],
-                conditions={
-                    "StringEquals": {"cloudwatch:namespace": "bedrock-agentcore"},
-                },
-            )
-        )
-
-        # ========================================
-        # AgentCore Runtime (CDK管理)
-        # ========================================
-        # エージェントコードをS3にアップロード（依存関係を含めてバンドル）
-        # AgentCore Runtime は ARM64 アーキテクチャのため、ARM64用の依存関係が必要
-        #
-        # 注意: デプロイ前に以下のコマンドで依存関係をバンドルすること:
-        #   ./scripts/bundle-agentcore.sh
-        #
-        agentcore_code_path = project_root / "backend" / "agentcore"
-        agent_code_asset = s3_assets.Asset(
-            self,
-            "AgentCodeAsset",
-            path=str(agentcore_code_path),
-            exclude=[
-                ".bedrock_agentcore",
-                ".bedrock_agentcore.yaml",
-                "__pycache__",
-                "*.pyc",
-                "*.dist-info",
-            ],
-        )
-
-        # AgentCore Runtime にS3からコードをダウンロードする権限を付与
-        agent_code_asset.grant_read(agentcore_runtime_role)
-
-        # AgentCore Runtime (L1 Construct) - CodeConfiguration（direct_code_deploy相当）
-        agent_runtime = bedrockagentcore.CfnRuntime(
-            self,
-            "BakenKaigiAgentRuntime",
-            agent_runtime_name="baken_kaigi_agent",
-            agent_runtime_artifact=bedrockagentcore.CfnRuntime.AgentRuntimeArtifactProperty(
-                code_configuration=bedrockagentcore.CfnRuntime.CodeConfigurationProperty(
-                    code=bedrockagentcore.CfnRuntime.CodeProperty(
-                        s3=bedrockagentcore.CfnRuntime.S3LocationProperty(
-                            bucket=agent_code_asset.s3_bucket_name,
-                            prefix=agent_code_asset.s3_object_key,
-                        )
-                    ),
-                    entry_point=["agent.py"],
-                    runtime="PYTHON_3_12",
-                )
-            ),
-            network_configuration=bedrockagentcore.CfnRuntime.NetworkConfigurationProperty(
-                network_mode="PUBLIC"
-            ),
-            protocol_configuration="HTTP",
-            role_arn=agentcore_runtime_role.role_arn,
-            description="馬券会議 AI相談エージェント",
-        )
-
-        # AgentCore Runtime ARN を出力
-        CfnOutput(
-            self,
-            "AgentCoreRuntimeArn",
-            value=agent_runtime.attr_agent_runtime_arn,
-            description="AgentCore Runtime ARN",
-            export_name="BakenKaigiAgentCoreRuntimeArn",
-        )
-
-        CfnOutput(
-            self,
-            "AgentCoreRuntimeId",
-            value=agent_runtime.attr_agent_runtime_id,
-            description="AgentCore Runtime ID",
+        # NOTE: AgentCore RuntimeはCDKではなくagentcore CLIで管理
+        # CLIでデプロイしたAgentはAWS側で依存関係のビルドが行われ、
+        # 初期化タイムアウト問題を回避できる
+        # デプロイ方法: backend/agentcore/ で `agentcore deploy` を実行
+        agentcore_agent_arn = (
+            f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:runtime/baken_kaigi_cli-V4Bt684fL5"
         )
 
         # ========================================
@@ -1063,8 +862,8 @@ class BakenKaigiApiStack(Stack):
             layers=[deps_layer],
             environment={
                 "PYTHONPATH": "/var/task:/opt/python",
-                # CDK管理のAgentCore Runtime ARNを動的参照
-                "AGENTCORE_AGENT_ARN": agent_runtime.attr_agent_runtime_arn,
+                # agentcore CLIでデプロイしたAgentを参照
+                "AGENTCORE_AGENT_ARN": agentcore_agent_arn,
             },
         )
 
