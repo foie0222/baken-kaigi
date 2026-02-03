@@ -6,6 +6,7 @@ AgentCore Runtime にデプロイされるメインエージェント。
 import logging
 import os
 import sys
+from typing import Any
 
 # ロギング設定
 logging.basicConfig(
@@ -29,6 +30,9 @@ app = BedrockAgentCoreApp()
 logger.info("BedrockAgentCoreApp created")
 
 # エージェントは遅延初期化（初回呼び出し時に初期化）
+# NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
+# 並行リクエストによる競合状態（race condition）は発生しない。
+# スレッドロックは不要。
 _agent = None
 
 
@@ -61,8 +65,11 @@ def _get_agent():
 
 
 @app.entrypoint
-def invoke(payload: dict, context: dict) -> dict:
+def invoke(payload: dict, context: Any) -> dict:
     """エージェント呼び出しハンドラー.
+
+    NOTE: context は bedrock_agentcore が提供する RequestContext (Pydantic) オブジェクト。
+    dict ではないため getattr() でアクセスする。
 
     payload 形式:
     {

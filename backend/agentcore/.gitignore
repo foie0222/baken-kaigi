@@ -7,8 +7,9 @@ __pycache__/
 .bedrock_agentcore/
 .bedrock_agentcore.yaml
 
-# バンドルされた依存関係（scripts/bundle-agentcore.shで生成）
-# これらはデプロイ前に動的に生成されるため、gitにはコミットしない
+# バンドルされた依存関係
+# agentcore CLI デプロイ時に AWS 側でビルドされるが、ローカル開発時に
+# pip install -r requirements.txt を実行した場合に生成されるため除外
 *.dist-info/
 *.so
 

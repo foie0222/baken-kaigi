@@ -117,9 +117,18 @@ class BakenKaigiApiStack(Stack):
         # NOTE: AgentCore RuntimeはCDKではなくagentcore CLIで管理
         # CLIでデプロイしたAgentはAWS側で依存関係のビルドが行われ、
         # 初期化タイムアウト問題を回避できる
-        # デプロイ方法: backend/agentcore/ で `agentcore deploy` を実行
+        #
+        # デプロイ手順:
+        #   1. cd backend/agentcore
+        #   2. agentcore deploy
+        #   3. 出力されたAgent ARNからIDを取得（例: baken_kaigi_cli-V4Bt684fL5）
+        #   4. CDKデプロイ時に --context agentcore_agent_id=<ID> を指定
+        #      または .bedrock_agentcore.yaml の agent_id を確認
+        #
+        # Agent ID は CDK コンテキストから取得し、未設定の場合はデフォルト値を使用する
+        agentcore_agent_id = self.node.try_get_context("agentcore_agent_id") or "baken_kaigi_cli-V4Bt684fL5"
         agentcore_agent_arn = (
-            f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:runtime/baken_kaigi_cli-V4Bt684fL5"
+            f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:runtime/{agentcore_agent_id}"
         )
 
         # ========================================
