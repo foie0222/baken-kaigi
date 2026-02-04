@@ -1,6 +1,7 @@
 """買い目分析ツール.
 
 選択された買い目を分析し、データに基づくフィードバックを生成する。
+JRA統計に基づく券種別確率、出走頭数補正、レース条件補正を適用。
 """
 
 from strands import tool
@@ -16,50 +17,183 @@ BET_TYPE_NAMES = {
     "trifecta": "三連単",
 }
 
-# JRA過去統計に基づく人気別勝率（単勝）
+# =============================================================================
+# JRA過去統計に基づく人気別確率テーブル（18頭立て基準）
 # 出典: JRA公式統計データ（概算値）
-WIN_PROBABILITY_BY_POPULARITY = {
-    1: 0.33,   # 1番人気: 約33%
-    2: 0.19,   # 2番人気: 約19%
-    3: 0.13,   # 3番人気: 約13%
-    4: 0.09,   # 4番人気: 約9%
-    5: 0.07,   # 5番人気: 約7%
-    6: 0.05,   # 6番人気: 約5%
-    7: 0.04,   # 7番人気: 約4%
-    8: 0.03,   # 8番人気: 約3%
-    9: 0.02,   # 9番人気: 約2%
-    10: 0.02,  # 10番人気: 約2%
-    11: 0.01,  # 11番人気以下: 約1%
-    12: 0.01,
-    13: 0.005,
-    14: 0.005,
-    15: 0.003,
-    16: 0.003,
-    17: 0.002,
-    18: 0.002,
+# =============================================================================
+
+# 単勝: 1着率
+WIN_RATE_BY_POPULARITY = {
+    1: 0.33, 2: 0.19, 3: 0.13, 4: 0.09, 5: 0.07,
+    6: 0.05, 7: 0.04, 8: 0.03, 9: 0.02, 10: 0.02,
+    11: 0.01, 12: 0.01, 13: 0.005, 14: 0.005,
+    15: 0.003, 16: 0.003, 17: 0.002, 18: 0.002,
+}
+
+# 複勝/ワイド: 3着内率
+PLACE_RATE_BY_POPULARITY = {
+    1: 0.65, 2: 0.52, 3: 0.43, 4: 0.35, 5: 0.30,
+    6: 0.25, 7: 0.20, 8: 0.16, 9: 0.13, 10: 0.10,
+    11: 0.08, 12: 0.06, 13: 0.05, 14: 0.04,
+    15: 0.03, 16: 0.025, 17: 0.02, 18: 0.015,
+}
+
+# 馬連/馬単: 2着内率
+EXACTA_RATE_BY_POPULARITY = {
+    1: 0.52, 2: 0.38, 3: 0.30, 4: 0.24, 5: 0.19,
+    6: 0.15, 7: 0.12, 8: 0.10, 9: 0.08, 10: 0.06,
+    11: 0.05, 12: 0.04, 13: 0.03, 14: 0.025,
+    15: 0.02, 16: 0.015, 17: 0.01, 18: 0.01,
+}
+
+# =============================================================================
+# 出走頭数による補正係数
+# 頭数が少ないほど上位人気の勝率は上がる
+# =============================================================================
+
+RUNNERS_CORRECTION = {
+    # (頭数, 人気) -> 補正係数
+    # 8頭立ての1番人気は18頭立てより勝ちやすい
+    8: {1: 1.25, 2: 1.20, 3: 1.15, 4: 1.10, 5: 1.05, 6: 1.0, 7: 0.95, 8: 0.90},
+    10: {1: 1.15, 2: 1.12, 3: 1.10, 4: 1.08, 5: 1.05, 6: 1.0, 7: 0.97, 8: 0.95, 9: 0.93, 10: 0.90},
+    12: {1: 1.10, 2: 1.08, 3: 1.06, 4: 1.04, 5: 1.02},
+    14: {1: 1.05, 2: 1.04, 3: 1.03, 4: 1.02, 5: 1.01},
+    16: {1: 1.02, 2: 1.01, 3: 1.01},
+    18: {},  # 基準値（補正なし）
+}
+
+# =============================================================================
+# レース条件による補正係数
+# 荒れやすいレースでは人気馬の信頼度が下がる
+# =============================================================================
+
+RACE_CONDITION_CORRECTION = {
+    # 通常レース（補正なし）
+    "normal": 1.0,
+    # ハンデ戦: 人気馬の勝率が下がる傾向
+    "handicap": 0.85,
+    # 牝馬限定戦: やや荒れやすい
+    "fillies_mares": 0.92,
+    # 新馬戦: データ不足で荒れやすい
+    "maiden_new": 0.88,
+    # 未勝利戦: やや荒れやすい
+    "maiden": 0.93,
+    # G1: 実力馬が揃い堅い傾向
+    "g1": 1.05,
+    # 障害戦: 荒れやすい
+    "hurdle": 0.80,
+    # ダート替わり/芝替わり: 不確定要素
+    "surface_change": 0.90,
 }
 
 
-def _estimate_win_probability(popularity: int) -> float:
-    """人気順から勝率を推定する（JRA過去統計ベース）.
+def _get_runners_correction(total_runners: int, popularity: int) -> float:
+    """出走頭数による補正係数を取得する.
 
     Args:
+        total_runners: 出走頭数
         popularity: 人気順位
 
     Returns:
-        推定勝率（0.0-1.0）
+        補正係数（1.0が基準）
+    """
+    # 最も近い頭数テーブルを選択
+    available_runners = sorted(RUNNERS_CORRECTION.keys())
+    closest_runners = min(available_runners, key=lambda x: abs(x - total_runners))
+
+    correction_table = RUNNERS_CORRECTION.get(closest_runners, {})
+    return correction_table.get(popularity, 1.0)
+
+
+def _get_race_condition_correction(race_conditions: list[str] | None) -> float:
+    """レース条件による補正係数を取得する.
+
+    Args:
+        race_conditions: レース条件のリスト
+
+    Returns:
+        補正係数（荒れやすい条件があれば最小値、なければ最大値を適用）
+    """
+    if not race_conditions:
+        return 1.0
+
+    corrections = [
+        RACE_CONDITION_CORRECTION.get(condition, 1.0)
+        for condition in race_conditions
+    ]
+
+    if not corrections:
+        return 1.0
+
+    # 荒れやすい条件（<1.0）があれば、最小値を適用（荒れを優先）
+    # なければ、最大値を適用（G1などの堅い傾向）
+    negative_corrections = [c for c in corrections if c < 1.0]
+    if negative_corrections:
+        return min(negative_corrections)
+    else:
+        return max(corrections)
+
+
+def _estimate_probability(
+    popularity: int,
+    bet_type: str,
+    total_runners: int = 18,
+    race_conditions: list[str] | None = None,
+) -> float:
+    """券種・頭数・レース条件を考慮した確率を推定する.
+
+    Args:
+        popularity: 人気順位
+        bet_type: 券種
+        total_runners: 出走頭数
+        race_conditions: レース条件リスト
+
+    Returns:
+        推定確率（0.0-1.0）
     """
     if popularity <= 0:
         return 0.01
-    return WIN_PROBABILITY_BY_POPULARITY.get(popularity, 0.002)
+
+    # 券種に応じたベース確率を取得
+    if bet_type == "win":
+        base_prob = WIN_RATE_BY_POPULARITY.get(popularity, 0.002)
+    elif bet_type in ("place", "quinella_place"):
+        base_prob = PLACE_RATE_BY_POPULARITY.get(popularity, 0.015)
+    elif bet_type in ("quinella", "exacta"):
+        base_prob = EXACTA_RATE_BY_POPULARITY.get(popularity, 0.01)
+    elif bet_type in ("trio", "trifecta"):
+        # 三連系は3着内率を使用
+        base_prob = PLACE_RATE_BY_POPULARITY.get(popularity, 0.015)
+    else:
+        base_prob = WIN_RATE_BY_POPULARITY.get(popularity, 0.002)
+
+    # 出走頭数補正
+    runners_correction = _get_runners_correction(total_runners, popularity)
+
+    # レース条件補正
+    condition_correction = _get_race_condition_correction(race_conditions)
+
+    # 補正後の確率（上限1.0）
+    adjusted_prob = min(base_prob * runners_correction * condition_correction, 0.99)
+
+    return adjusted_prob
 
 
-def _calculate_expected_value(odds: float, popularity: int) -> dict:
+def _calculate_expected_value(
+    odds: float,
+    popularity: int,
+    bet_type: str = "win",
+    total_runners: int = 18,
+    race_conditions: list[str] | None = None,
+) -> dict:
     """期待値を計算する.
 
     Args:
         odds: オッズ
         popularity: 人気順位
+        bet_type: 券種
+        total_runners: 出走頭数
+        race_conditions: レース条件
 
     Returns:
         期待値分析結果
@@ -69,9 +203,12 @@ def _calculate_expected_value(odds: float, popularity: int) -> dict:
             "estimated_probability": 0,
             "expected_return": 0,
             "value_rating": "データ不足",
+            "probability_source": "N/A",
         }
 
-    estimated_prob = _estimate_win_probability(popularity)
+    estimated_prob = _estimate_probability(
+        popularity, bet_type, total_runners, race_conditions
+    )
     expected_return = odds * estimated_prob
 
     # 期待値の評価
@@ -84,10 +221,108 @@ def _calculate_expected_value(odds: float, popularity: int) -> dict:
     else:
         rating = "割高"
 
+    # 確率の根拠を説明
+    if bet_type == "win":
+        prob_source = f"JRA統計: {popularity}番人気の勝率"
+    elif bet_type in ("place", "quinella_place"):
+        prob_source = f"JRA統計: {popularity}番人気の3着内率"
+    elif bet_type in ("quinella", "exacta"):
+        prob_source = f"JRA統計: {popularity}番人気の2着内率"
+    else:
+        prob_source = f"JRA統計: {popularity}番人気の3着内率"
+
     return {
-        "estimated_probability": round(estimated_prob * 100, 1),  # パーセント表示
+        "estimated_probability": round(estimated_prob * 100, 1),
         "expected_return": round(expected_return, 2),
         "value_rating": rating,
+        "probability_source": prob_source,
+    }
+
+
+def _calculate_combination_probability(
+    popularities: list[int],
+    bet_type: str,
+    total_runners: int = 18,
+    race_conditions: list[str] | None = None,
+) -> dict:
+    """組み合わせ馬券の的中確率を推定する.
+
+    Args:
+        popularities: 選択馬の人気順位リスト
+        bet_type: 券種
+        total_runners: 出走頭数
+        race_conditions: レース条件
+
+    Returns:
+        組み合わせ確率分析結果
+    """
+    if not popularities:
+        return {"probability": 0, "method": "N/A"}
+
+    if bet_type in ("quinella", "quinella_place"):
+        # 馬連・ワイド: 2頭が同時に2着内/3着内に入る確率
+        if len(popularities) < 2:
+            return {"probability": 0, "method": "馬番不足"}
+
+        probs = [
+            _estimate_probability(p, bet_type, total_runners, race_conditions)
+            for p in popularities[:2]
+        ]
+        # 独立と仮定した場合の概算（実際は相関があるため過小評価）
+        # 補正係数1.5を掛けて実績に近づける
+        combined_prob = probs[0] * probs[1] * 1.5
+        method = "2頭同時入着確率（独立仮定×1.5補正）"
+
+    elif bet_type == "exacta":
+        # 馬単: 1着-2着の順番通り
+        if len(popularities) < 2:
+            return {"probability": 0, "method": "馬番不足"}
+
+        prob_1st = _estimate_probability(
+            popularities[0], "win", total_runners, race_conditions
+        )
+        prob_2nd = _estimate_probability(
+            popularities[1], "exacta", total_runners, race_conditions
+        )
+        combined_prob = prob_1st * prob_2nd * 1.3
+        method = "1着-2着順序確率（独立仮定×1.3補正）"
+
+    elif bet_type == "trio":
+        # 三連複: 3頭が同時に3着内
+        if len(popularities) < 3:
+            return {"probability": 0, "method": "馬番不足"}
+
+        probs = [
+            _estimate_probability(p, "place", total_runners, race_conditions)
+            for p in popularities[:3]
+        ]
+        combined_prob = probs[0] * probs[1] * probs[2] * 2.0
+        method = "3頭同時3着内確率（独立仮定×2.0補正）"
+
+    elif bet_type == "trifecta":
+        # 三連単: 1着-2着-3着の順番通り
+        if len(popularities) < 3:
+            return {"probability": 0, "method": "馬番不足"}
+
+        prob_1st = _estimate_probability(
+            popularities[0], "win", total_runners, race_conditions
+        )
+        prob_2nd = _estimate_probability(
+            popularities[1], "exacta", total_runners, race_conditions
+        )
+        prob_3rd = _estimate_probability(
+            popularities[2], "place", total_runners, race_conditions
+        )
+        combined_prob = prob_1st * prob_2nd * prob_3rd * 1.5
+        method = "1-2-3着順序確率（独立仮定×1.5補正）"
+
+    else:
+        # 単勝・複勝は組み合わせ不要
+        return {"probability": 0, "method": "単独券種"}
+
+    return {
+        "probability": round(combined_prob * 100, 2),
+        "method": method,
     }
 
 
@@ -95,6 +330,7 @@ def _analyze_weaknesses(
     selected_horses: list[dict],
     bet_type: str,
     total_runners: int,
+    race_conditions: list[str] | None = None,
 ) -> list[str]:
     """買い目の弱点を分析する.
 
@@ -102,6 +338,7 @@ def _analyze_weaknesses(
         selected_horses: 選択された馬のリスト
         bet_type: 券種
         total_runners: 出走頭数
+        race_conditions: レース条件
 
     Returns:
         弱点リスト
@@ -133,18 +370,20 @@ def _analyze_weaknesses(
     for h in selected_horses:
         pop = h.get("popularity") or 0
         if pop >= total_runners and total_runners > 0:
-            prob = _estimate_win_probability(pop)
+            prob = _estimate_probability(pop, bet_type, total_runners, race_conditions)
             weaknesses.append(
                 f"{h.get('horse_number')}番 {h.get('horse_name')}は最下位人気。"
-                f"統計的勝率は約{prob*100:.1f}%"
+                f"統計的入着率は約{prob*100:.1f}%"
             )
 
     # 4. 1番人気依存チェック
     has_favorite = any(p == 1 for p in popularities)
     if has_favorite and bet_type in ("trio", "trifecta", "quinella", "exacta"):
+        # 頭数補正後の勝率を表示
+        win_rate = _estimate_probability(1, "win", total_runners, race_conditions)
         weaknesses.append(
-            "1番人気を軸にした買い目。JRA統計では1番人気の勝率は約33%、"
-            "つまり67%は外れる"
+            f"1番人気を軸にした買い目。"
+            f"JRA統計では勝率約{win_rate*100:.0f}%、つまり{(1-win_rate)*100:.0f}%は外れる"
         )
 
     # 5. 三連系のトリガミリスク
@@ -154,6 +393,32 @@ def _analyze_weaknesses(
             weaknesses.append(
                 "三連系で人気馬中心の組み合わせ。"
                 "的中してもトリガミ（配当が投資額以下）の可能性大"
+            )
+
+    # 6. レース条件による警告
+    if race_conditions:
+        if "handicap" in race_conditions:
+            weaknesses.append(
+                "ハンデ戦は人気馬の信頼度が低い。荒れる傾向あり"
+            )
+        if "maiden_new" in race_conditions:
+            weaknesses.append(
+                "新馬戦はデータ不足で予測困難。荒れやすい"
+            )
+        if "hurdle" in race_conditions:
+            weaknesses.append(
+                "障害戦は落馬リスクがあり荒れやすい"
+            )
+
+    # 7. 少頭数での高オッズ警告
+    if total_runners <= 10:
+        high_odds_horses = [
+            h for h in selected_horses if (h.get("odds") or 0) >= 20
+        ]
+        if high_odds_horses:
+            weaknesses.append(
+                f"少頭数（{total_runners}頭）で高オッズ馬を選択。"
+                "少頭数では穴馬が来にくい傾向"
             )
 
     return weaknesses
@@ -236,6 +501,7 @@ def _analyze_bet_selection_impl(
     horse_numbers: list[int],
     amount: int,
     runners_data: list[dict],
+    race_conditions: list[str] | None = None,
 ) -> dict:
     """買い目分析の実装（テスト用に公開）."""
     selected_horses = [
@@ -262,12 +528,14 @@ def _analyze_bet_selection_impl(
     # 穴馬の判定（10番人気以下）
     longshot_horses = [h for h in selected_horses if (h.get("popularity") or 99) >= 10]
 
-    # 各馬の期待値分析
+    # 各馬の期待値分析（券種・頭数・条件を考慮）
     horse_analysis = []
     for h in selected_horses:
         odds = h.get("odds") or 0
         pop = h.get("popularity") or 99
-        ev = _calculate_expected_value(odds, pop)
+        ev = _calculate_expected_value(
+            odds, pop, bet_type, total_runners, race_conditions
+        )
         horse_analysis.append({
             "horse_number": h.get("horse_number"),
             "horse_name": h.get("horse_name"),
@@ -276,8 +544,15 @@ def _analyze_bet_selection_impl(
             "expected_value": ev,
         })
 
+    # 組み合わせ馬券の確率推定
+    combination_prob = _calculate_combination_probability(
+        popularity_list, bet_type, total_runners, race_conditions
+    )
+
     # 弱点分析
-    weaknesses = _analyze_weaknesses(selected_horses, bet_type, total_runners)
+    weaknesses = _analyze_weaknesses(
+        selected_horses, bet_type, total_runners, race_conditions
+    )
 
     # トリガミリスク計算
     torigami_risk = _calculate_torigami_risk(bet_type, selected_horses, amount)
@@ -290,7 +565,9 @@ def _analyze_bet_selection_impl(
         "bet_type": bet_type,
         "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
         "total_runners": total_runners,
+        "race_conditions": race_conditions or [],
         "selected_horses": horse_analysis,
+        "combination_probability": combination_prob,
         "summary": {
             "average_odds": round(avg_odds, 1),
             "average_popularity": round(avg_popularity, 1),
@@ -311,21 +588,36 @@ def analyze_bet_selection(
     horse_numbers: list[int],
     amount: int,
     runners_data: list[dict],
+    race_conditions: list[str] | None = None,
 ) -> dict:
     """買い目を分析し、データに基づくフィードバックを生成する.
+
+    JRA統計に基づく券種別確率、出走頭数補正、レース条件補正を適用して
+    期待値と弱点を分析する。
 
     Args:
         race_id: レースID
         bet_type: 券種 (win, place, quinella, quinella_place, exacta, trio, trifecta)
         horse_numbers: 選択した馬番のリスト
         amount: 掛け金
-        runners_data: 出走馬データ
+        runners_data: 出走馬データ（odds, popularity を含む）
+        race_conditions: レース条件リスト
+            - "handicap": ハンデ戦
+            - "fillies_mares": 牝馬限定
+            - "maiden_new": 新馬戦
+            - "maiden": 未勝利戦
+            - "g1": G1レース
+            - "hurdle": 障害戦
 
     Returns:
-        分析結果（選択馬のオッズ、人気、期待値、弱点など）
+        分析結果:
+        - selected_horses: 各馬の期待値分析
+        - combination_probability: 組み合わせ的中確率の推定
+        - weaknesses: 弱点リスト
+        - torigami_risk: トリガミリスク
     """
     return _analyze_bet_selection_impl(
-        race_id, bet_type, horse_numbers, amount, runners_data
+        race_id, bet_type, horse_numbers, amount, runners_data, race_conditions
     )
 
 
