@@ -66,9 +66,7 @@ cd backend && pytest
 
 ## スキル
 
-- `/deploy-prep` - デプロイ前チェック実行
-- `/ec2-sync` - EC2データ同期
-- `/copilot-review` - PRレビュー対応
+- `/copilot-review` - GitHub Copilot PRレビュー対応
 
 ## 注意事項
 
