@@ -87,15 +87,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/agentcore/requirements.txt
 
       - name: Install AgentCore CLI
         run: pip install bedrock-agentcore-starter-toolkit
 
       - name: Generate AgentCore config for CI
         working-directory: backend/agentcore
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AGENTCORE_EXECUTION_ROLE: ${{ secrets.AGENTCORE_EXECUTION_ROLE }}
+          AGENTCORE_S3_BUCKET: ${{ secrets.AGENTCORE_S3_BUCKET }}
+          AGENTCORE_AGENT_ID: ${{ secrets.AGENTCORE_AGENT_ID }}
         run: |
           # CI環境用の設定ファイルを生成（相対パス使用）
-          cat > .bedrock_agentcore.yaml << 'EOF'
+          # 注: AWS関連の値はGitHub Secretsから取得
+          cat > .bedrock_agentcore.yaml << EOF
           default_agent: baken_kaigi_cli
           agents:
             baken_kaigi_cli:
@@ -109,13 +117,13 @@ jobs:
               container_runtime: null
               source_path: .
               aws:
-                execution_role: arn:aws:iam::688567287706:role/AmazonBedrockAgentCoreSDKRuntime-ap-northeast-1-c31c3fd2fb
+                execution_role: ${AGENTCORE_EXECUTION_ROLE}
                 execution_role_auto_create: false
-                account: '688567287706'
+                account: '${AWS_ACCOUNT_ID}'
                 region: ap-northeast-1
                 ecr_repository: null
                 ecr_auto_create: false
-                s3_path: s3://bedrock-agentcore-codebuild-sources-688567287706-ap-northeast-1
+                s3_path: ${AGENTCORE_S3_BUCKET}
                 s3_auto_create: false
                 network_configuration:
                   network_mode: PUBLIC
@@ -128,8 +136,8 @@ jobs:
                   idle_runtime_session_timeout: null
                   max_lifetime: null
               bedrock_agentcore:
-                agent_id: baken_kaigi_cli-V4Bt684fL5
-                agent_arn: arn:aws:bedrock-agentcore:ap-northeast-1:688567287706:runtime/baken_kaigi_cli-V4Bt684fL5
+                agent_id: ${AGENTCORE_AGENT_ID}
+                agent_arn: arn:aws:bedrock-agentcore:ap-northeast-1:${AWS_ACCOUNT_ID}:runtime/${AGENTCORE_AGENT_ID}
                 agent_session_id: null
               codebuild:
                 project_name: null
@@ -165,14 +173,31 @@ jobs:
       - name: Deploy AgentCore Runtime
         working-directory: backend/agentcore
         run: |
+          set -euo pipefail
+
           echo "Deploying AgentCore Runtime..."
-          agentcore launch --auto-update-on-conflict
+          if ! agentcore launch --auto-update-on-conflict; then
+            exit_code=$?
+            echo "::error::agentcore launch failed with exit code ${exit_code}"
+
+            # デバッグ情報を収集
+            echo "Collecting debug information..."
+            agentcore status --verbose || true
+
+            exit "${exit_code}"
+          fi
 
       - name: Verify deployment
         working-directory: backend/agentcore
         run: |
+          set -euo pipefail
+
           echo "Verifying AgentCore deployment..."
-          agentcore status
+          if ! agentcore status; then
+            exit_code=$?
+            echo "::error::agentcore status failed with exit code ${exit_code}"
+            exit "${exit_code}"
+          fi
 
       - name: Output AgentCore deployment summary
         run: |
