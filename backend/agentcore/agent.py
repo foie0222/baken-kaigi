@@ -46,6 +46,8 @@ def _get_agent():
         from strands import Agent
         from strands.models import BedrockModel
         from tools.ai_prediction import get_ai_prediction
+        from tools.bet_analysis import analyze_bet_selection
+        from tools.odds_analysis import analyze_odds_movement
 
         bedrock_model = BedrockModel(
             model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
@@ -58,6 +60,8 @@ def _get_agent():
             system_prompt=SYSTEM_PROMPT,
             tools=[
                 get_ai_prediction,  # AI指数取得（ai-shisu.com）
+                analyze_bet_selection,  # JRA統計ベース買い目分析
+                analyze_odds_movement,  # オッズ変動・妙味分析
             ],
         )
         logger.info("Agent created successfully")

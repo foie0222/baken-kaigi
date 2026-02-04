@@ -21,6 +21,8 @@ SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタ�
 - `race_id` (必須): レースID（例: "20260201_05_11"）
 
 **戻り値**:
+- `venue`: 競馬場名
+- `race_number`: レース番号
 - `predictions`: 予想リスト（AI指数の高い順）
   - `rank`: 順位（1が最も高評価）
   - `score`: AI指数（馬と騎手の強さを表す相対スコア）
@@ -65,10 +67,12 @@ JRA統計に基づく期待値計算、弱点分析、トリガミリスク判�
 - `ai_predictions`: AI予想データ（get_ai_predictionの結果を渡す）
 
 **戻り値**:
+- `race_id`: 分析対象レースID
 - `market_overview`: 市場概要（1番人気、市場信頼度）
 - `movements`: オッズ変動リスト
   - `trend`: 急落/下落/安定/上昇/急騰
   - `change_rate`: 変動率（%）
+  - `alert_level`: 要注目/注目/普通/要警戒/参考
 - `time_based_analysis`: 時間帯別変動分析
   - `final_hour_movements`: 締切前1時間の変動（重要）
   - `late_surge_horses`: 締切前に急変した馬（インサイダー疑惑）
@@ -81,6 +85,7 @@ JRA統計に基づく期待値計算、弱点分析、トリガミリスク判�
   - `evaluation`: 頭なし複勝向き/勝ち切り期待
   - `use_case`: 使い方の提案
 - `betting_patterns`: プロ資金流入の兆候
+- `overall_comment`: オッズ変動や市場傾向の総括コメント
 
 ## AI指数の正しい解釈
 
