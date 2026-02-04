@@ -8,57 +8,130 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
 from tools.bet_analysis import (
     _calculate_expected_value,
-    _estimate_win_probability,
+    _estimate_probability,
     _analyze_weaknesses,
     _calculate_torigami_risk,
     _analyze_bet_selection_impl,
+    _calculate_combination_probability,
+    _get_runners_correction,
+    _get_race_condition_correction,
 )
 
 
-class TestEstimateWinProbability:
-    """勝率推定のテスト."""
+class TestEstimateProbability:
+    """確率推定のテスト."""
 
-    def test_1番人気の勝率は約33パーセント(self):
-        prob = _estimate_win_probability(1)
+    def test_単勝1番人気の勝率は約33パーセント(self):
+        prob = _estimate_probability(1, "win")
         assert prob == 0.33
 
-    def test_10番人気の勝率は約2パーセント(self):
-        prob = _estimate_win_probability(10)
+    def test_単勝10番人気の勝率は約2パーセント(self):
+        prob = _estimate_probability(10, "win")
         assert prob == 0.02
 
-    def test_16番人気の勝率は約0_3パーセント(self):
-        prob = _estimate_win_probability(16)
-        assert prob == 0.003
+    def test_複勝1番人気の3着内率は約65パーセント(self):
+        prob = _estimate_probability(1, "place")
+        assert prob == 0.65
+
+    def test_複勝5番人気の3着内率は約30パーセント(self):
+        prob = _estimate_probability(5, "place")
+        assert prob == 0.30
+
+    def test_馬連1番人気の2着内率は約52パーセント(self):
+        prob = _estimate_probability(1, "quinella")
+        assert prob == 0.52
+
+    def test_馬連5番人気の2着内率は約19パーセント(self):
+        prob = _estimate_probability(5, "quinella")
+        assert prob == 0.19
 
     def test_範囲外の人気は最低値を返す(self):
-        prob = _estimate_win_probability(20)
+        prob = _estimate_probability(20, "win")
         assert prob == 0.002
+
+
+class TestRunnersCorrection:
+    """出走頭数補正のテスト."""
+
+    def test_8頭立ての1番人気は補正が大きい(self):
+        correction = _get_runners_correction(8, 1)
+        assert correction == 1.25
+
+    def test_18頭立ては補正なし(self):
+        correction = _get_runners_correction(18, 1)
+        assert correction == 1.0
+
+    def test_12頭立ての1番人気は中程度の補正(self):
+        correction = _get_runners_correction(12, 1)
+        assert correction == 1.10
+
+
+class TestRaceConditionCorrection:
+    """レース条件補正のテスト."""
+
+    def test_ハンデ戦は人気馬の信頼度が下がる(self):
+        correction = _get_race_condition_correction(["handicap"])
+        assert correction == 0.85
+
+    def test_G1は堅い傾向(self):
+        correction = _get_race_condition_correction(["g1"])
+        assert correction == 1.05
+
+    def test_条件なしは補正なし(self):
+        correction = _get_race_condition_correction(None)
+        assert correction == 1.0
+
+    def test_複数条件は最も影響の大きいものを適用(self):
+        correction = _get_race_condition_correction(["handicap", "hurdle"])
+        assert correction == 0.80  # hurdle が最も大きい
 
 
 class TestCalculateExpectedValue:
     """期待値計算のテスト."""
 
-    def test_高オッズ低人気で妙味あり(self):
+    def test_高オッズ低人気で妙味あり_単勝(self):
         # 10番人気（勝率2%）でオッズ100倍 → 期待値 2.0
-        result = _calculate_expected_value(100.0, 10)
+        result = _calculate_expected_value(100.0, 10, "win")
         assert result["expected_return"] == 2.0
         assert result["value_rating"] == "妙味あり"
 
-    def test_低オッズ高人気で割高(self):
+    def test_低オッズ高人気で割高_単勝(self):
         # 1番人気（勝率33%）でオッズ1.5倍 → 期待値 0.495
-        result = _calculate_expected_value(1.5, 1)
+        result = _calculate_expected_value(1.5, 1, "win")
         assert result["expected_return"] == 0.49  # 1.5 * 0.33 = 0.495 → round(0.495, 2) = 0.49
         assert result["value_rating"] == "割高"
 
-    def test_適正オッズ(self):
-        # 3番人気（勝率13%）でオッズ8倍 → 期待値 1.04
-        result = _calculate_expected_value(8.0, 3)
-        assert result["expected_return"] == 1.04
+    def test_複勝の期待値計算(self):
+        # 5番人気（3着内率30%）でオッズ3.5倍 → 期待値 1.05
+        result = _calculate_expected_value(3.5, 5, "place")
+        assert result["expected_return"] == 1.05
         assert result["value_rating"] == "適正"
+        assert "3着内率" in result["probability_source"]
 
     def test_オッズ0の場合はデータ不足(self):
-        result = _calculate_expected_value(0, 1)
+        result = _calculate_expected_value(0, 1, "win")
         assert result["value_rating"] == "データ不足"
+
+
+class TestCalculateCombinationProbability:
+    """組み合わせ確率のテスト."""
+
+    def test_馬連の組み合わせ確率(self):
+        result = _calculate_combination_probability([1, 2], "quinella")
+        # 1番人気52% * 2番人気38% * 1.5補正
+        assert result["probability"] > 0
+        assert "2頭同時" in result["method"]
+
+    def test_三連複の組み合わせ確率(self):
+        result = _calculate_combination_probability([1, 2, 3], "trio")
+        # 3着内率の積 * 2.0補正
+        assert result["probability"] > 0
+        assert "3頭同時" in result["method"]
+
+    def test_馬番不足の場合(self):
+        result = _calculate_combination_probability([1], "quinella")
+        assert result["probability"] == 0
+        assert "馬番不足" in result["method"]
 
 
 class TestAnalyzeWeaknesses:
@@ -96,6 +169,20 @@ class TestAnalyzeWeaknesses:
         ]
         weaknesses = _analyze_weaknesses(horses, "quinella", 16)
         assert any("1番人気を軸" in w for w in weaknesses)
+
+    def test_ハンデ戦で警告(self):
+        horses = [
+            {"horse_number": 1, "horse_name": "A", "popularity": 1, "odds": 2.0},
+        ]
+        weaknesses = _analyze_weaknesses(horses, "win", 16, race_conditions=["handicap"])
+        assert any("ハンデ戦" in w for w in weaknesses)
+
+    def test_少頭数で高オッズ馬の警告(self):
+        horses = [
+            {"horse_number": 8, "horse_name": "A", "popularity": 8, "odds": 30.0},
+        ]
+        weaknesses = _analyze_weaknesses(horses, "win", 8)
+        assert any("少頭数" in w for w in weaknesses)
 
 
 class TestCalculateTorigamiRisk:
@@ -168,3 +255,46 @@ class TestAnalyzeBetSelection:
 
         # 弱点分析に人気馬偏重の警告があること
         assert any("人気馬のみ" in w for w in result["weaknesses"])
+
+        # 組み合わせ確率が計算されていること
+        assert "combination_probability" in result
+        assert result["combination_probability"]["probability"] > 0
+
+    def test_レース条件を渡せること(self):
+        """レース条件を渡した場合のテスト."""
+        runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 2.0} for i in range(1, 17)]
+
+        result = _analyze_bet_selection_impl(
+            race_id="test",
+            bet_type="win",
+            horse_numbers=[1],
+            amount=100,
+            runners_data=runners,
+            race_conditions=["handicap"],
+        )
+
+        # レース条件が結果に含まれていること
+        assert "race_conditions" in result
+        assert "handicap" in result["race_conditions"]
+
+        # ハンデ戦の警告があること
+        assert any("ハンデ戦" in w for w in result["weaknesses"])
+
+    def test_8頭立てでの分析(self):
+        """少頭数での分析テスト."""
+        runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 3.0} for i in range(1, 9)]
+
+        result = _analyze_bet_selection_impl(
+            race_id="test",
+            bet_type="win",
+            horse_numbers=[1],
+            amount=100,
+            runners_data=runners,
+        )
+
+        # 出走頭数が8であること
+        assert result["total_runners"] == 8
+
+        # 1番人気の確率が補正されていること（33% * 1.25 = 41.25%）
+        prob = result["selected_horses"][0]["expected_value"]["estimated_probability"]
+        assert prob > 33  # 補正により33%より高くなる
