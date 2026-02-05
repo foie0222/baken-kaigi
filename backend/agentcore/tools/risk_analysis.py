@@ -7,15 +7,30 @@ from strands import tool
 
 from .bet_analysis import (
     WIN_RATE_BY_POPULARITY,
-    PLACE_RATE_BY_POPULARITY,
     _estimate_probability,
 )
 from .pace_analysis import (
-    RACE_CONDITION_UPSET,
-    VENUE_UPSET_FACTOR,
     _assess_race_difficulty,
     _analyze_odds_gap,
 )
+
+# =============================================================================
+# 閾値定数
+# =============================================================================
+
+# 見送り推奨: AI上位5頭のスコア差が混戦と判定する閾値
+AI_SCORE_CLOSE_GAP = 30
+# 見送り推奨: AI上位5頭のスコア差がやや接戦と判定する閾値
+AI_SCORE_MODERATE_GAP = 60
+
+# バイアス診断: 穴馬偏重と判定する比率（10番人気以下の割合）
+LONGSHOT_BIAS_RATIO = 0.6
+# バイアス診断: 本命偏重と判定する比率（3番人気以内の割合）
+FAVORITE_BIAS_RATIO = 0.8
+# バイアス診断: 高配当券種偏重と判定する比率（三連単/三連複の割合）
+HIGH_PAYOUT_TYPE_RATIO = 0.7
+# バイアス診断: 過大投資と判定する閾値（円）
+OVER_INVESTMENT_THRESHOLD = 20000
 
 
 # =============================================================================
@@ -79,12 +94,12 @@ def _assess_skip_recommendation(
         if len(sorted_preds) >= 5:
             top5_scores = [p.get("score", 0) for p in sorted_preds[:5]]
             top_spread = top5_scores[0] - top5_scores[4]
-            if top_spread <= 30:
+            if top_spread <= AI_SCORE_CLOSE_GAP:
                 skip_score += 3
                 reasons.append(
                     f"AI上位5頭のスコア差が{top_spread}ptと僅差（混戦）"
                 )
-            elif top_spread <= 60:
+            elif top_spread <= AI_SCORE_MODERATE_GAP:
                 skip_score += 1
                 reasons.append(
                     f"AI上位5頭のスコア差が{top_spread}ptとやや接戦"
@@ -265,12 +280,12 @@ def _generate_risk_scenarios(
         }
         excluded_ai_top = ai_top3_numbers - selected_set
         if excluded_ai_top:
-            excluded_names = []
-            for hn in excluded_ai_top:
-                for r in runners_data:
-                    if r.get("horse_number") == hn:
-                        excluded_names.append(f"{hn}番{r.get('horse_name', '')}")
-                        break
+            runners_map = {r.get("horse_number"): r for r in runners_data}
+            excluded_names = [
+                f"{hn}番{runners_map[hn].get('horse_name', '')}"
+                for hn in excluded_ai_top
+                if hn in runners_map
+            ]
             scenarios.append({
                 "type": "穴馬番狂わせ",
                 "description": "AI上位馬が激走するシナリオ",
@@ -380,7 +395,7 @@ def _diagnose_betting_bias(cart_items: list[dict]) -> dict:
     if all_popularities:
         longshot_count = sum(1 for p in all_popularities if p >= 10)
         longshot_ratio = longshot_count / len(all_popularities)
-        if longshot_ratio >= 0.6:
+        if longshot_ratio >= LONGSHOT_BIAS_RATIO:
             biases.append({
                 "type": "穴馬偏重",
                 "description": f"選択馬の{longshot_ratio*100:.0f}%が10番人気以下。"
@@ -392,7 +407,7 @@ def _diagnose_betting_bias(cart_items: list[dict]) -> dict:
     if all_popularities:
         fav_count = sum(1 for p in all_popularities if p <= 3)
         fav_ratio = fav_count / len(all_popularities)
-        if fav_ratio >= 0.8 and len(all_popularities) >= 3:
+        if fav_ratio >= FAVORITE_BIAS_RATIO and len(all_popularities) >= 3:
             biases.append({
                 "type": "本命偏重",
                 "description": f"選択馬の{fav_ratio*100:.0f}%が3番人気以内。"
@@ -405,7 +420,7 @@ def _diagnose_betting_bias(cart_items: list[dict]) -> dict:
         high_payout_types = {"trio", "trifecta"}
         high_count = sum(1 for bt in all_bet_types if bt in high_payout_types)
         high_ratio = high_count / len(all_bet_types)
-        if high_ratio >= 0.7 and len(all_bet_types) >= 2:
+        if high_ratio >= HIGH_PAYOUT_TYPE_RATIO and len(all_bet_types) >= 2:
             biases.append({
                 "type": "高配当券種偏重",
                 "description": f"買い目の{high_ratio*100:.0f}%が三連単/三連複。"
@@ -414,7 +429,7 @@ def _diagnose_betting_bias(cart_items: list[dict]) -> dict:
             })
 
     # --- 過大投資チェック ---
-    if total_amount >= 20000:
+    if total_amount >= OVER_INVESTMENT_THRESHOLD:
         biases.append({
             "type": "過大投資",
             "description": f"合計投資額が¥{total_amount:,}。"
