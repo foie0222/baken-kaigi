@@ -17,7 +17,9 @@ PACE_FAVORABLE_STYLES = {
     "スロー": ["逃げ", "先行"],
 }
 
-# 競馬場別の荒れやすさ（JRA統計ベース、1番人気の勝率で補正）
+# 競馬場別の荒れやすさ補正値（JRA 2019-2024年 1番人気勝率の偏差に基づく）
+# 福島・中京・小倉: 1番人気勝率が全国平均より低い（荒れやすい）
+# 京都・阪神: 1番人気勝率が全国平均より高い（堅い傾向）
 VENUE_UPSET_FACTOR = {
     "札幌": 0,
     "函館": 0,
@@ -31,7 +33,9 @@ VENUE_UPSET_FACTOR = {
     "小倉": 1,
 }
 
-# レース条件別の荒れ度補正
+# レース条件別の荒れ度補正値（JRA統計: 条件別1番人気勝率の偏差に基づく）
+# handicap/hurdle: 1番人気勝率が大幅に低い（荒れやすい）
+# g1/g2: 実力馬が集まり1番人気勝率が高い（堅い傾向）
 RACE_CONDITION_UPSET = {
     "handicap": 2,
     "maiden_new": 1,
@@ -42,6 +46,15 @@ RACE_CONDITION_UPSET = {
     "g3": 0,
     "fillies_mares": 0,
 }
+
+# 枠順分析の区分数（内枠/中枠/外枠の3分割）
+POST_POSITION_GROUPS = 3
+
+# オッズ断層分析の閾値
+# 3-4番人気間のオッズ比がこの値以上 → 堅いレースの予兆
+ODDS_GAP_THRESHOLD = 2.0
+# 1-2番人気間のオッズ比がこの値以下 → 上位が団子状態（荒れやすい）
+ODDS_DANGO_THRESHOLD = 1.3
 
 
 def _get_running_styles(race_id: str) -> list[dict]:
@@ -353,9 +366,12 @@ def _assess_race_difficulty(
             condition_names = {
                 "handicap": "ハンデ戦",
                 "maiden_new": "新馬戦",
+                "maiden": "未勝利戦",
                 "hurdle": "障害戦",
                 "g1": "G1",
                 "g2": "G2",
+                "g3": "G3",
+                "fillies_mares": "牝馬限定",
             }
             name = condition_names.get(condition, condition)
             if adjustment > 0:
@@ -405,7 +421,7 @@ def _analyze_odds_gap(runners_data: list[dict]) -> dict | None:
     上位が団子状態 → 荒れやすい
 
     Args:
-        runners_data: 出走馬データ（odds, popularityを含む）
+        runners_data: 出走馬データ（oddsを含む）
 
     Returns:
         断層分析結果 or None
@@ -422,18 +438,22 @@ def _analyze_odds_gap(runners_data: list[dict]) -> dict | None:
     # 上位4頭のオッズを取得
     top4_odds = [r["odds"] for r in sorted_runners[:4]]
 
+    # ゼロ除算防御（オッズが0以下のデータは上でフィルタ済みだが念のため）
+    if top4_odds[0] <= 0 or top4_odds[2] <= 0:
+        return None
+
     # 3番人気と4番人気の断層（3-4番人気間のオッズ比）
-    gap_ratio = top4_odds[3] / top4_odds[2] if top4_odds[2] > 0 else 1.0
+    gap_ratio = top4_odds[3] / top4_odds[2]
 
     # 1-2番人気間のオッズ比（団子状態チェック）
-    top2_ratio = top4_odds[1] / top4_odds[0] if top4_odds[0] > 0 else 1.0
+    top2_ratio = top4_odds[1] / top4_odds[0]
 
-    if gap_ratio >= 2.0:
+    if gap_ratio >= ODDS_GAP_THRESHOLD:
         return {
             "adjustment": -1,
             "comment": f"3-4番人気間にオッズ断層（{top4_odds[2]:.1f}→{top4_odds[3]:.1f}倍）。堅い予兆",
         }
-    elif top2_ratio <= 1.3 and top4_odds[2] / top4_odds[0] <= 2.0:
+    elif top2_ratio <= ODDS_DANGO_THRESHOLD and top4_odds[2] / top4_odds[0] <= ODDS_GAP_THRESHOLD:
         return {
             "adjustment": 1,
             "comment": f"上位3頭が{top4_odds[0]:.1f}〜{top4_odds[2]:.1f}倍の団子状態。荒れる可能性",
@@ -464,11 +484,11 @@ def _analyze_post_position(
             "comment": "出走頭数が不明",
         }
 
-    # 内枠・中枠・外枠の判定（全体の1/3ずつ）
-    third = max(1, total_runners / 3)
-    if horse_number <= third:
+    # 内枠・中枠・外枠の判定（全体をPOST_POSITION_GROUPS等分）
+    group_size = max(1, total_runners / POST_POSITION_GROUPS)
+    if horse_number <= group_size:
         position_group = "内枠"
-    elif horse_number <= third * 2:
+    elif horse_number <= group_size * 2:
         position_group = "中枠"
     else:
         position_group = "外枠"
@@ -607,10 +627,11 @@ def _analyze_race_characteristics_impl(
     target_numbers = horse_numbers or [
         r.get("horse_number") for r in running_styles_data
     ]
+    target_numbers_set = set(target_numbers)
     post_position_analysis = []
     for runner in running_styles_data:
         hn = runner.get("horse_number")
-        if hn not in target_numbers:
+        if hn not in target_numbers_set:
             continue
         post = _analyze_post_position(hn, total_runners, surface)
         post_position_analysis.append({
