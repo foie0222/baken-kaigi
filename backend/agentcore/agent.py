@@ -49,6 +49,7 @@ def _get_agent():
         from tools.bet_analysis import analyze_bet_selection
         from tools.odds_analysis import analyze_odds_movement
         from tools.pace_analysis import analyze_race_characteristics
+        from tools.risk_analysis import analyze_risk_factors
 
         bedrock_model = BedrockModel(
             model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
@@ -64,6 +65,7 @@ def _get_agent():
                 analyze_bet_selection,  # JRA統計ベース買い目分析
                 analyze_odds_movement,  # オッズ変動・妙味分析
                 analyze_race_characteristics,  # 展開予想・レース特性分析
+                analyze_risk_factors,  # リスク分析・心理バイアス対策
             ],
         )
         logger.info("Agent created successfully")

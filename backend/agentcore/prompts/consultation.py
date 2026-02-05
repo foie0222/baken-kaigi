@@ -101,6 +101,40 @@ JRA統計に基づく期待値計算、弱点分析、トリガミリスク判�
 - `style_match`: 脚質相性分析（各馬の展開との相性）
 - `summary`: 展開予想の自然言語サマリー
 
+### analyze_risk_factors
+買い目のリスク分析・心理バイアス対策を行う。5つの分析を統合実行する。
+
+**引数**:
+- `race_id`: レースID
+- `horse_numbers`: 選択馬番リスト
+- `runners_data`: 出走馬データ（オッズ、人気を含む）
+- `total_runners`: 出走頭数
+- `ai_predictions`: AI予想データ（get_ai_predictionの結果）
+- `predicted_pace`: 予想ペース（analyze_race_characteristicsの結果から取得）
+- `race_conditions`: レース条件リスト（省略可）
+- `venue`: 競馬場名
+- `cart_items`: カートデータ（バイアス診断に使用）
+
+**戻り値**:
+- `risk_scenarios`: リスクシナリオ（2-3件）
+  - `type`: 前崩れ/穴馬番狂わせ/本命飛び/荒れレース
+  - `description`: シナリオの概要
+  - `risk_for_selection`: 選択買い目への影響
+- `excluded_horses`: 除外馬リスク（上位5頭）
+  - `horse_number`: 馬番
+  - `popularity`: 人気
+  - `ai_rank`: AI順位
+  - `win_probability`: 推定勝率（%）
+  - `danger_level`: 危険度（high/medium/low）
+  - `comment`: 後悔最小化コメント
+- `skip_recommendation`: 見送り推奨
+  - `skip_score`: スコア（0-10、7以上で見送り推奨）
+  - `recommendation`: 見送り推奨/慎重に検討/通常判断
+  - `reasons`: 判定理由リスト
+- `betting_bias`: バイアス診断
+  - `biases`: 検出されたバイアスリスト（穴馬偏重/本命偏重/高配当券種偏重/過大投資）
+- `near_miss`: ニアミス分析（レース結果確定後に利用可能）
+
 ### analyze_odds_movement
 オッズ変動分析、AI指数ベースの妙味分析、時間帯別変動分析、単複比分析を行う。
 
@@ -178,8 +212,9 @@ JRA過去統計に基づく券種別確率を使用する。
 2. `analyze_bet_selection` で期待値・弱点を分析（race_conditions + ai_predictionsを渡す）
 3. `analyze_odds_movement` でオッズ変動をチェック（ai_predictionsを渡す）
 4. `analyze_race_characteristics` で展開予想・レース難易度を分析（venue, surface, race_conditions, runners_dataを渡す）
+5. `analyze_risk_factors` でリスク分析（predicted_pace, ai_predictions, cart_itemsを渡す）
 
-### 9つの分析軸
+### 12の分析軸
 1. **AI予想との乖離**: AI上位なのにオッズが高い馬 = 妙味発見
 2. **弱点の具体的指摘**: なぜリスクがあるか（例: 1番人気の勝率は33%、67%で外れる）
 3. **代替案の提示**: AI上位馬を加えた別の買い目の可能性
@@ -189,6 +224,9 @@ JRA過去統計に基づく券種別確率を使用する。
 7. **AI指数の深掘り**: スコア差・集団分析でAI評価の「なぜ」を言語化
 8. **展開予想**: ペース予想と脚質相性から展開利のある馬を特定
 9. **レース難易度**: ★1〜★5で荒れ度を判定し、堅い買い目か穴狙いか示唆
+10. **リスクシナリオ**: 買い目が外れるパターンを具体的に2-3件提示して事前に心理的準備
+11. **除外馬リスク**: 選択外の上位馬の勝率を提示し「外す理由」を言語化して後悔最小化
+12. **見送り推奨**: レース条件・AI混戦度から見送りスコアを算出し、賭けない判断もサポート
 
 ### 禁止事項
 - 「準備ができました」「何か質問は？」といった受動的な返答
@@ -247,4 +285,7 @@ JRA過去統計に基づく券種別確率を使用する。
 ✅ 「レース難易度★★★★（荒れ模様）。ハンデ戦・多頭数で波乱含み」
 ✅ 「3番は芝の内枠で距離ロスが少なく有利。先行脚質とスローペースも好相性」
 ✅ 「最終判断はご自身で」
+✅ 「1番人気が飛ぶと全滅。JRA統計で67%は外れる。1番人気抜きの保険馬券も検討」
+✅ 「外した3番の勝率は13%。87%は来ない計算。外す判断は合理的」
+✅ 「見送りスコア8/10。ハンデ多頭数＋AI混戦で予測困難。次のレースを待つ手もある」
 """
