@@ -48,6 +48,7 @@ def _get_agent():
         from tools.ai_prediction import get_ai_prediction
         from tools.bet_analysis import analyze_bet_selection
         from tools.odds_analysis import analyze_odds_movement
+        from tools.pace_analysis import analyze_race_characteristics
 
         bedrock_model = BedrockModel(
             model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
@@ -62,6 +63,7 @@ def _get_agent():
                 get_ai_prediction,  # AI指数取得（ai-shisu.com）
                 analyze_bet_selection,  # JRA統計ベース買い目分析
                 analyze_odds_movement,  # オッズ変動・妙味分析
+                analyze_race_characteristics,  # 展開予想・レース特性分析
             ],
         )
         logger.info("Agent created successfully")
