@@ -2,7 +2,10 @@
 
 選択された買い目を分析し、データに基づくフィードバックを生成する。
 JRA統計に基づく券種別確率、出走頭数補正、レース条件補正を適用。
+合成オッズ計算、AI指数内訳分析、資金配分最適化を含む。
 """
+
+import math
 
 from strands import tool
 
@@ -495,6 +498,300 @@ def _calculate_torigami_risk(
     }
 
 
+def _calculate_composite_odds(odds_list: list[float]) -> dict:
+    """合成オッズを計算する.
+
+    合成オッズ = 1 ÷ Σ(1/各オッズ)
+    複数の買い目を購入した場合の実質的な倍率を示す。
+    合成オッズが2.0未満の場合、トリガミリスクが高い。
+
+    Args:
+        odds_list: 各買い目のオッズリスト
+
+    Returns:
+        合成オッズ分析結果
+    """
+    if not odds_list:
+        return {
+            "composite_odds": 0,
+            "is_torigami": False,
+            "torigami_warning": None,
+            "bet_count": 0,
+        }
+
+    valid_odds = [o for o in odds_list if o > 0]
+    if not valid_odds:
+        return {
+            "composite_odds": 0,
+            "is_torigami": False,
+            "torigami_warning": None,
+            "bet_count": 0,
+        }
+
+    reciprocal_sum = sum(1.0 / o for o in valid_odds)
+    composite_odds = 1.0 / reciprocal_sum if reciprocal_sum > 0 else 0
+
+    is_torigami = composite_odds < 2.0
+    if composite_odds < 1.5:
+        warning = f"合成オッズ{composite_odds:.1f}倍。高確率でトリガミ。買い目の絞り込みが必要"
+    elif composite_odds < 2.0:
+        warning = f"合成オッズ{composite_odds:.1f}倍。トリガミリスクあり。資金配分の見直しを推奨"
+    elif composite_odds < 3.0:
+        warning = f"合成オッズ{composite_odds:.1f}倍。利益は薄いが回収は可能"
+    else:
+        warning = None
+
+    return {
+        "composite_odds": round(composite_odds, 2),
+        "is_torigami": is_torigami,
+        "torigami_warning": warning,
+        "bet_count": len(valid_odds),
+    }
+
+
+def _analyze_ai_index_context(
+    ai_predictions: list[dict] | None,
+    horse_numbers: list[int],
+) -> list[dict]:
+    """AI指数の内訳コンテキストを提供する.
+
+    ai-shisu.comのスコアは不透明だが、スコア差や順位間ギャップから
+    ユーザーが判断材料にできる情報を抽出する。
+
+    Args:
+        ai_predictions: AI予想データリスト
+        horse_numbers: 分析対象馬番リスト
+
+    Returns:
+        各馬のAI指数コンテキスト分析結果
+    """
+    if not ai_predictions:
+        return []
+
+    # スコア順にソートして全体の分布を把握
+    sorted_preds = sorted(ai_predictions, key=lambda x: x.get("score", 0), reverse=True)
+    if not sorted_preds:
+        return []
+
+    top_score = sorted_preds[0].get("score", 0)
+    scores = [p.get("score", 0) for p in sorted_preds]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    score_range = max(scores) - min(scores) if len(scores) > 1 else 0
+
+    results = []
+    for pred in sorted_preds:
+        horse_num = pred.get("horse_number")
+        if horse_num not in horse_numbers:
+            continue
+
+        score = pred.get("score", 0)
+        rank = pred.get("rank", 99)
+        horse_name = pred.get("horse_name", "")
+
+        # スコアの相対的な位置
+        score_diff_from_top = top_score - score
+        score_ratio = score / top_score if top_score > 0 else 0
+
+        # 上位馬とのギャップ分析
+        if rank == 1:
+            gap_comment = "AI最上位評価"
+            if len(sorted_preds) > 1:
+                second_score = sorted_preds[1].get("score", 0)
+                gap = score - second_score
+                if gap >= 50:
+                    gap_comment += f"。2位と{gap}pt差で抜けた評価"
+                elif gap >= 20:
+                    gap_comment += f"。2位と{gap}pt差で優位"
+                else:
+                    gap_comment += f"。2位と{gap}pt差で僅差"
+        elif rank <= 3:
+            prev_score = sorted_preds[rank - 2].get("score", 0) if rank >= 2 else top_score
+            gap_to_prev = prev_score - score
+            gap_comment = f"AI{rank}位（1位と{score_diff_from_top:.0f}pt差）"
+            if gap_to_prev <= 10:
+                gap_comment += "。上位と僅差で逆転可能圏"
+        elif rank <= 6:
+            gap_comment = f"AI{rank}位（1位と{score_diff_from_top:.0f}pt差）。中位評価"
+        else:
+            gap_comment = f"AI{rank}位（1位と{score_diff_from_top:.0f}pt差）。低評価"
+
+        # スコア水準の解釈
+        if score >= 350:
+            level = "非常に高い"
+        elif score >= 250:
+            level = "高い"
+        elif score >= 150:
+            level = "中程度"
+        elif score >= 80:
+            level = "低い"
+        else:
+            level = "非常に低い"
+
+        # 集団分析：この馬が属するクラスターを特定
+        cluster = _identify_score_cluster(scores, score)
+
+        results.append({
+            "horse_number": horse_num,
+            "horse_name": horse_name,
+            "ai_rank": rank,
+            "ai_score": score,
+            "score_level": level,
+            "score_ratio_to_top": round(score_ratio, 2),
+            "gap_analysis": gap_comment,
+            "cluster": cluster,
+        })
+
+    return results
+
+
+def _identify_score_cluster(all_scores: list[float], target_score: float) -> str:
+    """スコア分布からクラスター（集団）を特定する.
+
+    Args:
+        all_scores: 全馬のスコアリスト（降順ソート済み前提）
+        target_score: 対象馬のスコア
+
+    Returns:
+        クラスター名
+    """
+    if not all_scores:
+        return "不明"
+
+    sorted_scores = sorted(all_scores, reverse=True)
+    n = len(sorted_scores)
+
+    if n <= 3:
+        return "少頭数のため集団分析なし"
+
+    # ギャップ検出でグループ分け
+    groups: list[list[float]] = [[sorted_scores[0]]]
+    for i in range(1, n):
+        gap = sorted_scores[i - 1] - sorted_scores[i]
+        threshold = max(20, (sorted_scores[0] - sorted_scores[-1]) * 0.15)
+        if gap >= threshold:
+            groups.append([sorted_scores[i]])
+        else:
+            groups[-1].append(sorted_scores[i])
+
+    # 対象馬がどのグループに属するか
+    for idx, group in enumerate(groups):
+        if target_score >= min(group) and target_score <= max(group):
+            if idx == 0:
+                return f"上位集団（{len(group)}頭）"
+            elif idx == len(groups) - 1:
+                return f"下位集団（{len(group)}頭）"
+            else:
+                return f"中位集団（{len(group)}頭）"
+
+    return "単独"
+
+
+def _optimize_fund_allocation(
+    selected_horses: list[dict],
+    total_budget: int,
+    bet_type: str,
+    total_runners: int = 18,
+    race_conditions: list[str] | None = None,
+) -> dict:
+    """資金配分を最適化する.
+
+    ケリー基準の簡易版を用いて、期待値の高い買い目により多く配分する。
+
+    Args:
+        selected_horses: 選択された馬のリスト
+        total_budget: 総予算
+        bet_type: 券種
+        total_runners: 出走頭数
+        race_conditions: レース条件
+
+    Returns:
+        資金配分の提案
+    """
+    if not selected_horses or total_budget <= 0:
+        return {"allocations": [], "strategy": "データ不足"}
+
+    # 単勝・複勝で複数買いの場合のみ資金配分が有効
+    if bet_type not in ("win", "place") or len(selected_horses) < 2:
+        return {
+            "allocations": [],
+            "strategy": "単一買い目のため資金配分不要",
+        }
+
+    allocations = []
+    total_kelly = 0
+
+    for h in selected_horses:
+        odds = h.get("odds") or 0
+        pop = h.get("popularity") or 99
+
+        if odds <= 0:
+            continue
+
+        prob = _estimate_probability(pop, bet_type, total_runners, race_conditions)
+        expected_return = odds * prob
+
+        # 簡易ケリー基準: f = (p*b - q) / b
+        # p = 勝率、b = オッズ-1（純利益倍率）、q = 1-p
+        b = odds - 1
+        if b <= 0:
+            kelly_fraction = 0
+        else:
+            kelly_fraction = max(0, (prob * b - (1 - prob)) / b)
+
+        # 保守的にケリー比率の1/4を使用（フラクショナルケリー）
+        kelly_fraction *= 0.25
+
+        allocations.append({
+            "horse_number": h.get("horse_number"),
+            "horse_name": h.get("horse_name"),
+            "odds": odds,
+            "estimated_probability": round(prob * 100, 1),
+            "expected_return": round(expected_return, 2),
+            "kelly_fraction": round(kelly_fraction, 4),
+        })
+        total_kelly += kelly_fraction
+
+    # ケリー比率に基づいて配分
+    if total_kelly > 0:
+        for alloc in allocations:
+            ratio = alloc["kelly_fraction"] / total_kelly
+            raw_amount = total_budget * ratio
+            # 100円単位に丸める
+            alloc["suggested_amount"] = max(100, int(math.floor(raw_amount / 100) * 100))
+            alloc["allocation_ratio"] = round(ratio * 100, 1)
+    else:
+        # ケリー基準で全馬マイナス期待値の場合
+        equal_amount = max(100, int(math.floor(total_budget / len(allocations) / 100) * 100))
+        for alloc in allocations:
+            alloc["suggested_amount"] = equal_amount
+            alloc["allocation_ratio"] = round(100 / len(allocations), 1)
+
+    # 配分合計の調整
+    total_allocated = sum(a["suggested_amount"] for a in allocations)
+
+    strategy_parts = []
+    ev_positive = [a for a in allocations if a["expected_return"] >= 1.0]
+    if ev_positive:
+        best = max(ev_positive, key=lambda x: x["expected_return"])
+        strategy_parts.append(
+            f"{best['horse_number']}番に重点配分（期待値{best['expected_return']}）"
+        )
+    ev_negative = [a for a in allocations if a["expected_return"] < 0.8]
+    if ev_negative:
+        worst = min(ev_negative, key=lambda x: x["expected_return"])
+        strategy_parts.append(
+            f"{worst['horse_number']}番は期待値{worst['expected_return']}で配分を抑制"
+        )
+    if not strategy_parts:
+        strategy_parts.append("各馬の期待値に基づく均等配分")
+
+    return {
+        "allocations": allocations,
+        "total_allocated": total_allocated,
+        "strategy": "。".join(strategy_parts),
+    }
+
+
 def _analyze_bet_selection_impl(
     race_id: str,
     bet_type: str,
@@ -502,6 +799,7 @@ def _analyze_bet_selection_impl(
     amount: int,
     runners_data: list[dict],
     race_conditions: list[str] | None = None,
+    ai_predictions: list[dict] | None = None,
 ) -> dict:
     """買い目分析の実装（テスト用に公開）."""
     selected_horses = [
@@ -554,8 +852,21 @@ def _analyze_bet_selection_impl(
         selected_horses, bet_type, total_runners, race_conditions
     )
 
-    # トリガミリスク計算
+    # トリガミリスク計算（従来方式）
     torigami_risk = _calculate_torigami_risk(bet_type, selected_horses, amount)
+
+    # 合成オッズ計算（複数買い目の場合）
+    composite_odds = _calculate_composite_odds(odds_list)
+    if composite_odds["is_torigami"] and composite_odds["torigami_warning"]:
+        weaknesses.append(composite_odds["torigami_warning"])
+
+    # AI指数内訳コンテキスト
+    ai_context = _analyze_ai_index_context(ai_predictions, horse_numbers)
+
+    # 資金配分最適化（単勝・複勝で複数買いの場合）
+    fund_allocation = _optimize_fund_allocation(
+        selected_horses, amount, bet_type, total_runners, race_conditions
+    )
 
     # 掛け金に対するフィードバック
     amount_feedback = _generate_amount_feedback(amount)
@@ -568,6 +879,9 @@ def _analyze_bet_selection_impl(
         "race_conditions": race_conditions or [],
         "selected_horses": horse_analysis,
         "combination_probability": combination_prob,
+        "composite_odds": composite_odds,
+        "ai_index_context": ai_context,
+        "fund_allocation": fund_allocation,
         "summary": {
             "average_odds": round(avg_odds, 1),
             "average_popularity": round(avg_popularity, 1),
@@ -589,11 +903,12 @@ def analyze_bet_selection(
     amount: int,
     runners_data: list[dict],
     race_conditions: list[str] | None = None,
+    ai_predictions: list[dict] | None = None,
 ) -> dict:
     """買い目を分析し、データに基づくフィードバックを生成する.
 
     JRA統計に基づく券種別確率、出走頭数補正、レース条件補正を適用して
-    期待値と弱点を分析する。
+    期待値と弱点を分析する。合成オッズ計算、AI指数内訳分析、資金配分最適化も行う。
 
     Args:
         race_id: レースID
@@ -608,16 +923,25 @@ def analyze_bet_selection(
             - "maiden": 未勝利戦
             - "g1": G1レース
             - "hurdle": 障害戦
+        ai_predictions: AI予想データ（get_ai_predictionの結果）
+            - horse_number: 馬番
+            - score: AI指数
+            - rank: AI順位
+            - horse_name: 馬名
 
     Returns:
         分析結果:
         - selected_horses: 各馬の期待値分析
         - combination_probability: 組み合わせ的中確率の推定
+        - composite_odds: 合成オッズ（トリガミ判定）
+        - ai_index_context: AI指数の内訳コンテキスト
+        - fund_allocation: 資金配分の提案
         - weaknesses: 弱点リスト
         - torigami_risk: トリガミリスク
     """
     return _analyze_bet_selection_impl(
-        race_id, bet_type, horse_numbers, amount, runners_data, race_conditions
+        race_id, bet_type, horse_numbers, amount, runners_data,
+        race_conditions, ai_predictions,
     )
 
 

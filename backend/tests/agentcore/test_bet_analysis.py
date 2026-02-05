@@ -15,6 +15,10 @@ from tools.bet_analysis import (
     _calculate_combination_probability,
     _get_runners_correction,
     _get_race_condition_correction,
+    _calculate_composite_odds,
+    _analyze_ai_index_context,
+    _optimize_fund_allocation,
+    _identify_score_cluster,
 )
 
 
@@ -298,3 +302,225 @@ class TestAnalyzeBetSelection:
         # 1番人気の確率が補正されていること（33% * 1.25 = 41.25%）
         prob = result["selected_horses"][0]["expected_value"]["estimated_probability"]
         assert prob > 33  # 補正により33%より高くなる
+
+    def test_合成オッズが結果に含まれる(self):
+        """合成オッズが分析結果に含まれることを確認."""
+        runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 2.0} for i in range(1, 17)]
+
+        result = _analyze_bet_selection_impl(
+            race_id="test",
+            bet_type="win",
+            horse_numbers=[1, 2, 3],
+            amount=300,
+            runners_data=runners,
+        )
+
+        assert "composite_odds" in result
+        assert result["composite_odds"]["composite_odds"] > 0
+
+    def test_AI指数コンテキストが結果に含まれる(self):
+        """AI指数を渡した場合にコンテキストが含まれることを確認."""
+        runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 2.0} for i in range(1, 17)]
+        ai_preds = [
+            {"horse_number": 1, "horse_name": "馬1", "score": 350, "rank": 1},
+            {"horse_number": 2, "horse_name": "馬2", "score": 280, "rank": 2},
+            {"horse_number": 3, "horse_name": "馬3", "score": 200, "rank": 3},
+        ]
+
+        result = _analyze_bet_selection_impl(
+            race_id="test",
+            bet_type="win",
+            horse_numbers=[1, 2],
+            amount=200,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+        )
+
+        assert "ai_index_context" in result
+        assert len(result["ai_index_context"]) == 2
+        assert result["ai_index_context"][0]["ai_rank"] == 1
+
+    def test_資金配分が結果に含まれる(self):
+        """資金配分最適化が結果に含まれることを確認."""
+        runners = [{"horse_number": i, "horse_name": f"馬{i}", "popularity": i, "odds": i * 5.0} for i in range(1, 17)]
+
+        result = _analyze_bet_selection_impl(
+            race_id="test",
+            bet_type="win",
+            horse_numbers=[1, 3, 5],
+            amount=3000,
+            runners_data=runners,
+        )
+
+        assert "fund_allocation" in result
+
+
+class TestCompositeOdds:
+    """合成オッズ計算のテスト."""
+
+    def test_2つのオッズで合成オッズ計算(self):
+        # 1/2.0 + 1/4.0 = 0.5 + 0.25 = 0.75 → 合成オッズ = 1/0.75 = 1.33
+        result = _calculate_composite_odds([2.0, 4.0])
+        assert result["composite_odds"] == 1.33
+        assert result["is_torigami"] is True
+        assert result["torigami_warning"] is not None
+
+    def test_高オッズでトリガミなし(self):
+        # 1/10.0 + 1/20.0 = 0.1 + 0.05 = 0.15 → 合成オッズ = 1/0.15 = 6.67
+        result = _calculate_composite_odds([10.0, 20.0])
+        assert result["composite_odds"] == 6.67
+        assert result["is_torigami"] is False
+        assert result["torigami_warning"] is None
+
+    def test_単一オッズは合成不要(self):
+        result = _calculate_composite_odds([5.0])
+        assert result["composite_odds"] == 5.0
+        assert result["is_torigami"] is False
+
+    def test_空リスト(self):
+        result = _calculate_composite_odds([])
+        assert result["composite_odds"] == 0
+        assert result["bet_count"] == 0
+
+    def test_ゼロオッズは除外(self):
+        result = _calculate_composite_odds([0, 5.0, 10.0])
+        assert result["bet_count"] == 2
+        assert result["composite_odds"] > 0
+
+    def test_境界値_合成オッズ2倍未満でトリガミ(self):
+        # 1/3.0 + 1/3.0 = 0.667 → 合成オッズ = 1.5
+        result = _calculate_composite_odds([3.0, 3.0])
+        assert result["is_torigami"] is True
+
+    def test_境界値_合成オッズ2倍以上はセーフ(self):
+        # 1/5.0 + 1/5.0 = 0.4 → 合成オッズ = 2.5
+        result = _calculate_composite_odds([5.0, 5.0])
+        assert result["is_torigami"] is False
+
+
+class TestAiIndexContext:
+    """AI指数内訳コンテキストのテスト."""
+
+    def test_AI予想なしは空リスト(self):
+        result = _analyze_ai_index_context(None, [1, 2])
+        assert result == []
+
+    def test_AI1位の馬は最上位コメント(self):
+        preds = [
+            {"horse_number": 1, "horse_name": "馬1", "score": 400, "rank": 1},
+            {"horse_number": 2, "horse_name": "馬2", "score": 300, "rank": 2},
+            {"horse_number": 3, "horse_name": "馬3", "score": 200, "rank": 3},
+        ]
+        result = _analyze_ai_index_context(preds, [1])
+        assert len(result) == 1
+        assert result[0]["ai_rank"] == 1
+        assert "最上位" in result[0]["gap_analysis"]
+        assert result[0]["score_level"] == "非常に高い"
+
+    def test_大差の場合は抜けた評価(self):
+        preds = [
+            {"horse_number": 1, "horse_name": "馬1", "score": 400, "rank": 1},
+            {"horse_number": 2, "horse_name": "馬2", "score": 300, "rank": 2},
+        ]
+        result = _analyze_ai_index_context(preds, [1])
+        assert "抜けた評価" in result[0]["gap_analysis"]
+
+    def test_僅差の場合は僅差コメント(self):
+        preds = [
+            {"horse_number": 1, "horse_name": "馬1", "score": 310, "rank": 1},
+            {"horse_number": 2, "horse_name": "馬2", "score": 300, "rank": 2},
+        ]
+        result = _analyze_ai_index_context(preds, [1])
+        assert "僅差" in result[0]["gap_analysis"]
+
+    def test_下位馬のコンテキスト(self):
+        preds = [
+            {"horse_number": 1, "horse_name": "馬1", "score": 400, "rank": 1},
+            {"horse_number": 5, "horse_name": "馬5", "score": 150, "rank": 5},
+            {"horse_number": 10, "horse_name": "馬10", "score": 50, "rank": 10},
+        ]
+        result = _analyze_ai_index_context(preds, [10])
+        assert len(result) == 1
+        assert result[0]["ai_rank"] == 10
+        assert "低評価" in result[0]["gap_analysis"]
+
+    def test_スコアレベル判定(self):
+        preds = [
+            {"horse_number": 1, "horse_name": "A", "score": 400, "rank": 1},
+            {"horse_number": 2, "horse_name": "B", "score": 250, "rank": 2},
+            {"horse_number": 3, "horse_name": "C", "score": 150, "rank": 3},
+            {"horse_number": 4, "horse_name": "D", "score": 80, "rank": 4},
+            {"horse_number": 5, "horse_name": "E", "score": 30, "rank": 5},
+        ]
+        result = _analyze_ai_index_context(preds, [1, 2, 3, 4, 5])
+        levels = {r["horse_number"]: r["score_level"] for r in result}
+        assert levels[1] == "非常に高い"
+        assert levels[2] == "高い"
+        assert levels[3] == "中程度"
+        assert levels[4] == "低い"
+        assert levels[5] == "非常に低い"
+
+
+class TestIdentifyScoreCluster:
+    """スコアクラスター識別のテスト."""
+
+    def test_上位集団に属する場合(self):
+        scores = [400, 380, 370, 200, 180, 100]
+        cluster = _identify_score_cluster(scores, 380)
+        assert "上位集団" in cluster
+
+    def test_下位集団に属する場合(self):
+        scores = [400, 380, 370, 200, 180, 50, 40]
+        cluster = _identify_score_cluster(scores, 40)
+        assert "下位集団" in cluster
+
+    def test_少頭数の場合(self):
+        scores = [300, 200]
+        cluster = _identify_score_cluster(scores, 300)
+        assert "少頭数" in cluster
+
+    def test_空リスト(self):
+        cluster = _identify_score_cluster([], 100)
+        assert cluster == "不明"
+
+
+class TestOptimizeFundAllocation:
+    """資金配分最適化のテスト."""
+
+    def test_期待値の高い馬に多く配分(self):
+        horses = [
+            {"horse_number": 1, "horse_name": "A", "odds": 5.0, "popularity": 3},
+            {"horse_number": 2, "horse_name": "B", "odds": 50.0, "popularity": 10},
+        ]
+        result = _optimize_fund_allocation(horses, 2000, "win")
+        assert len(result["allocations"]) == 2
+        # 10番人気オッズ50倍は期待値高い（0.02 * 50 = 1.0）ので配分多め
+        allocs = {a["horse_number"]: a for a in result["allocations"]}
+        assert allocs[2]["suggested_amount"] >= 100
+
+    def test_単一買い目は資金配分不要(self):
+        horses = [{"horse_number": 1, "horse_name": "A", "odds": 3.0, "popularity": 1}]
+        result = _optimize_fund_allocation(horses, 1000, "win")
+        assert "不要" in result["strategy"]
+
+    def test_三連系は資金配分対象外(self):
+        horses = [
+            {"horse_number": 1, "horse_name": "A", "odds": 3.0, "popularity": 1},
+            {"horse_number": 2, "horse_name": "B", "odds": 5.0, "popularity": 2},
+        ]
+        result = _optimize_fund_allocation(horses, 1000, "trio")
+        assert "不要" in result["strategy"]
+
+    def test_100円単位に丸められる(self):
+        horses = [
+            {"horse_number": 1, "horse_name": "A", "odds": 5.0, "popularity": 3},
+            {"horse_number": 2, "horse_name": "B", "odds": 10.0, "popularity": 5},
+        ]
+        result = _optimize_fund_allocation(horses, 1000, "win")
+        for alloc in result["allocations"]:
+            assert alloc["suggested_amount"] % 100 == 0
+
+    def test_予算0は空結果(self):
+        horses = [{"horse_number": 1, "horse_name": "A", "odds": 3.0, "popularity": 1}]
+        result = _optimize_fund_allocation(horses, 0, "win")
+        assert result["strategy"] == "データ不足"
