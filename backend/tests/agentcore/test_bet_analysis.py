@@ -494,14 +494,15 @@ class TestOptimizeFundAllocation:
         ]
         result = _optimize_fund_allocation(horses, 2000, "win")
         assert len(result["allocations"]) == 2
-        # 10番人気オッズ50倍は期待値高い（0.02 * 50 = 1.0）ので配分多め
+        # ケリー基準では両馬とも期待値1.0（エッジ0）となりKelly fractionは0のため、
+        # 実装上はフォールバック処理により予算2000円が2頭に均等配分されるケースを検証する
         allocs = {a["horse_number"]: a for a in result["allocations"]}
         assert allocs[2]["suggested_amount"] >= 100
 
     def test_単一買い目は資金配分不要(self):
         horses = [{"horse_number": 1, "horse_name": "A", "odds": 3.0, "popularity": 1}]
         result = _optimize_fund_allocation(horses, 1000, "win")
-        assert "不要" in result["strategy"]
+        assert "資金配分不要" in result["strategy"]
 
     def test_三連系は資金配分対象外(self):
         horses = [
@@ -509,7 +510,7 @@ class TestOptimizeFundAllocation:
             {"horse_number": 2, "horse_name": "B", "odds": 5.0, "popularity": 2},
         ]
         result = _optimize_fund_allocation(horses, 1000, "trio")
-        assert "不要" in result["strategy"]
+        assert "資金配分不要" in result["strategy"]
 
     def test_100円単位に丸められる(self):
         horses = [

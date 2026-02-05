@@ -575,9 +575,6 @@ def _analyze_ai_index_context(
 
     top_score = sorted_preds[0].get("score", 0)
     scores = [p.get("score", 0) for p in sorted_preds]
-    avg_score = sum(scores) / len(scores) if scores else 0
-    score_range = max(scores) - min(scores) if len(scores) > 1 else 0
-
     results = []
     for pred in sorted_preds:
         horse_num = pred.get("horse_number")
@@ -648,7 +645,7 @@ def _identify_score_cluster(all_scores: list[float], target_score: float) -> str
     """スコア分布からクラスター（集団）を特定する.
 
     Args:
-        all_scores: 全馬のスコアリスト（降順ソート済み前提）
+        all_scores: 全馬のスコアリスト（ソート不要、関数内でソート）
         target_score: 対象馬のスコア
 
     Returns:
@@ -714,7 +711,7 @@ def _optimize_fund_allocation(
     if bet_type not in ("win", "place") or len(selected_horses) < 2:
         return {
             "allocations": [],
-            "strategy": "単一買い目のため資金配分不要",
+            "strategy": "単勝・複勝以外の券種、または買い目が1点のため資金配分不要",
         }
 
     allocations = []
@@ -766,8 +763,17 @@ def _optimize_fund_allocation(
             alloc["suggested_amount"] = equal_amount
             alloc["allocation_ratio"] = round(100 / len(allocations), 1)
 
-    # 配分合計の調整
+    # 配分合計を算出
     total_allocated = sum(a["suggested_amount"] for a in allocations)
+
+    # 100円単位への丸めにより発生した残額を、期待値が最も高い馬に再配分する
+    remaining_budget = total_budget - total_allocated
+    if allocations and remaining_budget >= 100:
+        extra_amount = int(math.floor(remaining_budget / 100) * 100)
+        if extra_amount >= 100:
+            best_allocation = max(allocations, key=lambda x: x["expected_return"])
+            best_allocation["suggested_amount"] += extra_amount
+            total_allocated = sum(a["suggested_amount"] for a in allocations)
 
     strategy_parts = []
     ev_positive = [a for a in allocations if a["expected_return"] >= 1.0]
@@ -857,7 +863,7 @@ def _analyze_bet_selection_impl(
 
     # 合成オッズ計算（複数買い目の場合）
     composite_odds = _calculate_composite_odds(odds_list)
-    if composite_odds["is_torigami"] and composite_odds["torigami_warning"]:
+    if composite_odds["torigami_warning"]:
         weaknesses.append(composite_odds["torigami_warning"])
 
     # AI指数内訳コンテキスト
