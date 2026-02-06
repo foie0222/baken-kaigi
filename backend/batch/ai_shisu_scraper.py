@@ -230,8 +230,11 @@ def save_predictions(
 def scrape_races() -> dict[str, Any]:
     """メインのスクレイピング処理.
 
+    前日夜に翌日分のAI指数を取得する。
+    ai-shisu.com は前日にデータを配信するため、毎晩21:00 JST に翌日分を取り込む。
+
     フロー:
-    1. /event_dates から今日の日付ページURLを取得
+    1. /event_dates から翌日の日付ページURLを取得
     2. 日付ページから競馬場リストを取得
     3. 各競馬場ページから全レースリンクを取得
     4. 各レースページからAI指数をスクレイピング
@@ -241,8 +244,9 @@ def scrape_races() -> dict[str, Any]:
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
-    date_str = scraped_at.strftime("%Y%m%d")
-    target_date = f"{scraped_at.month}/{scraped_at.day}"  # "1/31" 形式
+    tomorrow = scraped_at + timedelta(days=1)
+    date_str = tomorrow.strftime("%Y%m%d")
+    target_date = f"{tomorrow.month}/{tomorrow.day}"  # "1/31" 形式
 
     results = {
         "success": True,
@@ -258,7 +262,7 @@ def scrape_races() -> dict[str, Any]:
         results["errors"].append("Failed to fetch event dates page")
         return results
 
-    # 今日の日付リンクを探す
+    # 翌日の日付リンクを探す
     today_url = find_today_event_date_url(dates_soup, target_date)
     if not today_url:
         # 開催がない日（月曜など）は正常終了扱い

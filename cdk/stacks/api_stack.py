@@ -936,7 +936,7 @@ class BakenKaigiApiStack(Stack):
                 exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
             function_name="baken-kaigi-ai-shisu-scraper",
-            description="AI指数スクレイピング（ai-shisu.com）",
+            description="AI指数スクレイピング（ai-shisu.com / 毎晩21時に翌日分取得）",
             timeout=Duration.seconds(300),  # スクレイピングは時間がかかる
             memory_size=512,
             runtime=lambda_.Runtime.PYTHON_3_12,
@@ -950,15 +950,15 @@ class BakenKaigiApiStack(Stack):
         # AI指数スクレイピング Lambda に DynamoDB 書き込み権限を付与
         ai_predictions_table.grant_write_data(ai_shisu_scraper_fn)
 
-        # EventBridge ルール（毎朝 6:00 JST = 21:00 UTC 前日）
+        # EventBridge ルール（毎晩 21:00 JST = 12:00 UTC に翌日分を取得）
         scraper_rule = events.Rule(
             self,
             "AiShisuScraperRule",
             rule_name="baken-kaigi-ai-shisu-scraper-rule",
-            description="AI指数スクレイピングを毎朝6:00 JSTに実行",
+            description="AI指数スクレイピングを毎晩21:00 JSTに実行（翌日分を前日取得）",
             schedule=events.Schedule.cron(
                 minute="0",
-                hour="21",  # UTC 21:00 = JST 06:00
+                hour="12",  # UTC 12:00 = JST 21:00
                 month="*",
                 week_day="*",
                 year="*",
