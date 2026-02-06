@@ -64,8 +64,8 @@ def fetch_page(url: str) -> BeautifulSoup | None:
         return None
 
 
-def find_today_event_date_url(soup: BeautifulSoup, target_date: str) -> str | None:
-    """開催日一覧ページから今日の日付リンクを探す.
+def find_event_date_url(soup: BeautifulSoup, target_date: str) -> str | None:
+    """開催日一覧ページから対象日付のリンクを探す.
 
     Args:
         soup: /event_dates ページのBeautifulSoup
@@ -263,22 +263,22 @@ def scrape_races() -> dict[str, Any]:
         return results
 
     # 翌日の日付リンクを探す
-    today_url = find_today_event_date_url(dates_soup, target_date)
-    if not today_url:
+    target_url = find_event_date_url(dates_soup, target_date)
+    if not target_url:
         # 開催がない日（月曜など）は正常終了扱い
         logger.info(f"No JRA event scheduled for {target_date}")
         results["races_scraped"] = 0
         return results
 
-    logger.info(f"Found today's event page: {today_url}")
+    logger.info(f"Found event page for {target_date}: {target_url}")
 
     # Step 2: 日付ページから競馬場リストを取得
     time.sleep(REQUEST_DELAY_SECONDS)
-    date_page_url = BASE_URL + today_url
+    date_page_url = BASE_URL + target_url
     date_soup = fetch_page(date_page_url)
     if not date_soup:
         results["success"] = False
-        results["errors"].append(f"Failed to fetch date page: {today_url}")
+        results["errors"].append(f"Failed to fetch date page: {target_url}")
         return results
 
     venues = parse_venue_list(date_soup)
