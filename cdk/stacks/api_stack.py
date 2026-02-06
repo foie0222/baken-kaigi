@@ -967,6 +967,60 @@ class BakenKaigiApiStack(Stack):
         scraper_rule.add_target(targets.LambdaFunction(ai_shisu_scraper_fn))
 
         # ========================================
+        # JRAチェックサム自動更新バッチ
+        # ========================================
+
+        # JRAチェックサム更新 Lambda（VPC内からEC2にアクセス）
+        jra_checksum_updater_props: dict = {
+            "runtime": lambda_.Runtime.PYTHON_3_12,
+            "timeout": Duration.seconds(300),
+            "memory_size": 256,
+            "layers": [batch_deps_layer],
+            "environment": {
+                "PYTHONPATH": "/var/task:/opt/python",
+            },
+        }
+
+        # VPC設定（EC2にアクセスするためVPC内に配置）
+        if vpc is not None:
+            jra_checksum_updater_props["vpc"] = vpc
+            jra_checksum_updater_props["vpc_subnets"] = ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+            )
+
+        if use_jravan:
+            jra_checksum_updater_props["environment"]["JRAVAN_API_URL"] = jravan_api_url  # type: ignore
+
+        jra_checksum_updater_fn = lambda_.Function(
+            self,
+            "JraChecksumUpdaterFunction",
+            handler="batch.jra_checksum_updater.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-jra-checksum-updater",
+            description="JRA出馬表チェックサム自動更新",
+            **jra_checksum_updater_props,
+        )
+
+        # EventBridge ルール（毎朝 6:10 JST = 21:10 UTC 前日、AI指数の10分後）
+        checksum_rule = events.Rule(
+            self,
+            "JraChecksumUpdaterRule",
+            rule_name="baken-kaigi-jra-checksum-updater-rule",
+            description="JRAチェックサム自動更新を毎朝6:10 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="10",
+                hour="21",  # UTC 21:10 = JST 06:10
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        checksum_rule.add_target(targets.LambdaFunction(jra_checksum_updater_fn))
+
+        # ========================================
         # DynamoDB アクセス権限
         # ========================================
 

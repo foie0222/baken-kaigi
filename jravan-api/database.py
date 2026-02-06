@@ -1591,6 +1591,50 @@ def get_jockey_stats(
         return None
 
 
+def get_current_kaisai_info(target_date: str) -> list[dict]:
+    """指定日の開催情報を取得する.
+
+    Args:
+        target_date: 日付（YYYYMMDD形式）
+
+    Returns:
+        開催情報のリスト
+        [{"venue_code": "05", "kaisai_kai": "01", "kaisai_nichime": 3, "date": "20260207"}, ...]
+
+    Raises:
+        TypeError: target_dateが文字列でない場合
+        ValueError: target_dateが不正な形式の場合
+    """
+    kaisai_nen, kaisai_tsukihi = _validate_date(target_date)
+
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT
+                keibajo_code,
+                kaisai_kai,
+                kaisai_nichime
+            FROM jvd_ra
+            WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+            ORDER BY keibajo_code
+        """, (kaisai_nen, kaisai_tsukihi))
+        rows = _fetch_all_as_dicts(cur)
+
+        results = []
+        for row in rows:
+            try:
+                nichime = int(row["kaisai_nichime"])
+            except (ValueError, TypeError):
+                nichime = 0
+            results.append({
+                "venue_code": row["keibajo_code"],
+                "kaisai_kai": (row["kaisai_kai"] or "").strip(),
+                "kaisai_nichime": nichime,
+                "date": target_date,
+            })
+        return results
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 

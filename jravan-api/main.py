@@ -489,6 +489,36 @@ def save_jra_checksum(request: JraChecksumSaveRequest):
     return {"status": "ok"}
 
 
+@app.post("/jra-checksum/auto-update")
+def auto_update_jra_checksums(
+    target_date: str | None = Query(None, description="対象日付（YYYYMMDD）。省略時は当日"),
+):
+    """JRAサイトから全会場のbase_valueを自動取得して更新する."""
+    from datetime import timezone, timedelta
+    from jra_checksum_scraper import scrape_jra_checksums
+
+    if target_date is None:
+        jst = timezone(timedelta(hours=9))
+        target_date = datetime.now(jst).strftime("%Y%m%d")
+
+    try:
+        results = scrape_jra_checksums(target_date)
+        saved_count = sum(1 for r in results if r["status"] == "saved")
+        return {
+            "status": "ok",
+            "target_date": target_date,
+            "total_venues": len(results),
+            "saved_count": saved_count,
+            "details": results,
+        }
+    except Exception as e:
+        logger.exception("Failed to auto-update JRA checksums")
+        raise HTTPException(
+            status_code=500,
+            detail=f"チェックサム自動更新に失敗しました: {str(e)}",
+        )
+
+
 @app.get("/statistics/past-races", response_model=PastStatsResponse)
 def get_past_race_stats(
     track_code: str = Query(..., description='トラックコード（"1": 芝コース, "2": ダートコース, "3": 障害コース）'),
