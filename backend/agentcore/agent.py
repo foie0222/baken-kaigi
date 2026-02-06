@@ -219,6 +219,8 @@ def _format_runners_summary(runners_data: list) -> str:
         odds = runner.get("odds")
         popularity = runner.get("popularity")
         frame = runner.get("frame_number")
+        if frame is None:
+            frame = runner.get("waku_ban")
 
         parts = [f"{number}番 {name}"]
         if odds is not None:

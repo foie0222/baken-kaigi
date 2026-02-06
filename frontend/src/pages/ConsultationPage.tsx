@@ -17,7 +17,7 @@ interface ChatMessage {
 
 export function ConsultationPage() {
   const navigate = useNavigate();
-  const { items, getTotalAmount, clearCart, removeItem, updateItemAmount } =
+  const { items, currentRunnersData, getTotalAmount, clearCart, removeItem, updateItemAmount } =
     useCartStore();
   const showToast = useAppStore((state) => state.showToast);
   const totalAmount = getTotalAmount();
@@ -56,7 +56,7 @@ export function ConsultationPage() {
 
     setIsLoading(true);
     try {
-      const runnersData = items.find((item) => item.runnersData)?.runnersData;
+      const runnersData = currentRunnersData.length > 0 ? currentRunnersData : undefined;
       const response = await apiClient.consultWithAgent({
         prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
         cart_items: items.map((item) => ({
@@ -90,7 +90,7 @@ export function ConsultationPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [items]);
+  }, [items, currentRunnersData]);
 
   useEffect(() => {
     fetchInitialAnalysis();
@@ -117,7 +117,7 @@ export function ConsultationPage() {
 
     setIsLoading(true);
     try {
-      const runnersData = items.find((item) => item.runnersData)?.runnersData;
+      const runnersData = currentRunnersData.length > 0 ? currentRunnersData : undefined;
       const response = await apiClient.consultWithAgent({
         prompt: message,
         cart_items: items.map((item) => ({

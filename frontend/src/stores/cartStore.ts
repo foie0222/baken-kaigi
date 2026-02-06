@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CartItem } from '../types';
+import type { CartItem, RunnerData } from '../types';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
 interface CartState {
   cartId: string;
   items: CartItem[];
-  addItem: (item: Omit<CartItem, 'id'>) => boolean;
+  currentRunnersData: RunnerData[];
+  addItem: (item: Omit<CartItem, 'id'> & { runnersData?: RunnerData[] }) => boolean;
   removeItem: (itemId: string) => void;
   updateItemAmount: (itemId: string, amount: number) => void;
   clearCart: () => void;
@@ -26,6 +27,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       cartId: generateCartId(),
       items: [],
+      currentRunnersData: [],
 
       addItem: (item) => {
         const state = get();
@@ -38,12 +40,19 @@ export const useCartStore = create<CartState>()(
           }
         }
 
+        // runnersDataはCart単位で保持（CartItemには含めない）
+        const { runnersData, ...itemWithoutRunners } = item;
         const newItem: CartItem = {
-          ...item,
+          ...itemWithoutRunners,
           id: generateItemId(),
         };
+        const updates: Partial<CartState> = {};
+        if (runnersData && runnersData.length > 0) {
+          updates.currentRunnersData = runnersData;
+        }
         set((state) => ({
           items: [...state.items, newItem],
+          ...updates,
         }));
         return true;
       },
@@ -69,6 +78,7 @@ export const useCartStore = create<CartState>()(
       clearCart: () => {
         set({
           items: [],
+          currentRunnersData: [],
           cartId: generateCartId(),
         });
       },

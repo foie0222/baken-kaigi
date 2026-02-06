@@ -8,6 +8,7 @@ import type {
   ApiResponse,
   ApiRacesResponse,
   ApiRaceDetailResponse,
+  RunnerData,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 
@@ -26,14 +27,7 @@ export interface AgentCoreConsultationRequest {
     horseNumbers: number[];
     amount: number;
   }>;
-  runners_data?: Array<{
-    horse_number: number;
-    horse_name: string;
-    odds?: number;
-    popularity?: number;
-    running_style?: string;
-    frame_number?: number;
-  }>;
+  runners_data?: RunnerData[];
   session_id?: string;
 }
 

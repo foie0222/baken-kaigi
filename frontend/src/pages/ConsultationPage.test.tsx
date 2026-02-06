@@ -12,11 +12,16 @@ vi.mock('../api/client', () => ({
   },
 }))
 
+const testRunnersData = [
+  { horse_number: 1, horse_name: 'テスト馬1', odds: 5.0, popularity: 2, frame_number: 1 },
+  { horse_number: 2, horse_name: 'テスト馬2', odds: 3.0, popularity: 1, frame_number: 1 },
+]
+
 describe('ConsultationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useCartStore.getState().clearCart()
-    // テスト用の買い目を追加
+    // テスト用の買い目を追加（runnersData付き）
     useCartStore.getState().addItem({
       raceId: 'test-race-1',
       raceName: 'テストレース',
@@ -28,6 +33,7 @@ describe('ConsultationPage', () => {
       betDisplay: '1',
       betCount: 1,
       amount: 1000,
+      runnersData: testRunnersData,
     })
   })
 
@@ -407,7 +413,7 @@ describe('ConsultationPage', () => {
   })
 
   describe('AgentCore初回分析', () => {
-    it('AgentCore利用可能時に新しいプロンプトでconsultWithAgentが呼び出される', async () => {
+    it('AgentCore利用可能時にrunners_data付きでconsultWithAgentが呼び出される', async () => {
       // AgentCoreを利用可能に設定
       vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
       vi.mocked(apiClient.consultWithAgent).mockResolvedValue({
@@ -420,7 +426,7 @@ describe('ConsultationPage', () => {
 
       render(<ConsultationPage />)
 
-      // consultWithAgentが正しいプロンプトで呼び出される
+      // consultWithAgentがrunners_data付きで呼び出される
       await waitFor(() => {
         expect(apiClient.consultWithAgent).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -430,6 +436,14 @@ describe('ConsultationPage', () => {
                 raceId: 'test-race-1',
                 betType: 'win',
                 horseNumbers: [1],
+              }),
+            ]),
+            runners_data: expect.arrayContaining([
+              expect.objectContaining({
+                horse_number: 1,
+                horse_name: 'テスト馬1',
+                odds: 5.0,
+                popularity: 2,
               }),
             ]),
           })

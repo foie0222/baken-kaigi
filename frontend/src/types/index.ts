@@ -316,7 +316,6 @@ export interface CartItem {
   betDisplay?: string;  // 買い目の表示文字列（例: "1着軸:3 → 2着:1,5"）
   betCount?: number;    // 点数
   amount: number;
-  runnersData?: RunnerData[];  // 出走馬データ（AgentCore分析用）
 }
 
 export interface Cart {
