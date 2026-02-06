@@ -65,3 +65,13 @@ def bad_request_response(message: str) -> dict:
 def internal_error_response(message: str = "Internal server error") -> dict:
     """500 Internal Server Errorレスポンスを生成する."""
     return error_response(message, status_code=500, error_code="INTERNAL_ERROR")
+
+
+def unauthorized_response(message: str = "Authentication required") -> dict:
+    """401 Unauthorizedレスポンスを生成する."""
+    return error_response(message, status_code=401, error_code="UNAUTHORIZED")
+
+
+def forbidden_response(message: str = "Access denied") -> dict:
+    """403 Forbiddenレスポンスを生成する."""
+    return error_response(message, status_code=403, error_code="FORBIDDEN")

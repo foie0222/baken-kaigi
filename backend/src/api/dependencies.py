@@ -7,9 +7,11 @@ from src.domain.ports import (
     ConsultationSessionRepository,
     RaceDataProvider,
 )
+from src.domain.ports.user_repository import UserRepository
 from src.infrastructure import (
     InMemoryCartRepository,
     InMemoryConsultationSessionRepository,
+    InMemoryUserRepository,
     MockAIClient,
     MockRaceDataProvider,
 )
@@ -37,6 +39,7 @@ class Dependencies:
     _session_repository: ConsultationSessionRepository | None = None
     _race_data_provider: RaceDataProvider | None = None
     _ai_client: AIClient | None = None
+    _user_repository: UserRepository | None = None
 
     @classmethod
     def get_cart_repository(cls) -> CartRepository:
@@ -85,6 +88,23 @@ class Dependencies:
         return cls._ai_client
 
     @classmethod
+    def get_user_repository(cls) -> UserRepository:
+        """ユーザーリポジトリを取得する."""
+        if cls._user_repository is None:
+            if _use_dynamodb():
+                from src.infrastructure.repositories import DynamoDBUserRepository
+
+                cls._user_repository = DynamoDBUserRepository()
+            else:
+                cls._user_repository = InMemoryUserRepository()
+        return cls._user_repository
+
+    @classmethod
+    def set_user_repository(cls, repository: UserRepository) -> None:
+        """ユーザーリポジトリを設定する（テスト用）."""
+        cls._user_repository = repository
+
+    @classmethod
     def set_cart_repository(cls, repository: CartRepository) -> None:
         """カートリポジトリを設定する（テスト用）."""
         cls._cart_repository = repository
@@ -111,3 +131,4 @@ class Dependencies:
         cls._session_repository = None
         cls._race_data_provider = None
         cls._ai_client = None
+        cls._user_repository = None

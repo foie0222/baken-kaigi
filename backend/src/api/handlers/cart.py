@@ -1,6 +1,7 @@
 """カートAPI ハンドラー."""
 from typing import Any
 
+from src.api.auth import get_authenticated_user_id
 from src.api.dependencies import Dependencies
 from src.api.request import get_body, get_path_parameter
 from src.api.response import (
@@ -74,6 +75,9 @@ def add_to_cart(event: dict, context: Any) -> dict:
         amount=amount,
     )
 
+    # 認証ユーザーID（オプション）
+    user_id = get_authenticated_user_id(event)
+
     # ユースケース実行
     repository = Dependencies.get_cart_repository()
     use_case = AddToCartUseCase(repository)
@@ -88,15 +92,16 @@ def add_to_cart(event: dict, context: Any) -> dict:
     except CartNotFoundError:
         return not_found_response("Cart")
 
-    return success_response(
-        {
-            "cart_id": str(result.cart_id),
-            "item_id": str(result.item_id),
-            "item_count": result.item_count,
-            "total_amount": result.total_amount.value,
-        },
-        status_code=201,
-    )
+    response_data = {
+        "cart_id": str(result.cart_id),
+        "item_id": str(result.item_id),
+        "item_count": result.item_count,
+        "total_amount": result.total_amount.value,
+    }
+    if user_id:
+        response_data["user_id"] = str(user_id)
+
+    return success_response(response_data, status_code=201)
 
 
 def get_cart(event: dict, context: Any) -> dict:

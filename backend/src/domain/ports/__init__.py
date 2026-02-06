@@ -2,6 +2,7 @@
 from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, ConsultationContext
 from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
+from .user_repository import UserRepository
 from .race_data_provider import (
     AncestorData,
     AptitudeSummaryData,
@@ -111,5 +112,6 @@ __all__ = [
     "TrainingRecordData",
     "TrainingSummaryData",
     "VenueAptitudeData",
+    "UserRepository",
     "WeightData",
 ]
