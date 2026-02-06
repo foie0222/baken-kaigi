@@ -352,7 +352,7 @@ describe('cartStore', () => {
 
       const state = useCartStore.getState()
       // CartItemにはrunnersDataプロパティがない
-      expect((state.items[0] as Record<string, unknown>).runnersData).toBeUndefined()
+      expect('runnersData' in state.items[0]).toBe(false)
     })
   })
 
