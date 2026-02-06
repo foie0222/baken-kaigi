@@ -6,7 +6,7 @@ JRAサイトから出馬表ページをスクレイピングし、
 
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -210,7 +210,8 @@ def find_valid_checksum(venue_code: str, year: str, kaisai_kai: str, kaisai_nich
             logger.info(f"Found valid checksum {checksum:02X} for {cname}")
             return response.text, checksum
 
-        time.sleep(REQUEST_DELAY_SECONDS)
+        if checksum < 255:
+            time.sleep(REQUEST_DELAY_SECONDS)
 
     logger.warning(f"No valid checksum found for venue_code={venue_code}")
     return None

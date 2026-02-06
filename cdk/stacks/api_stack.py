@@ -1012,7 +1012,7 @@ class BakenKaigiApiStack(Stack):
             description="JRAチェックサム自動更新を毎朝6:10 JSTに実行",
             schedule=events.Schedule.cron(
                 minute="10",
-                hour="21",  # UTC 21:10 = JST 06:10
+                hour="21",  # UTC 21:10（前日） = JST 06:10（当日）
                 month="*",
                 week_day="*",
                 year="*",

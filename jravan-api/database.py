@@ -1622,10 +1622,21 @@ def get_current_kaisai_info(target_date: str) -> list[dict]:
 
         results = []
         for row in rows:
+            raw_nichime = row.get("kaisai_nichime")
             try:
-                nichime = int(row["kaisai_nichime"])
+                nichime = int(raw_nichime)
             except (ValueError, TypeError):
-                nichime = 0
+                logger.warning(
+                    "Invalid kaisai_nichime '%s' for date=%s, venue_code=%s. Skipping.",
+                    raw_nichime, target_date, row.get("keibajo_code"),
+                )
+                continue
+            if not 1 <= nichime <= 12:
+                logger.warning(
+                    "Out-of-range kaisai_nichime '%s' for date=%s, venue_code=%s. Skipping.",
+                    raw_nichime, target_date, row.get("keibajo_code"),
+                )
+                continue
             results.append({
                 "venue_code": row["keibajo_code"],
                 "kaisai_kai": (row["kaisai_kai"] or "").strip(),
