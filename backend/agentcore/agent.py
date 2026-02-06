@@ -52,7 +52,7 @@ def _get_agent():
         from tools.risk_analysis import analyze_risk_factors
 
         bedrock_model = BedrockModel(
-            model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
+            model_id=os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-haiku-4-5-v1"),
             temperature=0.3,
         )
         logger.info(f"BedrockModel created with model_id: {bedrock_model.config.get('model_id')}")
