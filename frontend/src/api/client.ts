@@ -26,6 +26,14 @@ export interface AgentCoreConsultationRequest {
     horseNumbers: number[];
     amount: number;
   }>;
+  runners_data?: Array<{
+    horse_number: number;
+    horse_name: string;
+    odds?: number;
+    popularity?: number;
+    running_style?: string;
+    frame_number?: number;
+  }>;
   session_id?: string;
 }
 

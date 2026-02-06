@@ -56,6 +56,7 @@ export function ConsultationPage() {
 
     setIsLoading(true);
     try {
+      const runnersData = items.find((item) => item.runnersData)?.runnersData;
       const response = await apiClient.consultWithAgent({
         prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
         cart_items: items.map((item) => ({
@@ -65,6 +66,7 @@ export function ConsultationPage() {
           horseNumbers: item.horseNumbers,
           amount: item.amount,
         })),
+        runners_data: runnersData,
       });
 
       if (response.success && response.data) {
@@ -115,6 +117,7 @@ export function ConsultationPage() {
 
     setIsLoading(true);
     try {
+      const runnersData = items.find((item) => item.runnersData)?.runnersData;
       const response = await apiClient.consultWithAgent({
         prompt: message,
         cart_items: items.map((item) => ({
@@ -124,6 +127,7 @@ export function ConsultationPage() {
           horseNumbers: item.horseNumbers,
           amount: item.amount,
         })),
+        runners_data: runnersData,
         session_id: sessionId,
       });
 
