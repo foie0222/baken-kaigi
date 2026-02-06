@@ -49,6 +49,7 @@ def _get_agent():
         from tools.bet_analysis import analyze_bet_selection
         from tools.odds_analysis import analyze_odds_movement
         from tools.pace_analysis import analyze_race_characteristics
+        from tools.race_data import get_race_runners
         from tools.risk_analysis import analyze_risk_factors
 
         bedrock_model = BedrockModel(
@@ -62,6 +63,7 @@ def _get_agent():
             system_prompt=SYSTEM_PROMPT,
             tools=[
                 get_ai_prediction,  # AI指数取得（ai-shisu.com）
+                get_race_runners,  # レース出走馬データ取得（JRA-VAN API）
                 analyze_bet_selection,  # JRA統計ベース買い目分析
                 analyze_odds_movement,  # オッズ変動・妙味分析
                 analyze_race_characteristics,  # 展開予想・レース特性分析
