@@ -4,7 +4,7 @@
 """
 
 import logging
-from itertools import combinations
+from itertools import combinations, permutations
 
 import requests
 from strands import tool
@@ -455,7 +455,12 @@ def _generate_bet_suggestions(
     if bet_type in ["3連複", "3連単"]:
         # 3連系: 軸馬と相手馬2頭の組み合わせ
         processed = all_partners[:MAX_PARTNERS_TO_PROCESS]
-        for p1, p2 in combinations(processed, 2):
+        if bet_type == "3連複":
+            partner_pairs = combinations(processed, 2)
+        else:
+            # 3連単は着順があるため順列を使用
+            partner_pairs = permutations(processed, 2)
+        for p1, p2 in partner_pairs:
             for axis in axis_horses:
                 nums = [axis, p1["number"], p2["number"]]
                 if bet_type == "3連複":
@@ -467,7 +472,7 @@ def _generate_bet_suggestions(
                 axis_odds = odds_data.get(axis, DEFAULT_AXIS_ODDS)
                 p1_odds = odds_data.get(p1["number"], DEFAULT_PARTNER_ODDS)
                 p2_odds = odds_data.get(p2["number"], DEFAULT_PARTNER_ODDS)
-                estimated_odds = (axis_odds * p1_odds * p2_odds) ** (1/3) * ODDS_ESTIMATE_FACTOR
+                estimated_odds = (axis_odds * p1_odds * p2_odds) ** (1 / 3) * ODDS_ESTIMATE_FACTOR
 
                 min_score = min(p1["score"], p2["score"])
                 if min_score >= SCORE_HIGH_CONFIDENCE:

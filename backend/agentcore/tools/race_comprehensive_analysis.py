@@ -208,7 +208,7 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
     factors = {
         "form": "B",
         "course_aptitude": "B",
-        # TODO: 以下3項目は評価ロジック未実装のためデフォルト"B"固定
+        # 以下3項目は評価ロジック未実装のためデフォルト"B"固定 (issue #258)
         # 実装時は _calculate_overall_score の weights にも追加すること
         "jockey": "B",
         "trainer": "B",
