@@ -3,13 +3,14 @@
 PC-KEIBA Database (PostgreSQL) からレース情報を提供する。
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import database as db
+from jra_checksum_scraper import scrape_jra_checksums
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -487,6 +488,42 @@ def save_jra_checksum(request: JraChecksumSaveRequest):
         request.base_value,
     )
     return {"status": "ok"}
+
+
+@app.post("/jra-checksum/auto-update")
+def auto_update_jra_checksums(
+    target_date: str | None = Query(None, description="対象日付（YYYYMMDD）。省略時は当日"),
+):
+    """JRAサイトから全会場のbase_valueを自動取得して更新する."""
+    if target_date is None:
+        jst = timezone(timedelta(hours=9))
+        target_date = datetime.now(jst).strftime("%Y%m%d")
+
+    # target_date の形式バリデーション（YYYYMMDD）
+    try:
+        db._validate_date(target_date)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(
+            status_code=400,
+            detail="target_date は YYYYMMDD 形式の8桁数値文字列で指定してください。",
+        ) from e
+
+    try:
+        results = scrape_jra_checksums(target_date)
+        saved_count = sum(1 for r in results if r["status"] == "saved")
+        return {
+            "status": "ok",
+            "target_date": target_date,
+            "total_venues": len(results),
+            "saved_count": saved_count,
+            "details": results,
+        }
+    except Exception as e:
+        logger.exception("Failed to auto-update JRA checksums")
+        raise HTTPException(
+            status_code=500,
+            detail=f"チェックサム自動更新に失敗しました: {str(e)}",
+        )
 
 
 @app.get("/statistics/past-races", response_model=PastStatsResponse)
