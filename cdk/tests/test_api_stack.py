@@ -380,7 +380,7 @@ class TestApiStack:
             "AWS::Events::Rule",
             {
                 "Name": "baken-kaigi-ai-shisu-scraper-rule",
-                "ScheduleExpression": "cron(0 21 ? * * *)",  # UTC 21:00 = JST 06:00
+                "ScheduleExpression": "cron(0 12 ? * * *)",  # UTC 12:00 = JST 21:00
             },
         )
 
