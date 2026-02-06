@@ -49,6 +49,7 @@ def _get_agent():
         from tools.bet_analysis import analyze_bet_selection
         from tools.odds_analysis import analyze_odds_movement
         from tools.pace_analysis import analyze_race_characteristics
+        from tools.race_data import get_race_runners
         from tools.risk_analysis import analyze_risk_factors
 
         bedrock_model = BedrockModel(
@@ -62,6 +63,7 @@ def _get_agent():
             system_prompt=SYSTEM_PROMPT,
             tools=[
                 get_ai_prediction,  # AI指数取得（ai-shisu.com）
+                get_race_runners,  # レース出走馬データ取得（JRA-VAN API）
                 analyze_bet_selection,  # JRA統計ベース買い目分析
                 analyze_odds_movement,  # オッズ変動・妙味分析
                 analyze_race_characteristics,  # 展開予想・レース特性分析
@@ -83,11 +85,13 @@ def invoke(payload: dict, context: Any) -> dict:
     {
         "prompt": "ユーザーメッセージ",
         "cart_items": [...],  # オプション: カート内容
+        "runners_data": [...],  # オプション: 出走馬データ
         "session_id": "..."   # オプション: セッションID
     }
     """
     user_message = payload.get("prompt", "")
     cart_items = payload.get("cart_items", [])
+    runners_data = payload.get("runners_data", [])
 
     # 入力バリデーション
     if not user_message and not cart_items:
@@ -105,6 +109,11 @@ def invoke(payload: dict, context: Any) -> dict:
     if cart_items:
         cart_summary = _format_cart_summary(cart_items)
         user_message = f"【現在のカート】\n{cart_summary}\n\n【質問】\n{user_message}"
+
+    # 出走馬データをコンテキストとして追加
+    if runners_data:
+        runners_summary = _format_runners_summary(runners_data)
+        user_message = f"【出走馬データ】\n{runners_summary}\n\n{user_message}"
 
     # エージェント実行（遅延初期化）
     agent = _get_agent()
@@ -199,6 +208,31 @@ def _format_cart_summary(cart_items: list) -> str:
         lines.append(line)
 
     return "\n".join(lines) if lines else "カートは空です"
+
+
+def _format_runners_summary(runners_data: list) -> str:
+    """出走馬データをフォーマットする."""
+    lines = []
+    for runner in runners_data:
+        number = runner.get("horse_number", "?")
+        name = runner.get("horse_name", "不明")
+        odds = runner.get("odds")
+        popularity = runner.get("popularity")
+        frame = runner.get("frame_number")
+        if frame is None:
+            frame = runner.get("waku_ban")
+
+        parts = [f"{number}番 {name}"]
+        if odds is not None:
+            parts.append(f"オッズ:{odds}")
+        if popularity is not None:
+            parts.append(f"{popularity}番人気")
+        if frame is not None:
+            parts.append(f"{frame}枠")
+
+        lines.append("- " + " ".join(parts))
+
+    return "\n".join(lines) if lines else "出走馬データなし"
 
 
 if __name__ == "__main__":

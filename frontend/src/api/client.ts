@@ -8,6 +8,7 @@ import type {
   ApiResponse,
   ApiRacesResponse,
   ApiRaceDetailResponse,
+  RunnerData,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 
@@ -26,6 +27,7 @@ export interface AgentCoreConsultationRequest {
     horseNumbers: number[];
     amount: number;
   }>;
+  runners_data?: RunnerData[];
   session_id?: string;
 }
 
