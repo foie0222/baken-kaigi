@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from batch.ai_shisu_scraper import (
-    find_today_event_date_url,
+    find_event_date_url,
     parse_venue_list,
     parse_race_list,
     parse_race_predictions,
@@ -24,11 +24,11 @@ from batch.ai_shisu_scraper import (
 TEST_PARSER = "html.parser"
 
 
-class TestFindTodayEventDateUrl:
+class TestFindEventDateUrl:
     """開催日URLを探すテスト."""
 
-    def test_今日の日付リンクを取得(self):
-        """正常系: 今日の日付ページURLを取得できる."""
+    def test_対象日付のリンクを取得(self):
+        """正常系: 対象日付のページURLを取得できる."""
         html = """
         <html>
         <body>
@@ -41,7 +41,7 @@ class TestFindTodayEventDateUrl:
         </html>
         """
         soup = BeautifulSoup(html, TEST_PARSER)
-        url = find_today_event_date_url(soup, "1/31")
+        url = find_event_date_url(soup, "1/31")
 
         assert url == "/event_dates/2495"
 
@@ -57,7 +57,7 @@ class TestFindTodayEventDateUrl:
         </html>
         """
         soup = BeautifulSoup(html, TEST_PARSER)
-        url = find_today_event_date_url(soup, "1/31")
+        url = find_event_date_url(soup, "1/31")
 
         assert url is None
 
