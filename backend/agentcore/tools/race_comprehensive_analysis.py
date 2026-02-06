@@ -208,6 +208,8 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
     factors = {
         "form": "B",
         "course_aptitude": "B",
+        # 以下3項目は評価ロジック未実装のためデフォルト"B"固定 (issue #258)
+        # 実装時は _calculate_overall_score の weights にも追加すること
         "jockey": "B",
         "trainer": "B",
         "weight": "B",
@@ -332,24 +334,22 @@ def _calculate_overall_score(factors: dict) -> int:
     """総合スコアを計算する."""
     score = 50  # ベーススコア
 
-    # 各要素の重み付け
+    # 実際に評価ロジックが実装されている要素のみスコアに反映
+    # jockey, trainer, weight は現状デフォルト "B" 固定のため除外
     weights = {
         "form": 25,
         "course_aptitude": 20,
-        "jockey": 15,
-        "trainer": 10,
-        "weight": 10,
     }
 
     for key, weight in weights.items():
         grade = factors.get(key, "C")
         if grade == "A":
             score += weight
-        elif grade == "B":
-            score += weight // 2
-        # Cの場合は加算なし
+        elif grade == "C":
+            score -= weight // 2
+        # Bの場合は加算なし（平均的）
 
-    return min(score, 100)
+    return max(0, min(score, 100))
 
 
 def _predict_race_scenario(running_styles: list[dict]) -> dict:
@@ -381,7 +381,7 @@ def _predict_race_scenario(running_styles: list[dict]) -> dict:
         scenario = "逃げ馬が少なく、スローペース濃厚。前残りに注意"
     else:
         predicted_pace = "ミドル"
-        favorable_style = "差し"
+        favorable_style = "先行・差し"
         scenario = "平均的なペースで流れ、各馬の実力が問われる展開"
 
     return {

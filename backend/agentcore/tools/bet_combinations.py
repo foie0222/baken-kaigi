@@ -4,6 +4,7 @@
 """
 
 import logging
+from itertools import combinations, permutations
 
 import requests
 from strands import tool
@@ -428,6 +429,9 @@ def _identify_excluded_horses(
                 "risk_level": risk_level,
             })
 
+    # スコアが低い順にソート
+    excluded.sort(key=lambda x: horse_scores.get(x["number"], {}).get("score", 0))
+
     return excluded[:MAX_EXCLUDED_HORSES]
 
 
@@ -448,37 +452,76 @@ def _generate_bet_suggestions(
         + partners.get("value_picks", [])
     )
 
-    for partner in all_partners[:MAX_PARTNERS_TO_PROCESS]:
-        for axis in axis_horses:
-            # 組み合わせ生成
-            if bet_type in ["馬連", "ワイド"]:
-                combination = f"{min(axis, partner['number'])}-{max(axis, partner['number'])}"
-            else:
-                combination = f"{axis}-{partner['number']}"
+    if bet_type in ["3連複", "3連単"]:
+        # 3連系: 軸馬と相手馬2頭の組み合わせ
+        processed = all_partners[:MAX_PARTNERS_TO_PROCESS]
+        if bet_type == "3連複":
+            partner_pairs = combinations(processed, 2)
+        else:
+            # 3連単は着順があるため順列を使用
+            partner_pairs = permutations(processed, 2)
+        for p1, p2 in partner_pairs:
+            for axis in axis_horses:
+                nums = [axis, p1["number"], p2["number"]]
+                if bet_type == "3連複":
+                    nums_sorted = sorted(nums)
+                    combination = f"{nums_sorted[0]}-{nums_sorted[1]}-{nums_sorted[2]}"
+                else:
+                    combination = f"{axis}-{p1['number']}-{p2['number']}"
 
-            # オッズ推定（単勝オッズから概算）
-            axis_odds = odds_data.get(axis, DEFAULT_AXIS_ODDS)
-            partner_odds = odds_data.get(partner["number"], DEFAULT_PARTNER_ODDS)
-            estimated_odds = (axis_odds * partner_odds) ** 0.5 * ODDS_ESTIMATE_FACTOR
+                axis_odds = odds_data.get(axis, DEFAULT_AXIS_ODDS)
+                p1_odds = odds_data.get(p1["number"], DEFAULT_PARTNER_ODDS)
+                p2_odds = odds_data.get(p2["number"], DEFAULT_PARTNER_ODDS)
+                estimated_odds = (axis_odds * p1_odds * p2_odds) ** (1 / 3) * ODDS_ESTIMATE_FACTOR
 
-            # 信頼度と金額
-            if partner["score"] >= SCORE_HIGH_CONFIDENCE:
-                confidence = "高"
-                amount = int(budget * BET_HIGH_RATIO)
-            elif partner["score"] >= SCORE_MEDIUM_CONFIDENCE:
-                confidence = "中"
-                amount = int(budget * BET_MEDIUM_RATIO)
-            else:
-                confidence = "低（穴狙い）"
-                amount = int(budget * BET_VALUE_RATIO)
+                min_score = min(p1["score"], p2["score"])
+                if min_score >= SCORE_HIGH_CONFIDENCE:
+                    confidence = "高"
+                    amount = int(budget * BET_HIGH_RATIO)
+                elif min_score >= SCORE_MEDIUM_CONFIDENCE:
+                    confidence = "中"
+                    amount = int(budget * BET_MEDIUM_RATIO)
+                else:
+                    confidence = "低（穴狙い）"
+                    amount = int(budget * BET_VALUE_RATIO)
 
-            suggestions.append({
-                "bet_type": bet_type,
-                "combination": combination,
-                "estimated_odds": round(estimated_odds, 1),
-                "confidence": confidence,
-                "suggested_amount": max(MIN_BET_AMOUNT, (amount // MIN_BET_AMOUNT) * MIN_BET_AMOUNT),
-            })
+                suggestions.append({
+                    "bet_type": bet_type,
+                    "combination": combination,
+                    "estimated_odds": round(estimated_odds, 1),
+                    "confidence": confidence,
+                    "suggested_amount": max(MIN_BET_AMOUNT, (amount // MIN_BET_AMOUNT) * MIN_BET_AMOUNT),
+                })
+    else:
+        # 2連系: 軸馬と相手馬1頭の組み合わせ
+        for partner in all_partners[:MAX_PARTNERS_TO_PROCESS]:
+            for axis in axis_horses:
+                if bet_type in ["馬連", "ワイド"]:
+                    combination = f"{min(axis, partner['number'])}-{max(axis, partner['number'])}"
+                else:
+                    combination = f"{axis}-{partner['number']}"
+
+                axis_odds = odds_data.get(axis, DEFAULT_AXIS_ODDS)
+                partner_odds = odds_data.get(partner["number"], DEFAULT_PARTNER_ODDS)
+                estimated_odds = (axis_odds * partner_odds) ** 0.5 * ODDS_ESTIMATE_FACTOR
+
+                if partner["score"] >= SCORE_HIGH_CONFIDENCE:
+                    confidence = "高"
+                    amount = int(budget * BET_HIGH_RATIO)
+                elif partner["score"] >= SCORE_MEDIUM_CONFIDENCE:
+                    confidence = "中"
+                    amount = int(budget * BET_MEDIUM_RATIO)
+                else:
+                    confidence = "低（穴狙い）"
+                    amount = int(budget * BET_VALUE_RATIO)
+
+                suggestions.append({
+                    "bet_type": bet_type,
+                    "combination": combination,
+                    "estimated_odds": round(estimated_odds, 1),
+                    "confidence": confidence,
+                    "suggested_amount": max(MIN_BET_AMOUNT, (amount // MIN_BET_AMOUNT) * MIN_BET_AMOUNT),
+                })
 
     return suggestions[:MAX_BET_SUGGESTIONS]
 
