@@ -29,14 +29,14 @@ export function CookieConsentBanner() {
           <div className="cookie-details-panel">
             <div className="cookie-toggle-row">
               <span className="cookie-toggle-label">必須Cookie</span>
-              <div className="cookie-toggle disabled">
+              <label className="cookie-toggle disabled">
                 <input type="checkbox" checked disabled aria-label="必須Cookie" />
                 <span className="cookie-toggle-slider" />
-              </div>
+              </label>
             </div>
             <div className="cookie-toggle-row">
               <span className="cookie-toggle-label">分析Cookie</span>
-              <div className="cookie-toggle">
+              <label className="cookie-toggle">
                 <input
                   type="checkbox"
                   checked={analytics}
@@ -44,11 +44,11 @@ export function CookieConsentBanner() {
                   aria-label="分析Cookie"
                 />
                 <span className="cookie-toggle-slider" />
-              </div>
+              </label>
             </div>
             <div className="cookie-toggle-row">
               <span className="cookie-toggle-label">マーケティングCookie</span>
-              <div className="cookie-toggle">
+              <label className="cookie-toggle">
                 <input
                   type="checkbox"
                   checked={marketing}
@@ -56,7 +56,7 @@ export function CookieConsentBanner() {
                   aria-label="マーケティングCookie"
                 />
                 <span className="cookie-toggle-slider" />
-              </div>
+              </label>
             </div>
             <button type="button" className="cookie-btn cookie-btn-save" onClick={handleSaveDetails}>
               保存

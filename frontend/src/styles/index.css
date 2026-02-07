@@ -2034,10 +2034,12 @@ main {
 
 /* トグルスイッチ */
 .cookie-toggle {
+    display: block;
     position: relative;
     width: 44px;
     height: 24px;
     flex-shrink: 0;
+    cursor: pointer;
 }
 
 .cookie-toggle input {
