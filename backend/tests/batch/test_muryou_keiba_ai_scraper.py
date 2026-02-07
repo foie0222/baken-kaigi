@@ -1,6 +1,7 @@
 """無料競馬AI スクレイピングのテスト."""
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from bs4 import BeautifulSoup
@@ -42,19 +43,19 @@ class TestParseRaceListPage:
         <body>
             <ul>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19477/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
                         京都 2月8日 1R 09:55
                         3歳未勝利 ダート 1200m 16頭
                     </a>
                 </li>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19487/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19487/">
                         京都 2月8日 11R 15:30
                         きさらぎ賞 芝 1800m 9頭
                     </a>
                 </li>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19501/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19501/">
                         東京 2月8日 5R 12:15
                         3歳未勝利 芝 1600m 14頭
                     </a>
@@ -67,7 +68,7 @@ class TestParseRaceListPage:
         races = parse_race_list_page(soup, "20260208")
 
         assert len(races) == 3
-        assert races[0]["url"] == "https://muryou-keiba-ai.jp/predict/2026/02/08/19477/"
+        assert races[0]["url"] == "https://muryou-keiba-ai.jp/predict/2026/02/05/19477/"
         assert races[0]["venue"] == "京都"
         assert races[0]["race_number"] == 1
         assert races[0]["date_str"] == "20260208"
@@ -85,7 +86,7 @@ class TestParseRaceListPage:
         <body>
             <ul>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19477/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
                         京都 2月8日 1R 09:55
                         3歳未勝利 ダート 1200m 16頭
                     </a>
@@ -113,13 +114,13 @@ class TestParseRaceListPage:
         <body>
             <ul>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19477/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
                         京都 2月8日 1R 09:55
                         3歳未勝利 ダート 1200m 16頭
                     </a>
                 </li>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19500/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19500/">
                         佐賀 2月8日 1R 10:00
                         C1 ダート 1300m 12頭
                     </a>
@@ -150,7 +151,7 @@ class TestParseRaceListPage:
             <ul>
                 <li><a href="/about/">サイトについて</a></li>
                 <li>
-                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19477/">
+                    <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
                         京都 2月8日 1R 09:55
                         3歳未勝利 ダート 1200m 16頭
                     </a>
@@ -209,30 +210,38 @@ class TestExtractRaceInfo:
 class TestParseRacePredictions:
     """AI予想データのパースのテスト."""
 
-    def test_race_tableからAI予想を抽出(self):
-        """正常系: race_tableクラスのテーブルからAI予想データを抽出."""
+    def test_実際のHTML構造からAI予想を抽出(self):
+        """正常系: 実際のサイト構造（クラスがp要素、スコアがspan）から抽出."""
         html = """
         <html>
         <body>
-            <table class="race_table">
+            <table class="race_table baken_race_table">
                 <thead>
-                    <tr><th>馬番</th><th>馬名</th><th>AI予想</th></tr>
+                    <tr>
+                        <th class="umaban_head">馬番</th>
+                        <th class="bamei_head">馬名・騎手名</th>
+                        <th class="ninki_head">人気</th>
+                        <th class="predict_head"><strong>AI予想</strong></th>
+                    </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="umaban_wrap waku_2">2</td>
-                        <td class="bamei_wrap">エムズビギン</td>
-                        <td class="predict_wrap predict_1"><div class="mark">◎65.7</div></td>
+                        <td><p class="umaban_wrap waku_2">2</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei bamei_link"><strong>エムズビギン</strong></a><span class="kisyu">川田将雅</span></p></td>
+                        <td><p class="ninki_wrap"><span class="ninki">1</span></p></td>
+                        <td><p class="predict_wrap predict_1"><span class="mark">◎</span><span class="predict">65.7</span></p></td>
                     </tr>
                     <tr>
-                        <td class="umaban_wrap waku_1">1</td>
-                        <td class="bamei_wrap">ゾロアストロ</td>
-                        <td class="predict_wrap predict_2"><div class="mark">○65.6</div></td>
+                        <td><p class="umaban_wrap waku_1">1</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei bamei_link"><strong>ゾロアストロ</strong></a><span class="kisyu">騎手不明</span></p></td>
+                        <td><p class="ninki_wrap"><span class="ninki">2</span></p></td>
+                        <td><p class="predict_wrap predict_2"><span class="mark">○</span><span class="predict">65.6</span></p></td>
                     </tr>
                     <tr>
-                        <td class="umaban_wrap waku_7">7</td>
-                        <td class="bamei_wrap">ラフターラインズ</td>
-                        <td class="predict_wrap predict_3"><div class="mark">▲55.9</div></td>
+                        <td><p class="umaban_wrap waku_7">7</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei bamei_link"><strong>ラフターラインズ</strong></a><span class="kisyu">藤岡佑介</span></p></td>
+                        <td><p class="ninki_wrap"><span class="ninki">3</span></p></td>
+                        <td><p class="predict_wrap predict_3"><span class="mark">▲</span><span class="predict">55.9</span></p></td>
                     </tr>
                 </tbody>
             </table>
@@ -268,17 +277,17 @@ class TestParseRacePredictions:
         html = """
         <html>
         <body>
-            <table class="race_table">
+            <table class="race_table baken_race_table">
                 <tbody>
                     <tr>
-                        <td class="umaban_wrap">2</td>
-                        <td class="bamei_wrap">馬A</td>
-                        <td class="predict_wrap predict_1"><div class="mark">◎65.7</div></td>
+                        <td><p class="umaban_wrap">2</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                        <td><p class="predict_wrap predict_1"><span class="mark">◎</span><span class="predict">65.7</span></p></td>
                     </tr>
                     <tr>
-                        <td class="umaban_wrap">5</td>
-                        <td class="bamei_wrap">馬B</td>
-                        <td class="predict_wrap"><div class="mark">40.2</div></td>
+                        <td><p class="umaban_wrap">5</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬B</strong></a></p></td>
+                        <td><p class="predict_wrap"><span class="predict">40.2</span></p></td>
                     </tr>
                 </tbody>
             </table>
@@ -299,22 +308,22 @@ class TestParseRacePredictions:
         html = """
         <html>
         <body>
-            <table class="race_table">
+            <table class="race_table baken_race_table">
                 <tbody>
                     <tr>
-                        <td class="umaban_wrap">3</td>
-                        <td class="bamei_wrap">馬C</td>
-                        <td class="predict_wrap"><div class="mark">50.0</div></td>
+                        <td><p class="umaban_wrap">3</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬C</strong></a></p></td>
+                        <td><p class="predict_wrap"><span class="predict">50.0</span></p></td>
                     </tr>
                     <tr>
-                        <td class="umaban_wrap">1</td>
-                        <td class="bamei_wrap">馬A</td>
-                        <td class="predict_wrap"><div class="mark">◎70.0</div></td>
+                        <td><p class="umaban_wrap">1</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                        <td><p class="predict_wrap"><span class="mark">◎</span><span class="predict">70.0</span></p></td>
                     </tr>
                     <tr>
-                        <td class="umaban_wrap">2</td>
-                        <td class="bamei_wrap">馬B</td>
-                        <td class="predict_wrap"><div class="mark">○60.0</div></td>
+                        <td><p class="umaban_wrap">2</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬B</strong></a></p></td>
+                        <td><p class="predict_wrap"><span class="mark">○</span><span class="predict">60.0</span></p></td>
                     </tr>
                 </tbody>
             </table>
@@ -365,19 +374,19 @@ class TestParseRacePredictions:
         html = """
         <html>
         <body>
-            <table class="race_table">
+            <table class="race_table baken_race_table">
                 <thead>
                     <tr>
-                        <th class="umaban_wrap">馬番</th>
-                        <th class="bamei_wrap">馬名</th>
-                        <th class="predict_wrap">AI予想</th>
+                        <th class="umaban_head">馬番</th>
+                        <th class="bamei_head">馬名</th>
+                        <th class="predict_head">AI予想</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td class="umaban_wrap">2</td>
-                        <td class="bamei_wrap">馬A</td>
-                        <td class="predict_wrap"><div class="mark">◎65.7</div></td>
+                        <td><p class="umaban_wrap">2</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                        <td><p class="predict_wrap"><span class="mark">◎</span><span class="predict">65.7</span></p></td>
                     </tr>
                 </tbody>
             </table>
@@ -395,12 +404,12 @@ class TestParseRacePredictions:
         html = """
         <html>
         <body>
-            <table class="race_table">
+            <table class="race_table baken_race_table">
                 <tbody>
                     <tr>
-                        <td class="umaban_wrap">1</td>
-                        <td class="bamei_wrap">馬A</td>
-                        <td class="predict_wrap"><div class="mark">◎70</div></td>
+                        <td><p class="umaban_wrap">1</p></td>
+                        <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                        <td><p class="predict_wrap"><span class="predict">70</span></p></td>
                     </tr>
                 </tbody>
             </table>
@@ -463,7 +472,10 @@ class TestSavePredictions:
         assert item["source"] == "muryou-keiba-ai"
         assert item["venue"] == "京都"
         assert item["race_number"] == 11
-        assert item["predictions"] == predictions
+        # float→Decimal変換されていることを確認
+        assert item["predictions"] == [
+            {"rank": 1, "score": Decimal("65.7"), "horse_number": 2, "horse_name": "馬A"},
+        ]
         assert "ttl" in item
         # TTLは7日後
         expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
@@ -559,12 +571,19 @@ class TestHandler:
 class TestScrapeRaces:
     """メインスクレイピング処理のテスト."""
 
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
     @patch("batch.muryou_keiba_ai_scraper.save_predictions")
     @patch("batch.muryou_keiba_ai_scraper.fetch_page")
     @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
-    def test_正常なスクレイピングフロー(self, mock_get_table, mock_fetch, mock_save):
+    def test_正常なスクレイピングフロー(self, mock_get_table, mock_fetch, mock_save, mock_dt):
         """正常系: アーカイブ→レースページ→保存の全フロー."""
         from batch.muryou_keiba_ai_scraper import scrape_races
+
+        # 2026/2/7 21:00 JST に固定 → 翌日は 2/8
+        JST = timezone(timedelta(hours=9))
+        fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
 
         mock_table = MagicMock()
         mock_get_table.return_value = mock_table
@@ -573,26 +592,26 @@ class TestScrapeRaces:
         archive_html = """
         <html><body><ul>
             <li>
-                <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19477/">
+                <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
                     京都 2月8日 1R 09:55
                     3歳未勝利 ダート 1200m 16頭
                 </a>
             </li>
         </ul></body></html>
         """
-        # レースページのHTML
+        # レースページのHTML（実際のサイト構造）
         race_html = """
         <html><body>
-            <table class="race_table"><tbody>
+            <table class="race_table baken_race_table"><tbody>
                 <tr>
-                    <td class="umaban_wrap">2</td>
-                    <td class="bamei_wrap">馬A</td>
-                    <td class="predict_wrap"><div class="mark">◎65.7</div></td>
+                    <td><p class="umaban_wrap">2</p></td>
+                    <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                    <td><p class="predict_wrap"><span class="mark">◎</span><span class="predict">65.7</span></p></td>
                 </tr>
                 <tr>
-                    <td class="umaban_wrap">1</td>
-                    <td class="bamei_wrap">馬B</td>
-                    <td class="predict_wrap"><div class="mark">○55.3</div></td>
+                    <td><p class="umaban_wrap">1</p></td>
+                    <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬B</strong></a></p></td>
+                    <td><p class="predict_wrap"><span class="mark">○</span><span class="predict">55.3</span></p></td>
                 </tr>
             </tbody></table>
         </body></html>
@@ -624,18 +643,24 @@ class TestScrapeRaces:
         assert results["races_scraped"] == 0
         assert len(results["errors"]) > 0
 
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
     @patch("batch.muryou_keiba_ai_scraper.fetch_page")
     @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
-    def test_レースページ取得失敗(self, mock_get_table, mock_fetch):
+    def test_レースページ取得失敗(self, mock_get_table, mock_fetch, mock_dt):
         """異常系: レースページの取得に失敗した場合."""
         from batch.muryou_keiba_ai_scraper import scrape_races
+
+        JST = timezone(timedelta(hours=9))
+        fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
 
         mock_get_table.return_value = MagicMock()
 
         archive_html = """
         <html><body><ul>
             <li>
-                <a href="https://muryou-keiba-ai.jp/predict/2026/02/08/19477/">
+                <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
                     京都 2月8日 1R 09:55
                     3歳未勝利 ダート 1200m 16頭
                 </a>

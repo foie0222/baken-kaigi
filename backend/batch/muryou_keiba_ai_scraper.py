@@ -8,6 +8,7 @@ import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any
 
 import boto3
@@ -81,6 +82,9 @@ def extract_race_info(text: str) -> dict | None:
 def parse_race_list_page(soup: BeautifulSoup, target_date_str: str) -> list[dict]:
     """アーカイブページからレース一覧を抽出.
 
+    URLの日付は記事公開日であり、レース日とは異なる。
+    レース日はリンクテキスト内の「M月D日」から判定する。
+
     Args:
         soup: アーカイブページのBeautifulSoup
         target_date_str: 対象日付 (例: "20260208")
@@ -90,27 +94,28 @@ def parse_race_list_page(soup: BeautifulSoup, target_date_str: str) -> list[dict
     """
     races = []
 
+    # target_date_str から「M月D日」形式を生成してマッチに使う
+    target_month = int(target_date_str[4:6])
+    target_day = int(target_date_str[6:8])
+    target_date_text = f"{target_month}月{target_day}日"
+
     # URL形式: /predict/YYYY/MM/DD/ID/
     url_pattern = re.compile(
-        r"https?://muryou-keiba-ai\.jp/predict/(\d{4})/(\d{2})/(\d{2})/\d+/"
+        r"https?://muryou-keiba-ai\.jp/predict/\d{4}/\d{2}/\d{2}/\d+/"
     )
 
     for link in soup.find_all("a", href=url_pattern):
         href = link.get("href", "")
-        match = url_pattern.search(href)
-        if not match:
-            continue
-
-        # URLから日付を抽出
-        year, month, day = match.group(1), match.group(2), match.group(3)
-        date_str = f"{year}{month}{day}"
-
-        # 対象日付以外はスキップ
-        if date_str != target_date_str:
+        if not url_pattern.search(href):
             continue
 
         # リンクテキストからレース情報を抽出
         text = link.get_text(strip=True)
+
+        # レース日をリンクテキストから判定
+        if target_date_text not in text:
+            continue
+
         info = extract_race_info(text)
         if not info:
             continue
@@ -119,7 +124,7 @@ def parse_race_list_page(soup: BeautifulSoup, target_date_str: str) -> list[dict
             "url": href,
             "venue": info["venue"],
             "race_number": info["race_number"],
-            "date_str": date_str,
+            "date_str": target_date_str,
         })
 
     return races
@@ -128,12 +133,12 @@ def parse_race_list_page(soup: BeautifulSoup, target_date_str: str) -> list[dict
 def parse_race_predictions(soup: BeautifulSoup) -> list[dict]:
     """レースページからAI予想データを抽出.
 
-    テーブル構造:
-    <table class="race_table">
+    実際のHTML構造:
+    <table class="race_table baken_race_table">
       <tr>
-        <td class="umaban_wrap">馬番</td>
-        <td class="bamei_wrap">馬名</td>
-        <td class="predict_wrap"><div class="mark">◎65.7</div></td>
+        <td><p class="umaban_wrap waku_2">2</p></td>
+        <td><p class="bamei_wrap"><a class="bamei"><strong>馬名</strong></a></p></td>
+        <td><p class="predict_wrap predict_1"><span class="mark">◎</span><span class="predict">65.7</span></p></td>
       </tr>
 
     Returns:
@@ -141,39 +146,48 @@ def parse_race_predictions(soup: BeautifulSoup) -> list[dict]:
     """
     predictions = []
 
-    # race_table クラスのテーブルを探す
-    table = soup.find("table", class_="race_table")
+    # baken_race_table を優先、なければ race_table にフォールバック
+    table = soup.find("table", class_="baken_race_table")
+    if not table:
+        table = soup.find("table", class_="race_table")
     if not table:
         return []
 
     rows = table.find_all("tr")
 
     for row in rows:
-        # 馬番セルを探す
-        umaban_cell = row.find("td", class_=re.compile(r"umaban_wrap"))
-        bamei_cell = row.find("td", class_=re.compile(r"bamei_wrap"))
-        predict_cell = row.find("td", class_=re.compile(r"predict_wrap"))
+        # クラスは<p>要素にあるため、タグを限定せず検索
+        umaban_el = row.find(class_=re.compile(r"umaban_wrap"))
+        bamei_el = row.find(class_=re.compile(r"bamei_wrap"))
+        predict_el = row.find(class_=re.compile(r"predict_wrap"))
 
-        if not (umaban_cell and bamei_cell and predict_cell):
+        if not (umaban_el and bamei_el and predict_el):
             continue
 
         try:
-            horse_number = int(umaban_cell.get_text(strip=True))
+            horse_number = int(umaban_el.get_text(strip=True))
         except (ValueError, TypeError):
             continue
 
-        horse_name = bamei_cell.get_text(strip=True)
+        # 馬名: <a class="bamei">内のテキストを優先
+        bamei_link = bamei_el.find("a", class_="bamei")
+        if bamei_link:
+            horse_name = bamei_link.get_text(strip=True)
+        else:
+            horse_name = bamei_el.get_text(strip=True)
         if not horse_name:
             continue
 
-        # スコアを抽出（印記号を除去）
-        mark_div = predict_cell.find("div", class_="mark")
-        if not mark_div:
-            continue
-
-        score_text = mark_div.get_text(strip=True)
-        # 印記号を除去してスコアを取得
-        score_text = MARK_CHARS.sub("", score_text).strip()
+        # スコア抽出: <span class="predict">を優先、なければmarkテキストからパース
+        predict_span = predict_el.find("span", class_="predict")
+        if predict_span:
+            score_text = predict_span.get_text(strip=True)
+        else:
+            mark_el = predict_el.find(class_="mark")
+            if not mark_el:
+                continue
+            score_text = mark_el.get_text(strip=True)
+            score_text = MARK_CHARS.sub("", score_text).strip()
 
         try:
             score = float(score_text)
@@ -209,6 +223,17 @@ def generate_race_id(date_str: str, venue: str, race_number: int) -> str:
     return f"{date_str}_{venue_code}_{race_number:02d}"
 
 
+def _convert_floats(obj):
+    """DynamoDB用にfloatをDecimalに変換."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _convert_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_convert_floats(i) for i in obj]
+    return obj
+
+
 def save_predictions(
     table,
     race_id: str,
@@ -226,7 +251,7 @@ def save_predictions(
         "source": SOURCE_NAME,
         "venue": venue,
         "race_number": race_number,
-        "predictions": predictions,
+        "predictions": _convert_floats(predictions),
         "scraped_at": scraped_at.isoformat(),
         "ttl": ttl,
     }
