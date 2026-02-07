@@ -3,26 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import { Hub } from 'aws-amplify/utils';
 import { useAuthStore } from '../../stores/authStore';
 
+const OAUTH_CALLBACK_TIMEOUT_MS = 10000;
+
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const checkAuth = useAuthStore((state) => state.checkAuth);
   const handled = useRef(false);
+  const inFlight = useRef(false);
 
   useEffect(() => {
     const processAuth = async () => {
-      if (handled.current) return;
-      try {
-        await checkAuth();
-        const user = useAuthStore.getState().user;
-        if (!user) return;
-        handled.current = true;
-        if (!user.displayName) {
-          navigate('/signup/age', { replace: true, state: { oauthUser: true } });
-        } else {
-          navigate('/', { replace: true });
-        }
-      } catch {
-        // トークン交換未完了の場合、Hubイベントを待つ
+      if (handled.current || inFlight.current) return;
+      inFlight.current = true;
+      await checkAuth();
+      inFlight.current = false;
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+      handled.current = true;
+      if (!user.displayName) {
+        navigate('/signup/age', { replace: true, state: { oauthUser: true } });
+      } else {
+        navigate('/', { replace: true });
       }
     };
 
@@ -40,13 +41,12 @@ export function AuthCallbackPage() {
     // トークン交換が既に完了している場合に備えて即座に試行
     processAuth();
 
-    // タイムアウト: 10秒以内にOAuth完了しなければログインに戻す
     const timeout = setTimeout(() => {
       if (!handled.current) {
         handled.current = true;
         navigate('/login', { replace: true });
       }
-    }, 10000);
+    }, OAUTH_CALLBACK_TIMEOUT_MS);
 
     return () => {
       handled.current = true;

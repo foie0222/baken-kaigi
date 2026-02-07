@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '../../test/utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '../../test/utils';
 import { AuthCallbackPage } from './AuthCallbackPage';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -39,13 +39,16 @@ describe('AuthCallbackPage', () => {
     hubCallback = null;
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('認証処理中のメッセージを表示する', () => {
     render(<AuthCallbackPage />);
     expect(screen.getByText('認証処理中...')).toBeInTheDocument();
   });
 
   it('トークン交換完了済みの新規OAuthユーザーを登録画面に遷移させる', async () => {
-    // checkAuth が成功し、displayName が未設定のユーザーを返す
     useAuthStore.setState({
       checkAuth: vi.fn(async () => {
         useAuthStore.setState({
@@ -86,36 +89,38 @@ describe('AuthCallbackPage', () => {
 
   it('トークン交換未完了の場合、Hubイベントを待って新規ユーザーを登録画面に遷移させる', async () => {
     let callCount = 0;
-    useAuthStore.setState({
-      checkAuth: vi.fn(async () => {
-        callCount++;
-        if (callCount === 1) {
-          // 1回目: トークン交換未完了、user は null のまま
-          useAuthStore.setState({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
-        } else {
-          // 2回目: トークン交換完了後
-          useAuthStore.setState({
-            user: { userId: 'user-123', email: 'test@example.com', displayName: '' },
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        }
-      }),
+    const mockCheckAuth = vi.fn(async () => {
+      callCount++;
+      if (callCount === 1) {
+        useAuthStore.setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      } else {
+        useAuthStore.setState({
+          user: { userId: 'user-123', email: 'test@example.com', displayName: '' },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
     });
+    useAuthStore.setState({ checkAuth: mockCheckAuth });
 
     render(<AuthCallbackPage />);
 
-    // 初回の processAuth では user が null なので遷移しない
+    // 初回の processAuth 完了を待つ
     await waitFor(() => {
-      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(mockCheckAuth).toHaveBeenCalledTimes(1);
     });
 
+    // 初回は user が null なので遷移していないことを確認
+    expect(mockNavigate).not.toHaveBeenCalled();
+
     // Hub の signInWithRedirect イベントを発火
-    hubCallback?.({ payload: { event: 'signInWithRedirect' } });
+    await act(async () => {
+      hubCallback?.({ payload: { event: 'signInWithRedirect' } });
+    });
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/signup/age', {
@@ -138,12 +143,69 @@ describe('AuthCallbackPage', () => {
 
     render(<AuthCallbackPage />);
 
-    // Hub の signInWithRedirect_failure イベントを発火
-    hubCallback?.({ payload: { event: 'signInWithRedirect_failure' } });
+    await act(async () => {
+      hubCallback?.({ payload: { event: 'signInWithRedirect_failure' } });
+    });
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
     });
+  });
+
+  it('タイムアウト時にログインページへフォールバックする', async () => {
+    vi.useFakeTimers();
+
+    useAuthStore.setState({
+      checkAuth: vi.fn(async () => {
+        useAuthStore.setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }),
+    });
+
+    render(<AuthCallbackPage />);
+
+    // タイムアウト前は遷移しない
+    await act(async () => {
+      vi.advanceTimersByTime(9999);
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    // タイムアウト後にログインページへ遷移
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/login', { replace: true });
+  });
+
+  it('Hub成功後はタイムアウトが発火しない', async () => {
+    useAuthStore.setState({
+      checkAuth: vi.fn(async () => {
+        useAuthStore.setState({
+          user: { userId: 'user-123', email: 'test@example.com', displayName: 'テスト' },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }),
+    });
+
+    render(<AuthCallbackPage />);
+
+    // checkAuth成功でホームに遷移
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    });
+
+    mockNavigate.mockClear();
+
+    // fake timers に切り替えてタイムアウトを進める
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('アンマウント時にHubリスナーとタイムアウトがクリーンアップされる', () => {
