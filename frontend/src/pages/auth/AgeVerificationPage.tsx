@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export function AgeVerificationPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const oauthUser = (location.state as { oauthUser?: boolean })?.oauthUser || false;
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear - 25);
   const [month, setMonth] = useState(1);
@@ -35,7 +37,7 @@ export function AgeVerificationPage() {
       return;
     }
 
-    navigate('/signup/terms', { state: { birthdate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` } });
+    navigate('/signup/terms', { state: { birthdate: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, oauthUser } });
   };
 
   const years = Array.from({ length: 80 }, (_, i) => currentYear - 20 - i);
