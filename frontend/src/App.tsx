@@ -22,6 +22,10 @@ import { AuthCallbackPage } from './pages/auth/AuthCallbackPage';
 import { IpatSettingsPage } from './pages/IpatSettingsPage';
 import { PurchaseConfirmPage } from './pages/PurchaseConfirmPage';
 import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage';
+import { TermsPage } from './pages/legal/TermsPage';
+import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
+import { CookiePolicyPage } from './pages/legal/CookiePolicyPage';
+import { OAuthProfilePage } from './pages/auth/OAuthProfilePage';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useAuthStore } from './stores/authStore';
 import './styles/index.css';
@@ -43,6 +47,9 @@ function App() {
           <Route path="cart" element={<CartPage />} />
           <Route path="consultation" element={<ConsultationPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="terms" element={<TermsPage />} />
+          <Route path="privacy" element={<PrivacyPolicyPage />} />
+          <Route path="cookie-policy" element={<CookiePolicyPage />} />
 
           {/* 認証ページ */}
           <Route path="login" element={<LoginPage />} />
@@ -53,6 +60,7 @@ function App() {
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route path="auth/callback" element={<AuthCallbackPage />} />
+          <Route path="oauth/complete" element={<OAuthProfilePage />} />
 
           {/* 認証必須ページ */}
           <Route path="profile" element={<AuthGuard><ProfilePage /></AuthGuard>} />

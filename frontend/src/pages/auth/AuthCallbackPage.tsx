@@ -9,7 +9,12 @@ export function AuthCallbackPage() {
   useEffect(() => {
     const handleCallback = async () => {
       await checkAuth();
-      navigate('/', { replace: true });
+      const user = useAuthStore.getState().user;
+      if (user && !user.displayName) {
+        navigate('/signup/age', { replace: true, state: { oauthUser: true } });
+      } else {
+        navigate('/', { replace: true });
+      }
     };
     handleCallback();
   }, [checkAuth, navigate]);

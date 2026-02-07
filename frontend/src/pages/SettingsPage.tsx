@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { useCookieConsentStore } from '../stores/cookieConsentStore';
 
 function SettingsMenuItem({ label, onClick, color }: { label: string; onClick: () => void; color?: string }) {
   return (
@@ -31,6 +32,7 @@ function SettingsMenuItem({ label, onClick, color }: { label: string; onClick: (
 export function SettingsPage() {
   const navigate = useNavigate();
   const { isAuthenticated, signOut } = useAuthStore();
+  const resetConsent = useCookieConsentStore((state) => state.resetConsent);
 
   return (
     <div className="fade-in">
@@ -79,14 +81,9 @@ export function SettingsPage() {
           <span style={{ fontSize: 15 }}>ヘルプ</span>
           <span style={{ color: '#ccc' }}>&rsaquo;</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottom: '1px solid #f0f0f0' }}>
-          <span style={{ fontSize: 15 }}>利用規約</span>
-          <span style={{ color: '#ccc' }}>&rsaquo;</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}>
-          <span style={{ fontSize: 15 }}>プライバシーポリシー</span>
-          <span style={{ color: '#ccc' }}>&rsaquo;</span>
-        </div>
+        <SettingsMenuItem label="利用規約" onClick={() => navigate('/terms')} />
+        <SettingsMenuItem label="プライバシーポリシー" onClick={() => navigate('/privacy')} />
+        <SettingsMenuItem label="Cookie設定" onClick={() => resetConsent()} />
       </div>
 
       <a href="https://www.ncgmkohnodai.go.jp/subject/094/gambling.html" target="_blank" rel="noopener noreferrer"
