@@ -3,8 +3,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-import pytest
-
 # テスト対象モジュールへのパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -93,7 +91,7 @@ class TestIpatExecutor:
         result = self.executor.vote("123456789012", "19900101", "1234", "5678", bet_lines)
 
         assert mock_run.called
-        assert result["status"] == "ok"
+        assert result["success"] is True
 
     @patch("subprocess.run")
     def test_vote失敗時にエラーを返す(self, mock_run: MagicMock) -> None:
@@ -115,7 +113,7 @@ class TestIpatExecutor:
 
         result = self.executor.vote("123456789012", "19900101", "1234", "5678", bet_lines)
 
-        assert result["status"] == "error"
+        assert result["success"] is False
 
     @patch("subprocess.run")
     def test_statでsubprocessが呼ばれる(self, mock_run: MagicMock) -> None:
@@ -132,11 +130,11 @@ limit_vote_amount=100000
         with patch("builtins.open", mock_open(read_data=ini_content)):
             result = self.executor.stat("123456789012", "19900101", "1234", "5678")
 
-        assert result["status"] == "ok"
-        assert result["data"]["bet_dedicated_balance"] == 10000
-        assert result["data"]["settle_possible_balance"] == 5000
-        assert result["data"]["bet_balance"] == 15000
-        assert result["data"]["limit_vote_amount"] == 100000
+        assert result["success"] is True
+        assert result["bet_dedicated_balance"] == 10000
+        assert result["settle_possible_balance"] == 5000
+        assert result["bet_balance"] == 15000
+        assert result["limit_vote_amount"] == 100000
 
     @patch("subprocess.run")
     def test_stat失敗時にエラーを返す(self, mock_run: MagicMock) -> None:
@@ -145,7 +143,7 @@ limit_vote_amount=100000
 
         result = self.executor.stat("123456789012", "19900101", "1234", "5678")
 
-        assert result["status"] == "error"
+        assert result["success"] is False
 
     def test_parse_stat_iniで正しくパースされる(self) -> None:
         """_parse_stat_iniでstat.iniが正しくパースされることを確認."""

@@ -16,8 +16,8 @@ from src.application.use_cases.get_purchase_history import GetPurchaseHistoryUse
 from src.application.use_cases.submit_purchase import (
     CartNotFoundError,
     CredentialsNotFoundError,
-    InsufficientBalanceError,
     IpatSubmissionError,
+    PurchaseValidationError,
     SubmitPurchaseUseCase,
 )
 from src.domain.identifiers import PurchaseId
@@ -72,7 +72,7 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         return not_found_response("Cart")
     except CredentialsNotFoundError:
         return bad_request_response("IPAT credentials not configured")
-    except InsufficientBalanceError as e:
+    except PurchaseValidationError as e:
         return bad_request_response(str(e))
     except IpatSubmissionError as e:
         return internal_error_response(str(e))
@@ -108,7 +108,10 @@ def get_purchase_history_handler(event: dict, context: Any) -> dict:
             "purchase_id": str(order.id.value),
             "status": order.status.value,
             "total_amount": order.total_amount.value,
+            "bet_line_count": len(order.bet_lines),
+            "error_message": order.error_message,
             "created_at": order.created_at.isoformat(),
+            "updated_at": order.updated_at.isoformat(),
         }
         for order in orders
     ])

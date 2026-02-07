@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 # テスト対象モジュールへのパスを追加
@@ -25,7 +24,7 @@ class TestIpatVoteEndpoint:
     def test_投票成功(self, mock_executor_class: MagicMock) -> None:
         """正常な投票リクエストで200が返ることを確認."""
         mock_instance = MagicMock()
-        mock_instance.vote.return_value = {"status": "ok"}
+        mock_instance.vote.return_value = {"success": True}
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/vote", json={
@@ -48,13 +47,13 @@ class TestIpatVoteEndpoint:
         })
 
         assert response.status_code == 200
-        assert response.json()["status"] == "ok"
+        assert response.json()["success"] is True
 
     @patch("main.IpatExecutor")
     def test_投票失敗(self, mock_executor_class: MagicMock) -> None:
-        """投票失敗時にerrorステータスが返ることを確認."""
+        """投票失敗時にsuccessがfalseで返ることを確認."""
         mock_instance = MagicMock()
-        mock_instance.vote.return_value = {"status": "error", "message": "IPAT通信エラー"}
+        mock_instance.vote.return_value = {"success": False, "message": "IPAT通信エラー"}
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/vote", json={
@@ -77,7 +76,7 @@ class TestIpatVoteEndpoint:
         })
 
         assert response.status_code == 200
-        assert response.json()["status"] == "error"
+        assert response.json()["success"] is False
 
 
 class TestIpatStatEndpoint:
@@ -88,13 +87,11 @@ class TestIpatStatEndpoint:
         """正常な残高取得リクエストで200が返ることを確認."""
         mock_instance = MagicMock()
         mock_instance.stat.return_value = {
-            "status": "ok",
-            "data": {
-                "bet_dedicated_balance": 10000,
-                "settle_possible_balance": 5000,
-                "bet_balance": 15000,
-                "limit_vote_amount": 100000,
-            },
+            "success": True,
+            "bet_dedicated_balance": 10000,
+            "settle_possible_balance": 5000,
+            "bet_balance": 15000,
+            "limit_vote_amount": 100000,
         }
         mock_executor_class.return_value = mock_instance
 
@@ -107,14 +104,14 @@ class TestIpatStatEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "ok"
-        assert data["data"]["bet_balance"] == 15000
+        assert data["success"] is True
+        assert data["bet_balance"] == 15000
 
     @patch("main.IpatExecutor")
     def test_残高取得失敗(self, mock_executor_class: MagicMock) -> None:
-        """残高取得失敗時にerrorステータスが返ることを確認."""
+        """残高取得失敗時にsuccessがfalseで返ることを確認."""
         mock_instance = MagicMock()
-        mock_instance.stat.return_value = {"status": "error", "message": "IPAT通信エラー"}
+        mock_instance.stat.return_value = {"success": False, "message": "IPAT通信エラー"}
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/stat", json={
@@ -125,4 +122,4 @@ class TestIpatStatEndpoint:
         })
 
         assert response.status_code == 200
-        assert response.json()["status"] == "error"
+        assert response.json()["success"] is False

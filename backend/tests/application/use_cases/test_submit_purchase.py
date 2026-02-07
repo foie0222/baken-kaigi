@@ -5,7 +5,7 @@ from src.application.use_cases.submit_purchase import (
     SubmitPurchaseUseCase,
     CartNotFoundError,
     CredentialsNotFoundError,
-    InsufficientBalanceError,
+    PurchaseValidationError,
     IpatSubmissionError,
 )
 from src.domain.entities import Cart
@@ -149,7 +149,7 @@ class TestSubmitPurchaseUseCase:
             cred_provider=cred_provider,
             gateway=mock_gateway,
         )
-        with pytest.raises(InsufficientBalanceError):
+        with pytest.raises(PurchaseValidationError):
             use_case.execute(
                 user_id="user-001",
                 cart_id="cart-001",

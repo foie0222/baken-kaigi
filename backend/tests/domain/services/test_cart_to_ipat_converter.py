@@ -1,6 +1,4 @@
 """CartToIpatConverterのテスト."""
-import pytest
-
 from src.domain.entities import Cart
 from src.domain.enums import BetType, IpatBetType, IpatVenueCode
 from src.domain.identifiers import RaceId, UserId

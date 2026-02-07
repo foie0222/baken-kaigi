@@ -44,13 +44,25 @@ class JraVanIpatGateway(IpatGateway):
     def submit_bets(self, credentials: IpatCredentials, bet_lines: list[IpatBetLine]) -> bool:
         """投票を送信する."""
         try:
-            csv_lines = [line.to_csv_line() for line in bet_lines]
+            bet_line_dicts = [
+                {
+                    "opdt": line.opdt,
+                    "rcoursecd": line.venue_code.value,
+                    "rno": f"{line.race_number:02d}",
+                    "denomination": line.bet_type.value,
+                    "method": "NORMAL",
+                    "multi": "",
+                    "number": line.number,
+                    "bet_price": str(line.amount),
+                }
+                for line in bet_lines
+            ]
             payload = {
                 "card_number": credentials.card_number,
                 "birthday": credentials.birthday,
                 "pin": credentials.pin,
                 "dummy_pin": credentials.dummy_pin,
-                "bet_lines": csv_lines,
+                "bet_lines": bet_line_dicts,
             }
             response = self._session.post(
                 f"{self._base_url}/ipat/vote",
@@ -80,6 +92,10 @@ class JraVanIpatGateway(IpatGateway):
             )
             response.raise_for_status()
             data = response.json()
+            if not data.get("success", False):
+                raise IpatGatewayError(
+                    f"Failed to get balance: {data.get('message', 'Unknown error')}"
+                )
             return IpatBalance(
                 bet_dedicated_balance=data["bet_dedicated_balance"],
                 settle_possible_balance=data["settle_possible_balance"],

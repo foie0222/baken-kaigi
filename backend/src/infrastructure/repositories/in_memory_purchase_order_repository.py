@@ -20,8 +20,9 @@ class InMemoryPurchaseOrderRepository(PurchaseOrderRepository):
         return self._orders.get(purchase_id.value)
 
     def find_by_user_id(self, user_id: UserId) -> list[PurchaseOrder]:
-        """ユーザーIDで検索する."""
-        return [
+        """ユーザーIDで検索する（新しい順）."""
+        orders = [
             order for order in self._orders.values()
             if order.user_id == user_id
         ]
+        return sorted(orders, key=lambda o: o.created_at, reverse=True)

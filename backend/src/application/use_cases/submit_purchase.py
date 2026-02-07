@@ -24,8 +24,8 @@ class CredentialsNotFoundError(Exception):
     pass
 
 
-class InsufficientBalanceError(Exception):
-    """残高不足エラー."""
+class PurchaseValidationError(Exception):
+    """購入バリデーションエラー."""
 
     pass
 
@@ -88,7 +88,7 @@ class SubmitPurchaseUseCase:
                 user_id=uid,
             )
         except ValueError as e:
-            raise InsufficientBalanceError(str(e)) from e
+            raise PurchaseValidationError(str(e)) from e
 
         # カートからIPAT投票行に変換
         bet_lines = CartToIpatConverter.convert(

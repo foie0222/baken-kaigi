@@ -61,6 +61,7 @@ class TestJraVanIpatGateway(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
+            "success": True,
             "bet_dedicated_balance": 10000,
             "settle_possible_balance": 50000,
             "bet_balance": 10000,

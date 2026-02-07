@@ -3,16 +3,25 @@
 ipatgo.exe を利用してIPAT投票と残高照会を行う。
 """
 import configparser
+import os
 import subprocess
 import tempfile
 from pathlib import Path
+
+SUBPROCESS_TIMEOUT = 120
 
 
 class IpatExecutor:
     """IPAT投票を実行するクラス."""
 
-    IPATGO_PATH = r"C:\umagen\ipatgo\ipatgo.exe"
-    STAT_INI_PATH = r"C:\umagen\ipatgo\stat.ini"
+    def __init__(self) -> None:
+        """初期化."""
+        self.ipatgo_path = os.environ.get(
+            "IPATGO_PATH", r"C:\umagen\ipatgo\ipatgo.exe"
+        )
+        self.stat_ini_path = os.environ.get(
+            "STAT_INI_PATH", r"C:\umagen\ipatgo\stat.ini"
+        )
 
     def vote(self, card: str, birthday: str, pin: str, dummy: str, bet_lines: list[dict]) -> dict:
         """投票を実行する."""
@@ -22,31 +31,38 @@ class IpatExecutor:
 
         try:
             result = subprocess.run(
-                [self.IPATGO_PATH, "file", csv_path, card, birthday, pin, dummy],
+                [self.ipatgo_path, "file", csv_path, card, birthday, pin, dummy],
                 capture_output=True,
                 text=True,
+                timeout=SUBPROCESS_TIMEOUT,
             )
 
             if result.returncode == 0:
-                return {"status": "ok"}
+                return {"success": True}
             else:
-                return {"status": "error", "message": result.stdout}
+                return {"success": False, "message": result.stdout}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "message": "ipatgo.exe timed out"}
         finally:
             Path(csv_path).unlink(missing_ok=True)
 
     def stat(self, card: str, birthday: str, pin: str, dummy: str) -> dict:
         """残高照会を実行する."""
-        result = subprocess.run(
-            [self.IPATGO_PATH, "stat", card, birthday, pin, dummy],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                [self.ipatgo_path, "stat", card, birthday, pin, dummy],
+                capture_output=True,
+                text=True,
+                timeout=SUBPROCESS_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            return {"success": False, "message": "ipatgo.exe timed out"}
 
         if result.returncode != 0:
-            return {"status": "error", "message": result.stdout}
+            return {"success": False, "message": result.stdout}
 
         data = self._parse_stat_ini()
-        return {"status": "ok", "data": data}
+        return {"success": True, **data}
 
     def _write_csv(self, bet_lines: list[dict], path: str) -> None:
         """CSVファイルを書き出す."""
@@ -67,7 +83,7 @@ class IpatExecutor:
     def _parse_stat_ini(self) -> dict:
         """stat.iniをパースする."""
         config = configparser.ConfigParser()
-        with open(self.STAT_INI_PATH) as f:
+        with open(self.stat_ini_path) as f:
             config.read_file(f)
 
         return {

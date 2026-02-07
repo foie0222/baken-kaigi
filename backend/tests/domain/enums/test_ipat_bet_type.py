@@ -1,6 +1,4 @@
 """IpatBetTypeのテスト."""
-import pytest
-
 from src.domain.enums import BetType, IpatBetType
 
 
