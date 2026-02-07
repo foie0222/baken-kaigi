@@ -53,9 +53,13 @@ def post_confirmation(event: dict, context: Any) -> dict:
         logger.info("User registered: %s", user_id)
     except UserAlreadyExistsError:
         logger.info("User already exists: %s (idempotent)", user_id)
-    except Exception:
+    except (ValueError, TypeError) as exc:
         logger.exception("Failed to register user: %s", user_id)
         # Cognito トリガーはエラーを返してもサインアップを止めないように
-        # ここでは例外を握りつぶす
+        # 値オブジェクト生成時のバリデーションエラーのみ握りつぶす
+        logger.warning("Suppressed error for user %s: %s", user_id, exc)
+    except Exception:
+        logger.exception("Unexpected error registering user: %s", user_id)
+        raise
 
     return event

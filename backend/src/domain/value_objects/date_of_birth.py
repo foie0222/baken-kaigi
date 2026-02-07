@@ -15,8 +15,8 @@ class DateOfBirth:
 
     def __post_init__(self) -> None:
         """バリデーション."""
-        if not isinstance(self.value, date):
-            raise TypeError("DateOfBirth must be a date instance")
+        if type(self.value) is not date:
+            raise TypeError("DateOfBirth must be a date instance (not datetime)")
         if self.value > date.today():
             raise ValueError("DateOfBirth cannot be in the future")
         if self.age() < self._MINIMUM_AGE:

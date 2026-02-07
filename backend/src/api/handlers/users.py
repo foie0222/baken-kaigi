@@ -77,6 +77,11 @@ def update_user_profile(event: dict, context: Any) -> dict:
     display_name = body.get("display_name")
     email = body.get("email")
 
+    if display_name is not None and not isinstance(display_name, str):
+        return bad_request_response("display_name must be a string")
+    if email is not None and not isinstance(email, str):
+        return bad_request_response("email must be a string")
+
     if display_name is None and email is None:
         return bad_request_response("At least one of display_name or email is required")
 

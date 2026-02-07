@@ -48,8 +48,9 @@ class RequestAccountDeletionUseCase:
 
         days = AccountDeletionService.days_until_permanent_deletion(user)
 
+        assert user.deletion_requested_at is not None, "deletion_requested_at must be set after request_deletion()"
         return AccountDeletionResult(
             user_id=user.user_id,
-            deletion_requested_at=user.deletion_requested_at,  # type: ignore
+            deletion_requested_at=user.deletion_requested_at,
             days_until_permanent_deletion=days if days is not None else AccountDeletionService.RETENTION_DAYS,
         )

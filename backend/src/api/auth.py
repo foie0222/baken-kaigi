@@ -20,6 +20,7 @@ def get_authenticated_user_id(event: dict) -> UserId | None:
         if sub:
             return UserId(sub)
     except (AttributeError, TypeError):
+        # event構造が想定外の場合（値がdictでない等）は未認証として扱う
         pass
     return None
 

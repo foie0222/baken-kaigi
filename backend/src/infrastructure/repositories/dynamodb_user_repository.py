@@ -1,9 +1,9 @@
 """DynamoDB ユーザーリポジトリ実装."""
 import os
-from datetime import date, datetime, timezone
-from decimal import Decimal
+from datetime import date, datetime
 
 import boto3
+from boto3.dynamodb.conditions import Key
 
 from src.domain.entities import User
 from src.domain.enums import AuthProvider, UserStatus
@@ -38,8 +38,7 @@ class DynamoDBUserRepository(UserRepository):
         """メールアドレスで検索する."""
         response = self._table.query(
             IndexName="email-index",
-            KeyConditionExpression="email = :email",
-            ExpressionAttributeValues={":email": email.value},
+            KeyConditionExpression=Key("email").eq(email.value),
         )
         items = response.get("Items", [])
         if not items:

@@ -1,7 +1,9 @@
 """ユーザー登録ユースケース."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from datetime import date as date_type
 from datetime import datetime, timezone
 
 from src.domain.entities import User
@@ -9,6 +11,8 @@ from src.domain.enums import AuthProvider, UserStatus
 from src.domain.identifiers import UserId
 from src.domain.ports.user_repository import UserRepository
 from src.domain.value_objects import DateOfBirth, DisplayName, Email
+
+_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 class UserAlreadyExistsError(Exception):
@@ -70,8 +74,10 @@ class RegisterUserUseCase:
         email_vo = Email(email)
         display_name_vo = DisplayName(display_name)
 
-        from datetime import date as date_type
-
+        if not _DATE_PATTERN.match(date_of_birth_str):
+            raise ValueError(
+                f"Invalid date format: {date_of_birth_str!r} (expected YYYY-MM-DD)"
+            )
         parts = date_of_birth_str.split("-")
         dob = DateOfBirth(date_type(int(parts[0]), int(parts[1]), int(parts[2])))
 
