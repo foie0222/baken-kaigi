@@ -235,13 +235,31 @@ class TestMakeResponse:
         body = json.loads(response["body"])
         assert body["error"] == "エラー"
 
-    def test_cors_headers(self):
-        """CORSヘッダーが含まれる."""
+    def test_cors_headers_default(self):
+        """event未指定時はデフォルトの本番オリジンを返す."""
         from agentcore_handler import _make_response
 
         response = _make_response({})
 
-        assert response["headers"]["Access-Control-Allow-Origin"] == "*"
+        assert response["headers"]["Access-Control-Allow-Origin"] == "https://bakenkaigi.com"
+
+    def test_cors_headers_with_allowed_origin(self):
+        """許可されたオリジンがeventに含まれる場合はそのオリジンを返す."""
+        from agentcore_handler import _make_response
+
+        event = {"headers": {"origin": "https://www.bakenkaigi.com"}}
+        response = _make_response({}, event=event)
+
+        assert response["headers"]["Access-Control-Allow-Origin"] == "https://www.bakenkaigi.com"
+
+    def test_cors_headers_with_disallowed_origin(self):
+        """許可されていないオリジンの場合はデフォルトオリジンを返す."""
+        from agentcore_handler import _make_response
+
+        event = {"headers": {"origin": "https://evil.example.com"}}
+        response = _make_response({}, event=event)
+
+        assert response["headers"]["Access-Control-Allow-Origin"] == "https://bakenkaigi.com"
 
 
 class TestInvokeAgentcore:

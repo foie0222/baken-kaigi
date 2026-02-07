@@ -23,7 +23,7 @@ def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
     """
     stallion_id = get_path_parameter(event, "stallion_id")
     if not stallion_id:
-        return bad_request_response("stallion_id is required")
+        return bad_request_response("stallion_id is required", event=event)
 
     # パラメータ取得
     year_str = get_query_parameter(event, "year")
@@ -35,15 +35,16 @@ def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
         try:
             year = int(year_str)
             if year < 1970 or year > 2100:
-                return bad_request_response("year must be between 1970 and 2100")
+                return bad_request_response("year must be between 1970 and 2100", event=event)
         except ValueError:
-            return bad_request_response("year must be a valid integer")
+            return bad_request_response("year must be a valid integer", event=event)
 
     # track_typeのバリデーション
     valid_track_types = ["芝", "ダート", "障害"]
     if track_type and track_type not in valid_track_types:
         return bad_request_response(
-            f"track_type must be one of: {', '.join(valid_track_types)}"
+            f"track_type must be one of: {', '.join(valid_track_types)}",
+            event=event,
         )
 
     # プロバイダから取得
@@ -53,7 +54,7 @@ def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
     )
 
     if not stats:
-        return not_found_response("Stallion")
+        return not_found_response("Stallion", event=event)
 
     return success_response({
         "stallion_id": stats.stallion_id,
@@ -103,4 +104,4 @@ def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
             }
             for o in top_offspring
         ],
-    })
+    }, event=event)

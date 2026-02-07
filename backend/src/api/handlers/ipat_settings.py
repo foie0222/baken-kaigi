@@ -22,12 +22,12 @@ def save_ipat_credentials_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     try:
         body = get_body(event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     card_number = body.get("card_number")
     birthday = body.get("birthday")
@@ -36,7 +36,8 @@ def save_ipat_credentials_handler(event: dict, context: Any) -> dict:
 
     if not all([card_number, birthday, pin, dummy_pin]):
         return bad_request_response(
-            "card_number, birthday, pin, dummy_pin are all required"
+            "card_number, birthday, pin, dummy_pin are all required",
+            event=event,
         )
 
     use_case = SaveIpatCredentialsUseCase(
@@ -52,9 +53,9 @@ def save_ipat_credentials_handler(event: dict, context: Any) -> dict:
             dummy_pin=dummy_pin,
         )
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
-    return success_response({"message": "IPAT credentials saved"})
+    return success_response({"message": "IPAT credentials saved"}, event=event)
 
 
 def get_ipat_status_handler(event: dict, context: Any) -> dict:
@@ -65,14 +66,14 @@ def get_ipat_status_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     use_case = GetIpatStatusUseCase(
         credentials_provider=Dependencies.get_credentials_provider(),
     )
     result = use_case.execute(user_id.value)
 
-    return success_response(result)
+    return success_response(result, event=event)
 
 
 def delete_ipat_credentials_handler(event: dict, context: Any) -> dict:
@@ -83,11 +84,11 @@ def delete_ipat_credentials_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     use_case = DeleteIpatCredentialsUseCase(
         credentials_provider=Dependencies.get_credentials_provider(),
     )
     use_case.execute(user_id.value)
 
-    return success_response({"message": "IPAT credentials deleted"})
+    return success_response({"message": "IPAT credentials deleted"}, event=event)
