@@ -11,7 +11,7 @@ export function Header() {
     <header className="app-header">
       <h1 className="app-title" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>馬券会議</h1>
       <div className="header-actions">
-        <button className="header-pill cart-btn" onClick={() => navigate('/cart')}>
+        <button className="header-pill cart-btn" onClick={() => navigate('/cart')} aria-label="カートへ移動" type="button">
           <span className="cart-icon">🛒</span>
           {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
         </button>
@@ -35,8 +35,9 @@ export function Header() {
           </div>
         ) : (
           <button
-            className="header-pill header-pill-login"
+            className="header-pill"
             onClick={() => navigate('/login')}
+            type="button"
           >
             ログイン
           </button>
