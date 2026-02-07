@@ -2034,10 +2034,12 @@ main {
 
 /* トグルスイッチ */
 .cookie-toggle {
+    display: block;
     position: relative;
     width: 44px;
     height: 24px;
     flex-shrink: 0;
+    cursor: pointer;
 }
 
 .cookie-toggle input {
@@ -2069,6 +2071,11 @@ main {
     background-color: white;
     border-radius: 50%;
     transition: transform 0.3s;
+}
+
+.cookie-toggle input:focus-visible + .cookie-toggle-slider {
+    outline: 2px solid var(--color-ai-primary);
+    outline-offset: 2px;
 }
 
 .cookie-toggle input:checked + .cookie-toggle-slider {
