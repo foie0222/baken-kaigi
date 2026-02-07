@@ -1,7 +1,8 @@
 """馬券会議 API スタック."""
 from pathlib import Path
 
-from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, SecretValue, Stack
+from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import aws_secretsmanager as secretsmanager
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
@@ -149,14 +150,17 @@ class BakenKaigiApiStack(Stack):
         )
 
         # Google Identity Provider
+        google_oauth_secret = secretsmanager.Secret.from_secret_name_v2(
+            self,
+            "GoogleOAuthSecret",
+            "baken-kaigi/google-oauth",
+        )
         google_provider = cognito.UserPoolIdentityProviderGoogle(
             self,
             "GoogleProvider",
             user_pool=user_pool,
-            client_id="1019449247499-0o081kpvq8m9ecndrltugaj9lv1jriol.apps.googleusercontent.com",
-            client_secret_value=SecretValue.unsafe_plain_text(
-                "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"
-            ),
+            client_id=google_oauth_secret.secret_value_from_json("client_id").unsafe_unwrap(),
+            client_secret_value=google_oauth_secret.secret_value_from_json("client_secret"),
             scopes=["openid", "email", "profile"],
             attribute_mapping=cognito.AttributeMapping(
                 email=cognito.ProviderAttribute.GOOGLE_EMAIL,
