@@ -10,46 +10,33 @@ export function Header() {
   return (
     <header className="app-header">
       <h1 className="app-title" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>馬券会議</h1>
-      <div className="header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="cart-btn" onClick={() => navigate('/cart')}>
+      <div className="header-actions">
+        <button className="header-pill cart-btn" onClick={() => navigate('/cart')}>
           <span className="cart-icon">🛒</span>
           {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
         </button>
         {isAuthenticated ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="header-pill header-pill-user">
             <button
-              style={{ fontSize: 13, color: '#666', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+              className="header-pill-name"
               onClick={() => navigate('/profile')}
               type="button"
             >
               {user?.displayName || user?.email?.split('@')[0] || ''}
             </button>
+            <span className="header-pill-divider" />
             <button
+              className="header-pill-logout"
               onClick={() => signOut()}
-              style={{
-                padding: '6px 12px',
-                border: '1px solid #ddd',
-                borderRadius: 6,
-                background: 'white',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}
+              type="button"
             >
               ログアウト
             </button>
           </div>
         ) : (
           <button
+            className="header-pill header-pill-login"
             onClick={() => navigate('/login')}
-            style={{
-              padding: '6px 12px',
-              border: 'none',
-              borderRadius: 6,
-              background: '#1a73e8',
-              color: 'white',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
           >
             ログイン
           </button>

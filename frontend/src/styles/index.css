@@ -114,41 +114,87 @@ body {
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
+}
+
+.header-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 6px 12px;
+    color: white;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
 }
 
 .cart-btn {
     position: relative;
-    background: rgba(255,255,255,0.2);
-    border: none;
-    padding: 8px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: white;
+    padding: 6px 10px;
 }
 
 .cart-icon {
-    font-size: 18px;
+    font-size: 16px;
+    line-height: 1;
 }
 
 .cart-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    background: #ff4444;
+    top: -3px;
+    right: -3px;
+    background: #ef4444;
     color: white;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    min-width: 18px;
-    height: 18px;
-    border-radius: 9px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.header-pill-user {
+    gap: 8px;
+    cursor: default;
+}
+
+.header-pill-name {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+}
+
+.header-pill-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255,255,255,0.25);
+}
+
+.header-pill-logout {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.75);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+    font-family: inherit;
+}
+
+.header-pill-login {
+    border: none;
 }
 
 /* Main Content */
