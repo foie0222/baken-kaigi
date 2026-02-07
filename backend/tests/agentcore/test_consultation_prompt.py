@@ -1,10 +1,9 @@
 """agentcore/prompts/consultation.py のプロンプト内容テスト."""
 
 import sys
+from pathlib import Path
 
-sys.path.insert(
-    0, "/home/inoue-d/dev/baken-kaigi/feature/203-multi-source-ai/backend"
-)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from agentcore.prompts.consultation import SYSTEM_PROMPT
 
@@ -192,9 +191,9 @@ class Testツール説明の更新:
 
     def test_consensus戻り値が追加されている(self):
         assert "`consensus`: コンセンサス分析（2ソース以上の場合）" in SYSTEM_PROMPT
-        assert "`consensus_top3`: 合意上位3頭" in SYSTEM_PROMPT
-        assert "`agreement_level`: 合議レベル（high/medium/low）" in SYSTEM_PROMPT
-        assert "`divergent_horses`: 評価が割れている馬リスト" in SYSTEM_PROMPT
+        assert "`agreed_top3`: 合意上位3頭" in SYSTEM_PROMPT
+        assert "`consensus_level`: 合議レベル（完全合意/概ね合意/部分合意/大きな乖離）" in SYSTEM_PROMPT
+        assert "`divergence_horses`: 評価が割れている馬リスト" in SYSTEM_PROMPT
 
 
 class Test推奨表現の追加:

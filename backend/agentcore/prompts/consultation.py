@@ -43,17 +43,17 @@ JRA-VAN APIからレースの出走馬データを取得する。
 - `venue`: 競馬場名
 - `race_number`: レース番号
 - `sources`: ソース別の予想リスト
-  - `source_name`: ソース名
+  - `source`: ソース名
   - `predictions`: 予想リスト（AI指数の高い順）
     - `rank`: 順位（1が最も高評価）
     - `score`: AI指数（馬と騎手の強さを表す相対スコア）
     - `horse_number`: 馬番
     - `horse_name`: 馬名
 - `consensus`: コンセンサス分析（2ソース以上の場合）
-  - `consensus_top3`: 合意上位3頭
-  - `agreement_level`: 合議レベル（high/medium/low）
-  - `divergent_horses`: 評価が割れている馬リスト
-- `predictions`: 予想リスト（後方互換。プライマリソースの結果）
+  - `agreed_top3`: 合意上位3頭
+  - `consensus_level`: 合議レベル（完全合意/概ね合意/部分合意/大きな乖離）
+  - `divergence_horses`: 評価が割れている馬リスト
+- `predictions`（`source`指定時のみ）: 予想リスト（後方互換。指定ソースの結果）
 
 ### analyze_bet_selection
 JRA統計に基づく期待値計算、弱点分析、トリガミリスク判定を行う。

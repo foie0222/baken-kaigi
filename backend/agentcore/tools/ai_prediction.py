@@ -42,25 +42,26 @@ def _analyze_consensus(sources: list[dict]) -> dict:
         top3 = {p["horse_number"] for p in preds[:3]}
         top3_sets.append(top3)
 
-    # 全ソースのtop3に共通する馬番
-    agreed_top3 = list(top3_sets[0].intersection(*top3_sets[1:]))
+    # 全ソースのtop3に共通する馬番（先頭ソースの順位でソートして順序安定化）
+    first_source_ranks = {
+        p["horse_number"]: p["rank"] for p in sources[0].get("predictions", [])
+    }
+    agreed_set = top3_sets[0].intersection(*top3_sets[1:])
+    agreed_top3 = sorted(
+        agreed_set,
+        key=lambda hn: (first_source_ranks.get(hn, float("inf")), hn),
+    )
 
     # コンセンサスレベル判定
     common_count = len(agreed_top3)
     if common_count == 3:
-        # top3の顔ぶれが一致 → 順位差を確認
-        all_within_1 = True
-        for horse_num in agreed_top3:
-            ranks = []
-            for s in sources:
-                for p in s["predictions"][:3]:
-                    if p["horse_number"] == horse_num:
-                        ranks.append(p["rank"])
-                        break
-            if max(ranks) - min(ranks) > 1:
-                all_within_1 = False
-                break
-        consensus_level = "完全合意" if all_within_1 else "概ね合意"
+        # top3の顔ぶれが一致 → 各ソースのtop3順位（並び）が完全一致か確認
+        base_top3 = [p["horse_number"] for p in sources[0].get("predictions", [])[:3]]
+        top3_order_all_match = all(
+            [p["horse_number"] for p in s.get("predictions", [])[:3]] == base_top3
+            for s in sources[1:]
+        )
+        consensus_level = "完全合意" if top3_order_all_match else "概ね合意"
     elif common_count == 2:
         consensus_level = "部分合意"
     else:
