@@ -517,10 +517,6 @@ def _estimate_fair_odds_from_ai(ai_score: float, ai_rank: int) -> float:
     if ai_score >= _AI_SCORE_ODDS_ANCHORS[0][0]:
         return _AI_SCORE_ODDS_ANCHORS[0][1]
 
-    # スコアが最低アンカー以下
-    if ai_score <= _AI_SCORE_ODDS_ANCHORS[-1][0]:
-        return _AI_SCORE_ODDS_ANCHORS[-1][1]
-
     # 隣接アンカー間をlog空間で線形補間
     for i in range(len(_AI_SCORE_ODDS_ANCHORS) - 1):
         upper_score, upper_odds = _AI_SCORE_ODDS_ANCHORS[i]

@@ -66,11 +66,6 @@ RUNNERS_CORRECTION = {
 }
 
 # =============================================================================
-# レース条件による補正係数
-# 荒れやすいレースでは人気馬の信頼度が下がる
-# =============================================================================
-
-# =============================================================================
 # 複勝オッズ推定: 単勝に対する複勝オッズの比率（人気別）
 # 出典: JRA統計に基づく概算値
 # =============================================================================
@@ -79,7 +74,6 @@ WIN_TO_PLACE_RATIO = {
     1: 0.73, 2: 0.55, 3: 0.45, 4: 0.38, 5: 0.33,
     6: 0.28, 7: 0.24, 8: 0.21, 9: 0.19, 10: 0.17,
 }
-
 
 # =============================================================================
 # レース条件による補正係数
@@ -144,7 +138,11 @@ def _estimate_win_probability(
     total_runners: int = 18,
     race_conditions: list[str] | None = None,
 ) -> float:
-    """勝率のみを返す（Harvilleモデル用）.
+    """Harvilleモデル用の正規化済み勝率を返す.
+
+    Harvilleモデルは「全馬の勝率の合計=1」を前提とするため、
+    _estimate_probability で頭数補正等を行った後の値を
+    全人気(1..total_runners)について正規化する。
 
     Args:
         popularity: 人気順位
@@ -152,9 +150,22 @@ def _estimate_win_probability(
         race_conditions: レース条件
 
     Returns:
-        推定勝率
+        推定勝率（全馬で合計1となるよう正規化済み）
     """
-    return _estimate_probability(popularity, "win", total_runners, race_conditions)
+    raw_probs = [
+        _estimate_probability(pop, "win", total_runners, race_conditions)
+        for pop in range(1, total_runners + 1)
+    ]
+
+    total_prob = sum(raw_probs)
+    if total_prob <= 0.0:
+        return 0.0
+
+    index = popularity - 1
+    if index < 0 or index >= len(raw_probs):
+        return 0.0
+
+    return raw_probs[index] / total_prob
 
 
 def _harville_wide(
@@ -456,6 +467,9 @@ def _calculate_combination_probability(
     else:
         # 単勝・複勝は組み合わせ不要
         return {"probability": 0, "method": "単独券種"}
+
+    # 丸め誤差や正規化不足で1.0を超えないようクランプ
+    combined_prob = max(0.0, min(combined_prob, 1.0))
 
     return {
         "probability": round(combined_prob * 100, 2),

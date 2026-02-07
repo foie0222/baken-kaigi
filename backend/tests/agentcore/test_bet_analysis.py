@@ -582,13 +582,22 @@ class TestHarvilleTrifecta:
 class TestEstimateWinProbability:
     """勝率取得ヘルパーのテスト."""
 
-    def test_1番人気の勝率(self):
+    def test_1番人気の勝率は正規化されて約33パーセント(self):
         prob = _estimate_win_probability(1)
-        assert prob == 0.33
+        # 正規化後は元の0.33から微調整される（全馬合計=1.0）
+        assert abs(prob - 0.33) < 0.01
 
     def test_8頭立て1番人気の勝率は補正される(self):
         prob = _estimate_win_probability(1, total_runners=8)
         assert prob > 0.33  # 8頭立ては補正で上がる
+
+    def test_全馬の勝率合計は1(self):
+        total = sum(_estimate_win_probability(p, 18) for p in range(1, 19))
+        assert abs(total - 1.0) < 0.001
+
+    def test_8頭立て全馬の勝率合計は1(self):
+        total = sum(_estimate_win_probability(p, 8) for p in range(1, 9))
+        assert abs(total - 1.0) < 0.001
 
 
 class TestHarvilleWide:
