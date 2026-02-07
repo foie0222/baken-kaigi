@@ -12,6 +12,7 @@ import {
   deleteUser as amplifyDeleteUser,
   signInWithRedirect,
 } from 'aws-amplify/auth';
+import { isAuthConfigured } from '../config/amplify';
 
 interface AuthUser {
   userId: string;
@@ -46,6 +47,10 @@ export const useAuthStore = create<AuthState>()((set) => ({
   error: null,
 
   checkAuth: async () => {
+    if (!isAuthConfigured) {
+      set({ user: null, isAuthenticated: false, isLoading: false });
+      return;
+    }
     try {
       set({ isLoading: true, error: null });
       const currentUser = await getCurrentUser();

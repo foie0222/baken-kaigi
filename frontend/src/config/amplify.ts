@@ -1,5 +1,7 @@
 import { Amplify } from 'aws-amplify';
 
+export let isAuthConfigured = false;
+
 export function configureAmplify() {
   const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || '';
   const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID || '';
@@ -30,4 +32,5 @@ export function configureAmplify() {
   };
 
   Amplify.configure(cognitoConfig);
+  isAuthConfigured = true;
 }
