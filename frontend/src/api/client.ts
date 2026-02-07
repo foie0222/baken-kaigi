@@ -9,6 +9,11 @@ import type {
   ApiRacesResponse,
   ApiRaceDetailResponse,
   RunnerData,
+  PurchaseResult,
+  PurchaseOrder,
+  IpatCredentialsInput,
+  IpatStatus,
+  IpatBalance,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -267,6 +272,60 @@ class ApiClient {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  // 購入API
+  async submitPurchase(
+    cartId: string,
+    raceDate: string,
+    courseCode: string,
+    raceNumber: number
+  ): Promise<ApiResponse<PurchaseResult>> {
+    return this.request<PurchaseResult>('/purchases', {
+      method: 'POST',
+      body: JSON.stringify({
+        cart_id: cartId,
+        race_date: raceDate,
+        course_code: courseCode,
+        race_number: raceNumber,
+      }),
+    });
+  }
+
+  async getPurchaseHistory(): Promise<ApiResponse<PurchaseOrder[]>> {
+    return this.request<PurchaseOrder[]>('/purchases');
+  }
+
+  async getPurchaseDetail(purchaseId: string): Promise<ApiResponse<PurchaseOrder>> {
+    return this.request<PurchaseOrder>(`/purchases/${encodeURIComponent(purchaseId)}`);
+  }
+
+  // IPAT設定API
+  async saveIpatCredentials(credentials: IpatCredentialsInput): Promise<ApiResponse<void>> {
+    return this.request<void>('/ipat/credentials', {
+      method: 'PUT',
+      body: JSON.stringify({
+        card_number: credentials.cardNumber,
+        birthday: credentials.birthday,
+        pin: credentials.pin,
+        dummy_pin: credentials.dummyPin,
+      }),
+    });
+  }
+
+  async getIpatStatus(): Promise<ApiResponse<IpatStatus>> {
+    return this.request<IpatStatus>('/ipat/status');
+  }
+
+  async deleteIpatCredentials(): Promise<ApiResponse<void>> {
+    return this.request<void>('/ipat/credentials', {
+      method: 'DELETE',
+    });
+  }
+
+  // 残高照会
+  async getIpatBalance(): Promise<ApiResponse<IpatBalance>> {
+    return this.request<IpatBalance>('/ipat/balance');
   }
 
   // AgentCore が利用可能かどうか

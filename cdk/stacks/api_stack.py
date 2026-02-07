@@ -240,6 +240,31 @@ class BakenKaigiApiStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
+        # Purchase Order テーブル
+        purchase_order_table = dynamodb.Table(
+            self,
+            "PurchaseOrderTable",
+            table_name="baken-kaigi-purchase-order",
+            partition_key=dynamodb.Attribute(
+                name="purchase_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+        # user_id での検索用 GSI
+        purchase_order_table.add_global_secondary_index(
+            index_name="user_id-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="created_at",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
+
         # ========================================
         # AgentCore Runtime
         # ========================================
@@ -288,6 +313,7 @@ class BakenKaigiApiStack(Stack):
             "SESSION_TABLE_NAME": session_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             "USER_TABLE_NAME": user_table.table_name,
+            "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -743,6 +769,103 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # ========================================
+        # IPAT購入API
+        # ========================================
+
+        submit_purchase_fn = lambda_.Function(
+            self,
+            "SubmitPurchaseFunction",
+            handler="src.api.handlers.purchase.submit_purchase_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-submit-purchase",
+            description="購入実行",
+            timeout=Duration.seconds(60),
+            **{k: v for k, v in lambda_common_props.items() if k != "timeout"},
+        )
+
+        get_purchase_history_fn = lambda_.Function(
+            self,
+            "GetPurchaseHistoryFunction",
+            handler="src.api.handlers.purchase.get_purchase_history_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-purchase-history",
+            description="購入履歴取得",
+            **lambda_common_props,
+        )
+
+        get_purchase_detail_fn = lambda_.Function(
+            self,
+            "GetPurchaseDetailFunction",
+            handler="src.api.handlers.purchase.get_purchase_detail_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-purchase-detail",
+            description="購入詳細取得",
+            **lambda_common_props,
+        )
+
+        get_ipat_balance_fn = lambda_.Function(
+            self,
+            "GetIpatBalanceFunction",
+            handler="src.api.handlers.ipat_balance.get_ipat_balance_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-ipat-balance",
+            description="IPAT残高取得",
+            timeout=Duration.seconds(30),
+            **{k: v for k, v in lambda_common_props.items() if k != "timeout"},
+        )
+
+        save_ipat_credentials_fn = lambda_.Function(
+            self,
+            "SaveIpatCredentialsFunction",
+            handler="src.api.handlers.ipat_settings.save_ipat_credentials_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-save-ipat-credentials",
+            description="IPAT認証情報保存",
+            **lambda_common_props,
+        )
+
+        get_ipat_status_fn = lambda_.Function(
+            self,
+            "GetIpatStatusFunction",
+            handler="src.api.handlers.ipat_settings.get_ipat_status_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-ipat-status",
+            description="IPAT設定ステータス取得",
+            **lambda_common_props,
+        )
+
+        delete_ipat_credentials_fn = lambda_.Function(
+            self,
+            "DeleteIpatCredentialsFunction",
+            handler="src.api.handlers.ipat_settings.delete_ipat_credentials_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-delete-ipat-credentials",
+            description="IPAT認証情報削除",
+            **lambda_common_props,
+        )
+
         # Cognito Post Confirmation トリガー
         cognito_post_confirmation_fn = lambda_.Function(
             self,
@@ -1087,6 +1210,73 @@ class BakenKaigiApiStack(Stack):
             authorizer=cognito_authorizer,
         )
 
+        # /purchases
+        purchases = api.root.add_resource("purchases")
+        purchases.add_method(
+            "POST",
+            apigw.LambdaIntegration(submit_purchase_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        purchases.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_purchase_history_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /purchases/{purchase_id}
+        purchase = purchases.add_resource("{purchase_id}")
+        purchase.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_purchase_detail_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /ipat
+        ipat = api.root.add_resource("ipat")
+
+        # /ipat/balance
+        ipat_balance = ipat.add_resource("balance")
+        ipat_balance.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_ipat_balance_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /settings
+        settings = api.root.add_resource("settings")
+
+        # /settings/ipat
+        settings_ipat = settings.add_resource("ipat")
+        settings_ipat.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_ipat_status_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        settings_ipat.add_method(
+            "PUT",
+            apigw.LambdaIntegration(save_ipat_credentials_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        settings_ipat.add_method(
+            "DELETE",
+            apigw.LambdaIntegration(delete_ipat_credentials_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
         # ========================================
         # AgentCore 相談 API
         # ========================================
@@ -1275,6 +1465,41 @@ class BakenKaigiApiStack(Stack):
         for fn in consultation_functions:
             cart_table.grant_read_data(fn)
             session_table.grant_read_write_data(fn)
+
+        # IPAT購入関連 Lambda に Purchase Order テーブルへのアクセス権限を付与
+        purchase_functions = [
+            submit_purchase_fn,
+            get_purchase_history_fn,
+            get_purchase_detail_fn,
+        ]
+        for fn in purchase_functions:
+            purchase_order_table.grant_read_write_data(fn)
+
+        # IPAT購入関連 Lambda に Cart テーブルへの読み取り権限を付与
+        cart_table.grant_read_data(submit_purchase_fn)
+
+        # SecretsManager 権限（IPAT認証情報の管理）
+        ipat_secrets_policy = iam.PolicyStatement(
+            actions=[
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:CreateSecret",
+                "secretsmanager:PutSecretValue",
+                "secretsmanager:DeleteSecret",
+                "secretsmanager:DescribeSecret",
+            ],
+            resources=[
+                f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:baken-kaigi/ipat/*",
+            ],
+        )
+        ipat_credential_functions = [
+            submit_purchase_fn,
+            get_ipat_balance_fn,
+            save_ipat_credentials_fn,
+            get_ipat_status_fn,
+            delete_ipat_credentials_fn,
+        ]
+        for fn in ipat_credential_functions:
+            fn.add_to_role_policy(ipat_secrets_policy)
 
         # ========================================
         # 出力

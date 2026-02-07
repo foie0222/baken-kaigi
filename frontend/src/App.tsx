@@ -19,6 +19,9 @@ import { ProfilePage } from './pages/auth/ProfilePage';
 import { ChangePasswordPage } from './pages/auth/ChangePasswordPage';
 import { DeleteAccountPage } from './pages/auth/DeleteAccountPage';
 import { AuthCallbackPage } from './pages/auth/AuthCallbackPage';
+import { IpatSettingsPage } from './pages/IpatSettingsPage';
+import { PurchaseConfirmPage } from './pages/PurchaseConfirmPage';
+import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useAuthStore } from './stores/authStore';
 import './styles/index.css';
@@ -57,6 +60,9 @@ function App() {
           <Route path="delete-account" element={<AuthGuard><DeleteAccountPage /></AuthGuard>} />
           <Route path="dashboard" element={<AuthGuard><DashboardPage /></AuthGuard>} />
           <Route path="history" element={<AuthGuard><HistoryPage /></AuthGuard>} />
+          <Route path="purchase/confirm" element={<AuthGuard><PurchaseConfirmPage /></AuthGuard>} />
+          <Route path="purchase/history" element={<AuthGuard><PurchaseHistoryPage /></AuthGuard>} />
+          <Route path="settings/ipat" element={<AuthGuard><IpatSettingsPage /></AuthGuard>} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -42,6 +42,7 @@ export function SettingsPage() {
           </div>
           <SettingsMenuItem label="プロフィール" onClick={() => navigate('/profile')} />
           <SettingsMenuItem label="パスワード変更" onClick={() => navigate('/change-password')} />
+          <SettingsMenuItem label="IPAT設定" onClick={() => navigate('/settings/ipat')} />
           <SettingsMenuItem label="ログアウト" onClick={() => signOut()} color="#c62828" />
           <SettingsMenuItem label="アカウント削除" onClick={() => navigate('/delete-account')} color="#999" />
         </div>

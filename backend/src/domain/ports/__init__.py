@@ -2,6 +2,10 @@
 from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, ConsultationContext
 from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
+from .ipat_credentials_provider import IpatCredentialsProvider
+from .ipat_gateway import IpatGateway
+from .purchase_order_repository import PurchaseOrderRepository
+from .spending_limit_provider import SpendingLimitProvider
 from .user_repository import UserRepository
 from .race_data_provider import (
     AncestorData,
@@ -68,6 +72,10 @@ __all__ = [
     "ConsultationContext",
     "CartRepository",
     "ConsultationSessionRepository",
+    "IpatCredentialsProvider",
+    "IpatGateway",
+    "PurchaseOrderRepository",
+    "SpendingLimitProvider",
     "CourseAptitudeData",
     "DistanceAptitudeData",
     "ExtendedPedigreeData",

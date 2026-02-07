@@ -5,7 +5,11 @@ from src.domain.ports import (
     AIClient,
     CartRepository,
     ConsultationSessionRepository,
+    IpatCredentialsProvider,
+    IpatGateway,
+    PurchaseOrderRepository,
     RaceDataProvider,
+    SpendingLimitProvider,
 )
 from src.domain.ports.user_repository import UserRepository
 from src.infrastructure import (
@@ -40,6 +44,10 @@ class Dependencies:
     _race_data_provider: RaceDataProvider | None = None
     _ai_client: AIClient | None = None
     _user_repository: UserRepository | None = None
+    _purchase_order_repository: PurchaseOrderRepository | None = None
+    _ipat_gateway: IpatGateway | None = None
+    _credentials_provider: IpatCredentialsProvider | None = None
+    _spending_limit_provider: SpendingLimitProvider | None = None
 
     @classmethod
     def get_cart_repository(cls) -> CartRepository:
@@ -125,6 +133,89 @@ class Dependencies:
         cls._ai_client = client
 
     @classmethod
+    def get_purchase_order_repository(cls) -> PurchaseOrderRepository:
+        """購入注文リポジトリを取得する."""
+        if cls._purchase_order_repository is None:
+            if os.environ.get("PURCHASE_ORDER_TABLE_NAME") is not None:
+                from src.infrastructure.repositories.dynamodb_purchase_order_repository import (
+                    DynamoDBPurchaseOrderRepository,
+                )
+
+                cls._purchase_order_repository = DynamoDBPurchaseOrderRepository()
+            else:
+                from src.infrastructure.repositories.in_memory_purchase_order_repository import (
+                    InMemoryPurchaseOrderRepository,
+                )
+
+                cls._purchase_order_repository = InMemoryPurchaseOrderRepository()
+        return cls._purchase_order_repository
+
+    @classmethod
+    def set_purchase_order_repository(cls, repository: PurchaseOrderRepository) -> None:
+        """購入注文リポジトリを設定する（テスト用）."""
+        cls._purchase_order_repository = repository
+
+    @classmethod
+    def get_ipat_gateway(cls) -> IpatGateway:
+        """IPATゲートウェイを取得する."""
+        if cls._ipat_gateway is None:
+            if os.environ.get("JRAVAN_API_URL") is not None:
+                from src.infrastructure.providers.jravan_ipat_gateway import (
+                    JraVanIpatGateway,
+                )
+
+                cls._ipat_gateway = JraVanIpatGateway()
+            else:
+                from src.infrastructure.providers.mock_ipat_gateway import MockIpatGateway
+
+                cls._ipat_gateway = MockIpatGateway()
+        return cls._ipat_gateway
+
+    @classmethod
+    def set_ipat_gateway(cls, gateway: IpatGateway) -> None:
+        """IPATゲートウェイを設定する（テスト用）."""
+        cls._ipat_gateway = gateway
+
+    @classmethod
+    def get_credentials_provider(cls) -> IpatCredentialsProvider:
+        """IPAT認証情報プロバイダーを取得する."""
+        if cls._credentials_provider is None:
+            if _use_dynamodb():
+                from src.infrastructure.providers.secrets_manager_credentials_provider import (
+                    SecretsManagerCredentialsProvider,
+                )
+
+                cls._credentials_provider = SecretsManagerCredentialsProvider()
+            else:
+                from src.infrastructure.providers.in_memory_credentials_provider import (
+                    InMemoryCredentialsProvider,
+                )
+
+                cls._credentials_provider = InMemoryCredentialsProvider()
+        return cls._credentials_provider
+
+    @classmethod
+    def set_credentials_provider(cls, provider: IpatCredentialsProvider) -> None:
+        """IPAT認証情報プロバイダーを設定する（テスト用）."""
+        cls._credentials_provider = provider
+
+    @classmethod
+    def get_spending_limit_provider(cls) -> SpendingLimitProvider:
+        """月間支出制限プロバイダーを取得する."""
+        if cls._spending_limit_provider is None:
+            from src.infrastructure.providers.stub_spending_limit_provider import (
+                StubSpendingLimitProvider,
+            )
+
+            cls._spending_limit_provider = StubSpendingLimitProvider()
+        return cls._spending_limit_provider
+
+    @classmethod
+    def set_spending_limit_provider(cls, provider: SpendingLimitProvider) -> None:
+        """月間支出制限プロバイダーを設定する（テスト用）."""
+        cls._spending_limit_provider = provider
+
+    @classmethod
     def reset(cls) -> None:
         """全ての依存性をリセットする（テスト用）."""
         cls._cart_repository = None
@@ -132,3 +223,7 @@ class Dependencies:
         cls._race_data_provider = None
         cls._ai_client = None
         cls._user_repository = None
+        cls._purchase_order_repository = None
+        cls._ipat_gateway = None
+        cls._credentials_provider = None
+        cls._spending_limit_provider = None
