@@ -70,6 +70,22 @@ RUNNERS_CORRECTION = {
 # 荒れやすいレースでは人気馬の信頼度が下がる
 # =============================================================================
 
+# =============================================================================
+# 複勝オッズ推定: 単勝に対する複勝オッズの比率（人気別）
+# 出典: JRA統計に基づく概算値
+# =============================================================================
+
+WIN_TO_PLACE_RATIO = {
+    1: 0.73, 2: 0.55, 3: 0.45, 4: 0.38, 5: 0.33,
+    6: 0.28, 7: 0.24, 8: 0.21, 9: 0.19, 10: 0.17,
+}
+
+
+# =============================================================================
+# レース条件による補正係数
+# 荒れやすいレースでは人気馬の信頼度が下がる
+# =============================================================================
+
 RACE_CONDITION_CORRECTION = {
     # 通常レース（補正なし）
     "normal": 1.0,
@@ -90,8 +106,109 @@ RACE_CONDITION_CORRECTION = {
 }
 
 
+def _harville_exacta(p_a: float, p_b: float) -> float:
+    """Harvilleモデルによる馬単確率: P(A=1着, B=2着).
+
+    Args:
+        p_a: Aの勝率
+        p_b: Bの勝率
+
+    Returns:
+        A1着B2着の確率
+    """
+    if p_a >= 1.0 or p_a <= 0.0:
+        return 0.0
+    return p_a * p_b / (1 - p_a)
+
+
+def _harville_trifecta(p_a: float, p_b: float, p_c: float) -> float:
+    """Harvilleモデルによる三連単確率: P(A=1着, B=2着, C=3着).
+
+    Args:
+        p_a: Aの勝率
+        p_b: Bの勝率
+        p_c: Cの勝率
+
+    Returns:
+        A1着B2着C3着の確率
+    """
+    if p_a >= 1.0 or (p_a + p_b) >= 1.0:
+        return 0.0
+    if p_a <= 0.0:
+        return 0.0
+    return p_a * (p_b / (1 - p_a)) * (p_c / (1 - p_a - p_b))
+
+
+def _estimate_win_probability(
+    popularity: int,
+    total_runners: int = 18,
+    race_conditions: list[str] | None = None,
+) -> float:
+    """勝率のみを返す（Harvilleモデル用）.
+
+    Args:
+        popularity: 人気順位
+        total_runners: 出走頭数
+        race_conditions: レース条件
+
+    Returns:
+        推定勝率
+    """
+    return _estimate_probability(popularity, "win", total_runners, race_conditions)
+
+
+def _harville_wide(
+    p_a: float,
+    p_b: float,
+    total_runners: int,
+    selected_pops: list[int],
+    race_conditions: list[str] | None,
+) -> float:
+    """Harvilleモデルによるワイド確率: P(A,Bが共に3着内).
+
+    全非選択馬Cについて、(A,B,C)の6順列のtrifecta確率を合算する。
+
+    Args:
+        p_a: Aの勝率
+        p_b: Bの勝率
+        total_runners: 出走頭数
+        selected_pops: 選択馬の人気順位リスト
+        race_conditions: レース条件
+
+    Returns:
+        両馬が3着内に入る確率
+    """
+    total = 0.0
+    for pop_c in range(1, total_runners + 1):
+        if pop_c in selected_pops:
+            continue
+        p_c = _estimate_win_probability(pop_c, total_runners, race_conditions)
+        # 6順列: (A,B,C), (A,C,B), (B,A,C), (B,C,A), (C,A,B), (C,B,A)
+        total += _harville_trifecta(p_a, p_b, p_c)
+        total += _harville_trifecta(p_a, p_c, p_b)
+        total += _harville_trifecta(p_b, p_a, p_c)
+        total += _harville_trifecta(p_b, p_c, p_a)
+        total += _harville_trifecta(p_c, p_a, p_b)
+        total += _harville_trifecta(p_c, p_b, p_a)
+    return total
+
+
+def _estimate_place_odds_ratio(popularity: int) -> float:
+    """人気別の複勝オッズ比率を返す.
+
+    単勝オッズに対する複勝オッズの比率。
+
+    Args:
+        popularity: 人気順位
+
+    Returns:
+        複勝オッズ比率
+    """
+    return WIN_TO_PLACE_RATIO.get(popularity, 0.16)
+
+
 def _get_runners_correction(total_runners: int, popularity: int) -> float:
-    """出走頭数による補正係数を取得する.
+    """出走頭数による補正係数を取得する（線形補間版）.
 
     Args:
         total_runners: 出走頭数
@@ -100,12 +217,27 @@ def _get_runners_correction(total_runners: int, popularity: int) -> float:
     Returns:
         補正係数（1.0が基準）
     """
-    # 最も近い頭数テーブルを選択
     available_runners = sorted(RUNNERS_CORRECTION.keys())
-    closest_runners = min(available_runners, key=lambda x: abs(x - total_runners))
 
-    correction_table = RUNNERS_CORRECTION.get(closest_runners, {})
-    return correction_table.get(popularity, 1.0)
+    # 範囲外: 最小テーブル値 or 最大テーブル値を使用
+    if total_runners <= available_runners[0]:
+        return RUNNERS_CORRECTION[available_runners[0]].get(popularity, 1.0)
+    if total_runners >= available_runners[-1]:
+        return RUNNERS_CORRECTION[available_runners[-1]].get(popularity, 1.0)
+
+    # テーブルに完全一致する場合
+    if total_runners in RUNNERS_CORRECTION:
+        return RUNNERS_CORRECTION[total_runners].get(popularity, 1.0)
+
+    # 隣接2テーブル間で線形補間
+    lower = max(r for r in available_runners if r < total_runners)
+    upper = min(r for r in available_runners if r > total_runners)
+
+    lower_corr = RUNNERS_CORRECTION[lower].get(popularity, 1.0)
+    upper_corr = RUNNERS_CORRECTION[upper].get(popularity, 1.0)
+
+    t = (total_runners - lower) / (upper - lower)
+    return lower_corr + t * (upper_corr - lower_corr)
 
 
 def _get_race_condition_correction(race_conditions: list[str] | None) -> float:
@@ -262,62 +394,64 @@ def _calculate_combination_probability(
     if not popularities:
         return {"probability": 0, "method": "N/A"}
 
-    if bet_type in ("quinella", "quinella_place"):
-        # 馬連・ワイド: 2頭が同時に2着内/3着内に入る確率
+    # 各馬のWIN確率を取得（Harvilleモデルの入力）
+    def _win_prob(pop: int) -> float:
+        return _estimate_win_probability(pop, total_runners, race_conditions)
+
+    if bet_type == "quinella":
+        # 馬連: Harville(A→B) + Harville(B→A)
         if len(popularities) < 2:
             return {"probability": 0, "method": "馬番不足"}
 
-        probs = [
-            _estimate_probability(p, bet_type, total_runners, race_conditions)
-            for p in popularities[:2]
-        ]
-        # 独立と仮定した場合の概算（実際は相関があるため過小評価）
-        # 補正係数1.5を掛けて実績に近づける
-        combined_prob = probs[0] * probs[1] * 1.5
-        method = "2頭同時入着確率（独立仮定×1.5補正）"
+        w1, w2 = _win_prob(popularities[0]), _win_prob(popularities[1])
+        combined_prob = _harville_exacta(w1, w2) + _harville_exacta(w2, w1)
+        method = "Harvilleモデル（馬連: 2順列合算）"
+
+    elif bet_type == "quinella_place":
+        # ワイド: Harvilleワイドモデル（3着内に両馬が入る全順列）
+        if len(popularities) < 2:
+            return {"probability": 0, "method": "馬番不足"}
+
+        w1, w2 = _win_prob(popularities[0]), _win_prob(popularities[1])
+        combined_prob = _harville_wide(
+            w1, w2, total_runners, popularities[:2], race_conditions
+        )
+        method = "Harvilleモデル（ワイド: 全3着内順列合算）"
 
     elif bet_type == "exacta":
-        # 馬単: 1着-2着の順番通り
+        # 馬単: Harville(1着→2着)
         if len(popularities) < 2:
             return {"probability": 0, "method": "馬番不足"}
 
-        prob_1st = _estimate_probability(
-            popularities[0], "win", total_runners, race_conditions
-        )
-        prob_2nd = _estimate_probability(
-            popularities[1], "exacta", total_runners, race_conditions
-        )
-        combined_prob = prob_1st * prob_2nd * 1.3
-        method = "1着-2着順序確率（独立仮定×1.3補正）"
+        w1, w2 = _win_prob(popularities[0]), _win_prob(popularities[1])
+        combined_prob = _harville_exacta(w1, w2)
+        method = "Harvilleモデル（馬単）"
 
     elif bet_type == "trio":
-        # 三連複: 3頭が同時に3着内
+        # 三連複: 6順列のtrifecta合算
         if len(popularities) < 3:
             return {"probability": 0, "method": "馬番不足"}
 
-        probs = [
-            _estimate_probability(p, "place", total_runners, race_conditions)
-            for p in popularities[:3]
-        ]
-        combined_prob = probs[0] * probs[1] * probs[2] * 2.0
-        method = "3頭同時3着内確率（独立仮定×2.0補正）"
+        w1 = _win_prob(popularities[0])
+        w2 = _win_prob(popularities[1])
+        w3 = _win_prob(popularities[2])
+        combined_prob = (
+            _harville_trifecta(w1, w2, w3) + _harville_trifecta(w1, w3, w2)
+            + _harville_trifecta(w2, w1, w3) + _harville_trifecta(w2, w3, w1)
+            + _harville_trifecta(w3, w1, w2) + _harville_trifecta(w3, w2, w1)
+        )
+        method = "Harvilleモデル（三連複: 6順列合算）"
 
     elif bet_type == "trifecta":
-        # 三連単: 1着-2着-3着の順番通り
+        # 三連単: Harville(1着→2着→3着)
         if len(popularities) < 3:
             return {"probability": 0, "method": "馬番不足"}
 
-        prob_1st = _estimate_probability(
-            popularities[0], "win", total_runners, race_conditions
-        )
-        prob_2nd = _estimate_probability(
-            popularities[1], "exacta", total_runners, race_conditions
-        )
-        prob_3rd = _estimate_probability(
-            popularities[2], "place", total_runners, race_conditions
-        )
-        combined_prob = prob_1st * prob_2nd * prob_3rd * 1.5
-        method = "1-2-3着順序確率（独立仮定×1.5補正）"
+        w1 = _win_prob(popularities[0])
+        w2 = _win_prob(popularities[1])
+        w3 = _win_prob(popularities[2])
+        combined_prob = _harville_trifecta(w1, w2, w3)
+        method = "Harvilleモデル（三連単）"
 
     else:
         # 単勝・複勝は組み合わせ不要
@@ -456,8 +590,12 @@ def _calculate_torigami_risk(
         estimated_return = int(min_odds * 100)  # 100円あたりの配当
 
         if bet_type == "place":
-            # 複勝はオッズが低い（単勝の約1/3程度と仮定）
-            estimated_return = int(estimated_return * 0.4)
+            # 複勝オッズは人気別比率テーブルで推定
+            popularity = min(
+                (h.get("popularity") or 99 for h in selected_horses), default=99
+            )
+            ratio = _estimate_place_odds_ratio(popularity)
+            estimated_return = int(estimated_return * ratio)
 
         is_torigami = estimated_return < amount
         risk_level = "高" if is_torigami else "低"

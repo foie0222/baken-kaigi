@@ -19,6 +19,11 @@ from tools.bet_analysis import (
     _analyze_ai_index_context,
     _optimize_fund_allocation,
     _identify_score_cluster,
+    _harville_exacta,
+    _harville_trifecta,
+    _estimate_win_probability,
+    _harville_wide,
+    _estimate_place_odds_ratio,
 )
 
 
@@ -122,15 +127,13 @@ class TestCalculateCombinationProbability:
 
     def test_馬連の組み合わせ確率(self):
         result = _calculate_combination_probability([1, 2], "quinella")
-        # 1番人気52% * 2番人気38% * 1.5補正
         assert result["probability"] > 0
-        assert "2頭同時" in result["method"]
+        assert "Harville" in result["method"]
 
     def test_三連複の組み合わせ確率(self):
         result = _calculate_combination_probability([1, 2, 3], "trio")
-        # 3着内率の積 * 2.0補正
         assert result["probability"] > 0
-        assert "3頭同時" in result["method"]
+        assert "Harville" in result["method"]
 
     def test_馬番不足の場合(self):
         result = _calculate_combination_probability([1], "quinella")
@@ -215,6 +218,13 @@ class TestCalculateTorigamiRisk:
         ]
         result = _calculate_torigami_risk("trio", horses, 100)
         assert result["risk_level"] == "低"
+
+    def test_複勝1番人気_低オッズでトリガミリスク(self):
+        # 1番人気: ratio=0.73, odds=1.2 → estimated_return = 120 * 0.73 = 87
+        horses = [{"horse_number": 1, "odds": 1.2, "popularity": 1}]
+        result = _calculate_torigami_risk("place", horses, 100)
+        assert result["is_torigami_likely"] is True
+        assert result["estimated_min_return"] < 100
 
 
 class TestAnalyzeBetSelection:
@@ -525,3 +535,108 @@ class TestOptimizeFundAllocation:
         horses = [{"horse_number": 1, "horse_name": "A", "odds": 3.0, "popularity": 1}]
         result = _optimize_fund_allocation(horses, 0, "win")
         assert result["strategy"] == "データ不足"
+
+
+class TestHarvilleExacta:
+    """Harville馬単モデルのテスト."""
+
+    def test_Harville馬単_1番2番人気(self):
+        # P(1着=1番人気, 2着=2番人気) = 0.33 * 0.19 / (1 - 0.33)
+        # = 0.33 * 0.19 / 0.67 = 0.0936
+        result = _harville_exacta(0.33, 0.19)
+        assert abs(result - 0.0936) < 0.001
+
+    def test_Harville馬単_2番1番人気(self):
+        # P(1着=2番人気, 2着=1番人気) = 0.19 * 0.33 / (1 - 0.19)
+        result = _harville_exacta(0.19, 0.33)
+        assert abs(result - 0.0774) < 0.001
+
+    def test_Harville_確率1で分母ゼロ防止(self):
+        result = _harville_exacta(1.0, 0.19)
+        assert result == 0.0
+
+    def test_Harville_確率0の場合(self):
+        result = _harville_exacta(0.0, 0.19)
+        assert result == 0.0
+
+
+class TestHarvilleTrifecta:
+    """Harville三連単モデルのテスト."""
+
+    def test_Harville三連単_1番2番3番人気(self):
+        # P = 0.33 * (0.19 / 0.67) * (0.13 / (1 - 0.33 - 0.19))
+        # = 0.33 * 0.2836 * (0.13 / 0.48) = 0.33 * 0.2836 * 0.2708
+        # = 0.0254
+        result = _harville_trifecta(0.33, 0.19, 0.13)
+        assert abs(result - 0.0254) < 0.001
+
+    def test_Harville三連単_確率1で安全処理(self):
+        result = _harville_trifecta(1.0, 0.19, 0.13)
+        assert result == 0.0
+
+    def test_Harville_確率合計1以上で安全処理(self):
+        result = _harville_trifecta(0.6, 0.5, 0.13)
+        assert result == 0.0
+
+
+class TestEstimateWinProbability:
+    """勝率取得ヘルパーのテスト."""
+
+    def test_1番人気の勝率(self):
+        prob = _estimate_win_probability(1)
+        assert prob == 0.33
+
+    def test_8頭立て1番人気の勝率は補正される(self):
+        prob = _estimate_win_probability(1, total_runners=8)
+        assert prob > 0.33  # 8頭立ては補正で上がる
+
+
+class TestHarvilleWide:
+    """Harvilleワイドモデルのテスト."""
+
+    def test_Harvilleワイド_1番2番人気(self):
+        result = _harville_wide(0.33, 0.19, 18, [1, 2], None)
+        # 1-2番人気のワイド（3着内に両方入る確率）
+        # Harvilleで計算すると40-60%程度
+        assert 0.30 <= result <= 0.65
+
+    def test_Harvilleワイド_穴馬組み合わせは低い(self):
+        result = _harville_wide(0.02, 0.02, 18, [10, 11], None)
+        # 穴馬同士は非常に低い
+        assert result < 0.05
+
+
+class TestEstimatePlaceOddsRatio:
+    """複勝オッズ比率テーブルのテスト."""
+
+    def test_複勝オッズ比率_1番人気は73パーセント(self):
+        assert _estimate_place_odds_ratio(1) == 0.73
+
+    def test_複勝オッズ比率_10番人気は17パーセント(self):
+        assert _estimate_place_odds_ratio(10) == 0.17
+
+    def test_複勝オッズ比率_11番人気以下は16パーセント(self):
+        assert _estimate_place_odds_ratio(11) == 0.16
+        assert _estimate_place_odds_ratio(18) == 0.16
+
+
+class TestRunnersCorrection補間:
+    """出走頭数補正の線形補間テスト."""
+
+    def test_11頭立ては10頭と12頭の補間値(self):
+        # 10頭: 1.15, 12頭: 1.10 → 11頭: (1.15 + 1.10) / 2 = 1.125
+        correction = _get_runners_correction(11, 1)
+        assert abs(correction - 1.125) < 0.01
+
+    def test_9頭立ては8頭と10頭の補間値(self):
+        # 8頭: 1.25, 10頭: 1.15 → 9頭: (1.25 + 1.15) / 2 = 1.20
+        correction = _get_runners_correction(9, 1)
+        assert abs(correction - 1.20) < 0.01
+
+    def test_7頭以下は8頭テーブルを使用(self):
+        correction = _get_runners_correction(7, 1)
+        assert correction == 1.25  # 8頭テーブルの値
+
+    def test_19頭以上は補正なし(self):
+        correction = _get_runners_correction(19, 1)
+        assert correction == 1.0  # 18頭テーブル（補正なし）
