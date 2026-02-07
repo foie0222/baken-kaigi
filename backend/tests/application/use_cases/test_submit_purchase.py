@@ -47,10 +47,10 @@ def _make_cart(user_id: str = "user-001", cart_id: str = "cart-001") -> Cart:
 
 def _make_credentials() -> IpatCredentials:
     return IpatCredentials(
-        card_number="123456789012",
-        birthday="19900101",
+        inet_id="ABcd1234",
+        subscriber_number="12345678",
         pin="1234",
-        dummy_pin="5678",
+        pars_number="5678",
     )
 
 

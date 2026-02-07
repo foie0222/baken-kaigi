@@ -44,10 +44,10 @@ class TestSaveIpatCredentialsHandler:
     def test_正常保存(self) -> None:
         cred_provider = _setup_deps()
         event = _auth_event(body={
-            "card_number": "123456789012",
-            "birthday": "19900101",
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
             "pin": "1234",
-            "dummy_pin": "5678",
+            "pars_number": "5678",
         })
         result = save_ipat_credentials_handler(event, None)
         assert result["statusCode"] == 200
@@ -55,17 +55,17 @@ class TestSaveIpatCredentialsHandler:
 
     def test_必須パラメータ不足で400(self) -> None:
         _setup_deps()
-        event = _auth_event(body={"card_number": "123456789012"})
+        event = _auth_event(body={"inet_id": "ABcd1234"})
         result = save_ipat_credentials_handler(event, None)
         assert result["statusCode"] == 400
 
     def test_バリデーションエラーで400(self) -> None:
         _setup_deps()
         event = _auth_event(body={
-            "card_number": "invalid",
-            "birthday": "19900101",
+            "inet_id": "invalid",
+            "subscriber_number": "12345678",
             "pin": "1234",
-            "dummy_pin": "5678",
+            "pars_number": "5678",
         })
         result = save_ipat_credentials_handler(event, None)
         assert result["statusCode"] == 400
@@ -85,10 +85,10 @@ class TestGetIpatStatusHandler:
         cred_provider.save_credentials(
             UserId("user-001"),
             IpatCredentials(
-                card_number="123456789012",
-                birthday="19900101",
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
                 pin="1234",
-                dummy_pin="5678",
+                pars_number="5678",
             ),
         )
         event = _auth_event()
@@ -120,10 +120,10 @@ class TestDeleteIpatCredentialsHandler:
         cred_provider.save_credentials(
             UserId("user-001"),
             IpatCredentials(
-                card_number="123456789012",
-                birthday="19900101",
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
                 pin="1234",
-                dummy_pin="5678",
+                pars_number="5678",
             ),
         )
         event = _auth_event()

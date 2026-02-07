@@ -23,7 +23,7 @@ class IpatExecutor:
             "STAT_INI_PATH", r"C:\umagen\ipatgo\stat.ini"
         )
 
-    def vote(self, card: str, birthday: str, pin: str, dummy: str, bet_lines: list[dict]) -> dict:
+    def vote(self, inet_id: str, subscriber_number: str, pin: str, pars_number: str, bet_lines: list[dict]) -> dict:
         """投票を実行する."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             csv_path = f.name
@@ -31,7 +31,7 @@ class IpatExecutor:
 
         try:
             result = subprocess.run(
-                [self.ipatgo_path, "file", csv_path, card, birthday, pin, dummy],
+                [self.ipatgo_path, "file", inet_id, subscriber_number, pin, pars_number, csv_path],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT,
@@ -46,11 +46,11 @@ class IpatExecutor:
         finally:
             Path(csv_path).unlink(missing_ok=True)
 
-    def stat(self, card: str, birthday: str, pin: str, dummy: str) -> dict:
+    def stat(self, inet_id: str, subscriber_number: str, pin: str, pars_number: str) -> dict:
         """残高照会を実行する."""
         try:
             result = subprocess.run(
-                [self.ipatgo_path, "stat", card, birthday, pin, dummy],
+                [self.ipatgo_path, "stat", inet_id, subscriber_number, pin, pars_number],
                 capture_output=True,
                 text=True,
                 timeout=SUBPROCESS_TIMEOUT,

@@ -757,19 +757,19 @@ class IpatBetLineRequest(BaseModel):
 
 class IpatVoteRequest(BaseModel):
     """IPAT投票リクエスト."""
-    card_number: str
-    birthday: str
+    inet_id: str
+    subscriber_number: str
     pin: str
-    dummy_pin: str
+    pars_number: str
     bet_lines: list[IpatBetLineRequest]
 
 
 class IpatStatRequest(BaseModel):
     """IPAT残高照会リクエスト."""
-    card_number: str
-    birthday: str
+    inet_id: str
+    subscriber_number: str
     pin: str
-    dummy_pin: str
+    pars_number: str
 
 
 # ========================================
@@ -785,10 +785,10 @@ def ipat_vote(request: IpatVoteRequest):
     executor = IpatExecutor()
     bet_lines = [line.model_dump() for line in request.bet_lines]
     return executor.vote(
-        request.card_number,
-        request.birthday,
+        request.inet_id,
+        request.subscriber_number,
         request.pin,
-        request.dummy_pin,
+        request.pars_number,
         bet_lines,
     )
 
@@ -798,10 +798,10 @@ def ipat_stat(request: IpatStatRequest):
     """IPAT残高照会を実行する."""
     executor = IpatExecutor()
     return executor.stat(
-        request.card_number,
-        request.birthday,
+        request.inet_id,
+        request.subscriber_number,
         request.pin,
-        request.dummy_pin,
+        request.pars_number,
     )
 
 

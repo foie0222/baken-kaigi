@@ -14,17 +14,17 @@ class SaveIpatCredentialsUseCase:
     def execute(
         self,
         user_id: str,
-        card_number: str,
-        birthday: str,
+        inet_id: str,
+        subscriber_number: str,
         pin: str,
-        dummy_pin: str,
+        pars_number: str,
     ) -> None:
         """認証情報を保存する."""
         uid = UserId(user_id)
         credentials = IpatCredentials(
-            card_number=card_number,
-            birthday=birthday,
+            inet_id=inet_id,
+            subscriber_number=subscriber_number,
             pin=pin,
-            dummy_pin=dummy_pin,
+            pars_number=pars_number,
         )
         self._credentials_provider.save_credentials(uid, credentials)

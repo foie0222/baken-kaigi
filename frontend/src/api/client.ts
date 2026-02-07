@@ -342,10 +342,10 @@ class ApiClient {
     return this.request<void>('/settings/ipat', {
       method: 'PUT',
       body: JSON.stringify({
-        card_number: credentials.cardNumber,
-        birthday: credentials.birthday,
+        inet_id: credentials.inetId,
+        subscriber_number: credentials.subscriberNumber,
         pin: credentials.pin,
-        dummy_pin: credentials.dummyPin,
+        pars_number: credentials.parsNumber,
       }),
     });
   }

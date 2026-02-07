@@ -32,10 +32,10 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
             )
             data = json.loads(response["SecretString"])
             return IpatCredentials(
-                card_number=data["card_number"],
-                birthday=data["birthday"],
+                inet_id=data["inet_id"],
+                subscriber_number=data["subscriber_number"],
                 pin=data["pin"],
-                dummy_pin=data["dummy_pin"],
+                pars_number=data["pars_number"],
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
@@ -46,10 +46,10 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
     def save_credentials(self, user_id: UserId, credentials: IpatCredentials) -> None:
         """ユーザーのIPAT認証情報を保存する."""
         secret_value = json.dumps({
-            "card_number": credentials.card_number,
-            "birthday": credentials.birthday,
+            "inet_id": credentials.inet_id,
+            "subscriber_number": credentials.subscriber_number,
             "pin": credentials.pin,
-            "dummy_pin": credentials.dummy_pin,
+            "pars_number": credentials.pars_number,
         })
         try:
             self._client.put_secret_value(
