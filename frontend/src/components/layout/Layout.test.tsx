@@ -11,13 +11,13 @@ describe('Layout', () => {
       expect(helpLink).toBeInTheDocument()
     })
 
-    it('リンクが厚生労働省のページに設定されている', () => {
+    it('リンクがギャンブル等依存症対策推進関係者会議のページに設定されている', () => {
       render(<Layout />)
 
       const helpLink = screen.getByRole('link', { name: /ギャンブル依存症の相談窓口へ/i })
       expect(helpLink).toHaveAttribute(
         'href',
-        'https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000070789.html'
+        'https://www.gaprsc.or.jp/index.html'
       )
     })
 
