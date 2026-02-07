@@ -5,6 +5,7 @@ AI指数ベースの妙味分析、時間帯別変動分析、単複比分析を
 """
 
 import logging
+import math
 from datetime import datetime, timedelta
 
 import requests
@@ -487,8 +488,16 @@ def _analyze_value_with_ai(
     return value_horses[:8]
 
 
+_AI_SCORE_ODDS_ANCHORS = [
+    (400, 2.0), (300, 3.0), (250, 4.0), (200, 5.0),
+    (150, 8.0), (100, 15.0), (50, 30.0), (0, 50.0),
+]
+
+
 def _estimate_fair_odds_from_ai(ai_score: float, ai_rank: int) -> float:
-    """AI指数から適正オッズを推定する.
+    """AI指数から適正オッズを推定する（対数線形補間版）.
+
+    アンカーポイント間をlog空間で線形補間し、滑らかなオッズカーブを生成。
 
     Args:
         ai_score: AI指数
@@ -497,34 +506,35 @@ def _estimate_fair_odds_from_ai(ai_score: float, ai_rank: int) -> float:
     Returns:
         適正オッズの推定値
     """
-    # AI指数が高いほどオッズは低くなるべき
-    # スコア200を基準として、線形スケーリング
     if ai_score <= 0:
-        # スコアがない場合は順位から推定
         base_odds = {
             1: 3.0, 2: 5.0, 3: 8.0, 4: 12.0, 5: 18.0,
             6: 25.0, 7: 35.0, 8: 50.0, 9: 70.0, 10: 100.0,
         }
         return base_odds.get(ai_rank, 150.0)
 
-    # AI指数ベースの計算
-    # 指数400なら2.0倍、指数200なら4.0倍、指数100なら8.0倍程度
-    if ai_score >= 400:
-        return 2.0
-    elif ai_score >= 300:
-        return 3.0
-    elif ai_score >= 250:
-        return 4.0
-    elif ai_score >= 200:
-        return 5.0
-    elif ai_score >= 150:
-        return 8.0
-    elif ai_score >= 100:
-        return 15.0
-    elif ai_score >= 50:
-        return 30.0
-    else:
-        return 50.0
+    # スコアが最高アンカー以上
+    if ai_score >= _AI_SCORE_ODDS_ANCHORS[0][0]:
+        return _AI_SCORE_ODDS_ANCHORS[0][1]
+
+    # 隣接アンカー間をlog空間で線形補間
+    for i in range(len(_AI_SCORE_ODDS_ANCHORS) - 1):
+        upper_score, upper_odds = _AI_SCORE_ODDS_ANCHORS[i]
+        lower_score, lower_odds = _AI_SCORE_ODDS_ANCHORS[i + 1]
+
+        if lower_score <= ai_score <= upper_score:
+            # アンカー点で完全一致
+            if ai_score == upper_score:
+                return upper_odds
+            if ai_score == lower_score:
+                return lower_odds
+
+            t = (ai_score - lower_score) / (upper_score - lower_score)
+            log_upper = math.log(upper_odds)
+            log_lower = math.log(lower_odds)
+            return round(math.exp(log_lower + t * (log_upper - log_lower)), 2)
+
+    return 50.0
 
 
 def _estimate_fair_odds_fallback(popularity: int) -> float:
