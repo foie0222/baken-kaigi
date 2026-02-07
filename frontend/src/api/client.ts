@@ -11,6 +11,7 @@ import type {
   RunnerData,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 // API ベース URL（環境変数から取得）
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -52,7 +53,7 @@ class ApiClient {
   /**
    * 共通ヘッダーを生成する（API Key含む）
    */
-  private createHeaders(additionalHeaders: HeadersInit = {}): HeadersInit {
+  private async createHeaders(additionalHeaders: HeadersInit = {}): Promise<HeadersInit> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(additionalHeaders as Record<string, string>),
@@ -60,6 +61,17 @@ class ApiClient {
 
     if (this.apiKey) {
       headers['x-api-key'] = this.apiKey;
+    }
+
+    // Cognito認証トークンを付与（ログイン済みの場合）
+    try {
+      const session = await fetchAuthSession();
+      const idToken = session.tokens?.idToken?.toString();
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+      }
+    } catch {
+      // 未認証の場合は Authorization ヘッダーなし
     }
 
     return headers;
@@ -72,7 +84,7 @@ class ApiClient {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        headers: this.createHeaders(options.headers),
+        headers: await this.createHeaders(options.headers),
       });
 
       const data = await response.json();
@@ -232,7 +244,7 @@ class ApiClient {
     try {
       const response = await fetch(this.agentCoreEndpoint, {
         method: 'POST',
-        headers: this.createHeaders(),
+        headers: await this.createHeaders(),
         body: JSON.stringify(request),
       });
 
