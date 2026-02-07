@@ -61,8 +61,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が44個作成されること（API 34 + バッチ 3 + IPAT 7）."""
-        template.resource_count_is("AWS::Lambda::Function", 44)
+        """Lambda関数が51個作成されること（API 34 + バッチ 10 + IPAT 7）."""
+        template.resource_count_is("AWS::Lambda::Function", 51)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが2個作成されること（API用 + バッチ用）."""
