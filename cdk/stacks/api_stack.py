@@ -266,7 +266,6 @@ class BakenKaigiApiStack(Stack):
             "SESSION_TABLE_NAME": session_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             "USER_TABLE_NAME": user_table.table_name,
-            "USER_POOL_ID": user_pool.user_pool_id,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -741,6 +740,10 @@ class BakenKaigiApiStack(Stack):
             cognito.UserPoolOperation.POST_CONFIRMATION,
             cognito_post_confirmation_fn,
         )
+
+        # USER_POOL_ID はアカウント削除Lambda にのみ設定
+        # (PostConfirmation Lambdaに設定するとUserPoolとの循環依存が発生するため)
+        delete_account_fn.add_environment("USER_POOL_ID", user_pool.user_pool_id)
 
         # アカウント削除Lambda に Cognito AdminDisableUser/AdminDeleteUser 権限
         delete_account_fn.add_to_role_policy(
