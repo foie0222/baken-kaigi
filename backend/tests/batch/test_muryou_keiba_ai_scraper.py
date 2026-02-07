@@ -562,9 +562,15 @@ class TestScrapeRaces:
     @patch("batch.muryou_keiba_ai_scraper.save_predictions")
     @patch("batch.muryou_keiba_ai_scraper.fetch_page")
     @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
-    def test_正常なスクレイピングフロー(self, mock_get_table, mock_fetch, mock_save):
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
+    def test_正常なスクレイピングフロー(self, mock_dt, mock_get_table, mock_fetch, mock_save):
         """正常系: アーカイブ→レースページ→保存の全フロー."""
-        from batch.muryou_keiba_ai_scraper import scrape_races
+        from batch.muryou_keiba_ai_scraper import scrape_races, JST
+
+        # 2026年2月7日 20:00 JSTに固定（tomorrow = 2月8日）
+        fixed_now = datetime(2026, 2, 7, 20, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
 
         mock_table = MagicMock()
         mock_get_table.return_value = mock_table
@@ -626,9 +632,14 @@ class TestScrapeRaces:
 
     @patch("batch.muryou_keiba_ai_scraper.fetch_page")
     @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
-    def test_レースページ取得失敗(self, mock_get_table, mock_fetch):
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
+    def test_レースページ取得失敗(self, mock_dt, mock_get_table, mock_fetch):
         """異常系: レースページの取得に失敗した場合."""
-        from batch.muryou_keiba_ai_scraper import scrape_races
+        from batch.muryou_keiba_ai_scraper import scrape_races, JST
+
+        fixed_now = datetime(2026, 2, 7, 20, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
 
         mock_get_table.return_value = MagicMock()
 
