@@ -31,6 +31,17 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
                 SecretId=self._secret_name(user_id),
             )
             data = json.loads(response["SecretString"])
+            # 旧キー（card_number/birthday/dummy_pin）からのマイグレーション
+            if "card_number" in data and "inet_id" not in data:
+                logger.info(f"Migrating legacy credentials for {user_id}")
+                migrated = IpatCredentials(
+                    inet_id=data["card_number"][:8] if len(data["card_number"]) >= 8 else data["card_number"],
+                    subscriber_number=data["birthday"],
+                    pin=data["pin"],
+                    pars_number=data["dummy_pin"],
+                )
+                self.save_credentials(user_id, migrated)
+                return migrated
             return IpatCredentials(
                 inet_id=data["inet_id"],
                 subscriber_number=data["subscriber_number"],

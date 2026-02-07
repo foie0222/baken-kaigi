@@ -61,7 +61,7 @@ export function IpatSettingsPage() {
   };
 
   // ステータス未ロード中はローディング表示
-  if (status === undefined) {
+  if (status === null) {
     return (
       <div className="fade-in" style={{ padding: 16 }}>
         <button className="back-btn" onClick={() => navigate('/settings')}>
