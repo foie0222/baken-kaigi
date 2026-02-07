@@ -49,8 +49,10 @@ def _get_agent():
         from tools.bet_analysis import analyze_bet_selection
         from tools.odds_analysis import analyze_odds_movement
         from tools.pace_analysis import analyze_race_characteristics
+        from tools.past_performance import get_past_performance
         from tools.race_data import get_race_runners
         from tools.risk_analysis import analyze_risk_factors
+        from tools.speed_index import get_speed_index, list_speed_indices_for_date
 
         bedrock_model = BedrockModel(
             model_id=os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-haiku-4-5-v1"),
@@ -63,6 +65,9 @@ def _get_agent():
             system_prompt=SYSTEM_PROMPT,
             tools=[
                 get_ai_prediction,  # AI指数取得（ai-shisu.com）
+                get_speed_index,  # スピード指数取得
+                list_speed_indices_for_date,  # 日付別スピード指数一覧
+                get_past_performance,  # 馬柱（過去成績）取得
                 get_race_runners,  # レース出走馬データ取得（JRA-VAN API）
                 analyze_bet_selection,  # JRA統計ベース買い目分析
                 analyze_odds_movement,  # オッズ変動・妙味分析
