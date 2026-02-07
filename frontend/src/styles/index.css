@@ -49,6 +49,7 @@
 
     /* レイアウト */
     --bottom-nav-height: 60px;
+    --app-max-width: 640px;
 
     /* z-index スケール */
     --z-index-help-link: 99;
@@ -100,6 +101,8 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
+    max-width: var(--app-max-width);
+    margin: 0 auto;
 }
 
 .app-title {
@@ -151,14 +154,18 @@ body {
 main {
     padding: 16px;
     padding-bottom: 120px; /* help-link + bottom-nav分 */
+    max-width: var(--app-max-width);
+    margin: 0 auto;
 }
 
 /* Bottom Navigation */
 .bottom-nav {
     position: fixed;
     bottom: 0;
-    left: 0;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: var(--app-max-width);
     background: white;
     display: flex;
     border-top: 1px solid #e0e0e0;
@@ -1407,8 +1414,10 @@ main {
 .help-link-section {
     position: fixed;
     bottom: var(--bottom-nav-height);
-    left: 0;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: var(--app-max-width);
     padding: var(--space-2) var(--space-4);
     padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
     background: var(--color-neutral-50);
@@ -1880,4 +1889,24 @@ main {
     font-size: 14px;
     color: var(--color-calm-green);
     margin-bottom: 12px;
+}
+
+/* PC表示: 背景とコンテンツの視覚的分離 */
+@media (min-width: 641px) {
+    body {
+        background-color: #e8ede9;
+    }
+
+    main {
+        background-color: #f5f6f8;
+        min-height: 100vh;
+    }
+
+    .app-header {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .bottom-nav {
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    }
 }
