@@ -19,6 +19,9 @@ import { ProfilePage } from './pages/auth/ProfilePage';
 import { ChangePasswordPage } from './pages/auth/ChangePasswordPage';
 import { DeleteAccountPage } from './pages/auth/DeleteAccountPage';
 import { AuthCallbackPage } from './pages/auth/AuthCallbackPage';
+import { TermsPage } from './pages/legal/TermsPage';
+import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
+import { CookiePolicyPage } from './pages/legal/CookiePolicyPage';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useAuthStore } from './stores/authStore';
 import './styles/index.css';
@@ -40,6 +43,9 @@ function App() {
           <Route path="cart" element={<CartPage />} />
           <Route path="consultation" element={<ConsultationPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="terms" element={<TermsPage />} />
+          <Route path="privacy" element={<PrivacyPolicyPage />} />
+          <Route path="cookie-policy" element={<CookiePolicyPage />} />
 
           {/* 認証ページ */}
           <Route path="login" element={<LoginPage />} />

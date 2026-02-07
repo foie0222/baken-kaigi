@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { Toast } from '../common/Toast';
+import { CookieConsentBanner } from '../common/CookieConsentBanner';
 
 function HelpLink() {
   return (
@@ -27,6 +28,7 @@ export function Layout() {
       </main>
       <HelpLink />
       <BottomNav />
+      <CookieConsentBanner />
       <Toast />
     </>
   );
