@@ -20,6 +20,10 @@ from .start_consultation import (
     StartConsultationUseCase,
 )
 from .start_consultation import CartNotFoundError as StartConsultationCartNotFoundError
+from .get_user_profile import GetUserProfileUseCase, UserNotFoundError, UserProfileResult
+from .register_user import RegisterUserUseCase, RegisterUserResult, UserAlreadyExistsError
+from .request_account_deletion import AccountDeletionResult, RequestAccountDeletionUseCase
+from .update_user_profile import UpdateUserProfileResult, UpdateUserProfileUseCase
 
 __all__ = [
     # Race Use Cases
@@ -50,4 +54,15 @@ __all__ = [
     "EmptyCartError",
     "SessionNotFoundError",
     "SessionNotInProgressError",
+    # User Use Cases
+    "AccountDeletionResult",
+    "GetUserProfileUseCase",
+    "RegisterUserResult",
+    "RegisterUserUseCase",
+    "RequestAccountDeletionUseCase",
+    "UpdateUserProfileResult",
+    "UpdateUserProfileUseCase",
+    "UserAlreadyExistsError",
+    "UserNotFoundError",
+    "UserProfileResult",
 ]

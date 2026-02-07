@@ -1,6 +1,7 @@
 """AI相談API ハンドラー."""
 from typing import Any
 
+from src.api.auth import get_authenticated_user_id
 from src.api.dependencies import Dependencies
 from src.api.request import get_body, get_path_parameter
 from src.api.response import (
@@ -40,6 +41,9 @@ def start_consultation(event: dict, context: Any) -> dict:
 
     if "cart_id" not in body:
         return bad_request_response("cart_id is required")
+
+    # 認証ユーザーID（オプション）
+    user_id = get_authenticated_user_id(event)
 
     # ユースケース実行
     cart_repo = Dependencies.get_cart_repository()
@@ -99,17 +103,18 @@ def start_consultation(event: dict, context: Any) -> dict:
             "comment": result.amount_feedback.comment,
         }
 
-    return success_response(
-        {
-            "session_id": str(result.session_id),
-            "status": result.status.value,
-            "cart_items": cart_items,
-            "total_amount": result.total_amount.value,
-            "data_feedbacks": data_feedbacks,
-            "amount_feedback": amount_feedback,
-        },
-        status_code=201,
-    )
+    response_data = {
+        "session_id": str(result.session_id),
+        "status": result.status.value,
+        "cart_items": cart_items,
+        "total_amount": result.total_amount.value,
+        "data_feedbacks": data_feedbacks,
+        "amount_feedback": amount_feedback,
+    }
+    if user_id:
+        response_data["user_id"] = str(user_id)
+
+    return success_response(response_data, status_code=201)
 
 
 def send_message(event: dict, context: Any) -> dict:
