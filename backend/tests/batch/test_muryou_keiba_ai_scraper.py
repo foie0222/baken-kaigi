@@ -650,6 +650,7 @@ class TestScrapeRaces:
         """異常系: レースページの取得に失敗した場合."""
         from batch.muryou_keiba_ai_scraper import scrape_races
 
+        # 2026/2/7 21:00 JST に固定 → 翌日は 2/8
         JST = timezone(timedelta(hours=9))
         fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
         mock_dt.now.return_value = fixed_now
