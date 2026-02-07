@@ -597,6 +597,51 @@ class TestHandler:
 
         mock_scrape_races.assert_called_once_with(offset_days=1)
 
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysが文字列の場合はint変換(self, mock_scrape_races):
+        """正常系: offset_daysが文字列でもint変換される."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": "0"}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=0)
+
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysが不正値の場合はデフォルト1(self, mock_scrape_races):
+        """異常系: offset_daysが不正な値の場合はデフォルト1にフォールバック."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": "abc"}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysが範囲外の場合はデフォルト1(self, mock_scrape_races):
+        """異常系: offset_daysが0,1以外の場合はデフォルト1にフォールバック."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": 5}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
 
 class TestScrapeRaces:
     """メインスクレイピング処理のテスト."""

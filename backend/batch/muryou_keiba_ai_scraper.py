@@ -366,7 +366,12 @@ def handler(event: dict, context: Any) -> dict:
     """
     logger.info(f"Starting muryou-keiba-ai scraper: event={event}")
 
-    offset_days = event.get("offset_days", 1)
+    try:
+        offset_days = int(event.get("offset_days", 1))
+    except (TypeError, ValueError):
+        offset_days = 1
+    if offset_days not in (0, 1):
+        offset_days = 1
 
     try:
         results = scrape_races(offset_days=offset_days)
