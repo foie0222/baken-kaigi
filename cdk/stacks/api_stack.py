@@ -133,12 +133,12 @@ class BakenKaigiApiStack(Stack):
             ),
             standard_attributes=cognito.StandardAttributes(
                 email=cognito.StandardAttribute(required=True, mutable=True),
-                birthdate=cognito.StandardAttribute(required=True, mutable=False),
+                birthdate=cognito.StandardAttribute(required=False, mutable=True),
             ),
             custom_attributes={
                 "display_name": cognito.StringAttribute(min_len=1, max_len=50, mutable=True),
-                "terms_accepted_at": cognito.StringAttribute(mutable=True),
-                "privacy_accepted_at": cognito.StringAttribute(mutable=True),
+                "terms_accepted_at": cognito.StringAttribute(min_len=1, max_len=100, mutable=True),
+                "privacy_accepted_at": cognito.StringAttribute(min_len=1, max_len=100, mutable=True),
             },
             user_verification=cognito.UserVerificationConfig(
                 email_subject="馬券会議 - メールアドレスの確認",
@@ -174,8 +174,8 @@ class BakenKaigiApiStack(Stack):
             supported_identity_providers=[
                 cognito.UserPoolClientIdentityProvider.COGNITO,
             ],
-            access_token_validity=Duration.hours(1),
-            id_token_validity=Duration.hours(1),
+            access_token_validity=Duration.hours(8),
+            id_token_validity=Duration.hours(8),
             refresh_token_validity=Duration.days(30),
             prevent_user_existence_errors=True,
         )
@@ -184,7 +184,7 @@ class BakenKaigiApiStack(Stack):
         user_pool_domain = user_pool.add_domain(
             "UserPoolDomain",
             cognito_domain=cognito.CognitoDomainOptions(
-                domain_prefix="baken-kaigi",
+                domain_prefix=f"baken-kaigi-{Stack.of(self).account}",
             ),
         )
 
@@ -215,6 +215,7 @@ class BakenKaigiApiStack(Stack):
                 name="email",
                 type=dynamodb.AttributeType.STRING,
             ),
+            projection_type=dynamodb.ProjectionType.ALL,
         )
 
         # ========================================
@@ -265,6 +266,7 @@ class BakenKaigiApiStack(Stack):
             "SESSION_TABLE_NAME": session_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             "USER_TABLE_NAME": user_table.table_name,
+            "USER_POOL_ID": user_pool.user_pool_id,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -740,10 +742,13 @@ class BakenKaigiApiStack(Stack):
             cognito_post_confirmation_fn,
         )
 
-        # アカウント削除Lambda に Cognito AdminDisableUser 権限
+        # アカウント削除Lambda に Cognito AdminDisableUser/AdminDeleteUser 権限
         delete_account_fn.add_to_role_policy(
             iam.PolicyStatement(
-                actions=["cognito-idp:AdminDisableUser"],
+                actions=[
+                    "cognito-idp:AdminDisableUser",
+                    "cognito-idp:AdminDeleteUser",
+                ],
                 resources=[user_pool.user_pool_arn],
             )
         )
