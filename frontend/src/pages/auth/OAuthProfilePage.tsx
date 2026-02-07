@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -6,18 +6,30 @@ export function OAuthProfilePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const birthdate = (location.state as { birthdate?: string })?.birthdate || '';
-  const updateProfile = useAuthStore((state) => state.updateProfile);
+  const completeOAuthRegistration = useAuthStore((state) => state.completeOAuthRegistration);
   const error = useAuthStore((state) => state.error);
   const isLoading = useAuthStore((state) => state.isLoading);
 
   const [displayName, setDisplayName] = useState('');
 
+  useEffect(() => {
+    if (!birthdate) {
+      navigate('/signup/age', { replace: true, state: { oauthUser: true } });
+    }
+  }, [birthdate, navigate]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) return;
-    await updateProfile(displayName.trim(), birthdate);
-    navigate('/', { replace: true });
+    try {
+      await completeOAuthRegistration(displayName.trim(), birthdate);
+      navigate('/', { replace: true });
+    } catch {
+      // エラー時は画面遷移せず、ストアの error を表示
+    }
   };
+
+  if (!birthdate) return null;
 
   return (
     <div className="fade-in" style={{ padding: 16 }}>

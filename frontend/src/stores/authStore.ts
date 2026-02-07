@@ -38,7 +38,7 @@ interface AuthState {
   confirmResetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
-  updateProfile: (displayName: string, birthdate: string) => Promise<void>;
+  completeOAuthRegistration: (displayName: string, birthdate: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -237,7 +237,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     }
   },
 
-  updateProfile: async (displayName, birthdate) => {
+  completeOAuthRegistration: async (displayName, birthdate) => {
     try {
       set({ isLoading: true, error: null });
       const now = new Date().toISOString();
