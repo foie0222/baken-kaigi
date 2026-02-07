@@ -94,26 +94,31 @@ def parse_race_list_page(soup: BeautifulSoup, target_date_str: str) -> list[dict
     """
     races = []
 
-    # target_date_str から「M月D日」形式を生成してマッチに使う
+    # target_date_str から月・日を数値で取得
     target_month = int(target_date_str[4:6])
     target_day = int(target_date_str[6:8])
-    target_date_text = f"{target_month}月{target_day}日"
 
     # URL形式: /predict/YYYY/MM/DD/ID/
     url_pattern = re.compile(
         r"https?://muryou-keiba-ai\.jp/predict/\d{4}/\d{2}/\d{2}/\d+/"
     )
 
+    # リンクテキストからレース日を抽出する正規表現
+    date_pattern = re.compile(r"(\d{1,2})月(\d{1,2})日")
+
     for link in soup.find_all("a", href=url_pattern):
         href = link.get("href", "")
-        if not url_pattern.search(href):
-            continue
 
         # リンクテキストからレース情報を抽出
         text = link.get_text(strip=True)
 
-        # レース日をリンクテキストから判定
-        if target_date_text not in text:
+        # レース日をリンクテキストからパースして厳密一致判定
+        date_match = date_pattern.search(text)
+        if not date_match:
+            continue
+        text_month = int(date_match.group(1))
+        text_day = int(date_match.group(2))
+        if text_month != target_month or text_day != target_day:
             continue
 
         info = extract_race_info(text)
@@ -223,7 +228,7 @@ def generate_race_id(date_str: str, venue: str, race_number: int) -> str:
     return f"{date_str}_{venue_code}_{race_number:02d}"
 
 
-def _convert_floats(obj):
+def _convert_floats(obj: Any) -> Any:
     """DynamoDB用にfloatをDecimalに変換."""
     if isinstance(obj, float):
         return Decimal(str(obj))

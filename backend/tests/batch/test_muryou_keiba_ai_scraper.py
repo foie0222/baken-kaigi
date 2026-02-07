@@ -583,7 +583,7 @@ class TestScrapeRaces:
         JST = timezone(timedelta(hours=9))
         fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
         mock_dt.now.return_value = fixed_now
-        mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+        mock_dt.side_effect = datetime
 
         mock_table = MagicMock()
         mock_get_table.return_value = mock_table
@@ -653,7 +653,7 @@ class TestScrapeRaces:
         JST = timezone(timedelta(hours=9))
         fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
         mock_dt.now.return_value = fixed_now
-        mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+        mock_dt.side_effect = datetime
 
         mock_get_table.return_value = MagicMock()
 
