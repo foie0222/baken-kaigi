@@ -113,6 +113,42 @@ class BakenKaigiApiStack(Stack):
             time_to_live_attribute="ttl",
         )
 
+        # スピード指数テーブル
+        speed_indices_table = dynamodb.Table(
+            self,
+            "SpeedIndicesTable",
+            table_name="baken-kaigi-speed-indices",
+            partition_key=dynamodb.Attribute(
+                name="race_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="source",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute="ttl",
+        )
+
+        # 馬柱（過去成績）テーブル
+        past_performances_table = dynamodb.Table(
+            self,
+            "PastPerformancesTable",
+            table_name="baken-kaigi-past-performances",
+            partition_key=dynamodb.Attribute(
+                name="race_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="source",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute="ttl",
+        )
+
         # ========================================
         # Cognito User Pool（ユーザー認証）
         # ========================================
@@ -285,6 +321,70 @@ class BakenKaigiApiStack(Stack):
             f"arn:aws:bedrock-agentcore:{self.region}:{self.account}:runtime/{agentcore_agent_id}"
         )
 
+        # AgentCore Runtime 実行ロール
+        agentcore_runtime_role = iam.Role(
+            self,
+            "AgentCoreRuntimeRole",
+            role_name="baken-kaigi-agentcore-runtime-role",
+            assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+            description="AgentCore Runtime用のIAMロール",
+        )
+
+        # DynamoDB 読み取り権限
+        ai_predictions_table.grant_read_data(agentcore_runtime_role)
+        speed_indices_table.grant_read_data(agentcore_runtime_role)
+        past_performances_table.grant_read_data(agentcore_runtime_role)
+
+        # API Gateway - API Key 取得権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["apigateway:GET"],
+                resources=[f"arn:aws:apigateway:{self.region}::/apikeys/*"],
+            )
+        )
+
+        # Bedrock InvokeModel 権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=[f"arn:aws:bedrock:{self.region}::foundation-model/*"],
+            )
+        )
+
+        # CloudWatch Logs 権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                ],
+                resources=[f"arn:aws:logs:{self.region}:{self.account}:*"],
+            )
+        )
+
+        # X-Ray トレーシング権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "xray:PutTraceSegments",
+                    "xray:PutTelemetryRecords",
+                ],
+                resources=["*"],
+            )
+        )
+
+        # AgentCore Identity 権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "bedrock-agentcore:GetToken",
+                    "bedrock-agentcore:PutToken",
+                ],
+                resources=["*"],
+            )
+        )
+
         # ========================================
         # Lambda Layer（デプロイ時に自動で依存関係をインストール）
         # ========================================
@@ -312,6 +412,8 @@ class BakenKaigiApiStack(Stack):
             "CART_TABLE_NAME": cart_table.table_name,
             "SESSION_TABLE_NAME": session_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
+            "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
             "USER_TABLE_NAME": user_table.table_name,
             "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
             "CODE_VERSION": "5",  # コード更新強制用
@@ -1315,6 +1417,8 @@ class BakenKaigiApiStack(Stack):
 
         # AI予想テーブルへの読み取り権限
         ai_predictions_table.grant_read_data(agentcore_consultation_fn)
+        speed_indices_table.grant_read_data(agentcore_consultation_fn)
+        past_performances_table.grant_read_data(agentcore_consultation_fn)
 
         # /api/consultation
         api_resource = api.root.add_resource("api")
@@ -1375,6 +1479,160 @@ class BakenKaigiApiStack(Stack):
         # AI指数スクレイピング Lambda に DynamoDB 書き込み権限を付与
         ai_predictions_table.grant_write_data(ai_shisu_scraper_fn)
 
+        # 競馬AI ATHENA スクレイパー
+        keiba_ai_athena_scraper_fn = lambda_.Function(
+            self,
+            "KeibaAiAthenaScraperFunction",
+            handler="batch.keiba_ai_athena_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-keiba-ai-athena-scraper",
+            description="競馬AI ATHENA スクレイピング（keiba-ai.jp / 毎晩21時に翌日分取得）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            },
+        )
+        ai_predictions_table.grant_write_data(keiba_ai_athena_scraper_fn)
+
+        # 競馬AIナビ スクレイパー
+        keiba_ai_navi_scraper_fn = lambda_.Function(
+            self,
+            "KeibaAiNaviScraperFunction",
+            handler="batch.keiba_ai_navi_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-keiba-ai-navi-scraper",
+            description="競馬AIナビ スクレイピング（horse-racing-ai-navi.com / 毎晩21時に翌日分取得）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            },
+        )
+        ai_predictions_table.grant_write_data(keiba_ai_navi_scraper_fn)
+
+        # 競馬AIうままっくす スクレイパー
+        umamax_scraper_fn = lambda_.Function(
+            self,
+            "UmamaxScraperFunction",
+            handler="batch.umamax_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-umamax-scraper",
+            description="うままっくす スクレイピング（umamax.com / 毎晩21時に翌日分取得）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            },
+        )
+        ai_predictions_table.grant_write_data(umamax_scraper_fn)
+
+        # 競馬新聞＆スピード指数 スクレイパー
+        jiro8_scraper_fn = lambda_.Function(
+            self,
+            "Jiro8SpeedIndexScraperFunction",
+            handler="batch.jiro8_speed_index_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-jiro8-speed-index-scraper",
+            description="競馬新聞＆スピード指数スクレイピング（jiro8.sakura.ne.jp / 土日朝）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
+            },
+        )
+        speed_indices_table.grant_write_data(jiro8_scraper_fn)
+
+        # 吉馬 スクレイパー
+        kichiuma_scraper_fn = lambda_.Function(
+            self,
+            "KichiumaScraperFunction",
+            handler="batch.kichiuma_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-kichiuma-scraper",
+            description="吉馬スクレイピング（kichiuma.net / 土日朝）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
+            },
+        )
+        speed_indices_table.grant_write_data(kichiuma_scraper_fn)
+
+        # デイリースポーツ スピード指数 スクレイパー
+        daily_speed_scraper_fn = lambda_.Function(
+            self,
+            "DailySpeedIndexScraperFunction",
+            handler="batch.daily_speed_index_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-daily-speed-index-scraper",
+            description="デイリースポーツ スピード指数スクレイピング（daily.co.jp / 水曜18時）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
+            },
+        )
+        speed_indices_table.grant_write_data(daily_speed_scraper_fn)
+
+        # 競馬グラント スクレイパー
+        keibagrant_scraper_fn = lambda_.Function(
+            self,
+            "KeibagrantScraperFunction",
+            handler="batch.keibagrant_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-keibagrant-scraper",
+            description="競馬グラント 馬柱スクレイピング（keibagrant.jp / 土日朝）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
+            },
+        )
+        past_performances_table.grant_write_data(keibagrant_scraper_fn)
+
         # EventBridge ルール（毎晩 21:00 JST = 12:00 UTC に翌日分を取得）
         scraper_rule = events.Rule(
             self,
@@ -1390,6 +1648,124 @@ class BakenKaigiApiStack(Stack):
             ),
         )
         scraper_rule.add_target(targets.LambdaFunction(ai_shisu_scraper_fn))
+
+        # --- AI予想スクレイパー EventBridge ルール ---
+
+        # 競馬AI ATHENA（毎晩 21:10 JST = 12:10 UTC）
+        keiba_ai_athena_rule = events.Rule(
+            self,
+            "KeibaAiAthenaScraperRule",
+            rule_name="baken-kaigi-keiba-ai-athena-scraper-rule",
+            description="競馬AI ATHENAスクレイピングを毎晩21:10 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="10",
+                hour="12",
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        keiba_ai_athena_rule.add_target(targets.LambdaFunction(keiba_ai_athena_scraper_fn))
+
+        # 競馬AIナビ（毎晩 21:20 JST = 12:20 UTC）
+        keiba_ai_navi_rule = events.Rule(
+            self,
+            "KeibaAiNaviScraperRule",
+            rule_name="baken-kaigi-keiba-ai-navi-scraper-rule",
+            description="競馬AIナビスクレイピングを毎晩21:20 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="20",
+                hour="12",
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        keiba_ai_navi_rule.add_target(targets.LambdaFunction(keiba_ai_navi_scraper_fn))
+
+        # うままっくす（毎晩 21:30 JST = 12:30 UTC）
+        umamax_rule = events.Rule(
+            self,
+            "UmamaxScraperRule",
+            rule_name="baken-kaigi-umamax-scraper-rule",
+            description="うままっくすスクレイピングを毎晩21:30 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="30",
+                hour="12",
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        umamax_rule.add_target(targets.LambdaFunction(umamax_scraper_fn))
+
+        # --- スピード指数スクレイパー EventBridge ルール ---
+
+        # 競馬新聞＆スピード指数（土曜 6:00 JST = 金曜 21:00 UTC）
+        jiro8_rule = events.Rule(
+            self,
+            "Jiro8ScraperRule",
+            rule_name="baken-kaigi-jiro8-speed-index-scraper-rule",
+            description="競馬新聞＆スピード指数スクレイピングを土曜6:00 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="21",
+                month="*",
+                week_day="FRI",
+                year="*",
+            ),
+        )
+        jiro8_rule.add_target(targets.LambdaFunction(jiro8_scraper_fn))
+
+        # 吉馬（土曜 6:10 JST = 金曜 21:10 UTC）
+        kichiuma_rule = events.Rule(
+            self,
+            "KichiumaScraperRule",
+            rule_name="baken-kaigi-kichiuma-scraper-rule",
+            description="吉馬スクレイピングを土曜6:10 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="10",
+                hour="21",
+                month="*",
+                week_day="FRI",
+                year="*",
+            ),
+        )
+        kichiuma_rule.add_target(targets.LambdaFunction(kichiuma_scraper_fn))
+
+        # デイリースポーツ（水曜 18:00 JST = 水曜 9:00 UTC）
+        daily_speed_rule = events.Rule(
+            self,
+            "DailySpeedIndexScraperRule",
+            rule_name="baken-kaigi-daily-speed-index-scraper-rule",
+            description="デイリースポーツ スピード指数スクレイピングを水曜18:00 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="9",
+                month="*",
+                week_day="WED",
+                year="*",
+            ),
+        )
+        daily_speed_rule.add_target(targets.LambdaFunction(daily_speed_scraper_fn))
+
+        # --- 馬柱スクレイパー EventBridge ルール ---
+
+        # 競馬グラント（土曜 6:20 JST = 金曜 21:20 UTC）
+        keibagrant_rule = events.Rule(
+            self,
+            "KeibagrantScraperRule",
+            rule_name="baken-kaigi-keibagrant-scraper-rule",
+            description="競馬グラント馬柱スクレイピングを土曜6:20 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="20",
+                hour="21",
+                month="*",
+                week_day="FRI",
+                year="*",
+            ),
+        )
+        keibagrant_rule.add_target(targets.LambdaFunction(keibagrant_scraper_fn))
 
         # ========================================
         # JRAチェックサム自動更新バッチ
@@ -1538,4 +1914,11 @@ class BakenKaigiApiStack(Stack):
             "UserPoolDomainUrl",
             value=f"https://{user_pool_domain.domain_name}.auth.{self.region}.amazoncognito.com",
             description="Cognito User Pool Domain URL",
+        )
+
+        CfnOutput(
+            self,
+            "AgentCoreRuntimeRoleArn",
+            value=agentcore_runtime_role.role_arn,
+            description="AgentCore Runtime IAM Role ARN",
         )
