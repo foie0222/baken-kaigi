@@ -80,26 +80,26 @@ def error_response(
     }
 
 
-def not_found_response(resource: str = "Resource") -> dict:
+def not_found_response(resource: str = "Resource", event: dict | None = None) -> dict:
     """404 Not Foundレスポンスを生成する."""
-    return error_response(f"{resource} not found", status_code=404, error_code="NOT_FOUND")
+    return error_response(f"{resource} not found", status_code=404, error_code="NOT_FOUND", event=event)
 
 
-def bad_request_response(message: str) -> dict:
+def bad_request_response(message: str, event: dict | None = None) -> dict:
     """400 Bad Requestレスポンスを生成する."""
-    return error_response(message, status_code=400, error_code="BAD_REQUEST")
+    return error_response(message, status_code=400, error_code="BAD_REQUEST", event=event)
 
 
-def internal_error_response(message: str = "Internal server error") -> dict:
+def internal_error_response(message: str = "Internal server error", event: dict | None = None) -> dict:
     """500 Internal Server Errorレスポンスを生成する."""
-    return error_response(message, status_code=500, error_code="INTERNAL_ERROR")
+    return error_response(message, status_code=500, error_code="INTERNAL_ERROR", event=event)
 
 
-def unauthorized_response(message: str = "Authentication required") -> dict:
+def unauthorized_response(message: str = "Authentication required", event: dict | None = None) -> dict:
     """401 Unauthorizedレスポンスを生成する."""
-    return error_response(message, status_code=401, error_code="UNAUTHORIZED")
+    return error_response(message, status_code=401, error_code="UNAUTHORIZED", event=event)
 
 
-def forbidden_response(message: str = "Access denied") -> dict:
+def forbidden_response(message: str = "Access denied", event: dict | None = None) -> dict:
     """403 Forbiddenレスポンスを生成する."""
-    return error_response(message, status_code=403, error_code="FORBIDDEN")
+    return error_response(message, status_code=403, error_code="FORBIDDEN", event=event)

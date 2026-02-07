@@ -33,7 +33,7 @@ def get_gate_position_stats(event: dict, context: Any) -> dict:
     # パラメータ取得
     venue = get_query_parameter(event, "venue")
     if not venue:
-        return bad_request_response("venue is required")
+        return bad_request_response("venue is required", event=event)
 
     track_type = get_query_parameter(event, "track_type")
     distance_str = get_query_parameter(event, "distance")
@@ -45,16 +45,16 @@ def get_gate_position_stats(event: dict, context: Any) -> dict:
         try:
             distance = int(distance_str)
         except ValueError:
-            return bad_request_response("Invalid distance format")
+            return bad_request_response("Invalid distance format", event=event)
 
     limit = 100
     if limit_str:
         try:
             limit = int(limit_str)
             if limit < 1 or limit > 500:
-                return bad_request_response("limit must be between 1 and 500")
+                return bad_request_response("limit must be between 1 and 500", event=event)
         except ValueError:
-            return bad_request_response("Invalid limit format")
+            return bad_request_response("Invalid limit format", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
@@ -67,7 +67,7 @@ def get_gate_position_stats(event: dict, context: Any) -> dict:
     )
 
     if result is None:
-        return not_found_response("Gate position statistics")
+        return not_found_response("Gate position statistics", event=event)
 
     # レスポンス構築
     response = {
@@ -107,7 +107,7 @@ def get_gate_position_stats(event: dict, context: Any) -> dict:
         },
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_past_race_stats(event: dict, context: Any) -> dict:
@@ -126,16 +126,16 @@ def get_past_race_stats(event: dict, context: Any) -> dict:
     """
     track_code = get_query_parameter(event, "track_code")
     if not track_code:
-        return bad_request_response("track_code is required")
+        return bad_request_response("track_code is required", event=event)
 
     distance_str = get_query_parameter(event, "distance")
     if not distance_str:
-        return bad_request_response("distance is required")
+        return bad_request_response("distance is required", event=event)
 
     try:
         distance = int(distance_str)
     except ValueError:
-        return bad_request_response("Invalid distance format")
+        return bad_request_response("Invalid distance format", event=event)
 
     grade_code = get_query_parameter(event, "grade_code")
     limit_str = get_query_parameter(event, "limit")
@@ -145,13 +145,13 @@ def get_past_race_stats(event: dict, context: Any) -> dict:
         try:
             limit = int(limit_str)
             if limit < 1 or limit > 500:
-                return bad_request_response("limit must be between 1 and 500")
+                return bad_request_response("limit must be between 1 and 500", event=event)
         except ValueError:
-            return bad_request_response("Invalid limit format")
+            return bad_request_response("Invalid limit format", event=event)
 
     # track_codeを track_type に変換（不正なコードは400エラーとする）
     if track_code not in TRACK_TYPE_MAP:
-        return bad_request_response("track_code must be one of 1, 2, 3")
+        return bad_request_response("track_code must be one of 1, 2, 3", event=event)
     track_type = TRACK_TYPE_MAP[track_code]
 
     provider = Dependencies.get_race_data_provider()
@@ -163,7 +163,7 @@ def get_past_race_stats(event: dict, context: Any) -> dict:
     )
 
     if result is None:
-        return not_found_response("Past race statistics")
+        return not_found_response("Past race statistics", event=event)
 
     # レスポンス構築
     response = {
@@ -188,7 +188,7 @@ def get_past_race_stats(event: dict, context: Any) -> dict:
         },
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_jockey_course_stats(event: dict, context: Any) -> dict:
@@ -208,20 +208,20 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
     """
     jockey_id = get_query_parameter(event, "jockey_id")
     if not jockey_id:
-        return bad_request_response("jockey_id is required")
+        return bad_request_response("jockey_id is required", event=event)
 
     track_code = get_query_parameter(event, "track_code")
     if not track_code:
-        return bad_request_response("track_code is required")
+        return bad_request_response("track_code is required", event=event)
 
     distance_str = get_query_parameter(event, "distance")
     if not distance_str:
-        return bad_request_response("distance is required")
+        return bad_request_response("distance is required", event=event)
 
     try:
         distance = int(distance_str)
     except ValueError:
-        return bad_request_response("Invalid distance format")
+        return bad_request_response("Invalid distance format", event=event)
 
     keibajo_code = get_query_parameter(event, "keibajo_code")
 
@@ -229,7 +229,8 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
     if keibajo_code:
         if keibajo_code not in KEIBAJO_MAP:
             return bad_request_response(
-                "Invalid keibajo_code. Valid values are '01' through '10'."
+                "Invalid keibajo_code. Valid values are '01' through '10'.",
+                event=event,
             )
         venue = KEIBAJO_MAP[keibajo_code]
     else:
@@ -237,7 +238,7 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
 
     # track_codeを track_type に変換（不正なコードは400エラーとする）
     if track_code not in TRACK_TYPE_MAP:
-        return bad_request_response("track_code must be one of 1, 2, 3")
+        return bad_request_response("track_code must be one of 1, 2, 3", event=event)
     track_type = TRACK_TYPE_MAP[track_code]
 
     # course 文字列を構築（例: "芝1600m"）
@@ -249,7 +250,7 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
     result = provider.get_jockey_stats(jockey_id=jockey_id, course=course)
 
     if result is None:
-        return not_found_response("Jockey course statistics")
+        return not_found_response("Jockey course statistics", event=event)
 
     response = {
         "jockey_id": result.jockey_id,
@@ -265,7 +266,7 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
         },
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_popularity_payout_stats(event: dict, context: Any) -> dict:
@@ -284,27 +285,27 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
     """
     track_code = get_query_parameter(event, "track_code")
     if not track_code:
-        return bad_request_response("track_code is required")
+        return bad_request_response("track_code is required", event=event)
 
     distance_str = get_query_parameter(event, "distance")
     if not distance_str:
-        return bad_request_response("distance is required")
+        return bad_request_response("distance is required", event=event)
 
     try:
         distance = int(distance_str)
     except ValueError:
-        return bad_request_response("Invalid distance format")
+        return bad_request_response("Invalid distance format", event=event)
 
     popularity_str = get_query_parameter(event, "popularity")
     if not popularity_str:
-        return bad_request_response("popularity is required")
+        return bad_request_response("popularity is required", event=event)
 
     try:
         popularity = int(popularity_str)
         if popularity < 1 or popularity > 18:
-            return bad_request_response("popularity must be between 1 and 18")
+            return bad_request_response("popularity must be between 1 and 18", event=event)
     except ValueError:
-        return bad_request_response("Invalid popularity format")
+        return bad_request_response("Invalid popularity format", event=event)
 
     limit_str = get_query_parameter(event, "limit")
     limit = 100
@@ -312,13 +313,13 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
         try:
             limit = int(limit_str)
             if limit < 1 or limit > 500:
-                return bad_request_response("limit must be between 1 and 500")
+                return bad_request_response("limit must be between 1 and 500", event=event)
         except ValueError:
-            return bad_request_response("Invalid limit format")
+            return bad_request_response("Invalid limit format", event=event)
 
     # track_codeを track_type に変換（不正なコードは400エラーとする）
     if track_code not in TRACK_TYPE_MAP:
-        return bad_request_response("track_code must be one of 1, 2, 3")
+        return bad_request_response("track_code must be one of 1, 2, 3", event=event)
     track_type = TRACK_TYPE_MAP[track_code]
 
     # 過去レース統計から人気別データを取得
@@ -331,7 +332,7 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
     )
 
     if result is None:
-        return not_found_response("Popularity payout statistics")
+        return not_found_response("Popularity payout statistics", event=event)
 
     # 指定人気の統計を抽出
     target_stats = next(
@@ -340,7 +341,7 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
     )
 
     if target_stats is None:
-        return not_found_response(f"Statistics for popularity {popularity}")
+        return not_found_response(f"Statistics for popularity {popularity}", event=event)
 
     # 回収率を推定（平均配当 * 勝率 / 100）
     estimated_roi_win = 0.0
@@ -362,4 +363,4 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
         "estimated_roi_place": estimated_roi_place,
     }
 
-    return success_response(response)
+    return success_response(response, event=event)

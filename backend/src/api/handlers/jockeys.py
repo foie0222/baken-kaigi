@@ -22,14 +22,14 @@ def get_jockey_info(event: dict, context: Any) -> dict:
     """
     jockey_id = get_path_parameter(event, "jockey_id")
     if not jockey_id:
-        return bad_request_response("jockey_id is required")
+        return bad_request_response("jockey_id is required", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
     info = provider.get_jockey_info(jockey_id)
 
     if info is None:
-        return not_found_response("Jockey")
+        return not_found_response("Jockey", event=event)
 
     return success_response({
         "jockey_id": info.jockey_id,
@@ -38,7 +38,7 @@ def get_jockey_info(event: dict, context: Any) -> dict:
         "birth_date": info.birth_date,
         "affiliation": info.affiliation,
         "license_year": info.license_year,
-    })
+    }, event=event)
 
 
 def get_jockey_stats(event: dict, context: Any) -> dict:
@@ -58,7 +58,7 @@ def get_jockey_stats(event: dict, context: Any) -> dict:
     """
     jockey_id = get_path_parameter(event, "jockey_id")
     if not jockey_id:
-        return bad_request_response("jockey_id is required")
+        return bad_request_response("jockey_id is required", event=event)
 
     # パラメータ取得
     year_str = get_query_parameter(event, "year")
@@ -70,15 +70,16 @@ def get_jockey_stats(event: dict, context: Any) -> dict:
         try:
             year = int(year_str)
             if year < 1900 or year > 2100:
-                return bad_request_response("year must be between 1900 and 2100")
+                return bad_request_response("year must be between 1900 and 2100", event=event)
         except ValueError:
-            return bad_request_response("year must be a valid integer")
+            return bad_request_response("year must be a valid integer", event=event)
 
     # periodのバリデーション
     valid_periods = ["recent", "ytd", "all"]
     if period not in valid_periods:
         return bad_request_response(
-            f"period must be one of: {', '.join(valid_periods)}"
+            f"period must be one of: {', '.join(valid_periods)}",
+            event=event,
         )
 
     # プロバイダから取得
@@ -86,7 +87,7 @@ def get_jockey_stats(event: dict, context: Any) -> dict:
     stats = provider.get_jockey_stats_detail(jockey_id, year, period)
 
     if stats is None:
-        return not_found_response("Jockey stats")
+        return not_found_response("Jockey stats", event=event)
 
     return success_response({
         "jockey_id": stats.jockey_id,
@@ -99,4 +100,4 @@ def get_jockey_stats(event: dict, context: Any) -> dict:
         "place_rate": stats.place_rate,
         "period": stats.period,
         "year": stats.year,
-    })
+    }, event=event)

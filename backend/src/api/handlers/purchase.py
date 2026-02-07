@@ -31,12 +31,12 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     try:
         body = get_body(event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     cart_id = body.get("cart_id")
     race_date = body.get("race_date")
@@ -44,13 +44,13 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
     race_number = body.get("race_number")
 
     if not cart_id:
-        return bad_request_response("cart_id is required")
+        return bad_request_response("cart_id is required", event=event)
     if not race_date:
-        return bad_request_response("race_date is required")
+        return bad_request_response("race_date is required", event=event)
     if not course_code:
-        return bad_request_response("course_code is required")
+        return bad_request_response("course_code is required", event=event)
     if race_number is None:
-        return bad_request_response("race_number is required")
+        return bad_request_response("race_number is required", event=event)
 
     use_case = SubmitPurchaseUseCase(
         cart_repository=Dependencies.get_cart_repository(),
@@ -69,13 +69,13 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
             race_number=race_number,
         )
     except CartNotFoundError:
-        return not_found_response("Cart")
+        return not_found_response("Cart", event=event)
     except CredentialsNotFoundError:
-        return bad_request_response("IPAT credentials not configured")
+        return bad_request_response("IPAT credentials not configured", event=event)
     except PurchaseValidationError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
     except IpatSubmissionError as e:
-        return internal_error_response(str(e))
+        return internal_error_response(str(e), event=event)
 
     return success_response(
         {
@@ -85,6 +85,7 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
             "created_at": order.created_at.isoformat(),
         },
         status_code=201,
+        event=event,
     )
 
 
@@ -96,7 +97,7 @@ def get_purchase_history_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     use_case = GetPurchaseHistoryUseCase(
         purchase_order_repository=Dependencies.get_purchase_order_repository(),
@@ -114,7 +115,7 @@ def get_purchase_history_handler(event: dict, context: Any) -> dict:
             "updated_at": order.updated_at.isoformat(),
         }
         for order in orders
-    ])
+    ], event=event)
 
 
 def get_purchase_detail_handler(event: dict, context: Any) -> dict:
@@ -125,20 +126,20 @@ def get_purchase_detail_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     purchase_id_str = get_path_parameter(event, "purchase_id")
     if not purchase_id_str:
-        return bad_request_response("purchase_id is required")
+        return bad_request_response("purchase_id is required", event=event)
 
     repo = Dependencies.get_purchase_order_repository()
     order = repo.find_by_id(PurchaseId(purchase_id_str))
 
     if order is None:
-        return not_found_response("Purchase order")
+        return not_found_response("Purchase order", event=event)
 
     if order.user_id != user_id:
-        return forbidden_response()
+        return forbidden_response(event=event)
 
     return success_response({
         "purchase_id": str(order.id.value),
@@ -160,4 +161,4 @@ def get_purchase_detail_handler(event: dict, context: Any) -> dict:
         "created_at": order.created_at.isoformat(),
         "updated_at": order.updated_at.isoformat(),
         "error_message": order.error_message,
-    })
+    }, event=event)
