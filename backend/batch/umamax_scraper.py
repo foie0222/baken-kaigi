@@ -51,9 +51,6 @@ VENUE_SLUG_MAP = {
     "kokura": "小倉",
 }
 
-# 印記号（テーブル内の印カラム）
-MARK_CHARS = re.compile(r"[◎〇○▲△☆×]")
-
 
 def get_dynamodb_table():
     """DynamoDB テーブルを取得."""

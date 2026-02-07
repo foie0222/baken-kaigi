@@ -16,7 +16,6 @@ from batch.umamax_scraper import (
     _parse_umamax_table,
     generate_race_id,
     save_predictions,
-    VENUE_SLUG_MAP,
 )
 from batch.ai_shisu_scraper import VENUE_CODE_MAP
 

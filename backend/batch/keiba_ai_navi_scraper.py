@@ -13,8 +13,6 @@ horse-racing-ai-navi.com から競馬AIナビの予想指数を取得し、Dynam
 import json
 import logging
 import os
-import re
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -114,8 +112,6 @@ def extract_race_data_json(soup: BeautifulSoup, target_date_str: str) -> list[di
         if target_date_str not in text or "keibajo_code" not in text:
             continue
 
-        # JSON部分を抽出
-        pattern = rf'\{{"{target_date_str}":\[.*?\]\}}'
         # JSONが巨大なため、正規表現では限界がある
         # 代わりにJSON開始位置を見つけて手動パース
         json_start = text.find(f'{{"{target_date_str}":[')

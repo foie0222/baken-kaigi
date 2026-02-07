@@ -4,16 +4,16 @@ keibagrant.jp から馬柱PDF（出馬表）を取得し、テキスト変換し
 馬ごとの近走成績・血統情報をDynamoDBに保存する。
 """
 
+import io
 import logging
 import os
 import re
-import subprocess
-import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import boto3
+import pdfplumber
 import requests
 
 from batch.ai_shisu_scraper import VENUE_CODE_MAP
@@ -64,22 +64,23 @@ def fetch_pdf(url: str) -> str | None:
         response = requests.get(url, headers=headers, timeout=60)
         response.raise_for_status()
 
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-            f.write(response.content)
-            pdf_path = f.name
+        text_parts = []
+        with pdfplumber.open(io.BytesIO(response.content)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text(layout=True)
+                if page_text:
+                    text_parts.append(page_text)
 
-        try:
-            result = subprocess.run(
-                ["pdftotext", "-layout", pdf_path, "-"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            return result.stdout
-        finally:
-            os.unlink(pdf_path)
-    except (requests.RequestException, subprocess.TimeoutExpired, OSError) as e:
-        logger.error(f"Failed to fetch/convert PDF {url}: {e}")
+        if not text_parts:
+            logger.warning(f"No text extracted from PDF: {url}")
+            return None
+
+        return "\n".join(text_parts)
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch PDF {url}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to convert PDF {url}: {e}")
         return None
 
 

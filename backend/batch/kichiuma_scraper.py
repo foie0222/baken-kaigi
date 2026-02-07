@@ -93,7 +93,6 @@ def find_venues_from_top_page(soup: BeautifulSoup) -> list[dict]:
 
     for link in soup.find_all("a", href=re.compile(r"search\.php\?date=")):
         href = link.get("href", "")
-        text = link.get_text(strip=True)
 
         # dateとidパラメータを抽出
         date_match = re.search(r"date=([^&]+)", href)

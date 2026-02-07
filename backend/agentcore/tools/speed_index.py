@@ -262,18 +262,25 @@ def list_speed_indices_for_date(date: str, source: str = "jiro8-speed") -> dict:
         table = get_dynamodb_table()
 
         # 日付プレフィックスでスキャン（race_idは日付で始まる）
-        response = table.scan(
-            FilterExpression="begins_with(race_id, :date) AND #src = :source",
-            ExpressionAttributeNames={
+        # LastEvaluatedKeyでページネーションし全件取得
+        items = []
+        scan_kwargs = {
+            "FilterExpression": "begins_with(race_id, :date) AND #src = :source",
+            "ExpressionAttributeNames": {
                 "#src": "source",
             },
-            ExpressionAttributeValues={
+            "ExpressionAttributeValues": {
                 ":date": date,
                 ":source": source,
             },
-        )
+        }
 
-        items = response.get("Items", [])
+        while True:
+            response = table.scan(**scan_kwargs)
+            items.extend(response.get("Items", []))
+            if "LastEvaluatedKey" not in response:
+                break
+            scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
         races = []
         for item in items:

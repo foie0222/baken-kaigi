@@ -1701,33 +1701,33 @@ class BakenKaigiApiStack(Stack):
 
         # --- スピード指数スクレイパー EventBridge ルール ---
 
-        # 競馬新聞＆スピード指数（土曜 6:00 JST = 金曜 21:00 UTC）
+        # 競馬新聞＆スピード指数（土日 6:00 JST = 金土 21:00 UTC）
         jiro8_rule = events.Rule(
             self,
             "Jiro8ScraperRule",
             rule_name="baken-kaigi-jiro8-speed-index-scraper-rule",
-            description="競馬新聞＆スピード指数スクレイピングを土曜6:00 JSTに実行",
+            description="競馬新聞＆スピード指数スクレイピングを土日6:00 JSTに実行",
             schedule=events.Schedule.cron(
                 minute="0",
                 hour="21",
                 month="*",
-                week_day="FRI",
+                week_day="FRI,SAT",
                 year="*",
             ),
         )
         jiro8_rule.add_target(targets.LambdaFunction(jiro8_scraper_fn))
 
-        # 吉馬（土曜 6:10 JST = 金曜 21:10 UTC）
+        # 吉馬（土日 6:10 JST = 金土 21:10 UTC）
         kichiuma_rule = events.Rule(
             self,
             "KichiumaScraperRule",
             rule_name="baken-kaigi-kichiuma-scraper-rule",
-            description="吉馬スクレイピングを土曜6:10 JSTに実行",
+            description="吉馬スクレイピングを土日6:10 JSTに実行",
             schedule=events.Schedule.cron(
                 minute="10",
                 hour="21",
                 month="*",
-                week_day="FRI",
+                week_day="FRI,SAT",
                 year="*",
             ),
         )
@@ -1751,17 +1751,17 @@ class BakenKaigiApiStack(Stack):
 
         # --- 馬柱スクレイパー EventBridge ルール ---
 
-        # 競馬グラント（土曜 6:20 JST = 金曜 21:20 UTC）
+        # 競馬グラント（土日 6:20 JST = 金土 21:20 UTC）
         keibagrant_rule = events.Rule(
             self,
             "KeibagrantScraperRule",
             rule_name="baken-kaigi-keibagrant-scraper-rule",
-            description="競馬グラント馬柱スクレイピングを土曜6:20 JSTに実行",
+            description="競馬グラント馬柱スクレイピングを土日6:20 JSTに実行",
             schedule=events.Schedule.cron(
                 minute="20",
                 hour="21",
                 month="*",
-                week_day="FRI",
+                week_day="FRI,SAT",
                 year="*",
             ),
         )

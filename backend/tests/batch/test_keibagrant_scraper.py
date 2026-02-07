@@ -11,7 +11,6 @@ from batch.keibagrant_scraper import (
     SOURCE_NAME,
     find_article_url,
     parse_race_pdf_links,
-    parse_horse_block,
     _parse_weight,
     _find_sire_line,
     _find_dam_sire_line,
