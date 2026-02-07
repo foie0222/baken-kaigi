@@ -567,6 +567,81 @@ class TestHandler:
         assert result["body"]["success"] is False
         assert "error" in result["body"]
 
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysをイベントから渡す(self, mock_scrape_races):
+        """正常系: eventのoffset_daysをscrape_racesに渡す."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": 0}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=0)
+
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_days未指定時はデフォルト1(self, mock_scrape_races):
+        """正常系: offset_days未指定時はデフォルト値1（翌日）."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysが文字列の場合はint変換(self, mock_scrape_races):
+        """正常系: offset_daysが文字列でもint変換される."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": "0"}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=0)
+
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysが不正値の場合はデフォルト1(self, mock_scrape_races):
+        """異常系: offset_daysが不正な値の場合はデフォルト1にフォールバック."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": "abc"}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.muryou_keiba_ai_scraper.scrape_races")
+    def test_offset_daysが範囲外の場合はデフォルト1(self, mock_scrape_races):
+        """異常系: offset_daysが0,1以外の場合はデフォルト1にフォールバック."""
+        from batch.muryou_keiba_ai_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 5,
+            "errors": [],
+        }
+
+        handler({"offset_days": 5}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
 
 class TestScrapeRaces:
     """メインスクレイピング処理のテスト."""
@@ -675,3 +750,108 @@ class TestScrapeRaces:
 
         assert results["races_scraped"] == 0
         assert len(results["errors"]) > 0
+
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
+    @patch("batch.muryou_keiba_ai_scraper.save_predictions")
+    @patch("batch.muryou_keiba_ai_scraper.fetch_page")
+    @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
+    def test_offset_days_0で当日分を取得(self, mock_get_table, mock_fetch, mock_save, mock_dt):
+        """正常系: offset_days=0 の場合、当日のレースを取得する."""
+        from batch.muryou_keiba_ai_scraper import scrape_races
+
+        # 2026/2/8 09:30 JST（レース当日朝）
+        JST = timezone(timedelta(hours=9))
+        fixed_now = datetime(2026, 2, 8, 9, 30, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = datetime
+
+        mock_table = MagicMock()
+        mock_get_table.return_value = mock_table
+
+        archive_html = """
+        <html><body><ul>
+            <li>
+                <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
+                    京都 2月8日 1R 09:55
+                    3歳未勝利 ダート 1200m 16頭
+                </a>
+            </li>
+        </ul></body></html>
+        """
+        race_html = """
+        <html><body>
+            <table class="race_table baken_race_table"><tbody>
+                <tr>
+                    <td><p class="umaban_wrap">1</p></td>
+                    <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                    <td><p class="predict_wrap"><span class="mark">◎</span><span class="predict">70.0</span></p></td>
+                </tr>
+            </tbody></table>
+        </body></html>
+        """
+
+        archive_soup = BeautifulSoup(archive_html, TEST_PARSER)
+        race_soup = BeautifulSoup(race_html, TEST_PARSER)
+        mock_fetch.side_effect = [archive_soup, race_soup]
+
+        results = scrape_races(offset_days=0)
+
+        assert results["success"] is True
+        assert results["races_scraped"] == 1
+        # 当日 2/8 のアーカイブページにアクセスしていること
+        fetch_url = mock_fetch.call_args_list[0][0][0]
+        assert "y=2026" in fetch_url
+        assert "month=02" in fetch_url
+        # race_id は 当日 20260208
+        save_call = mock_save.call_args
+        assert save_call.kwargs["race_id"] == "20260208_08_01"
+
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
+    @patch("batch.muryou_keiba_ai_scraper.save_predictions")
+    @patch("batch.muryou_keiba_ai_scraper.fetch_page")
+    @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
+    def test_offset_days_1で翌日分を取得(self, mock_get_table, mock_fetch, mock_save, mock_dt):
+        """正常系: offset_days=1 の場合、翌日のレースを取得する（従来動作）."""
+        from batch.muryou_keiba_ai_scraper import scrape_races
+
+        # 2026/2/7 21:00 JST（前日夜）
+        JST = timezone(timedelta(hours=9))
+        fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = datetime
+
+        mock_table = MagicMock()
+        mock_get_table.return_value = mock_table
+
+        archive_html = """
+        <html><body><ul>
+            <li>
+                <a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
+                    京都 2月8日 1R 09:55
+                    3歳未勝利 ダート 1200m 16頭
+                </a>
+            </li>
+        </ul></body></html>
+        """
+        race_html = """
+        <html><body>
+            <table class="race_table baken_race_table"><tbody>
+                <tr>
+                    <td><p class="umaban_wrap">1</p></td>
+                    <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                    <td><p class="predict_wrap"><span class="mark">◎</span><span class="predict">70.0</span></p></td>
+                </tr>
+            </tbody></table>
+        </body></html>
+        """
+
+        archive_soup = BeautifulSoup(archive_html, TEST_PARSER)
+        race_soup = BeautifulSoup(race_html, TEST_PARSER)
+        mock_fetch.side_effect = [archive_soup, race_soup]
+
+        results = scrape_races(offset_days=1)
+
+        assert results["success"] is True
+        assert results["races_scraped"] == 1
+        save_call = mock_save.call_args
+        assert save_call.kwargs["race_id"] == "20260208_08_01"

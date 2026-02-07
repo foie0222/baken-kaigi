@@ -265,15 +265,19 @@ def save_predictions(
     logger.info(f"Saved predictions for {race_id}: {len(predictions)} horses")
 
 
-def scrape_races() -> dict[str, Any]:
+def scrape_races(offset_days: int = 1) -> dict[str, Any]:
     """メインのスクレイピング処理.
 
-    前日夜に翌日分のAI予想を取得する。
-    muryou-keiba-ai.jp のアーカイブページから翌日のレース一覧を取得し、
+    muryou-keiba-ai.jp のアーカイブページからレース一覧を取得し、
     各レースページからAI予想をスクレイピングする。
 
+    Args:
+        offset_days: 何日後のレースを取得するか。
+            0 = 当日（レース当日朝の最終更新版取得用）
+            1 = 翌日（前日夜の早期取得用、デフォルト）
+
     フロー:
-    1. /predict/?y=YYYY&month=MM から翌日のレース一覧を取得
+    1. /predict/?y=YYYY&month=MM からレース一覧を取得
     2. 各レースページからAI予想をスクレイピング
     3. DynamoDBに保存
 
@@ -282,8 +286,8 @@ def scrape_races() -> dict[str, Any]:
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
-    tomorrow = scraped_at + timedelta(days=1)
-    date_str = tomorrow.strftime("%Y%m%d")
+    target_date = scraped_at + timedelta(days=offset_days)
+    date_str = target_date.strftime("%Y%m%d")
 
     results = {
         "success": True,
@@ -292,7 +296,7 @@ def scrape_races() -> dict[str, Any]:
     }
 
     # Step 1: アーカイブページからレース一覧を取得
-    archive_url = f"{BASE_URL}/predict/?y={tomorrow.year}&month={tomorrow.month:02d}"
+    archive_url = f"{BASE_URL}/predict/?y={target_date.year}&month={target_date.month:02d}"
     logger.info(f"Fetching archive page: {archive_url}")
     archive_soup = fetch_page(archive_url)
     if not archive_soup:
@@ -363,7 +367,14 @@ def handler(event: dict, context: Any) -> dict:
     logger.info(f"Starting muryou-keiba-ai scraper: event={event}")
 
     try:
-        results = scrape_races()
+        offset_days = int(event.get("offset_days", 1))
+    except (TypeError, ValueError):
+        offset_days = 1
+    if offset_days not in (0, 1):
+        offset_days = 1
+
+    try:
+        results = scrape_races(offset_days=offset_days)
         logger.info(f"Scraping completed: {results}")
 
         return {
