@@ -13,6 +13,10 @@ const mockUpdatePassword = vi.fn()
 const mockDeleteUser = vi.fn()
 const mockSignInWithRedirect = vi.fn()
 
+vi.mock('../config/amplify', () => ({
+  isAuthConfigured: true,
+}))
+
 vi.mock('aws-amplify/auth', () => ({
   getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
   fetchAuthSession: (...args: unknown[]) => mockFetchAuthSession(...args),
