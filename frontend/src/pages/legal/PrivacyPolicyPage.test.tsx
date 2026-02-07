@@ -48,6 +48,7 @@ describe('PrivacyPolicyPage', () => {
   it('外部サービスの記載がある', () => {
     render(<PrivacyPolicyPage />)
     expect(screen.getByText(/Google認証/)).toBeInTheDocument()
+    expect(screen.getByText(/Appleでサインイン/)).toBeInTheDocument()
     expect(screen.getByText(/Amazon Web Services/)).toBeInTheDocument()
   })
 })

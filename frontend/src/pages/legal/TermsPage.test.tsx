@@ -45,4 +45,9 @@ describe('TermsPage', () => {
     render(<TermsPage />)
     expect(screen.getByText(/20歳以上の方のみ利用登録が可能/)).toBeInTheDocument()
   })
+
+  it('Google・Apple認証に関する記載がある', () => {
+    render(<TermsPage />)
+    expect(screen.getByText(/Googleアカウントまたは Appleアカウントによる認証/)).toBeInTheDocument()
+  })
 })

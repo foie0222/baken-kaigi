@@ -1,10 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { PRIVACY_VERSION } from '../../constants/legal';
-
-const sectionStyle = { marginBottom: 24 };
-const h3Style = { fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#1a5f2a' } as const;
-const pStyle = { fontSize: 14, lineHeight: 1.8, color: '#333' } as const;
-const listStyle = { fontSize: 14, lineHeight: 1.8, color: '#333', paddingLeft: 20, margin: '8px 0' } as const;
+import { sectionStyle, h3Style, pStyle, listStyle } from './legalStyles';
 
 export function PrivacyPolicyPage() {
   const navigate = useNavigate();
@@ -31,8 +27,8 @@ export function PrivacyPolicyPage() {
             本サービスでは、サービスの提供にあたり、以下の個人情報を収集する場合があります。
           </p>
           <ul style={listStyle}>
-            <li>メールアドレス（Googleアカウント認証を通じて取得）</li>
-            <li>氏名（Googleアカウント認証を通じて取得）</li>
+            <li>メールアドレス（Google / Appleアカウント認証を通じて取得）</li>
+            <li>氏名（Google / Appleアカウント認証を通じて取得）</li>
             <li>生年月日（年齢確認のため、利用登録時にご入力いただきます）</li>
             <li>利用履歴（本サービスの閲覧・操作履歴）</li>
             <li>端末情報（ブラウザの種類、OS、画面解像度等）</li>
@@ -75,6 +71,7 @@ export function PrivacyPolicyPage() {
           </p>
           <ul style={listStyle}>
             <li>Google認証（ユーザー認証のため）</li>
+            <li>Appleでサインイン（ユーザー認証のため）</li>
             <li>Amazon Web Services（サービス基盤として利用）</li>
           </ul>
         </section>

@@ -1,10 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { TERMS_VERSION } from '../../constants/legal';
-
-const sectionStyle = { marginBottom: 24 };
-const h3Style = { fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#1a5f2a' } as const;
-const pStyle = { fontSize: 14, lineHeight: 1.8, color: '#333' } as const;
-const listStyle = { fontSize: 14, lineHeight: 1.8, color: '#333', paddingLeft: 20, margin: '8px 0' } as const;
+import { sectionStyle, h3Style, pStyle, listStyle } from './legalStyles';
 
 export function TermsPage() {
   const navigate = useNavigate();
@@ -48,7 +44,7 @@ export function TermsPage() {
           <h3 style={h3Style}>第3条（利用登録）</h3>
           <ol style={listStyle}>
             <li>本サービスの利用を希望する方は、本規約に同意の上、所定の方法により利用登録を行うものとします。</li>
-            <li>利用登録にはGoogleアカウントによる認証が必要です。</li>
+            <li>利用登録には、Googleアカウントまたは Appleアカウントによる認証が必要です。</li>
             <li>本サービスは20歳以上の方のみ利用登録が可能です。</li>
             <li>当社は、利用登録を申請した方が以下のいずれかに該当する場合、利用登録を拒否することがあります。
               <ul style={{ paddingLeft: 20, marginTop: 4 }}>
