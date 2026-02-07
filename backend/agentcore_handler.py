@@ -24,14 +24,38 @@ AGENTCORE_AGENT_ARN = os.environ.get("AGENTCORE_AGENT_ARN")
 # AWS リージョン
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 
+# CORS 許可オリジン
+_ALLOWED_ORIGINS = [
+    "https://bakenkaigi.com",
+    "https://www.bakenkaigi.com",
+]
 
-def _make_response(body: Any, status_code: int = 200) -> dict:
+if os.environ.get("ALLOW_DEV_ORIGINS") == "true":
+    _ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ])
+
+
+def _get_cors_origin(event: dict | None = None) -> str:
+    """リクエストの Origin ヘッダーから許可するオリジンを返す."""
+    if event:
+        headers = event.get("headers") or {}
+        origin = headers.get("origin") or headers.get("Origin") or ""
+        if origin in _ALLOWED_ORIGINS:
+            return origin
+    return _ALLOWED_ORIGINS[0]
+
+
+def _make_response(body: Any, status_code: int = 200, event: dict | None = None) -> dict:
     """API Gateway レスポンスを生成."""
     return {
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": _get_cors_origin(event),
             "Access-Control-Allow-Headers": "Content-Type,Authorization",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
@@ -69,16 +93,17 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         logger.error("AGENTCORE_AGENT_ARN environment variable is not configured")
         return _make_response(
             {"error": "AGENTCORE_AGENT_ARN environment variable is not configured"},
-            500
+            500,
+            event=event,
         )
 
     try:
         body = _get_body(event)
     except ValueError as e:
-        return _make_response({"error": str(e)}, 400)
+        return _make_response({"error": str(e)}, 400, event=event)
 
     if "prompt" not in body:
-        return _make_response({"error": "prompt is required"}, 400)
+        return _make_response({"error": "prompt is required"}, 400, event=event)
 
     # セッション ID（既存または新規生成）
     session_id = body.get("session_id") or str(uuid.uuid4())
@@ -143,12 +168,12 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         return _make_response({
             "message": message,
             "session_id": result.get("session_id", session_id),
-        })
+        }, event=event)
 
     except Exception as e:
         error_msg = str(e)
         logger.exception("AgentCore invocation error: %s", error_msg)
-        return _make_response({"error": f"AgentCore invocation failed: {error_msg}"}, 500)
+        return _make_response({"error": f"AgentCore invocation failed: {error_msg}"}, 500, event=event)
 
 
 def _handle_response(response: dict) -> dict:
