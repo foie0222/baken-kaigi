@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { TERMS_VERSION, PRIVACY_VERSION } from '../../constants/legal';
 
 export function TermsAgreementPage() {
   const navigate = useNavigate();
@@ -14,9 +15,21 @@ export function TermsAgreementPage() {
     e.preventDefault();
     if (termsAccepted && privacyAccepted) {
       if (oauthUser) {
-        navigate('/oauth/complete', { state: { birthdate } });
+        navigate('/oauth/complete', {
+          state: {
+            birthdate,
+            termsVersion: TERMS_VERSION.version,
+            privacyVersion: PRIVACY_VERSION.version,
+          },
+        });
       } else {
-        navigate('/signup', { state: { birthdate } });
+        navigate('/signup', {
+          state: {
+            birthdate,
+            termsVersion: TERMS_VERSION.version,
+            privacyVersion: PRIVACY_VERSION.version,
+          },
+        });
       }
     }
   };
@@ -30,10 +43,12 @@ export function TermsAgreementPage() {
           <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}
             style={{ marginTop: 2, width: 20, height: 20 }} />
           <span style={{ fontSize: 14 }}>
-            <span style={{ color: '#1a73e8', textDecoration: 'underline', cursor: 'default' }}>利用規約</span>
+            <a href="/terms" target="_blank" rel="noopener noreferrer"
+              style={{ color: '#1a73e8', textDecoration: 'underline' }}
+              onClick={(e) => e.stopPropagation()}>
+              利用規約
+            </a>
             {' '}に同意します
-            <br />
-            <span style={{ fontSize: 12, color: '#999' }}>※ 利用規約は準備中です</span>
           </span>
         </label>
 
@@ -41,10 +56,12 @@ export function TermsAgreementPage() {
           <input type="checkbox" checked={privacyAccepted} onChange={(e) => setPrivacyAccepted(e.target.checked)}
             style={{ marginTop: 2, width: 20, height: 20 }} />
           <span style={{ fontSize: 14 }}>
-            <span style={{ color: '#1a73e8', textDecoration: 'underline', cursor: 'default' }}>プライバシーポリシー</span>
+            <a href="/privacy" target="_blank" rel="noopener noreferrer"
+              style={{ color: '#1a73e8', textDecoration: 'underline' }}
+              onClick={(e) => e.stopPropagation()}>
+              プライバシーポリシー
+            </a>
             {' '}に同意します
-            <br />
-            <span style={{ fontSize: 12, color: '#999' }}>※ プライバシーポリシーは準備中です</span>
           </span>
         </label>
 
