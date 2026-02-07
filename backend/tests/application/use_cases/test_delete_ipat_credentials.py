@@ -15,10 +15,10 @@ class TestDeleteIpatCredentialsUseCase:
         provider.save_credentials(
             UserId("user-001"),
             IpatCredentials(
-                card_number="123456789012",
-                birthday="19900101",
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
                 pin="1234",
-                dummy_pin="5678",
+                pars_number="5678",
             ),
         )
         use_case = DeleteIpatCredentialsUseCase(credentials_provider=provider)

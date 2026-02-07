@@ -13,10 +13,10 @@ class TestJraVanIpatGateway(unittest.TestCase):
     def setUp(self) -> None:
         self.gateway = JraVanIpatGateway(base_url="http://test:8000")
         self.credentials = IpatCredentials(
-            card_number="123456789012",
-            birthday="19900101",
+            inet_id="ABcd1234",
+            subscriber_number="12345678",
             pin="1234",
-            dummy_pin="5678",
+            pars_number="5678",
         )
         self.bet_lines = [
             IpatBetLine(

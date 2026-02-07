@@ -15,17 +15,17 @@ class TestInMemoryCredentialsProvider(unittest.TestCase):
         self.provider = InMemoryCredentialsProvider()
         self.user_id = UserId("user-001")
         self.credentials = IpatCredentials(
-            card_number="123456789012",
-            birthday="19900101",
+            inet_id="ABcd1234",
+            subscriber_number="12345678",
             pin="1234",
-            dummy_pin="5678",
+            pars_number="5678",
         )
 
     def test_保存と取得(self) -> None:
         self.provider.save_credentials(self.user_id, self.credentials)
         result = self.provider.get_credentials(self.user_id)
         assert result is not None
-        assert result.card_number == "123456789012"
+        assert result.inet_id == "ABcd1234"
 
     def test_存在しないユーザーでNone(self) -> None:
         result = self.provider.get_credentials(UserId("not-exist"))
@@ -50,12 +50,12 @@ class TestInMemoryCredentialsProvider(unittest.TestCase):
     def test_上書き保存(self) -> None:
         self.provider.save_credentials(self.user_id, self.credentials)
         new_creds = IpatCredentials(
-            card_number="999999999999",
-            birthday="20000101",
+            inet_id="XYzw9876",
+            subscriber_number="99999999",
             pin="9999",
-            dummy_pin="0000",
+            pars_number="0000",
         )
         self.provider.save_credentials(self.user_id, new_creds)
         result = self.provider.get_credentials(self.user_id)
         assert result is not None
-        assert result.card_number == "999999999999"
+        assert result.inet_id == "XYzw9876"

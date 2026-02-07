@@ -16,21 +16,21 @@ class TestSaveIpatCredentialsUseCase:
         use_case = SaveIpatCredentialsUseCase(credentials_provider=provider)
         use_case.execute(
             user_id="user-001",
-            card_number="123456789012",
-            birthday="19900101",
+            inet_id="ABcd1234",
+            subscriber_number="12345678",
             pin="1234",
-            dummy_pin="5678",
+            pars_number="5678",
         )
         assert provider.has_credentials(UserId("user-001")) is True
 
-    def test_バリデーションエラー_カード番号不正(self) -> None:
+    def test_バリデーションエラー_INET_ID不正(self) -> None:
         provider = InMemoryCredentialsProvider()
         use_case = SaveIpatCredentialsUseCase(credentials_provider=provider)
         with pytest.raises(ValueError):
             use_case.execute(
                 user_id="user-001",
-                card_number="invalid",
-                birthday="19900101",
+                inet_id="invalid",
+                subscriber_number="12345678",
                 pin="1234",
-                dummy_pin="5678",
+                pars_number="5678",
             )

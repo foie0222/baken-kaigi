@@ -7,10 +7,10 @@ export function IpatSettingsPage() {
   const navigate = useNavigate();
   const { status, isLoading, error, checkStatus, saveCredentials, deleteCredentials, clearError } = useIpatSettingsStore();
 
-  const [cardNumber, setCardNumber] = useState('');
-  const [birthday, setBirthday] = useState('');
+  const [inetId, setInetId] = useState('');
+  const [subscriberNumber, setSubscriberNumber] = useState('');
   const [pin, setPin] = useState('');
-  const [dummyPin, setDummyPin] = useState('');
+  const [parsNumber, setParsNumber] = useState('');
   const [validationError, setValidationError] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -20,20 +20,20 @@ export function IpatSettingsPage() {
   }, [checkStatus]);
 
   const validate = (): boolean => {
-    if (cardNumber.length !== 12 || !/^\d{12}$/.test(cardNumber)) {
-      setValidationError('カード番号は12桁の数字で入力してください');
+    if (inetId.length !== 8 || !/^[a-zA-Z0-9]{8}$/.test(inetId)) {
+      setValidationError('INET-IDは8桁の英数字で入力してください');
       return false;
     }
-    if (birthday.length !== 8 || !/^\d{8}$/.test(birthday)) {
-      setValidationError('生年月日はYYYYMMDD形式（8桁の数字）で入力してください');
+    if (subscriberNumber.length !== 8 || !/^\d{8}$/.test(subscriberNumber)) {
+      setValidationError('加入者番号は8桁の数字で入力してください');
       return false;
     }
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
       setValidationError('暗証番号は4桁の数字で入力してください');
       return false;
     }
-    if (dummyPin.length !== 4 || !/^\d{4}$/.test(dummyPin)) {
-      setValidationError('P-ARS暗証番号は4桁の数字で入力してください');
+    if (parsNumber.length !== 4 || !/^\d{4}$/.test(parsNumber)) {
+      setValidationError('P-ARS番号は4桁の数字で入力してください');
       return false;
     }
     setValidationError('');
@@ -44,13 +44,13 @@ export function IpatSettingsPage() {
     e.preventDefault();
     clearError();
     if (!validate()) return;
-    await saveCredentials({ cardNumber, birthday, pin, dummyPin });
+    await saveCredentials({ inetId, subscriberNumber, pin, parsNumber });
     if (!useIpatSettingsStore.getState().error) {
       setSaved(true);
-      setCardNumber('');
-      setBirthday('');
+      setInetId('');
+      setSubscriberNumber('');
       setPin('');
-      setDummyPin('');
+      setParsNumber('');
       setTimeout(() => setSaved(false), 3000);
     }
   };
@@ -59,6 +59,21 @@ export function IpatSettingsPage() {
     setShowDeleteModal(false);
     await deleteCredentials();
   };
+
+  // ステータス未ロード中はローディング表示
+  if (status === null) {
+    return (
+      <div className="fade-in" style={{ padding: 16 }}>
+        <button className="back-btn" onClick={() => navigate('/settings')}>
+          ← 設定に戻る
+        </button>
+        <h2 style={{ textAlign: 'center', marginBottom: 24 }}>IPAT設定</h2>
+        <div style={{ textAlign: 'center', padding: 48, color: '#999' }}>
+          読み込み中...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in" style={{ padding: 16 }}>
@@ -110,28 +125,27 @@ export function IpatSettingsPage() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>
-              INET-ID（加入者番号）
+              INET-ID
             </label>
             <input
               type="text"
-              value={cardNumber}
-              onChange={(e) => setCardNumber(e.target.value)}
-              placeholder="12桁の数字"
-              maxLength={12}
-              inputMode="numeric"
+              value={inetId}
+              onChange={(e) => setInetId(e.target.value)}
+              placeholder="8桁の英数字"
+              maxLength={8}
               style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 8, fontSize: 16, boxSizing: 'border-box' }}
             />
           </div>
 
           <div>
             <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>
-              生年月日
+              加入者番号
             </label>
             <input
               type="text"
-              value={birthday}
-              onChange={(e) => setBirthday(e.target.value)}
-              placeholder="YYYYMMDD"
+              value={subscriberNumber}
+              onChange={(e) => setSubscriberNumber(e.target.value)}
+              placeholder="8桁の数字"
               maxLength={8}
               inputMode="numeric"
               style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 8, fontSize: 16, boxSizing: 'border-box' }}
@@ -155,12 +169,12 @@ export function IpatSettingsPage() {
 
           <div>
             <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>
-              P-ARS暗証番号
+              P-ARS番号
             </label>
             <input
               type="password"
-              value={dummyPin}
-              onChange={(e) => setDummyPin(e.target.value)}
+              value={parsNumber}
+              onChange={(e) => setParsNumber(e.target.value)}
               placeholder="4桁の数字"
               maxLength={4}
               inputMode="numeric"

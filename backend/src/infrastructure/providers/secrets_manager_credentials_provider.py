@@ -31,11 +31,22 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
                 SecretId=self._secret_name(user_id),
             )
             data = json.loads(response["SecretString"])
+            # 旧キー（card_number/birthday/dummy_pin）からのマイグレーション
+            if "card_number" in data and "inet_id" not in data:
+                logger.info(f"Migrating legacy credentials for {user_id}")
+                migrated = IpatCredentials(
+                    inet_id=data["card_number"][:8] if len(data["card_number"]) >= 8 else data["card_number"],
+                    subscriber_number=data["birthday"],
+                    pin=data["pin"],
+                    pars_number=data["dummy_pin"],
+                )
+                self.save_credentials(user_id, migrated)
+                return migrated
             return IpatCredentials(
-                card_number=data["card_number"],
-                birthday=data["birthday"],
+                inet_id=data["inet_id"],
+                subscriber_number=data["subscriber_number"],
                 pin=data["pin"],
-                dummy_pin=data["dummy_pin"],
+                pars_number=data["pars_number"],
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
@@ -46,10 +57,10 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
     def save_credentials(self, user_id: UserId, credentials: IpatCredentials) -> None:
         """ユーザーのIPAT認証情報を保存する."""
         secret_value = json.dumps({
-            "card_number": credentials.card_number,
-            "birthday": credentials.birthday,
+            "inet_id": credentials.inet_id,
+            "subscriber_number": credentials.subscriber_number,
             "pin": credentials.pin,
-            "dummy_pin": credentials.dummy_pin,
+            "pars_number": credentials.pars_number,
         })
         try:
             self._client.put_secret_value(
