@@ -7,6 +7,7 @@ from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
+from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
@@ -112,6 +113,112 @@ class BakenKaigiApiStack(Stack):
         )
 
         # ========================================
+        # Cognito User Pool（ユーザー認証）
+        # ========================================
+
+        user_pool = cognito.UserPool(
+            self,
+            "UserPool",
+            user_pool_name="baken-kaigi-user-pool",
+            self_sign_up_enabled=True,
+            sign_in_aliases=cognito.SignInAliases(email=True),
+            auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
+            password_policy=cognito.PasswordPolicy(
+                min_length=8,
+                require_uppercase=True,
+                require_lowercase=True,
+                require_digits=True,
+                require_symbols=False,
+            ),
+            standard_attributes=cognito.StandardAttributes(
+                email=cognito.StandardAttribute(required=True, mutable=True),
+                birthdate=cognito.StandardAttribute(required=False, mutable=True),
+            ),
+            custom_attributes={
+                "display_name": cognito.StringAttribute(min_len=1, max_len=50, mutable=True),
+                "terms_accepted_at": cognito.StringAttribute(min_len=1, max_len=100, mutable=True),
+                "privacy_accepted_at": cognito.StringAttribute(min_len=1, max_len=100, mutable=True),
+            },
+            user_verification=cognito.UserVerificationConfig(
+                email_subject="馬券会議 - メールアドレスの確認",
+                email_body="馬券会議をご利用いただきありがとうございます。確認コード: {####}",
+                email_style=cognito.VerificationEmailStyle.CODE,
+            ),
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        # User Pool Client（SPA用）
+        user_pool_client = user_pool.add_client(
+            "UserPoolClient",
+            user_pool_client_name="baken-kaigi-spa-client",
+            auth_flows=cognito.AuthFlow(
+                user_srp=True,
+            ),
+            o_auth=cognito.OAuthSettings(
+                flows=cognito.OAuthFlows(authorization_code_grant=True),
+                scopes=[
+                    cognito.OAuthScope.OPENID,
+                    cognito.OAuthScope.EMAIL,
+                    cognito.OAuthScope.PROFILE,
+                ],
+                callback_urls=[
+                    "https://bakenkaigi.com/auth/callback",
+                    "http://localhost:5173/auth/callback",
+                ],
+                logout_urls=[
+                    "https://bakenkaigi.com",
+                    "http://localhost:5173",
+                ],
+            ),
+            supported_identity_providers=[
+                cognito.UserPoolClientIdentityProvider.COGNITO,
+            ],
+            access_token_validity=Duration.hours(8),
+            id_token_validity=Duration.hours(8),
+            refresh_token_validity=Duration.days(30),
+            prevent_user_existence_errors=True,
+        )
+
+        # User Pool Domain
+        user_pool_domain = user_pool.add_domain(
+            "UserPoolDomain",
+            cognito_domain=cognito.CognitoDomainOptions(
+                domain_prefix=f"baken-kaigi-{Stack.of(self).account}",
+            ),
+        )
+
+        # Cognito Authorizer
+        cognito_authorizer = apigw.CognitoUserPoolsAuthorizer(
+            self,
+            "CognitoAuthorizer",
+            cognito_user_pools=[user_pool],
+            authorizer_name="baken-kaigi-cognito-authorizer",
+        )
+
+        # User テーブル
+        user_table = dynamodb.Table(
+            self,
+            "UserTable",
+            table_name="baken-kaigi-user",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+        # email での検索用 GSI
+        user_table.add_global_secondary_index(
+            index_name="email-index",
+            partition_key=dynamodb.Attribute(
+                name="email",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # ========================================
         # AgentCore Runtime
         # ========================================
         # NOTE: AgentCore RuntimeはCDKではなくagentcore CLIで管理
@@ -158,6 +265,7 @@ class BakenKaigiApiStack(Stack):
             "CART_TABLE_NAME": cart_table.table_name,
             "SESSION_TABLE_NAME": session_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            "USER_TABLE_NAME": user_table.table_name,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -573,6 +681,81 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # ユーザーAPI
+        get_user_profile_fn = lambda_.Function(
+            self,
+            "GetUserProfileFunction",
+            handler="src.api.handlers.users.get_user_profile",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-user-profile",
+            description="ユーザープロフィール取得",
+            **lambda_common_props,
+        )
+
+        update_user_profile_fn = lambda_.Function(
+            self,
+            "UpdateUserProfileFunction",
+            handler="src.api.handlers.users.update_user_profile",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-update-user-profile",
+            description="ユーザープロフィール更新",
+            **lambda_common_props,
+        )
+
+        delete_account_fn = lambda_.Function(
+            self,
+            "DeleteAccountFunction",
+            handler="src.api.handlers.users.delete_account",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-delete-account",
+            description="アカウント削除",
+            **lambda_common_props,
+        )
+
+        # Cognito Post Confirmation トリガー
+        cognito_post_confirmation_fn = lambda_.Function(
+            self,
+            "CognitoPostConfirmationFunction",
+            handler="src.api.handlers.cognito_triggers.post_confirmation",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-cognito-post-confirmation",
+            description="Cognito確認完了トリガー",
+            **lambda_common_props,
+        )
+
+        # Post Confirmation トリガー設定
+        user_pool.add_trigger(
+            cognito.UserPoolOperation.POST_CONFIRMATION,
+            cognito_post_confirmation_fn,
+        )
+
+        # USER_POOL_ID はアカウント削除Lambda にのみ設定
+        # (PostConfirmation Lambdaに設定するとUserPoolとの循環依存が発生するため)
+        delete_account_fn.add_environment("USER_POOL_ID", user_pool.user_pool_id)
+
+        # アカウント削除Lambda に Cognito AdminDisableUser/AdminDeleteUser 権限
+        delete_account_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cognito-idp:AdminDisableUser",
+                    "cognito-idp:AdminDeleteUser",
+                ],
+                resources=[user_pool.user_pool_arn],
+            )
+        )
+
         # API Gateway
         # CORS設定: 本番環境は特定オリジンのみ許可
         # --context allow_dev_origins=true で開発用オリジンも許可
@@ -852,6 +1035,36 @@ class BakenKaigiApiStack(Stack):
             "POST", apigw.LambdaIntegration(send_message_fn), api_key_required=True
         )
 
+        # /users
+        users = api.root.add_resource("users")
+
+        # /users/profile
+        users_profile = users.add_resource("profile")
+        users_profile.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_user_profile_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        users_profile.add_method(
+            "PUT",
+            apigw.LambdaIntegration(update_user_profile_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /users/account
+        users_account = users.add_resource("account")
+        users_account.add_method(
+            "DELETE",
+            apigw.LambdaIntegration(delete_account_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
         # ========================================
         # AgentCore 相談 API
         # ========================================
@@ -1029,6 +1242,11 @@ class BakenKaigiApiStack(Stack):
         for fn in cart_functions:
             cart_table.grant_read_write_data(fn)
 
+        # ユーザー関連 Lambda に User テーブルへのアクセス権限を付与
+        user_functions = [get_user_profile_fn, update_user_profile_fn, delete_account_fn, cognito_post_confirmation_fn]
+        for fn in user_functions:
+            user_table.grant_read_write_data(fn)
+
         # 相談関連 Lambda に両テーブルへのアクセス権限を付与
         # （相談開始時にカートを参照するため）
         consultation_functions = [start_consultation_fn, send_message_fn, get_consultation_fn]
@@ -1052,4 +1270,25 @@ class BakenKaigiApiStack(Stack):
             "ApiKeyIdDev",
             value=api_key_dev.key_id,
             description="開発用 API Key ID（値の取得: aws apigateway get-api-key --api-key <ID> --include-value）",
+        )
+
+        CfnOutput(
+            self,
+            "UserPoolId",
+            value=user_pool.user_pool_id,
+            description="Cognito User Pool ID",
+        )
+
+        CfnOutput(
+            self,
+            "UserPoolClientId",
+            value=user_pool_client.user_pool_client_id,
+            description="Cognito User Pool Client ID",
+        )
+
+        CfnOutput(
+            self,
+            "UserPoolDomainUrl",
+            value=f"https://{user_pool_domain.domain_name}.auth.{self.region}.amazoncognito.com",
+            description="Cognito User Pool Domain URL",
         )
