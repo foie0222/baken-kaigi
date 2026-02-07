@@ -1,14 +1,39 @@
 """API レスポンスユーティリティ."""
 import json
+import os
 from typing import Any
 
+ALLOWED_ORIGINS = [
+    "https://bakenkaigi.com",
+    "https://www.bakenkaigi.com",
+]
 
-def success_response(body: Any, status_code: int = 200) -> dict:
+if os.environ.get("ALLOW_DEV_ORIGINS") == "true":
+    ALLOWED_ORIGINS.extend([
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ])
+
+
+def get_cors_origin(event: dict | None = None) -> str:
+    """リクエストの Origin ヘッダーから許可するオリジンを返す."""
+    if event:
+        headers = event.get("headers") or {}
+        origin = headers.get("origin") or headers.get("Origin") or ""
+        if origin in ALLOWED_ORIGINS:
+            return origin
+    return ALLOWED_ORIGINS[0]
+
+
+def success_response(body: Any, status_code: int = 200, event: dict | None = None) -> dict:
     """成功レスポンスを生成する.
 
     Args:
         body: レスポンスボディ
         status_code: HTTPステータスコード
+        event: API Gatewayイベント（CORS Origin判定用）
 
     Returns:
         API Gatewayレスポンス形式の辞書
@@ -17,7 +42,7 @@ def success_response(body: Any, status_code: int = 200) -> dict:
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": get_cors_origin(event),
             "Access-Control-Allow-Headers": "Content-Type,Authorization",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
@@ -25,13 +50,16 @@ def success_response(body: Any, status_code: int = 200) -> dict:
     }
 
 
-def error_response(message: str, status_code: int = 400, error_code: str | None = None) -> dict:
+def error_response(
+    message: str, status_code: int = 400, error_code: str | None = None, event: dict | None = None,
+) -> dict:
     """エラーレスポンスを生成する.
 
     Args:
         message: エラーメッセージ
         status_code: HTTPステータスコード
         error_code: エラーコード
+        event: API Gatewayイベント（CORS Origin判定用）
 
     Returns:
         API Gatewayレスポンス形式の辞書
@@ -44,7 +72,7 @@ def error_response(message: str, status_code: int = 400, error_code: str | None 
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": get_cors_origin(event),
             "Access-Control-Allow-Headers": "Content-Type,Authorization",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
