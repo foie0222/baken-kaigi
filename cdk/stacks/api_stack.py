@@ -181,6 +181,7 @@ class BakenKaigiApiStack(Stack):
                     cognito.OAuthScope.OPENID,
                     cognito.OAuthScope.EMAIL,
                     cognito.OAuthScope.PROFILE,
+                    cognito.OAuthScope.COGNITO_ADMIN,
                 ],
                 callback_urls=[
                     "https://bakenkaigi.com/auth/callback",
