@@ -86,7 +86,7 @@ export function SettingsPage() {
         <SettingsMenuItem label="Cookie設定" onClick={() => resetConsent()} />
       </div>
 
-      <a href="https://www.ncgmkohnodai.go.jp/subject/094/gambling.html" target="_blank" rel="noopener noreferrer"
+      <a href="https://www.gaprsc.or.jp/index.html" target="_blank" rel="noopener noreferrer"
         style={{ display: 'block', textAlign: 'center', padding: 20, color: '#c62828', fontSize: 14, textDecoration: 'none' }}>
         ギャンブル依存症相談窓口
       </a>
