@@ -347,5 +347,46 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// IPAT残高
+export interface IpatBalance {
+  betDedicatedBalance: number;
+  settlePossibleBalance: number;
+  betBalance: number;
+  limitVoteAmount: number;
+}
+
+// 購入結果
+export interface PurchaseResult {
+  purchaseId: string;
+  status: 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'FAILED';
+  totalAmount: number;
+  createdAt: string;
+}
+
+// 購入注文（履歴用）
+export interface PurchaseOrder {
+  purchaseId: string;
+  cartId: string;
+  status: 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'FAILED';
+  totalAmount: number;
+  betLineCount: number;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// IPAT設定状態
+export interface IpatStatus {
+  configured: boolean;
+}
+
+// IPAT認証情報入力
+export interface IpatCredentialsInput {
+  cardNumber: string;
+  birthday: string;
+  pin: string;
+  dummyPin: string;
+}
+
 // アプリ状態
 export type PageType = 'races' | 'dashboard' | 'history' | 'settings' | 'cart';

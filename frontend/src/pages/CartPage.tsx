@@ -1,11 +1,22 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../stores/cartStore';
+import { useAuthStore } from '../stores/authStore';
+import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { BetTypeLabels, getVenueName } from '../types';
 
 export function CartPage() {
   const navigate = useNavigate();
   const { items, removeItem, clearCart, getTotalAmount } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+  const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
   const totalAmount = getTotalAmount();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkIpatStatus();
+    }
+  }, [isAuthenticated, checkIpatStatus]);
 
   const handleClearCart = () => {
     if (window.confirm('カートの中身をすべて削除しますか？')) {
@@ -116,6 +127,29 @@ export function CartPage() {
           <p className="ai-guide-text">
             ※ 購入前にAIが買い目を一緒に確認します
           </p>
+
+          {/* IPAT購入ボタン */}
+          {isAuthenticated && ipatStatus?.configured && items.length > 0 && (
+            <button
+              className="btn-primary"
+              style={{ width: '100%', marginTop: 12, background: '#2e7d32' }}
+              onClick={() => navigate('/purchase/confirm')}
+            >
+              IPATで購入する
+            </button>
+          )}
+          {isAuthenticated && !ipatStatus?.configured && (
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <span style={{ fontSize: 13, color: '#666' }}>IPAT設定が必要です </span>
+              <button
+                type="button"
+                onClick={() => navigate('/settings/ipat')}
+                style={{ fontSize: 13, color: '#1a73e8', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+              >
+                設定する
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <button

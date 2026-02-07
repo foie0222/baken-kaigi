@@ -738,6 +738,73 @@ def get_jockey_stats(
         )
 
 
+# ========================================
+# IPAT投票モデル
+# ========================================
+
+
+class IpatBetLineRequest(BaseModel):
+    """IPAT投票行リクエスト."""
+    opdt: str
+    rcoursecd: str
+    rno: str
+    denomination: str
+    method: str
+    multi: str
+    number: str
+    bet_price: str
+
+
+class IpatVoteRequest(BaseModel):
+    """IPAT投票リクエスト."""
+    card_number: str
+    birthday: str
+    pin: str
+    dummy_pin: str
+    bet_lines: list[IpatBetLineRequest]
+
+
+class IpatStatRequest(BaseModel):
+    """IPAT残高照会リクエスト."""
+    card_number: str
+    birthday: str
+    pin: str
+    dummy_pin: str
+
+
+# ========================================
+# IPATエンドポイント
+# ========================================
+
+from ipat_executor import IpatExecutor
+
+
+@app.post("/ipat/vote")
+def ipat_vote(request: IpatVoteRequest):
+    """IPAT投票を実行する."""
+    executor = IpatExecutor()
+    bet_lines = [line.model_dump() for line in request.bet_lines]
+    return executor.vote(
+        request.card_number,
+        request.birthday,
+        request.pin,
+        request.dummy_pin,
+        bet_lines,
+    )
+
+
+@app.post("/ipat/stat")
+def ipat_stat(request: IpatStatRequest):
+    """IPAT残高照会を実行する."""
+    executor = IpatExecutor()
+    return executor.stat(
+        request.card_number,
+        request.birthday,
+        request.pin,
+        request.dummy_pin,
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

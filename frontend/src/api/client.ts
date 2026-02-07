@@ -9,6 +9,11 @@ import type {
   ApiRacesResponse,
   ApiRaceDetailResponse,
   RunnerData,
+  PurchaseResult,
+  PurchaseOrder,
+  IpatCredentialsInput,
+  IpatStatus,
+  IpatBalance,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -267,6 +272,107 @@ class ApiClient {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  // 購入API
+  async submitPurchase(
+    cartId: string,
+    raceDate: string,
+    courseCode: string,
+    raceNumber: number
+  ): Promise<ApiResponse<PurchaseResult>> {
+    const res = await this.request<Record<string, unknown>>('/purchases', {
+      method: 'POST',
+      body: JSON.stringify({
+        cart_id: cartId,
+        race_date: raceDate,
+        course_code: courseCode,
+        race_number: raceNumber,
+      }),
+    });
+    if (res.success && res.data) {
+      const d = res.data;
+      return { success: true, data: {
+        purchaseId: d.purchase_id as string,
+        status: (d.status as string).toUpperCase() as PurchaseResult['status'],
+        totalAmount: d.total_amount as number,
+        createdAt: d.created_at as string,
+      }};
+    }
+    return { success: false, error: res.error };
+  }
+
+  async getPurchaseHistory(): Promise<ApiResponse<PurchaseOrder[]>> {
+    const res = await this.request<Record<string, unknown>[]>('/purchases');
+    if (res.success && res.data) {
+      return { success: true, data: res.data.map((d) => ({
+        purchaseId: d.purchase_id as string,
+        cartId: (d.cart_id as string) || '',
+        status: (d.status as string).toUpperCase() as PurchaseOrder['status'],
+        totalAmount: d.total_amount as number,
+        betLineCount: (d.bet_line_count as number) || 0,
+        errorMessage: d.error_message as string | undefined,
+        createdAt: d.created_at as string,
+        updatedAt: (d.updated_at as string) || (d.created_at as string),
+      }))};
+    }
+    return { success: false, error: res.error };
+  }
+
+  async getPurchaseDetail(purchaseId: string): Promise<ApiResponse<PurchaseOrder>> {
+    const res = await this.request<Record<string, unknown>>(`/purchases/${encodeURIComponent(purchaseId)}`);
+    if (res.success && res.data) {
+      const d = res.data;
+      return { success: true, data: {
+        purchaseId: d.purchase_id as string,
+        cartId: (d.cart_id as string) || '',
+        status: (d.status as string).toUpperCase() as PurchaseOrder['status'],
+        totalAmount: d.total_amount as number,
+        betLineCount: (d.bet_line_count as number) || 0,
+        errorMessage: d.error_message as string | undefined,
+        createdAt: d.created_at as string,
+        updatedAt: (d.updated_at as string) || (d.created_at as string),
+      }};
+    }
+    return { success: false, error: res.error };
+  }
+
+  // IPAT設定API
+  async saveIpatCredentials(credentials: IpatCredentialsInput): Promise<ApiResponse<void>> {
+    return this.request<void>('/settings/ipat', {
+      method: 'PUT',
+      body: JSON.stringify({
+        card_number: credentials.cardNumber,
+        birthday: credentials.birthday,
+        pin: credentials.pin,
+        dummy_pin: credentials.dummyPin,
+      }),
+    });
+  }
+
+  async getIpatStatus(): Promise<ApiResponse<IpatStatus>> {
+    return this.request<IpatStatus>('/settings/ipat');
+  }
+
+  async deleteIpatCredentials(): Promise<ApiResponse<void>> {
+    return this.request<void>('/settings/ipat', {
+      method: 'DELETE',
+    });
+  }
+
+  // 残高照会
+  async getIpatBalance(): Promise<ApiResponse<IpatBalance>> {
+    const res = await this.request<Record<string, unknown>>('/ipat/balance');
+    if (res.success && res.data) {
+      const d = res.data;
+      return { success: true, data: {
+        betDedicatedBalance: d.bet_dedicated_balance as number,
+        settlePossibleBalance: d.settle_possible_balance as number,
+        betBalance: d.bet_balance as number,
+        limitVoteAmount: d.limit_vote_amount as number,
+      }};
+    }
+    return { success: false, error: res.error };
   }
 
   // AgentCore が利用可能かどうか
