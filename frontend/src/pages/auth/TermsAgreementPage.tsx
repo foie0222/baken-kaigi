@@ -5,20 +5,32 @@ import { TERMS_VERSION, PRIVACY_VERSION } from '../../constants/legal';
 export function TermsAgreementPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const birthdate = (location.state as { birthdate?: string })?.birthdate || '';
+  const state = location.state as { birthdate?: string; oauthUser?: boolean } | null;
+  const birthdate = state?.birthdate || '';
+  const oauthUser = state?.oauthUser || false;
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (termsAccepted && privacyAccepted) {
-      navigate('/signup', {
-        state: {
-          birthdate,
-          termsVersion: TERMS_VERSION.version,
-          privacyVersion: PRIVACY_VERSION.version,
-        },
-      });
+      if (oauthUser) {
+        navigate('/oauth/complete', {
+          state: {
+            birthdate,
+            termsVersion: TERMS_VERSION.version,
+            privacyVersion: PRIVACY_VERSION.version,
+          },
+        });
+      } else {
+        navigate('/signup', {
+          state: {
+            birthdate,
+            termsVersion: TERMS_VERSION.version,
+            privacyVersion: PRIVACY_VERSION.version,
+          },
+        });
+      }
     }
   };
 

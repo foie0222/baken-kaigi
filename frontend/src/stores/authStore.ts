@@ -11,6 +11,7 @@ import {
   updatePassword as amplifyUpdatePassword,
   deleteUser as amplifyDeleteUser,
   signInWithRedirect,
+  updateUserAttributes,
 } from 'aws-amplify/auth';
 import { isAuthConfigured } from '../config/amplify';
 
@@ -37,6 +38,7 @@ interface AuthState {
   confirmResetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
+  completeOAuthRegistration: (displayName: string, birthdate: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -230,6 +232,31 @@ export const useAuthStore = create<AuthState>()((set) => ({
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Account deletion failed',
+      });
+      throw error;
+    }
+  },
+
+  completeOAuthRegistration: async (displayName, birthdate) => {
+    try {
+      set({ isLoading: true, error: null });
+      const now = new Date().toISOString();
+      await updateUserAttributes({
+        userAttributes: {
+          birthdate,
+          'custom:display_name': displayName,
+          'custom:terms_accepted_at': now,
+          'custom:privacy_accepted_at': now,
+        },
+      });
+      set((state) => ({
+        user: state.user ? { ...state.user, displayName } : null,
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Profile update failed',
       });
       throw error;
     }
