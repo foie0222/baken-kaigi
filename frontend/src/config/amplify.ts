@@ -22,7 +22,7 @@ export function configureAmplify() {
           oauth: {
             domain: import.meta.env.VITE_COGNITO_DOMAIN || '',
             scopes: ['openid', 'email', 'profile'],
-            redirectSignIn: [window.location.origin],
+            redirectSignIn: [`${window.location.origin}/auth/callback`],
             redirectSignOut: [window.location.origin],
             responseType: 'code' as const,
           },
