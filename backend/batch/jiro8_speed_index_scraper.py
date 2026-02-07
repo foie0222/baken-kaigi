@@ -85,88 +85,88 @@ def fetch_page(url: str) -> BeautifulSoup | None:
         return None
 
 
-def find_venue_codes_for_date(soup: BeautifulSoup, target_date: str) -> list[dict]:
+def find_venue_codes_for_date(soup: BeautifulSoup, target_date: str, year_2digit: str = "") -> list[dict]:
     """トップページから対象日付の競馬場コードを取得.
 
-    サイドバーの開催日付リストから、対象日付に対応するリンクを探す。
-    リンクは index.php?code=YYVVRRDDNN 形式。
+    サイトのトップページには2つの方法で開催情報が掲載される:
+    1. フィーチャードリンク: ページ上部に当日レースへの相対パスリンク
+       (例: /index.php?code=2605010411 → 東京11R)
+    2. サイドバー: 過去日付のリンク（当日はリンクなし、太字表示のみ）
+
+    当日のデータ取得にはフィーチャードリンクを優先し、
+    フォールバックとしてサイドバーの日付テキスト周辺からも探索する。
 
     Args:
         soup: トップページのBeautifulSoup
         target_date: 対象日付 (例: "2/8")
+        year_2digit: 対象年の2桁表記 (例: "26")
 
     Returns:
         list of dict: [{"venue": "東京", "venue_code": "05", "kai": "01", "nichi": "04"}, ...]
     """
     venues = []
+    seen_venue_codes = set()
 
-    # トップページから全リンクを検索
-    for link in soup.find_all("a", href=re.compile(r"index\.php\?code=\d{10}")):
+    # 方法1: フィーチャードリンク（相対パス）から取得
+    # トップページ上部に当日レースへの相対パスリンクがある
+    # 例: /index.php?code=2605010411 (東京11R), /index.php?code=2608020411 (京都11R)
+    for link in soup.find_all("a", href=re.compile(r"^/index\.php\?code=\d{10}$")):
         href = link.get("href", "")
-        # codeパラメータを抽出
         match = re.search(r"code=(\d{10})", href)
         if not match:
             continue
 
         code = match.group(1)
-        # YYVVRRDDNN を分解
+        # year_2digitが指定されている場合、対象年のコードのみ使用
+        if year_2digit and not code.startswith(year_2digit):
+            continue
+
         venue_code = code[2:4]
         kai = code[4:6]
         nichi = code[6:8]
-        race_num = code[8:10]
 
-        # 競馬場名を取得
         venue_name = VENUE_CODE_TO_NAME.get(venue_code)
-        if not venue_name:
+        if not venue_name or kai == "99" or nichi == "99":
             continue
 
-        # 999999 は一覧ページなのでスキップ
-        if kai == "99" or nichi == "99":
+        if venue_code not in seen_venue_codes:
+            seen_venue_codes.add(venue_code)
+            venues.append({
+                "venue": venue_name,
+                "venue_code": venue_code,
+                "kai": kai,
+                "nichi": nichi,
+            })
+
+    if venues:
+        return venues
+
+    # 方法2: サイドバーの日付テキスト周辺から検索（フォールバック）
+    for link in soup.find_all("a", href=re.compile(r"index\.php\?code=\d{10}")):
+        href = link.get("href", "")
+        match = re.search(r"code=(\d{10})", href)
+        if not match:
             continue
 
-        # レース番号11のリンク（メインのナビリンク）を探す
-        # サイドバーの開催日付欄に日付テキストがあるかチェック
+        code = match.group(1)
+        venue_code = code[2:4]
+        kai = code[4:6]
+        nichi = code[6:8]
+
+        venue_name = VENUE_CODE_TO_NAME.get(venue_code)
+        if not venue_name or kai == "99" or nichi == "99":
+            continue
+
         parent = link.find_parent("td")
-        if parent:
-            parent_text = parent.get_text()
-            # "2/8" のような日付パターンを含むか
-            if target_date in parent_text:
-                venue_info = {
+        if parent and target_date in parent.get_text():
+            if venue_code not in seen_venue_codes:
+                seen_venue_codes.add(venue_code)
+                venues.append({
                     "venue": venue_name,
                     "venue_code": venue_code,
                     "kai": kai,
                     "nichi": nichi,
-                }
-                # 重複を避ける
-                if venue_info not in venues:
-                    venues.append(venue_info)
-
-    # サイドバーで見つからない場合、太字(b)テキストからも探す
-    if not venues:
-        for bold in soup.find_all("b"):
-            text = bold.get_text(strip=True)
-            if target_date in text:
-                # 同じtd内のリンクを探す
-                parent = bold.find_parent("td")
-                if parent:
-                    for link in parent.find_all("a", href=re.compile(r"code=\d{10}")):
-                        href = link.get("href", "")
-                        match = re.search(r"code=(\d{10})", href)
-                        if match:
-                            code = match.group(1)
-                            venue_code = code[2:4]
-                            kai = code[4:6]
-                            nichi = code[6:8]
-                            venue_name = VENUE_CODE_TO_NAME.get(venue_code)
-                            if venue_name and kai != "99" and nichi != "99":
-                                venue_info = {
-                                    "venue": venue_name,
-                                    "venue_code": venue_code,
-                                    "kai": kai,
-                                    "nichi": nichi,
-                                }
-                                if venue_info not in venues:
-                                    venues.append(venue_info)
+                })
 
     return venues
 
@@ -219,12 +219,11 @@ def parse_race_page(soup: BeautifulSoup) -> list[dict]:
                     horse_numbers.append(0)
 
         elif header == "馬名":
-            # 馬名行: "馬名/父馬名母父馬名" の形式
+            # 馬名行: "馬名/父馬名母父馬名" の形式（全角スラッシュ「／」の場合もある）
             for td in tds[:-1]:
                 text = td.get_text(strip=True)
-                # "/"で区切り、最初の部分が馬名
-                name = text.split("/")[0] if "/" in text else text
-                # 半角カナを全角に変換し、ﾞﾟなどの濁点を処理
+                # 半角・全角スラッシュで区切り、最初の部分が馬名
+                name = re.split(r"[/／]", text)[0]
                 horse_names.append(name.strip())
 
         elif header == "スピード指数":
@@ -331,7 +330,7 @@ def scrape_races() -> dict[str, Any]:
         results["errors"].append("Failed to fetch top page")
         return results
 
-    venues = find_venue_codes_for_date(top_soup, target_date)
+    venues = find_venue_codes_for_date(top_soup, target_date, year_2digit)
     if not venues:
         logger.info(f"No venues found for {target_date}")
         results["races_scraped"] = 0

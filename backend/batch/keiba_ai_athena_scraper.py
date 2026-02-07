@@ -114,17 +114,23 @@ def parse_race_predictions_page(soup: BeautifulSoup) -> list[dict]:
         # 別のコンテンツラッパーを試す
         content = soup.find("article") or soup
 
-    # h2タグで競馬場名を取得し、その後のsu-boxとtableを対応付ける
+    # h2タグで競馬場区切り。サイトのHTMLではh2がネスト構造になっている場合がある。
+    # h2の直接テキスト子要素が競馬場名（"京都", "東京"等）。
+    # find_allはドキュメント順で返すため、h2 → div/table の順でイテレートすれば
+    # 正しく会場が切り替わる。h2.get_text()は子孫全テキストを返すため使えない。
     elements = content.find_all(["h2", "div", "table"])
 
     current_race_number = None
     for elem in elements:
-        # h2タグ: 競馬場名
+        # h2タグ: 競馬場名（直接テキスト子要素から取得）
         if elem.name == "h2":
-            text = elem.get_text(strip=True)
-            if text in VENUE_CODE_MAP:
-                current_venue = text
-                logger.info(f"Found venue: {current_venue}")
+            for child in elem.children:
+                if isinstance(child, str):
+                    t = child.strip()
+                    if t and t in VENUE_CODE_MAP:
+                        current_venue = t
+                        logger.info(f"Found venue: {current_venue}")
+                        break
 
         # su-box-title: レース番号
         elif elem.name == "div" and elem.get("class") and any(
