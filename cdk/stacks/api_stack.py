@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import aws_secretsmanager as secretsmanager
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
@@ -148,6 +149,25 @@ class BakenKaigiApiStack(Stack):
             removal_policy=RemovalPolicy.RETAIN,
         )
 
+        # Google Identity Provider
+        google_oauth_secret = secretsmanager.Secret.from_secret_name_v2(
+            self,
+            "GoogleOAuthSecret",
+            "baken-kaigi/google-oauth",
+        )
+        google_provider = cognito.UserPoolIdentityProviderGoogle(
+            self,
+            "GoogleProvider",
+            user_pool=user_pool,
+            client_id=google_oauth_secret.secret_value_from_json("client_id").unsafe_unwrap(),
+            client_secret_value=google_oauth_secret.secret_value_from_json("client_secret"),
+            scopes=["openid", "email", "profile"],
+            attribute_mapping=cognito.AttributeMapping(
+                email=cognito.ProviderAttribute.GOOGLE_EMAIL,
+                fullname=cognito.ProviderAttribute.GOOGLE_NAME,
+            ),
+        )
+
         # User Pool Client（SPA用）
         user_pool_client = user_pool.add_client(
             "UserPoolClient",
@@ -173,12 +193,14 @@ class BakenKaigiApiStack(Stack):
             ),
             supported_identity_providers=[
                 cognito.UserPoolClientIdentityProvider.COGNITO,
+                cognito.UserPoolClientIdentityProvider.GOOGLE,
             ],
             access_token_validity=Duration.hours(8),
             id_token_validity=Duration.hours(8),
             refresh_token_validity=Duration.days(30),
             prevent_user_existence_errors=True,
         )
+        user_pool_client.node.add_dependency(google_provider)
 
         # User Pool Domain
         user_pool_domain = user_pool.add_domain(

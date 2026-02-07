@@ -391,6 +391,29 @@ class TestApiStack:
 # agentcore CLIでデプロイしたAgentを使用するように変更。
 
 
+class TestCognitoGoogleProvider:
+    """Cognito Google Identity Provider のテスト."""
+
+    def test_google_identity_provider_created(self, template):
+        """Google Identity Providerが作成されること."""
+        template.has_resource_properties(
+            "AWS::Cognito::UserPoolIdentityProvider",
+            {
+                "ProviderName": "Google",
+                "ProviderType": "Google",
+            },
+        )
+
+    def test_user_pool_client_supports_google(self, template):
+        """User Pool ClientがGoogleプロバイダーをサポートすること."""
+        template.has_resource_properties(
+            "AWS::Cognito::UserPoolClient",
+            {
+                "SupportedIdentityProviders": ["COGNITO", "Google"],
+            },
+        )
+
+
 class TestCorsConfiguration:
     """CORS設定のテスト."""
 
