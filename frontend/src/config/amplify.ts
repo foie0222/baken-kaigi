@@ -1,23 +1,33 @@
 import { Amplify } from 'aws-amplify';
 
-const cognitoConfig = {
-  Auth: {
-    Cognito: {
-      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
-      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID || '',
-      loginWith: {
-        oauth: {
-          domain: import.meta.env.VITE_COGNITO_DOMAIN || '',
-          scopes: ['openid', 'email', 'profile'],
-          redirectSignIn: [window.location.origin + '/auth/callback'],
-          redirectSignOut: [window.location.origin],
-          responseType: 'code' as const,
+export function configureAmplify() {
+  const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID || '';
+  const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID || '';
+
+  if (!userPoolId || !userPoolClientId) {
+    console.warn(
+      '[Amplify] VITE_COGNITO_USER_POOL_ID または VITE_COGNITO_CLIENT_ID が未設定です。認証機能は動作しません。'
+    );
+    return;
+  }
+
+  const cognitoConfig = {
+    Auth: {
+      Cognito: {
+        userPoolId,
+        userPoolClientId,
+        loginWith: {
+          oauth: {
+            domain: import.meta.env.VITE_COGNITO_DOMAIN || '',
+            scopes: ['openid', 'email', 'profile'],
+            redirectSignIn: [window.location.origin],
+            redirectSignOut: [window.location.origin],
+            responseType: 'code' as const,
+          },
         },
       },
     },
-  },
-};
+  };
 
-export function configureAmplify() {
   Amplify.configure(cognitoConfig);
 }

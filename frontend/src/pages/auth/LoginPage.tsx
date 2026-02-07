@@ -86,7 +86,7 @@ export function LoginPage() {
 
       <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14 }}>
         アカウントをお持ちでない方は{' '}
-        <Link to="/signup" style={{ color: '#1a73e8', fontWeight: 600 }}>
+        <Link to="/signup/age" style={{ color: '#1a73e8', fontWeight: 600 }}>
           新規登録
         </Link>
       </div>

@@ -17,12 +17,13 @@ export function Header() {
         </button>
         {isAuthenticated ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span
-              style={{ fontSize: 13, color: '#666', cursor: 'pointer' }}
+            <button
+              style={{ fontSize: 13, color: '#666', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
               onClick={() => navigate('/profile')}
+              type="button"
             >
               {user?.displayName || user?.email?.split('@')[0] || ''}
-            </span>
+            </button>
             <button
               onClick={() => signOut()}
               style={{

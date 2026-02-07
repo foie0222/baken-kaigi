@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
 interface AuthGuardProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {

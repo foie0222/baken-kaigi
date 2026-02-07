@@ -1,20 +1,15 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 
 export function ProfilePage() {
   const { user, isLoading } = useAuthStore();
-  const [displayName, setDisplayName] = useState('');
+  const initialDisplayName = useMemo(() => user?.displayName || '', [user]);
+  const [displayName, setDisplayName] = useState(initialDisplayName);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (user?.displayName) {
-      setDisplayName(user.displayName);
-    }
-  }, [user]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // API call to update profile would go here
+    // TODO: API call to update profile (未実装)
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -24,8 +19,8 @@ export function ProfilePage() {
       <h2 style={{ textAlign: 'center', marginBottom: 24 }}>プロフィール</h2>
 
       {saved && (
-        <div style={{ background: '#e8f5e9', color: '#2e7d32', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
-          プロフィールを更新しました
+        <div style={{ background: '#fff3e0', color: '#e65100', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
+          プロフィール更新機能は現在準備中です
         </div>
       )}
 

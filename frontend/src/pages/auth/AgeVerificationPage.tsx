@@ -11,7 +11,18 @@ export function AgeVerificationPage() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+
+    // 有効な日付かバリデーション（2/31等の無効日付を検出）
     const birthDate = new Date(year, month - 1, day);
+    if (
+      birthDate.getFullYear() !== year ||
+      birthDate.getMonth() !== month - 1 ||
+      birthDate.getDate() !== day
+    ) {
+      setErrorMsg('有効な日付を入力してください。');
+      return;
+    }
+
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     if (today.getMonth() < birthDate.getMonth() ||

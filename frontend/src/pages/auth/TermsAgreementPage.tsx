@@ -1,15 +1,17 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export function TermsAgreementPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const birthdate = (location.state as { birthdate?: string })?.birthdate || '';
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (termsAccepted && privacyAccepted) {
-      navigate('/signup');
+      navigate('/signup', { state: { birthdate } });
     }
   };
 
@@ -22,8 +24,10 @@ export function TermsAgreementPage() {
           <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)}
             style={{ marginTop: 2, width: 20, height: 20 }} />
           <span style={{ fontSize: 14 }}>
-            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8' }}>利用規約</a>
-            に同意します
+            <span style={{ color: '#1a73e8', textDecoration: 'underline', cursor: 'default' }}>利用規約</span>
+            {' '}に同意します
+            <br />
+            <span style={{ fontSize: 12, color: '#999' }}>※ 利用規約は準備中です</span>
           </span>
         </label>
 
@@ -31,8 +35,10 @@ export function TermsAgreementPage() {
           <input type="checkbox" checked={privacyAccepted} onChange={(e) => setPrivacyAccepted(e.target.checked)}
             style={{ marginTop: 2, width: 20, height: 20 }} />
           <span style={{ fontSize: 14 }}>
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8' }}>プライバシーポリシー</a>
-            に同意します
+            <span style={{ color: '#1a73e8', textDecoration: 'underline', cursor: 'default' }}>プライバシーポリシー</span>
+            {' '}に同意します
+            <br />
+            <span style={{ fontSize: 12, color: '#999' }}>※ プライバシーポリシーは準備中です</span>
           </span>
         </label>
 

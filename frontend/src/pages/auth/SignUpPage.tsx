@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { PasswordStrengthIndicator } from '../../components/auth/PasswordStrengthIndicator';
 import { SocialLoginButtons } from '../../components/auth/SocialLoginButtons';
 
 export function SignUpPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signUp, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,9 +19,11 @@ export function SignUpPage() {
       return;
     }
     try {
-      // 年齢確認ページで birthdate を入力するため、仮の値を使用
-      // 実際の birthdate は AgeVerificationPage で設定
-      await signUp(email, password, displayName, '2000-01-01');
+      // birthdate は年齢確認ページ (AgeVerificationPage) で入力済み
+      // サインアップフロー: /signup/age → /signup/terms → /signup
+      // location.state 経由で birthdate を受け取る
+      const birthdate = (location.state as { birthdate?: string })?.birthdate || '';
+      await signUp(email, password, displayName, birthdate);
       navigate('/signup/confirm', { state: { email } });
     } catch {
       // error is set in store

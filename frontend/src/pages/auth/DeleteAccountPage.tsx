@@ -26,10 +26,9 @@ export function DeleteAccountPage() {
       <div style={{ background: '#fff3e0', padding: 16, borderRadius: 8, marginBottom: 24, fontSize: 14, lineHeight: 1.6 }}>
         <strong>注意:</strong>
         <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-          <li>アカウント削除をリクエストすると、30日間の保持期間の後に完全に削除されます。</li>
-          <li>保持期間中はログインできません。</li>
-          <li>30日以内であれば、サポートに連絡して削除をキャンセルできます。</li>
-          <li>削除後はすべてのデータが失われます。</li>
+          <li>アカウントを削除すると、即座にアカウントが無効化されます。</li>
+          <li>削除後はログインできなくなります。</li>
+          <li>すべてのデータが失われ、復元はできません。</li>
         </ul>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { PasswordStrengthIndicator } from '../../components/auth/PasswordStrengthIndicator';
@@ -10,6 +10,17 @@ export function ResetPasswordPage() {
   const { confirmResetPassword, isLoading, error, clearError } = useAuthStore();
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
+
+  // emailがない場合はパスワードリセット要求画面にリダイレクト
+  useEffect(() => {
+    if (!email) {
+      navigate('/forgot-password', { replace: true });
+    }
+  }, [email, navigate]);
+
+  if (!email) {
+    return null;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

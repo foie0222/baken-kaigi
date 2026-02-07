@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -8,6 +8,17 @@ export function ConfirmSignUpPage() {
   const email = (location.state as { email?: string })?.email || '';
   const { confirmSignUp, isLoading, error, clearError } = useAuthStore();
   const [code, setCode] = useState('');
+
+  // emailがない場合はサインアップ画面にリダイレクト
+  useEffect(() => {
+    if (!email) {
+      navigate('/signup/age', { replace: true });
+    }
+  }, [email, navigate]);
+
+  if (!email) {
+    return null;
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
