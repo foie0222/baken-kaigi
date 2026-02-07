@@ -22,7 +22,7 @@ def get_ipat_balance_handler(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     use_case = GetIpatBalanceUseCase(
         credentials_provider=Dependencies.get_credentials_provider(),
@@ -32,11 +32,11 @@ def get_ipat_balance_handler(event: dict, context: Any) -> dict:
     try:
         balance = use_case.execute(user_id.value)
     except CredentialsNotFoundError:
-        return bad_request_response("IPAT credentials not configured")
+        return bad_request_response("IPAT credentials not configured", event=event)
 
     return success_response({
         "bet_dedicated_balance": balance.bet_dedicated_balance,
         "settle_possible_balance": balance.settle_possible_balance,
         "bet_balance": balance.bet_balance,
         "limit_vote_amount": balance.limit_vote_amount,
-    })
+    }, event=event)

@@ -22,14 +22,14 @@ def get_trainer_info(event: dict, context: Any) -> dict:
     """
     trainer_id = get_path_parameter(event, "trainer_id")
     if not trainer_id:
-        return bad_request_response("trainer_id is required")
+        return bad_request_response("trainer_id is required", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
     trainer_info = provider.get_trainer_info(trainer_id)
 
     if not trainer_info:
-        return not_found_response("Trainer")
+        return not_found_response("Trainer", event=event)
 
     return success_response({
         "trainer_id": trainer_info.trainer_id,
@@ -40,7 +40,7 @@ def get_trainer_info(event: dict, context: Any) -> dict:
         "license_year": trainer_info.license_year,
         "career_wins": trainer_info.career_wins,
         "career_starts": trainer_info.career_starts,
-    })
+    }, event=event)
 
 
 def get_trainer_stats(event: dict, context: Any) -> dict:
@@ -60,7 +60,7 @@ def get_trainer_stats(event: dict, context: Any) -> dict:
     """
     trainer_id = get_path_parameter(event, "trainer_id")
     if not trainer_id:
-        return bad_request_response("trainer_id is required")
+        return bad_request_response("trainer_id is required", event=event)
 
     # パラメータ取得
     year_str = get_query_parameter(event, "year")
@@ -72,15 +72,16 @@ def get_trainer_stats(event: dict, context: Any) -> dict:
         try:
             year = int(year_str)
             if year < 1900 or year > 2100:
-                return bad_request_response("year must be between 1900 and 2100")
+                return bad_request_response("year must be between 1900 and 2100", event=event)
         except ValueError:
-            return bad_request_response("year must be a valid integer")
+            return bad_request_response("year must be a valid integer", event=event)
 
     # periodのバリデーション
     valid_periods = ["recent", "all"]
     if period not in valid_periods:
         return bad_request_response(
-            f"period must be one of: {', '.join(valid_periods)}"
+            f"period must be one of: {', '.join(valid_periods)}",
+            event=event,
         )
 
     # プロバイダから取得
@@ -90,7 +91,7 @@ def get_trainer_stats(event: dict, context: Any) -> dict:
     )
 
     if not stats:
-        return not_found_response("Trainer stats")
+        return not_found_response("Trainer stats", event=event)
 
     return success_response({
         "trainer_id": stats.trainer_id,
@@ -121,4 +122,4 @@ def get_trainer_stats(event: dict, context: Any) -> dict:
             }
             for c in class_stats
         ],
-    })
+    }, event=event)

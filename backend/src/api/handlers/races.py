@@ -35,13 +35,13 @@ def get_race_dates(event: dict, context: Any) -> dict:
         try:
             from_date = datetime.strptime(from_str, "%Y-%m-%d").date()
         except ValueError:
-            return bad_request_response("Invalid from date format. Use YYYY-MM-DD")
+            return bad_request_response("Invalid from date format. Use YYYY-MM-DD", event=event)
 
     if to_str:
         try:
             to_date = datetime.strptime(to_str, "%Y-%m-%d").date()
         except ValueError:
-            return bad_request_response("Invalid to date format. Use YYYY-MM-DD")
+            return bad_request_response("Invalid to date format. Use YYYY-MM-DD", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
@@ -49,7 +49,7 @@ def get_race_dates(event: dict, context: Any) -> dict:
 
     return success_response({
         "dates": [d.isoformat() for d in dates],
-    })
+    }, event=event)
 
 
 def get_races(event: dict, context: Any) -> dict:
@@ -67,12 +67,12 @@ def get_races(event: dict, context: Any) -> dict:
     # パラメータ取得
     date_str = get_query_parameter(event, "date")
     if not date_str:
-        return bad_request_response("date parameter is required")
+        return bad_request_response("date parameter is required", event=event)
 
     try:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        return bad_request_response("Invalid date format. Use YYYY-MM-DD")
+        return bad_request_response("Invalid date format. Use YYYY-MM-DD", event=event)
 
     venue = get_query_parameter(event, "venue")
 
@@ -110,7 +110,8 @@ def get_races(event: dict, context: Any) -> dict:
             "races": races,
             "venues": result.venues,
             "target_date": result.target_date.isoformat(),
-        }
+        },
+        event=event,
     )
 
 
@@ -127,7 +128,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
     """
     race_id_str = get_path_parameter(event, "race_id")
     if not race_id_str:
-        return bad_request_response("race_id is required")
+        return bad_request_response("race_id is required", event=event)
 
     # ユースケース実行
     provider = Dependencies.get_race_data_provider()
@@ -136,7 +137,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
     result = use_case.execute(race_id)
 
     if result is None:
-        return not_found_response("Race")
+        return not_found_response("Race", event=event)
 
     # JRAチェックサムを取得
     jra_checksum = None
@@ -198,7 +199,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
             runner_dict["weight_diff"] = weight_data.weight_diff
         runners.append(runner_dict)
 
-    return success_response({"race": race, "runners": runners})
+    return success_response({"race": race, "runners": runners}, event=event)
 
 
 def get_odds_history(event: dict, context: Any) -> dict:
@@ -214,7 +215,7 @@ def get_odds_history(event: dict, context: Any) -> dict:
     """
     race_id_str = get_path_parameter(event, "race_id")
     if not race_id_str:
-        return bad_request_response("race_id is required")
+        return bad_request_response("race_id is required", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
@@ -222,7 +223,7 @@ def get_odds_history(event: dict, context: Any) -> dict:
     result = provider.get_odds_history(race_id)
 
     if result is None:
-        return not_found_response("Race")
+        return not_found_response("Race", event=event)
 
     # レスポンス構築
     response = {
@@ -262,7 +263,7 @@ def get_odds_history(event: dict, context: Any) -> dict:
         ],
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_race_results(event: dict, context: Any) -> dict:
@@ -278,7 +279,7 @@ def get_race_results(event: dict, context: Any) -> dict:
     """
     race_id_str = get_path_parameter(event, "race_id")
     if not race_id_str:
-        return bad_request_response("race_id is required")
+        return bad_request_response("race_id is required", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
@@ -286,7 +287,7 @@ def get_race_results(event: dict, context: Any) -> dict:
     result = provider.get_race_results(race_id)
 
     if result is None:
-        return not_found_response("Race results")
+        return not_found_response("Race results", event=event)
 
     # レスポンス構築
     response = {
@@ -320,4 +321,4 @@ def get_race_results(event: dict, context: Any) -> dict:
         ],
     }
 
-    return success_response(response)
+    return success_response(response, event=event)

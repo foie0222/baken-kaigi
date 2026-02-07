@@ -217,6 +217,7 @@ class BakenKaigiApiStack(Stack):
                     cognito.OAuthScope.OPENID,
                     cognito.OAuthScope.EMAIL,
                     cognito.OAuthScope.PROFILE,
+                    cognito.OAuthScope.COGNITO_ADMIN,
                 ],
                 callback_urls=[
                     "https://bakenkaigi.com/auth/callback",
@@ -1766,6 +1767,71 @@ class BakenKaigiApiStack(Stack):
             ),
         )
         keibagrant_rule.add_target(targets.LambdaFunction(keibagrant_scraper_fn))
+
+        # 無料競馬AI スクレイピング Lambda
+        muryou_scraper_fn = lambda_.Function(
+            self,
+            "MuryouKeibaAiScraperFunction",
+            handler="batch.muryou_keiba_ai_scraper.handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-muryou-keiba-ai-scraper",
+            description="無料競馬AI予想スクレイピング（muryou-keiba-ai.jp）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+            },
+        )
+
+        ai_predictions_table.grant_write_data(muryou_scraper_fn)
+
+        # EventBridge ルール: 当日朝 9:30 JST = 0:30 UTC（最終更新版を取得）
+        muryou_morning_rule = events.Rule(
+            self,
+            "MuryouScraperMorningRule",
+            rule_name="baken-kaigi-muryou-keiba-ai-scraper-morning-rule",
+            description="無料競馬AI予想を当日朝9:30 JSTに取得（最終更新版）",
+            schedule=events.Schedule.cron(
+                minute="30",
+                hour="0",  # UTC 0:30 = JST 9:30
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        muryou_morning_rule.add_target(
+            targets.LambdaFunction(
+                muryou_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
+
+        # EventBridge ルール: 前日夜 21:00 JST = 12:00 UTC（早期取得、当日朝に上書き）
+        muryou_evening_rule = events.Rule(
+            self,
+            "MuryouScraperEveningRule",
+            rule_name="baken-kaigi-muryou-keiba-ai-scraper-evening-rule",
+            description="無料競馬AI予想を前日21:00 JSTに早期取得（翌日分）",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="12",  # UTC 12:00 = JST 21:00
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        muryou_evening_rule.add_target(
+            targets.LambdaFunction(
+                muryou_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 1}),
+            )
+        )
 
         # ========================================
         # JRAチェックサム自動更新バッチ

@@ -37,10 +37,10 @@ def start_consultation(event: dict, context: Any) -> dict:
     try:
         body = get_body(event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     if "cart_id" not in body:
-        return bad_request_response("cart_id is required")
+        return bad_request_response("cart_id is required", event=event)
 
     # 認証ユーザーID（オプション）
     user_id = get_authenticated_user_id(event)
@@ -58,9 +58,9 @@ def start_consultation(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(CartId(body["cart_id"]))
     except StartCartNotFoundError:
-        return not_found_response("Cart")
+        return not_found_response("Cart", event=event)
     except EmptyCartError:
-        return bad_request_response("Cart is empty")
+        return bad_request_response("Cart is empty", event=event)
 
     # カートアイテムをシリアライズ
     cart_items = [
@@ -114,7 +114,7 @@ def start_consultation(event: dict, context: Any) -> dict:
     if user_id:
         response_data["user_id"] = str(user_id)
 
-    return success_response(response_data, status_code=201)
+    return success_response(response_data, status_code=201, event=event)
 
 
 def send_message(event: dict, context: Any) -> dict:
@@ -133,15 +133,15 @@ def send_message(event: dict, context: Any) -> dict:
     """
     session_id_str = get_path_parameter(event, "session_id")
     if not session_id_str:
-        return bad_request_response("session_id is required")
+        return bad_request_response("session_id is required", event=event)
 
     try:
         body = get_body(event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     if "content" not in body:
-        return bad_request_response("content is required")
+        return bad_request_response("content is required", event=event)
 
     # ユースケース実行
     session_repo = Dependencies.get_session_repository()
@@ -152,9 +152,9 @@ def send_message(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(SessionId(session_id_str), body["content"])
     except SessionNotFoundError:
-        return not_found_response("Session")
+        return not_found_response("Session", event=event)
     except SessionNotInProgressError:
-        return bad_request_response("Session is not in progress")
+        return bad_request_response("Session is not in progress", event=event)
 
     # メッセージをシリアライズ
     messages = [
@@ -178,7 +178,8 @@ def send_message(event: dict, context: Any) -> dict:
                 "content": result.ai_message.content,
             },
             "messages": messages,
-        }
+        },
+        event=event,
     )
 
 
@@ -195,7 +196,7 @@ def get_consultation(event: dict, context: Any) -> dict:
     """
     session_id_str = get_path_parameter(event, "session_id")
     if not session_id_str:
-        return bad_request_response("session_id is required")
+        return bad_request_response("session_id is required", event=event)
 
     # ユースケース実行
     session_repo = Dependencies.get_session_repository()
@@ -203,7 +204,7 @@ def get_consultation(event: dict, context: Any) -> dict:
     result = use_case.execute(SessionId(session_id_str))
 
     if result is None:
-        return not_found_response("Session")
+        return not_found_response("Session", event=event)
 
     # カートアイテムをシリアライズ
     cart_items = [
@@ -257,5 +258,6 @@ def get_consultation(event: dict, context: Any) -> dict:
             "amount_feedback": amount_feedback,
             "started_at": result.started_at.isoformat(),
             "ended_at": result.ended_at.isoformat() if result.ended_at else None,
-        }
+        },
+        event=event,
     )

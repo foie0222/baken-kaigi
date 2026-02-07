@@ -26,7 +26,7 @@ def get_horse_performances(event: dict, context: Any) -> dict:
     """
     horse_id = get_path_parameter(event, "horse_id")
     if not horse_id:
-        return bad_request_response("horse_id is required")
+        return bad_request_response("horse_id is required", event=event)
 
     # パラメータ取得
     limit_str = get_query_parameter(event, "limit")
@@ -38,15 +38,16 @@ def get_horse_performances(event: dict, context: Any) -> dict:
         try:
             limit = int(limit_str)
             if limit < 1 or limit > 20:
-                return bad_request_response("limit must be between 1 and 20")
+                return bad_request_response("limit must be between 1 and 20", event=event)
         except ValueError:
-            return bad_request_response("limit must be a valid integer")
+            return bad_request_response("limit must be a valid integer", event=event)
 
     # track_typeのバリデーション
     valid_track_types = ["芝", "ダート", "障害"]
     if track_type and track_type not in valid_track_types:
         return bad_request_response(
-            f"track_type must be one of: {', '.join(valid_track_types)}"
+            f"track_type must be one of: {', '.join(valid_track_types)}",
+            event=event,
         )
 
     # プロバイダから取得
@@ -83,7 +84,7 @@ def get_horse_performances(event: dict, context: Any) -> dict:
             }
             for p in performances
         ],
-    })
+    }, event=event)
 
 
 def get_horse_training(event: dict, context: Any) -> dict:
@@ -103,7 +104,7 @@ def get_horse_training(event: dict, context: Any) -> dict:
     """
     horse_id = get_path_parameter(event, "horse_id")
     if not horse_id:
-        return bad_request_response("horse_id is required")
+        return bad_request_response("horse_id is required", event=event)
 
     # パラメータ取得
     limit_str = get_query_parameter(event, "limit")
@@ -115,9 +116,9 @@ def get_horse_training(event: dict, context: Any) -> dict:
         try:
             limit = int(limit_str)
             if limit < 1 or limit > 10:
-                return bad_request_response("limit must be between 1 and 10")
+                return bad_request_response("limit must be between 1 and 10", event=event)
         except ValueError:
-            return bad_request_response("limit must be a valid integer")
+            return bad_request_response("limit must be a valid integer", event=event)
 
     # daysのバリデーション
     days = 30
@@ -125,9 +126,9 @@ def get_horse_training(event: dict, context: Any) -> dict:
         try:
             days = int(days_str)
             if days < 1 or days > 365:
-                return bad_request_response("days must be between 1 and 365")
+                return bad_request_response("days must be between 1 and 365", event=event)
         except ValueError:
-            return bad_request_response("days must be a valid integer")
+            return bad_request_response("days must be a valid integer", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
@@ -161,7 +162,7 @@ def get_horse_training(event: dict, context: Any) -> dict:
             "average_time": summary.average_time,
             "best_time": summary.best_time,
         } if summary else None,
-    })
+    }, event=event)
 
 
 def get_extended_pedigree(event: dict, context: Any) -> dict:
@@ -177,14 +178,14 @@ def get_extended_pedigree(event: dict, context: Any) -> dict:
     """
     horse_id = get_path_parameter(event, "horse_id")
     if not horse_id:
-        return bad_request_response("horse_id is required")
+        return bad_request_response("horse_id is required", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
     extended_pedigree = provider.get_extended_pedigree(horse_id)
 
     if not extended_pedigree:
-        return not_found_response("Horse pedigree")
+        return not_found_response("Horse pedigree", event=event)
 
     return success_response({
         "horse_id": extended_pedigree.horse_id,
@@ -210,7 +211,7 @@ def get_extended_pedigree(event: dict, context: Any) -> dict:
             for i in extended_pedigree.inbreeding
         ],
         "lineage_type": extended_pedigree.lineage_type,
-    })
+    }, event=event)
 
 
 def get_course_aptitude(event: dict, context: Any) -> dict:
@@ -226,14 +227,14 @@ def get_course_aptitude(event: dict, context: Any) -> dict:
     """
     horse_id = get_path_parameter(event, "horse_id")
     if not horse_id:
-        return bad_request_response("horse_id is required")
+        return bad_request_response("horse_id is required", event=event)
 
     # プロバイダから取得
     provider = Dependencies.get_race_data_provider()
     aptitude = provider.get_course_aptitude(horse_id)
 
     if not aptitude:
-        return not_found_response("Horse course aptitude")
+        return not_found_response("Horse course aptitude", event=event)
 
     return success_response({
         "horse_id": aptitude.horse_id,
@@ -292,4 +293,4 @@ def get_course_aptitude(event: dict, context: Any) -> dict:
             "preferred_condition": aptitude.aptitude_summary.preferred_condition,
             "preferred_position": aptitude.aptitude_summary.preferred_position,
         } if aptitude.aptitude_summary else None,
-    })
+    }, event=event)

@@ -41,13 +41,13 @@ def add_to_cart(event: dict, context: Any) -> dict:
     try:
         body = get_body(event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     # 必須パラメータチェック
     required = ["race_id", "race_name", "bet_type", "horse_numbers", "amount"]
     for param in required:
         if param not in body:
-            return bad_request_response(f"{param} is required")
+            return bad_request_response(f"{param} is required", event=event)
 
     # パラメータ変換
     cart_id = CartId(body["cart_id"]) if body.get("cart_id") else None
@@ -57,17 +57,17 @@ def add_to_cart(event: dict, context: Any) -> dict:
         bet_type_str = body["bet_type"].lower()
         bet_type = BetType(bet_type_str)
     except (ValueError, AttributeError):
-        return bad_request_response(f"Invalid bet_type: {body['bet_type']}")
+        return bad_request_response(f"Invalid bet_type: {body['bet_type']}", event=event)
 
     try:
         horse_numbers = HorseNumbers.from_list(body["horse_numbers"])
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     try:
         amount = Money(body["amount"])
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     bet_selection = BetSelection(
         bet_type=bet_type,
@@ -90,7 +90,7 @@ def add_to_cart(event: dict, context: Any) -> dict:
             bet_selection=bet_selection,
         )
     except CartNotFoundError:
-        return not_found_response("Cart")
+        return not_found_response("Cart", event=event)
 
     response_data = {
         "cart_id": str(result.cart_id),
@@ -101,7 +101,7 @@ def add_to_cart(event: dict, context: Any) -> dict:
     if user_id:
         response_data["user_id"] = str(user_id)
 
-    return success_response(response_data, status_code=201)
+    return success_response(response_data, status_code=201, event=event)
 
 
 def get_cart(event: dict, context: Any) -> dict:
@@ -117,7 +117,7 @@ def get_cart(event: dict, context: Any) -> dict:
     """
     cart_id_str = get_path_parameter(event, "cart_id")
     if not cart_id_str:
-        return bad_request_response("cart_id is required")
+        return bad_request_response("cart_id is required", event=event)
 
     # ユースケース実行
     repository = Dependencies.get_cart_repository()
@@ -125,7 +125,7 @@ def get_cart(event: dict, context: Any) -> dict:
     result = use_case.execute(CartId(cart_id_str))
 
     if result is None:
-        return not_found_response("Cart")
+        return not_found_response("Cart", event=event)
 
     items = [
         {
@@ -145,7 +145,8 @@ def get_cart(event: dict, context: Any) -> dict:
             "items": items,
             "total_amount": result.total_amount.value,
             "is_empty": result.is_empty,
-        }
+        },
+        event=event,
     )
 
 
@@ -165,9 +166,9 @@ def remove_from_cart(event: dict, context: Any) -> dict:
     item_id_str = get_path_parameter(event, "item_id")
 
     if not cart_id_str:
-        return bad_request_response("cart_id is required")
+        return bad_request_response("cart_id is required", event=event)
     if not item_id_str:
-        return bad_request_response("item_id is required")
+        return bad_request_response("item_id is required", event=event)
 
     # ユースケース実行
     repository = Dependencies.get_cart_repository()
@@ -176,16 +177,17 @@ def remove_from_cart(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(CartId(cart_id_str), ItemId(item_id_str))
     except CartNotFoundError:
-        return not_found_response("Cart")
+        return not_found_response("Cart", event=event)
     except ItemNotFoundError:
-        return not_found_response("Item")
+        return not_found_response("Item", event=event)
 
     return success_response(
         {
             "success": result.success,
             "item_count": result.item_count,
             "total_amount": result.total_amount.value,
-        }
+        },
+        event=event,
     )
 
 
@@ -202,7 +204,7 @@ def clear_cart(event: dict, context: Any) -> dict:
     """
     cart_id_str = get_path_parameter(event, "cart_id")
     if not cart_id_str:
-        return bad_request_response("cart_id is required")
+        return bad_request_response("cart_id is required", event=event)
 
     # ユースケース実行
     repository = Dependencies.get_cart_repository()
@@ -211,12 +213,13 @@ def clear_cart(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(CartId(cart_id_str))
     except CartNotFoundError:
-        return not_found_response("Cart")
+        return not_found_response("Cart", event=event)
 
     return success_response(
         {
             "success": result.success,
             "item_count": result.item_count,
             "total_amount": result.total_amount.value,
-        }
+        },
+        event=event,
     )

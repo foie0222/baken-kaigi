@@ -19,13 +19,13 @@ def get_owner_info(event: dict, context: Any) -> dict:
     """
     owner_id = get_path_parameter(event, "owner_id")
     if not owner_id:
-        return bad_request_response("owner_id is required")
+        return bad_request_response("owner_id is required", event=event)
 
     provider = Dependencies.get_race_data_provider()
     result = provider.get_owner_info(owner_id)
 
     if result is None:
-        return not_found_response("Owner")
+        return not_found_response("Owner", event=event)
 
     response = {
         "owner_id": result.owner_id,
@@ -34,7 +34,7 @@ def get_owner_info(event: dict, context: Any) -> dict:
         "registered_year": result.registered_year,
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_owner_stats(event: dict, context: Any) -> dict:
@@ -54,7 +54,7 @@ def get_owner_stats(event: dict, context: Any) -> dict:
     """
     owner_id = get_path_parameter(event, "owner_id")
     if not owner_id:
-        return bad_request_response("owner_id is required")
+        return bad_request_response("owner_id is required", event=event)
 
     year_str = get_query_parameter(event, "year")
     period = get_query_parameter(event, "period") or "all"
@@ -64,18 +64,18 @@ def get_owner_stats(event: dict, context: Any) -> dict:
         try:
             year = int(year_str)
         except ValueError:
-            return bad_request_response("Invalid year format")
+            return bad_request_response("Invalid year format", event=event)
         if not (1900 <= year <= 2100):
-            return bad_request_response("year must be between 1900 and 2100")
+            return bad_request_response("year must be between 1900 and 2100", event=event)
 
     if period not in ("recent", "all"):
-        return bad_request_response("period must be 'recent' or 'all'")
+        return bad_request_response("period must be 'recent' or 'all'", event=event)
 
     provider = Dependencies.get_race_data_provider()
     result = provider.get_owner_stats(owner_id, year=year, period=period)
 
     if result is None:
-        return not_found_response("Owner stats")
+        return not_found_response("Owner stats", event=event)
 
     response = {
         "owner_id": result.owner_id,
@@ -93,7 +93,7 @@ def get_owner_stats(event: dict, context: Any) -> dict:
         "year": result.year,
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_breeder_info(event: dict, context: Any) -> dict:
@@ -109,13 +109,13 @@ def get_breeder_info(event: dict, context: Any) -> dict:
     """
     breeder_id = get_path_parameter(event, "breeder_id")
     if not breeder_id:
-        return bad_request_response("breeder_id is required")
+        return bad_request_response("breeder_id is required", event=event)
 
     provider = Dependencies.get_race_data_provider()
     result = provider.get_breeder_info(breeder_id)
 
     if result is None:
-        return not_found_response("Breeder")
+        return not_found_response("Breeder", event=event)
 
     response = {
         "breeder_id": result.breeder_id,
@@ -124,7 +124,7 @@ def get_breeder_info(event: dict, context: Any) -> dict:
         "registered_year": result.registered_year,
     }
 
-    return success_response(response)
+    return success_response(response, event=event)
 
 
 def get_breeder_stats(event: dict, context: Any) -> dict:
@@ -144,7 +144,7 @@ def get_breeder_stats(event: dict, context: Any) -> dict:
     """
     breeder_id = get_path_parameter(event, "breeder_id")
     if not breeder_id:
-        return bad_request_response("breeder_id is required")
+        return bad_request_response("breeder_id is required", event=event)
 
     year_str = get_query_parameter(event, "year")
     period = get_query_parameter(event, "period") or "all"
@@ -154,18 +154,18 @@ def get_breeder_stats(event: dict, context: Any) -> dict:
         try:
             year = int(year_str)
         except ValueError:
-            return bad_request_response("Invalid year format")
+            return bad_request_response("Invalid year format", event=event)
         if not (1900 <= year <= 2100):
-            return bad_request_response("year must be between 1900 and 2100")
+            return bad_request_response("year must be between 1900 and 2100", event=event)
 
     if period not in ("recent", "all"):
-        return bad_request_response("period must be 'recent' or 'all'")
+        return bad_request_response("period must be 'recent' or 'all'", event=event)
 
     provider = Dependencies.get_race_data_provider()
     result = provider.get_breeder_stats(breeder_id, year=year, period=period)
 
     if result is None:
-        return not_found_response("Breeder stats")
+        return not_found_response("Breeder stats", event=event)
 
     response = {
         "breeder_id": result.breeder_id,
@@ -183,4 +183,4 @@ def get_breeder_stats(event: dict, context: Any) -> dict:
         "year": result.year,
     }
 
-    return success_response(response)
+    return success_response(response, event=event)

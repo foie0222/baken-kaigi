@@ -29,7 +29,7 @@ def get_user_profile(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     repository = Dependencies.get_user_repository()
     use_case = GetUserProfileUseCase(repository)
@@ -37,7 +37,7 @@ def get_user_profile(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(user_id)
     except UserNotFoundError:
-        return not_found_response("User")
+        return not_found_response("User", event=event)
 
     return success_response(
         {
@@ -48,7 +48,8 @@ def get_user_profile(event: dict, context: Any) -> dict:
             "auth_provider": result.auth_provider.value,
             "status": result.status.value,
             "created_at": result.created_at.isoformat(),
-        }
+        },
+        event=event,
     )
 
 
@@ -67,23 +68,23 @@ def update_user_profile(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     try:
         body = get_body(event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     display_name = body.get("display_name")
     email = body.get("email")
 
     if display_name is not None and not isinstance(display_name, str):
-        return bad_request_response("display_name must be a string")
+        return bad_request_response("display_name must be a string", event=event)
     if email is not None and not isinstance(email, str):
-        return bad_request_response("email must be a string")
+        return bad_request_response("email must be a string", event=event)
 
     if display_name is None and email is None:
-        return bad_request_response("At least one of display_name or email is required")
+        return bad_request_response("At least one of display_name or email is required", event=event)
 
     repository = Dependencies.get_user_repository()
     use_case = UpdateUserProfileUseCase(repository)
@@ -91,16 +92,17 @@ def update_user_profile(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(user_id, display_name=display_name, email=email)
     except UserNotFoundError:
-        return not_found_response("User")
+        return not_found_response("User", event=event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     return success_response(
         {
             "user_id": str(result.user_id),
             "email": str(result.email),
             "display_name": str(result.display_name),
-        }
+        },
+        event=event,
     )
 
 
@@ -115,7 +117,7 @@ def delete_account(event: dict, context: Any) -> dict:
     try:
         user_id = require_authenticated_user_id(event)
     except AuthenticationError:
-        return unauthorized_response()
+        return unauthorized_response(event=event)
 
     repository = Dependencies.get_user_repository()
     use_case = RequestAccountDeletionUseCase(repository)
@@ -123,14 +125,15 @@ def delete_account(event: dict, context: Any) -> dict:
     try:
         result = use_case.execute(user_id)
     except UserNotFoundError:
-        return not_found_response("User")
+        return not_found_response("User", event=event)
     except ValueError as e:
-        return bad_request_response(str(e))
+        return bad_request_response(str(e), event=event)
 
     return success_response(
         {
             "user_id": str(result.user_id),
             "deletion_requested_at": result.deletion_requested_at.isoformat(),
             "days_until_permanent_deletion": result.days_until_permanent_deletion,
-        }
+        },
+        event=event,
     )

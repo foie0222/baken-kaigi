@@ -21,7 +21,7 @@ export function configureAmplify() {
         loginWith: {
           oauth: {
             domain: import.meta.env.VITE_COGNITO_DOMAIN || '',
-            scopes: ['openid', 'email', 'profile'],
+            scopes: ['openid', 'email', 'profile', 'aws.cognito.signin.user.admin'],
             redirectSignIn: [`${window.location.origin}/auth/callback`],
             redirectSignOut: [window.location.origin],
             responseType: 'code' as const,
