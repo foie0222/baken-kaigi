@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { CookiePolicyPage } from './CookiePolicyPage'
+import { COOKIE_POLICY_VERSION } from '../../constants/legal'
 
 describe('CookiePolicyPage', () => {
   it('タイトルが表示される', () => {
@@ -10,7 +11,7 @@ describe('CookiePolicyPage', () => {
 
   it('バージョン情報が表示される', () => {
     render(<CookiePolicyPage />)
-    expect(screen.getByText(/バージョン 1\.0\.0/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`バージョン ${COOKIE_POLICY_VERSION.version}`))).toBeInTheDocument()
   })
 
   it('Cookieとはセクションが表示される', () => {

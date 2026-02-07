@@ -30,7 +30,7 @@ export function CookieConsentBanner() {
             <div className="cookie-toggle-row">
               <span className="cookie-toggle-label">必須Cookie</span>
               <div className="cookie-toggle disabled">
-                <input type="checkbox" checked disabled />
+                <input type="checkbox" checked disabled aria-label="必須Cookie" />
                 <span className="cookie-toggle-slider" />
               </div>
             </div>
@@ -41,6 +41,7 @@ export function CookieConsentBanner() {
                   type="checkbox"
                   checked={analytics}
                   onChange={(e) => setAnalytics(e.target.checked)}
+                  aria-label="分析Cookie"
                 />
                 <span className="cookie-toggle-slider" />
               </div>
@@ -52,6 +53,7 @@ export function CookieConsentBanner() {
                   type="checkbox"
                   checked={marketing}
                   onChange={(e) => setMarketing(e.target.checked)}
+                  aria-label="マーケティングCookie"
                 />
                 <span className="cookie-toggle-slider" />
               </div>

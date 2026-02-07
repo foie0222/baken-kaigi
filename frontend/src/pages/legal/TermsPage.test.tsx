@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { TermsPage } from './TermsPage'
+import { TERMS_VERSION } from '../../constants/legal'
 
 describe('TermsPage', () => {
   it('タイトルが表示される', () => {
@@ -10,7 +11,7 @@ describe('TermsPage', () => {
 
   it('バージョン情報が表示される', () => {
     render(<TermsPage />)
-    expect(screen.getByText(/バージョン 1\.0\.0/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`バージョン ${TERMS_VERSION.version}`))).toBeInTheDocument()
   })
 
   it('全セクションが表示される', () => {

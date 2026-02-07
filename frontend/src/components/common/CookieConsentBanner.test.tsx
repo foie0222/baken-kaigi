@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, act } from '../../test/utils'
+import { render, screen } from '../../test/utils'
 import { CookieConsentBanner } from './CookieConsentBanner'
 import { useCookieConsentStore } from '../../stores/cookieConsentStore'
 

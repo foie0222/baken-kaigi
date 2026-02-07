@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { PrivacyPolicyPage } from './PrivacyPolicyPage'
+import { PRIVACY_VERSION } from '../../constants/legal'
 
 describe('PrivacyPolicyPage', () => {
   it('タイトルが表示される', () => {
@@ -10,7 +11,7 @@ describe('PrivacyPolicyPage', () => {
 
   it('バージョン情報が表示される', () => {
     render(<PrivacyPolicyPage />)
-    expect(screen.getByText(/バージョン 1\.0\.0/)).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`バージョン ${PRIVACY_VERSION.version}`))).toBeInTheDocument()
   })
 
   it('全セクションが表示される', () => {

@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { useCookieConsentStore } from './cookieConsentStore'
+import { COOKIE_POLICY_VERSION } from '../constants/legal'
 
 describe('cookieConsentStore', () => {
   beforeEach(() => {
@@ -54,7 +55,7 @@ describe('cookieConsentStore', () => {
       useCookieConsentStore.getState().acceptAll()
 
       const state = useCookieConsentStore.getState()
-      expect(state.consentVersion).toBe('1.0.0')
+      expect(state.consentVersion).toBe(COOKIE_POLICY_VERSION.version)
     })
   })
 
@@ -81,7 +82,7 @@ describe('cookieConsentStore', () => {
       useCookieConsentStore.getState().rejectOptional()
 
       const state = useCookieConsentStore.getState()
-      expect(state.consentVersion).toBe('1.0.0')
+      expect(state.consentVersion).toBe(COOKIE_POLICY_VERSION.version)
     })
   })
 
@@ -120,7 +121,7 @@ describe('cookieConsentStore', () => {
 
       const state = useCookieConsentStore.getState()
       expect(state.consentTimestamp).not.toBeNull()
-      expect(state.consentVersion).toBe('1.0.0')
+      expect(state.consentVersion).toBe(COOKIE_POLICY_VERSION.version)
     })
   })
 
