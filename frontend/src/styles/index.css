@@ -2073,6 +2073,11 @@ main {
     transition: transform 0.3s;
 }
 
+.cookie-toggle input:focus-visible + .cookie-toggle-slider {
+    outline: 2px solid var(--color-ai-primary);
+    outline-offset: 2px;
+}
+
 .cookie-toggle input:checked + .cookie-toggle-slider {
     background-color: var(--color-calm-green);
 }

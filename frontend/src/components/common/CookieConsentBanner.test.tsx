@@ -87,4 +87,29 @@ describe('CookieConsentBanner', () => {
       marketing: false,
     })
   })
+
+  it('トグルクリックで分析・マーケティングCookieの状態が切り替わる', async () => {
+    const { user } = render(<CookieConsentBanner />)
+    await user.click(screen.getByText('詳細設定'))
+
+    const analyticsToggle = screen.getByLabelText('分析Cookie')
+    const marketingToggle = screen.getByLabelText('マーケティングCookie')
+
+    expect(analyticsToggle).not.toBeChecked()
+    expect(marketingToggle).not.toBeChecked()
+
+    await user.click(analyticsToggle)
+    expect(analyticsToggle).toBeChecked()
+
+    await user.click(marketingToggle)
+    expect(marketingToggle).toBeChecked()
+
+    await user.click(screen.getByText('保存'))
+    const state = useCookieConsentStore.getState()
+    expect(state.consent).toEqual({
+      essential: true,
+      analytics: true,
+      marketing: true,
+    })
+  })
 })
