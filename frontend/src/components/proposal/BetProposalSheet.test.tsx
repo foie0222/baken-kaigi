@@ -11,7 +11,7 @@ vi.mock('../../api/client', () => ({
 }))
 
 // cartStoreモック
-const mockAddItem = vi.fn().mockReturnValue(true)
+const mockAddItem = vi.fn().mockReturnValue('ok')
 vi.mock('../../stores/cartStore', () => ({
   useCartStore: (selector: (s: { addItem: typeof mockAddItem }) => unknown) =>
     selector({ addItem: mockAddItem }),

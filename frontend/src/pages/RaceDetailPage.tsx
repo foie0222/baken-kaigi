@@ -93,7 +93,9 @@ export function RaceDetailPage() {
 
   const handleAmountPlus = () => {
     const increment = betAmount < 500 ? 100 : 500;
-    setBetAmount(Math.min(betAmount + increment, MAX_BET_AMOUNT));
+    const effectiveBetCount = betCount > 0 ? betCount : 1;
+    const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
+    setBetAmount((prev) => Math.min(prev + increment, maxPerBet));
   };
 
   const handleAddToCart = () => {
@@ -112,7 +114,7 @@ export function RaceDetailPage() {
     // 表示用文字列を生成
     const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
 
-    const success = addItem({
+    const result = addItem({
       raceId: race.id,
       raceName: race.name,
       raceVenue: race.venue,
@@ -132,8 +134,11 @@ export function RaceDetailPage() {
       })),
     });
 
-    if (!success) {
-      showToast('カートには同じレースの買い目のみ追加できます', 'error');
+    if (result !== 'ok') {
+      const message = result === 'different_race'
+        ? 'カートには同じレースの買い目のみ追加できます'
+        : '金額が範囲外です';
+      showToast(message, 'error');
       return;
     }
 
