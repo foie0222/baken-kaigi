@@ -960,7 +960,7 @@ class BakenKaigiApiStack(Stack):
             function_name="baken-kaigi-submit-purchase",
             description="購入実行",
             timeout=Duration.seconds(60),
-            **{k: v for k, v in lambda_no_vpc_props.items() if k != "timeout"},
+            **{k: v for k, v in lambda_common_props.items() if k != "timeout"},
         )
 
         get_purchase_history_fn = lambda_.Function(
@@ -1000,7 +1000,7 @@ class BakenKaigiApiStack(Stack):
             function_name="baken-kaigi-get-ipat-balance",
             description="IPAT残高取得",
             timeout=Duration.seconds(30),
-            **{k: v for k, v in lambda_no_vpc_props.items() if k != "timeout"},
+            **{k: v for k, v in lambda_common_props.items() if k != "timeout"},
         )
 
         save_ipat_credentials_fn = lambda_.Function(
