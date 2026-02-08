@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useBettingStore } from '../stores/bettingStore';
 import { BetTypeLabels, VenueNames } from '../types';
-import type { BettingRecordFilter } from '../types';
+import type { BetType, BettingRecordFilter } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -30,7 +30,7 @@ function formatCurrency(value: number): string {
 }
 
 export function HistoryPage() {
-  const { records, isLoading, error, fetchRecords } = useBettingStore();
+  const { records, isLoadingRecords: isLoading, error, fetchRecords } = useBettingStore();
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [venue, setVenue] = useState('');
@@ -42,7 +42,7 @@ export function HistoryPage() {
     if (dateFrom) filters.dateFrom = dateFrom;
     if (dateTo) filters.dateTo = dateTo;
     if (venue) filters.venue = venue;
-    if (betType) filters.betType = betType;
+    if (betType) filters.betType = betType as BetType;
     setPage(0);
     fetchRecords(filters);
   }, [dateFrom, dateTo, venue, betType, fetchRecords]);

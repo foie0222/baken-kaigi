@@ -448,7 +448,7 @@ class ApiClient {
       raceName: d.race_name as string,
       raceDate: d.race_date as string,
       venue: d.venue as string,
-      betType: d.bet_type as string,
+      betType: d.bet_type as BettingRecord['betType'],
       horseNumbers: d.horse_numbers as number[],
       amount: d.amount as number,
       payout: d.payout as number,

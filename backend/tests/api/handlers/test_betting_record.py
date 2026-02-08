@@ -2,8 +2,6 @@
 import json
 from datetime import date
 
-import pytest
-
 from src.api.dependencies import Dependencies
 from src.api.handlers.betting_record import (
     create_betting_record_handler,

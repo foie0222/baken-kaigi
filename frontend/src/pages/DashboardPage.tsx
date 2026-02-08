@@ -242,11 +242,14 @@ export function DashboardPage() {
     summary,
     thisMonthSummary,
     lastMonthSummary,
-    isLoading,
+    isLoadingRecords,
+    isLoadingSummary,
     error,
     fetchRecords,
     fetchAllSummaries,
   } = useBettingStore();
+
+  const isLoading = isLoadingRecords || isLoadingSummary;
 
   useEffect(() => {
     fetchAllSummaries();

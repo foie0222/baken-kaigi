@@ -6,7 +6,6 @@ from src.api.dependencies import Dependencies
 from src.api.request import get_body, get_path_parameter, get_query_parameter
 from src.api.response import (
     bad_request_response,
-    internal_error_response,
     not_found_response,
     success_response,
     unauthorized_response,
@@ -81,9 +80,18 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
     return success_response(
         {
             "record_id": record.record_id.value,
-            "status": record.status.value,
+            "race_id": record.race_id.value,
+            "race_name": record.race_name,
+            "race_date": record.race_date.isoformat(),
+            "venue": record.venue,
+            "bet_type": record.bet_type.value,
+            "horse_numbers": record.horse_numbers.to_list(),
             "amount": record.amount.value,
+            "payout": record.payout.value,
+            "profit": record.profit,
+            "status": record.status.value,
             "created_at": record.created_at.isoformat(),
+            "settled_at": None,
         },
         status_code=201,
         event=event,
@@ -109,13 +117,16 @@ def get_betting_records_handler(event: dict, context: Any) -> dict:
         betting_record_repository=Dependencies.get_betting_record_repository(),
     )
 
-    records = use_case.execute(
-        user_id=user_id.value,
-        date_from=date_from,
-        date_to=date_to,
-        venue=venue,
-        bet_type=bet_type,
-    )
+    try:
+        records = use_case.execute(
+            user_id=user_id.value,
+            date_from=date_from,
+            date_to=date_to,
+            venue=venue,
+            bet_type=bet_type,
+        )
+    except (ValueError, KeyError) as e:
+        return bad_request_response(str(e), event=event)
 
     return success_response([
         {
@@ -131,6 +142,7 @@ def get_betting_records_handler(event: dict, context: Any) -> dict:
             "profit": r.profit,
             "status": r.status.value,
             "created_at": r.created_at.isoformat(),
+            "settled_at": r.settled_at.isoformat() if r.settled_at else None,
         }
         for r in records
     ], event=event)

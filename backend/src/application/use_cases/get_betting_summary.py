@@ -31,8 +31,11 @@ class GetBettingSummaryUseCase:
         now = datetime.now()
 
         if period == "this_month":
+            import calendar
             from_date = date(now.year, now.month, 1)
-            return from_date, None
+            last_day = calendar.monthrange(now.year, now.month)[1]
+            to_date = date(now.year, now.month, last_day)
+            return from_date, to_date
 
         if period == "last_month":
             if now.month == 1:

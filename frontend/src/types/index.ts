@@ -396,7 +396,7 @@ export interface BettingRecord {
   raceName: string;
   raceDate: string;
   venue: string;
-  betType: string;
+  betType: BetType;
   horseNumbers: number[];
   amount: number;
   payout: number;
@@ -421,7 +421,7 @@ export interface BettingRecordFilter {
   dateFrom?: string;
   dateTo?: string;
   venue?: string;
-  betType?: string;
+  betType?: BetType;
 }
 
 // アプリ状態

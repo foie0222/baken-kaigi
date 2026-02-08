@@ -7,7 +7,8 @@ interface BettingState {
   summary: BettingSummary | null;
   thisMonthSummary: BettingSummary | null;
   lastMonthSummary: BettingSummary | null;
-  isLoading: boolean;
+  isLoadingRecords: boolean;
+  isLoadingSummary: boolean;
   error: string | null;
 
   fetchRecords: (filters?: BettingRecordFilter) => Promise<void>;
@@ -21,21 +22,22 @@ export const useBettingStore = create<BettingState>()((set) => ({
   summary: null,
   thisMonthSummary: null,
   lastMonthSummary: null,
-  isLoading: false,
+  isLoadingRecords: false,
+  isLoadingSummary: false,
   error: null,
 
   fetchRecords: async (filters?: BettingRecordFilter) => {
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoadingRecords: true, error: null });
       const response = await apiClient.getBettingRecords(filters);
       if (!response.success || !response.data) {
-        set({ isLoading: false, error: response.error || '履歴取得に失敗しました' });
+        set({ isLoadingRecords: false, error: response.error || '履歴取得に失敗しました' });
         return;
       }
-      set({ records: response.data, isLoading: false });
+      set({ records: response.data, isLoadingRecords: false });
     } catch (error) {
       set({
-        isLoading: false,
+        isLoadingRecords: false,
         error: error instanceof Error ? error.message : '履歴取得に失敗しました',
       });
     }
@@ -43,22 +45,22 @@ export const useBettingStore = create<BettingState>()((set) => ({
 
   fetchSummary: async (period) => {
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoadingSummary: true, error: null });
       const response = await apiClient.getBettingSummary(period);
       if (!response.success || !response.data) {
-        set({ isLoading: false, error: response.error || 'サマリー取得に失敗しました' });
+        set({ isLoadingSummary: false, error: response.error || 'サマリー取得に失敗しました' });
         return;
       }
       if (period === 'this_month') {
-        set({ thisMonthSummary: response.data, isLoading: false });
+        set({ thisMonthSummary: response.data, isLoadingSummary: false });
       } else if (period === 'last_month') {
-        set({ lastMonthSummary: response.data, isLoading: false });
+        set({ lastMonthSummary: response.data, isLoadingSummary: false });
       } else {
-        set({ summary: response.data, isLoading: false });
+        set({ summary: response.data, isLoadingSummary: false });
       }
     } catch (error) {
       set({
-        isLoading: false,
+        isLoadingSummary: false,
         error: error instanceof Error ? error.message : 'サマリー取得に失敗しました',
       });
     }
@@ -66,7 +68,7 @@ export const useBettingStore = create<BettingState>()((set) => ({
 
   fetchAllSummaries: async () => {
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoadingSummary: true, error: null });
       const [thisMonth, lastMonth, allTime] = await Promise.all([
         apiClient.getBettingSummary('this_month'),
         apiClient.getBettingSummary('last_month'),
@@ -76,11 +78,11 @@ export const useBettingStore = create<BettingState>()((set) => ({
         thisMonthSummary: thisMonth.success ? thisMonth.data ?? null : null,
         lastMonthSummary: lastMonth.success ? lastMonth.data ?? null : null,
         summary: allTime.success ? allTime.data ?? null : null,
-        isLoading: false,
+        isLoadingSummary: false,
       });
     } catch (error) {
       set({
-        isLoading: false,
+        isLoadingSummary: false,
         error: error instanceof Error ? error.message : 'サマリー取得に失敗しました',
       });
     }

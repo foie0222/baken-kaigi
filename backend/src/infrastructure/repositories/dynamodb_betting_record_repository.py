@@ -76,8 +76,13 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
         if filter_expression is not None:
             query_kwargs["FilterExpression"] = filter_expression
 
+        items: list[dict] = []
         response = self._table.query(**query_kwargs)
-        items = response.get("Items", [])
+        items.extend(response.get("Items", []))
+        while "LastEvaluatedKey" in response:
+            query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+            response = self._table.query(**query_kwargs)
+            items.extend(response.get("Items", []))
         return [self._from_dynamodb_item(item) for item in items]
 
     @staticmethod
