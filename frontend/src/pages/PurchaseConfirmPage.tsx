@@ -46,8 +46,9 @@ export function PurchaseConfirmPage() {
   const handlePurchase = async () => {
     setShowConfirmModal(false);
     await submitPurchase(cartId, raceDate, courseCode, raceNumber);
-    // 成功時はカートをクリア
-    if (usePurchaseStore.getState().purchaseResult?.status !== 'FAILED') {
+    // 成功時のみカートをクリア（purchaseResultがnullの場合はエラーなのでクリアしない）
+    const result = usePurchaseStore.getState().purchaseResult;
+    if (result && result.status !== 'FAILED') {
       clearCart();
     }
   };
