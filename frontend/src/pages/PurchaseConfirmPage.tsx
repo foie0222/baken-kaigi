@@ -46,15 +46,16 @@ export function PurchaseConfirmPage() {
   const handlePurchase = async () => {
     setShowConfirmModal(false);
     await submitPurchase(cartId, raceDate, courseCode, raceNumber);
-    // 成功時はカートをクリア
-    if (usePurchaseStore.getState().purchaseResult?.status !== 'FAILED') {
+    // 購入完了時のみカートをクリア（エラーやnullの場合はクリアしない）
+    const result = usePurchaseStore.getState().purchaseResult;
+    if (result?.status === 'COMPLETED') {
       clearCart();
     }
   };
 
   // 購入結果表示
   if (purchaseResult) {
-    const isSuccess = purchaseResult.status !== 'FAILED';
+    const isSuccess = purchaseResult.status === 'COMPLETED';
     return (
       <div className="fade-in" style={{ padding: 16 }}>
         <div style={{
