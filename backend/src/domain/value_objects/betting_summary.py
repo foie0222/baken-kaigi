@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ..enums import BettingRecordStatus
 from .money import Money
 
 if TYPE_CHECKING:
@@ -23,8 +24,14 @@ class BettingSummary:
 
     @classmethod
     def from_records(cls, records: list[BettingRecord]) -> BettingSummary:
-        """投票記録リストからサマリーを生成する."""
-        if not records:
+        """投票記録リストからサマリーを生成する.
+
+        確定済み（SETTLED）のレコードのみを集計対象とする。
+        未確定（PENDING）やキャンセル済み（CANCELLED）は除外する。
+        """
+        settled = [r for r in records if r.status == BettingRecordStatus.SETTLED]
+
+        if not settled:
             return cls(
                 total_investment=Money.zero(),
                 total_payout=Money.zero(),
@@ -34,11 +41,11 @@ class BettingSummary:
                 roi=0.0,
             )
 
-        total_investment = sum(r.amount.value for r in records)
-        total_payout = sum(r.payout.value for r in records)
+        total_investment = sum(r.amount.value for r in settled)
+        total_payout = sum(r.payout.value for r in settled)
         net_profit = total_payout - total_investment
-        win_count = sum(1 for r in records if r.payout.value > 0)
-        record_count = len(records)
+        win_count = sum(1 for r in settled if r.payout.value > 0)
+        record_count = len(settled)
         win_rate = win_count / record_count if record_count > 0 else 0.0
         roi = (total_payout / total_investment * 100) if total_investment > 0 else 0.0
 
