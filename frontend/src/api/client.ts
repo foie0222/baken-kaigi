@@ -14,6 +14,7 @@ import type {
   IpatCredentialsInput,
   IpatStatus,
   IpatBalance,
+  BetProposalResponse,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -388,6 +389,52 @@ class ApiClient {
       }};
     }
     return { success: false, error: res.error };
+  }
+
+  // AI買い目提案
+  async requestBetProposal(
+    raceId: string,
+    budget: number,
+    runnersData: RunnerData[],
+    options?: {
+      preferredBetTypes?: string[];
+      axisHorses?: number[];
+    }
+  ): Promise<ApiResponse<BetProposalResponse>> {
+    const optionParts: string[] = [];
+    if (options?.preferredBetTypes?.length) {
+      optionParts.push(`希望券種: ${options.preferredBetTypes.join(', ')}`);
+    }
+    if (options?.axisHorses?.length) {
+      optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
+    }
+    const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
+
+    const prompt = `レースID ${raceId} について、予算${budget}円でgenerate_bet_proposalツールを使って買い目提案を生成してください。${optionText}`;
+    const result = await this.consultWithAgent({
+      prompt,
+      cart_items: [],
+      runners_data: runnersData,
+    });
+
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error };
+    }
+
+    const message = result.data.message;
+    const jsonSeparator = '---BET_PROPOSALS_JSON---';
+    const jsonIdx = message.indexOf(jsonSeparator);
+    if (jsonIdx === -1) {
+      return { success: false, error: '提案データが見つかりませんでした' };
+    }
+
+    const jsonStr = message.substring(jsonIdx + jsonSeparator.length).trim();
+    try {
+      const data = JSON.parse(jsonStr) as BetProposalResponse;
+      return { success: true, data };
+    } catch {
+      return { success: false, error: '提案データの解析に失敗しました' };
+    }
   }
 
   // AgentCore が利用可能かどうか

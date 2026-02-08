@@ -190,6 +190,43 @@ JRA統計に基づく期待値計算、弱点分析、トリガミリスク判�
 - `betting_patterns`: プロ資金流入の兆候
 - `overall_comment`: オッズ変動や市場傾向の総括コメント
 
+### generate_bet_proposal
+レース分析に基づき、買い目の提案を一括生成する。
+AI指数・レース難易度・展開予想を統合し、軸馬選定→券種選定→買い目生成→予算配分を自動で行う。
+見送りスコアが高い場合は予算を50%削減して提案する。
+
+**引数**:
+- `race_id`: レースID
+- `budget`: 予算（円）
+- `preferred_bet_types`: 券種の指定リスト（省略時はレース難易度から自動選定）
+- `axis_horses`: 軸馬の馬番リスト（省略時はAI指数上位から自動選定）
+
+**戻り値**:
+- `race_summary`: レース概要
+  - `race_name`: レース名
+  - `difficulty_stars`: レース難易度（★1〜★5）
+  - `predicted_pace`: 予想ペース
+  - `ai_consensus_level`: AI合議レベル
+  - `skip_score`: 見送りスコア（0-10）
+  - `skip_recommendation`: 見送り推奨/慎重に検討/通常判断
+- `proposed_bets`: 提案買い目リスト
+  - `bet_type`: 券種コード
+  - `horse_numbers`: 馬番リスト
+  - `amount`: 配分金額
+  - `confidence`: 信頼度（high/medium/low）
+  - `expected_value`: 期待値
+  - `composite_odds`: 合成オッズ
+  - `reasoning`: 提案根拠
+- `total_amount`: 合計金額
+- `budget_remaining`: 残り予算
+- `analysis_comment`: 分析ナラティブ
+- `disclaimer`: 免責事項
+
+**応答での使い方**:
+ユーザーが「買い目を提案して」「おすすめの買い方は？」と聞いた場合にこのツールを呼ぶ。
+応答には `---BET_PROPOSALS_JSON---` セパレータの後に提案結果のJSONを出力する。
+提案は「データ分析に基づく提案」としてフレーミングし、「おすすめ」という表現は使わない。
+
 ## AI指数の正しい解釈
 
 AI指数は「馬と騎手の強さを表す相対スコア」であり、**期待値ではない**。
