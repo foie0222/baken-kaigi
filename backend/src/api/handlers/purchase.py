@@ -5,6 +5,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+MIN_RACE_NUMBER = 1
+MAX_RACE_NUMBER = 12
+
 from src.api.auth import AuthenticationError, require_authenticated_user_id
 from src.api.dependencies import Dependencies
 from src.api.request import get_body, get_path_parameter
@@ -57,15 +60,21 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
     if race_number is None:
         return bad_request_response("race_number is required", event=event)
     if isinstance(race_number, bool) or not isinstance(race_number, (int, float)):
-        return bad_request_response("race_number must be an integer between 1 and 12", event=event)
+        return bad_request_response(
+            f"race_number must be an integer between {MIN_RACE_NUMBER} and {MAX_RACE_NUMBER}",
+            event=event,
+        )
     if isinstance(race_number, float):
         if not math.isfinite(race_number):
             return bad_request_response("race_number must be a finite number", event=event)
         if race_number != int(race_number):
             return bad_request_response("race_number must be a whole number", event=event)
         race_number = int(race_number)
-    if race_number < 1 or race_number > 12:
-        return bad_request_response("race_number must be between 1 and 12", event=event)
+    if race_number < MIN_RACE_NUMBER or race_number > MAX_RACE_NUMBER:
+        return bad_request_response(
+            f"race_number must be between {MIN_RACE_NUMBER} and {MAX_RACE_NUMBER}",
+            event=event,
+        )
 
     use_case = SubmitPurchaseUseCase(
         cart_repository=Dependencies.get_cart_repository(),

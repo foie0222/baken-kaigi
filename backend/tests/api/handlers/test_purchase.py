@@ -214,6 +214,8 @@ class TestSubmitPurchaseHandler:
         })
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 201
+        body = json.loads(result["body"])
+        assert isinstance(body["purchase_id"], str)
 
     def test_race_numberが小数の場合400(self) -> None:
         _setup_deps()
@@ -267,6 +269,20 @@ class TestSubmitPurchaseHandler:
             "course_code": "05",
             "race_number": 13,
         })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberがNaNの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event()
+        event["body"] = '{"cart_id":"cart-001","race_date":"20260207","course_code":"05","race_number":NaN}'
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberがInfinityの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event()
+        event["body"] = '{"cart_id":"cart-001","race_date":"20260207","course_code":"05","race_number":Infinity}'
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 400
 
