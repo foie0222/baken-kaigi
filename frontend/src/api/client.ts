@@ -97,7 +97,7 @@ class ApiClient {
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || `HTTP ${response.status}`,
+          error: data.error?.message || (typeof data.error === 'string' ? data.error : null) || `HTTP ${response.status}`,
         };
       }
 
@@ -258,7 +258,7 @@ class ApiClient {
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || `HTTP ${response.status}`,
+          error: data.error?.message || (typeof data.error === 'string' ? data.error : null) || `HTTP ${response.status}`,
         };
       }
 
