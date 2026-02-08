@@ -59,11 +59,13 @@ def add_to_cart(event: dict, context: Any) -> dict:
     # パラメータ変換
     cart_id = CartId(body["cart_id"]) if body.get("cart_id") else None
 
+    if not isinstance(body["bet_type"], str):
+        return bad_request_response("bet_type must be a string", event=event)
     try:
         # 大文字・小文字両方を受け付ける
         bet_type_str = body["bet_type"].lower()
         bet_type = BetType(bet_type_str)
-    except (ValueError, AttributeError):
+    except ValueError:
         return bad_request_response(f"Invalid bet_type: {body['bet_type']}", event=event)
 
     if not isinstance(body["horse_numbers"], list):

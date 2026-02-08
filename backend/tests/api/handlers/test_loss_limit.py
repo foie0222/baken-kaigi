@@ -149,6 +149,13 @@ class TestSetLossLimit:
         resp = set_loss_limit_handler(event, None)
         assert resp["statusCode"] == 400
 
+    def test_amountがboolで400(self):
+        event = _make_event(sub="user-123", body={"amount": True})
+        resp = set_loss_limit_handler(event, None)
+        assert resp["statusCode"] == 400
+        body = json.loads(resp["body"])
+        assert "integer" in body["error"]["message"].lower()
+
     def test_既に設定済みで400(self):
         repo = Dependencies.get_user_repository()
         repo.save(_make_user(loss_limit=Money.of(50000)))
@@ -192,6 +199,13 @@ class TestUpdateLossLimit:
         event = _make_event(sub="user-123", body={})
         resp = update_loss_limit_handler(event, None)
         assert resp["statusCode"] == 400
+
+    def test_amountがboolで400(self):
+        event = _make_event(sub="user-123", body={"amount": False})
+        resp = update_loss_limit_handler(event, None)
+        assert resp["statusCode"] == 400
+        body = json.loads(resp["body"])
+        assert "integer" in body["error"]["message"].lower()
 
     def test_限度額未設定で400(self):
         repo = Dependencies.get_user_repository()
