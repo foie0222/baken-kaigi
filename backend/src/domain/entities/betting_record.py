@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from ..enums import BetType, BettingRecordStatus
@@ -55,7 +55,7 @@ class BettingRecord:
             payout=Money.zero(),
             profit=0,
             status=BettingRecordStatus.PENDING,
-            created_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
         )
 
     def settle(self, payout: Money) -> None:
@@ -65,7 +65,7 @@ class BettingRecord:
         self.status = BettingRecordStatus.SETTLED
         self.payout = payout
         self.profit = payout.value - self.amount.value
-        self.settled_at = datetime.now()
+        self.settled_at = datetime.now(timezone.utc)
 
     def cancel(self) -> None:
         """投票を取り消す."""

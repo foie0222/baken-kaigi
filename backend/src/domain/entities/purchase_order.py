@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from ..enums import PurchaseStatus
@@ -33,7 +33,7 @@ class PurchaseOrder:
         total_amount: Money,
     ) -> PurchaseOrder:
         """新しい購入注文を作成する."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         return cls(
             id=PurchaseId.generate(),
             user_id=user_id,
@@ -48,15 +48,15 @@ class PurchaseOrder:
     def mark_submitted(self) -> None:
         """投票送信済みに変更する."""
         self.status = PurchaseStatus.SUBMITTED
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)
 
     def mark_completed(self) -> None:
         """投票完了に変更する."""
         self.status = PurchaseStatus.COMPLETED
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)
 
     def mark_failed(self, error_message: str) -> None:
         """投票失敗に変更する."""
         self.status = PurchaseStatus.FAILED
         self.error_message = error_message
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)

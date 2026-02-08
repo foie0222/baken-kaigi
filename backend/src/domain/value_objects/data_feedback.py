@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..identifiers import ItemId
 
@@ -38,7 +38,7 @@ class DataFeedback:
             cart_item_id=cart_item_id,
             horse_summaries=tuple(horse_summaries),
             overall_comment=overall_comment,
-            generated_at=generated_at or datetime.now(),
+            generated_at=generated_at or datetime.now(timezone.utc),
         )
 
     def get_horse_summary(self, horse_number: int) -> HorseDataSummary | None:

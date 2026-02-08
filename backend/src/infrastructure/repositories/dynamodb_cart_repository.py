@@ -1,6 +1,6 @@
 """カートリポジトリのDynamoDB実装."""
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -60,7 +60,7 @@ class DynamoDBCartRepository(CartRepository):
 
     def _to_dynamodb_item(self, cart: Cart) -> dict[str, Any]:
         """CartエンティティをDynamoDBアイテムに変換."""
-        ttl = int((datetime.now() + timedelta(hours=TTL_HOURS)).timestamp())
+        ttl = int((datetime.now(timezone.utc) + timedelta(hours=TTL_HOURS)).timestamp())
 
         items = []
         for item in cart.get_items():

@@ -1,5 +1,5 @@
 """投票成績サマリー取得ユースケース."""
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from src.domain.identifiers import UserId
 from src.domain.ports import BettingRecordRepository
@@ -28,7 +28,7 @@ class GetBettingSummaryUseCase:
     @staticmethod
     def _get_date_range(period: str) -> tuple[date | None, date | None]:
         """期間に応じた日付範囲を返す."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         if period == "this_month":
             import calendar

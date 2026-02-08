@@ -1,6 +1,6 @@
 """モックレースデータプロバイダー."""
 import hashlib
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
@@ -365,7 +365,7 @@ class MockRaceDataProvider(RaceDataProvider):
         random.seed(_stable_hash(horse_id) % (2**32))
 
         performances = []
-        base_date = datetime.now()
+        base_date = datetime.now(timezone.utc)
 
         # 過去5走を生成
         for i in range(5):
@@ -652,7 +652,7 @@ class MockRaceDataProvider(RaceDataProvider):
         random.seed(_stable_hash(horse_id) % (2**32))
 
         performances = []
-        base_date = datetime.now()
+        base_date = datetime.now(timezone.utc)
         track_types = ["芝", "ダート", "障害"]
         track_conditions = ["良", "稍", "重", "不"]
         margins = ["クビ", "ハナ", "1/2", "3/4", "1", "1 1/2", "2", "3", "大差"]
@@ -743,7 +743,7 @@ class MockRaceDataProvider(RaceDataProvider):
         evaluations = ["A", "B", "C", "D"]
 
         records = []
-        base_date = datetime.now()
+        base_date = datetime.now(timezone.utc)
         times = []
 
         for i in range(limit):

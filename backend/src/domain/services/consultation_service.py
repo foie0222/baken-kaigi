@@ -1,5 +1,5 @@
 """相談サービス."""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..entities import Cart, ConsultationSession
 from ..identifiers import UserId
@@ -58,7 +58,7 @@ class ConsultationService:
             raise CartEmptyError("カートが空です")
 
         # 各買い目の締め切りをチェック
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         check_result = self._deadline_checker.check_deadlines(race_references, now)
         if not check_result.all_valid:
             raise DeadlinePassedError(
