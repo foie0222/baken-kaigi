@@ -19,6 +19,26 @@ from src.application.use_cases.settle_betting_record import (
 )
 
 
+def betting_record_handler(event: dict, context: Any) -> dict:
+    """投票記録APIルーティングハンドラー.
+
+    リクエストのresourceとhttpMethodに基づいて適切なハンドラーに振り分ける。
+    """
+    resource = event.get("resource", "")
+    method = event.get("httpMethod", "")
+
+    if resource == "/betting-records" and method == "POST":
+        return create_betting_record_handler(event, context)
+    if resource == "/betting-records" and method == "GET":
+        return get_betting_records_handler(event, context)
+    if resource == "/betting-records/summary" and method == "GET":
+        return get_betting_summary_handler(event, context)
+    if resource == "/betting-records/{record_id}/settle" and method == "PUT":
+        return settle_betting_record_handler(event, context)
+
+    return bad_request_response("Unknown route", event=event)
+
+
 def create_betting_record_handler(event: dict, context: Any) -> dict:
     """投票記録を作成する.
 
