@@ -14,8 +14,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
     "mypy>=1.0",
     "ruff>=0.1",
     "aws-cdk-lib>=2.100.0",
@@ -26,7 +26,7 @@ dev = [
     "lxml>=5.0.0",
     "pdfplumber>=0.11.0",
     "strands-agents>=0.1.0",
-    "strands-agents-builder>=0.1.0",
+    "strands-agents-tools>=0.1.0",
     "locust>=2.20.0",
 ]
 
