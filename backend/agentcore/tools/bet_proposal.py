@@ -332,6 +332,57 @@ def _generate_bet_candidates(
 
     bets = []
     for bet_type in bet_types:
+        # 単勝/複勝は軸馬のみで買い目生成（相手馬不要）
+        if bet_type in ("win", "place"):
+            for axis in axis_horses:
+                axis_hn = axis["horse_number"]
+                axis_runner = runners_map.get(axis_hn, {})
+                axis_pop = axis_runner.get("popularity") or 99
+                axis_odds = axis_runner.get("odds") or 0
+
+                ev = _calculate_expected_value(
+                    axis_odds, axis_pop, bet_type, total_runners, race_conditions
+                )
+
+                if axis["composite_score"] >= 70:
+                    confidence = "high"
+                elif axis["composite_score"] >= 50:
+                    confidence = "medium"
+                else:
+                    confidence = "low"
+
+                bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
+                axis_name = axis_runner.get("horse_name", "")
+
+                # AI順位を取得
+                ai_rank_map = {
+                    p.get("horse_number"): p.get("rank", 99)
+                    for p in ai_predictions
+                }
+                axis_ai = ai_rank_map.get(axis_hn, 99)
+                parts = []
+                if axis_ai <= 3:
+                    parts.append(f"AI{axis_ai}位")
+                ev_val = ev.get("expected_return", 0)
+                rating = ev.get("value_rating", "")
+                if rating:
+                    parts.append(f"期待値{ev_val}（{rating}）")
+                parts.append(f"{bet_type_name} {axis_hn}番{axis_name}")
+                reasoning = "。".join(parts)
+
+                bets.append({
+                    "bet_type": bet_type,
+                    "bet_type_name": bet_type_name,
+                    "horse_numbers": [axis_hn],
+                    "bet_display": str(axis_hn),
+                    "confidence": confidence,
+                    "expected_value": ev.get("expected_return", 0),
+                    "composite_odds": axis_odds,
+                    "reasoning": reasoning,
+                    "bet_count": 1,
+                })
+            continue
+
         for axis in axis_horses:
             axis_hn = axis["horse_number"]
             axis_runner = runners_map.get(axis_hn, {})
@@ -343,10 +394,6 @@ def _generate_bet_candidates(
                 partner_runner = runners_map.get(partner_hn, {})
                 partner_pop = partner_runner.get("popularity") or 99
                 partner_odds = partner_runner.get("odds") or 0
-
-                if bet_type in ("win", "place"):
-                    # 単勝/複勝は軸馬のみ
-                    continue
 
                 # 馬番表示
                 if bet_type in ("quinella", "quinella_place"):

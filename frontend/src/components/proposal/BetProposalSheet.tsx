@@ -183,11 +183,12 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
           </div>
 
           <div className="proposal-form-group">
-            <label className="proposal-label">
+            <label className="proposal-label" htmlFor="axis-horses-input">
               注目馬（任意）
               <span className="proposal-label-hint">カンマ区切りで馬番を入力</span>
             </label>
             <input
+              id="axis-horses-input"
               type="text"
               className="proposal-axis-input"
               value={axisInput}
@@ -199,6 +200,7 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
           <button
             className="proposal-generate-btn"
             onClick={handleGenerate}
+            disabled={loading}
           >
             提案を生成
           </button>

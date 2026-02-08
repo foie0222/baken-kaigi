@@ -127,7 +127,6 @@ def invoke(payload: dict, context: Any) -> dict:
     agent = _get_agent()
 
     # ツール結果キャプチャをリセット
-    from tools.bet_proposal import _last_proposal_result
     import tools.bet_proposal as _bet_proposal_mod
     _bet_proposal_mod._last_proposal_result = None
 

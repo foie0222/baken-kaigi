@@ -644,3 +644,125 @@ class TestIntegration:
         assert "error" not in result
         for bet in result["proposed_bets"]:
             assert bet["bet_type"] == "quinella_place"
+
+    def test_全体フロー_単勝指定で買い目が生成される(self):
+        """preferred_bet_types=['win']で単勝の買い目が生成される."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260201_05_11",
+            budget=3000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=12,
+            preferred_bet_types=["win"],
+        )
+        assert "error" not in result
+        assert len(result["proposed_bets"]) > 0
+        for bet in result["proposed_bets"]:
+            assert bet["bet_type"] == "win"
+            assert len(bet["horse_numbers"]) == 1
+            assert bet["bet_count"] == 1
+
+    def test_全体フロー_複勝指定で買い目が生成される(self):
+        """preferred_bet_types=['place']で複勝の買い目が生成される."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260201_05_11",
+            budget=3000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=12,
+            preferred_bet_types=["place"],
+        )
+        assert "error" not in result
+        assert len(result["proposed_bets"]) > 0
+        for bet in result["proposed_bets"]:
+            assert bet["bet_type"] == "place"
+            assert len(bet["horse_numbers"]) == 1
+
+
+# =============================================================================
+# 単勝/複勝候補生成テスト
+# =============================================================================
+
+
+class TestWinPlaceBets:
+    """単勝/複勝の買い目生成テスト."""
+
+    def test_単勝の買い目が軸馬から生成される(self):
+        """bet_types=['win']で軸馬の単勝買い目が生成される."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [
+            {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 90},
+            {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 80},
+        ]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["win"],
+            total_runners=12,
+        )
+        assert len(bets) == 2
+        assert bets[0]["bet_type"] == "win"
+        assert bets[0]["horse_numbers"] == [1]
+        assert bets[0]["bet_display"] == "1"
+        assert bets[1]["horse_numbers"] == [2]
+
+    def test_複勝の買い目が軸馬から生成される(self):
+        """bet_types=['place']で軸馬の複勝買い目が生成される."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [{"horse_number": 3, "horse_name": "テスト馬3", "composite_score": 85}]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["place"],
+            total_runners=12,
+        )
+        assert len(bets) == 1
+        assert bets[0]["bet_type"] == "place"
+        assert bets[0]["horse_numbers"] == [3]
+
+    def test_単勝の必須フィールドが揃っている(self):
+        """単勝の買い目に必要なフィールドが全て含まれる."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [{"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 90}]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["win"],
+            total_runners=12,
+        )
+        assert len(bets) == 1
+        bet = bets[0]
+        required_fields = [
+            "bet_type", "bet_type_name", "horse_numbers",
+            "bet_display", "confidence", "expected_value",
+            "composite_odds", "reasoning", "bet_count",
+        ]
+        for field in required_fields:
+            assert field in bet, f"フィールド {field} が欠落"
+
+    def test_単勝と馬連の混合指定(self):
+        """bet_types=['win', 'quinella']で両方の買い目が生成される."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [{"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 90}]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["win", "quinella"],
+            total_runners=12,
+        )
+        win_bets = [b for b in bets if b["bet_type"] == "win"]
+        quinella_bets = [b for b in bets if b["bet_type"] == "quinella"]
+        assert len(win_bets) > 0
+        assert len(quinella_bets) > 0
