@@ -39,7 +39,7 @@ def get_ipat_balance_handler(event: dict, context: Any) -> dict:
     except CredentialsNotFoundError:
         return bad_request_response("IPAT credentials not configured", event=event)
     except IpatGatewayError as e:
-        logger.error("IpatGatewayError: %s", e)
+        logger.exception("IpatGatewayError: %s", e)
         return internal_error_response("IPAT通信エラーが発生しました", event=event)
 
     return success_response({
