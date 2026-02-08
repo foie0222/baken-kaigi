@@ -379,7 +379,7 @@ class BakenKaigiApiStack(Stack):
             "AgentCoreRuntimeRole",
             role_name="baken-kaigi-agentcore-runtime-role",
             assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-            description="AgentCore Runtime用のIAMロール",
+            description="IAM role for AgentCore Runtime",
         )
 
         # DynamoDB 読み取り権限
