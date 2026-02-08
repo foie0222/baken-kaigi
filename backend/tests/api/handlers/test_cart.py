@@ -347,6 +347,22 @@ class TestAddToCartTypeValidation:
         response = add_to_cart(event, None)
         assert response["statusCode"] == 400
 
+    def test_race_idが空文字の場合400(self) -> None:
+        from src.api.handlers.cart import add_to_cart
+
+        Dependencies.set_cart_repository(MockCartRepository())
+        event = {
+            "body": json.dumps({
+                "race_id": "",
+                "race_name": "日本ダービー",
+                "bet_type": "WIN",
+                "horse_numbers": [1],
+                "amount": 100,
+            }),
+        }
+        response = add_to_cart(event, None)
+        assert response["statusCode"] == 400
+
     def test_horse_numbersが文字列の場合400(self) -> None:
         from src.api.handlers.cart import add_to_cart
 

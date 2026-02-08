@@ -50,11 +50,11 @@ def add_to_cart(event: dict, context: Any) -> dict:
         if param not in body:
             return bad_request_response(f"{param} is required", event=event)
 
-    # 文字列フィールドの型チェック
-    if not isinstance(body["race_id"], str):
-        return bad_request_response("race_id must be a string", event=event)
-    if not isinstance(body["race_name"], str):
-        return bad_request_response("race_name must be a string", event=event)
+    # 文字列フィールドの型・空文字チェック
+    if not isinstance(body["race_id"], str) or not body["race_id"].strip():
+        return bad_request_response("race_id must be a non-empty string", event=event)
+    if not isinstance(body["race_name"], str) or not body["race_name"].strip():
+        return bad_request_response("race_name must be a non-empty string", event=event)
 
     # パラメータ変換
     cart_id = CartId(body["cart_id"]) if body.get("cart_id") else None
