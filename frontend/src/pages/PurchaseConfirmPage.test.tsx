@@ -109,10 +109,10 @@ describe('PurchaseConfirmPage', () => {
       vi.mocked(apiClient.submitPurchase).mockResolvedValue({
         success: true,
         data: {
-          orderId: 'order-123',
+          purchaseId: 'purchase-123',
           status: 'FAILED',
           totalAmount: 1000,
-          items: [],
+          createdAt: '2026-02-08T00:00:00Z',
         },
       })
 
@@ -134,10 +134,10 @@ describe('PurchaseConfirmPage', () => {
       vi.mocked(apiClient.submitPurchase).mockResolvedValue({
         success: true,
         data: {
-          orderId: 'order-123',
-          status: 'SUCCESS',
+          purchaseId: 'purchase-123',
+          status: 'COMPLETED',
           totalAmount: 1000,
-          items: [],
+          createdAt: '2026-02-08T00:00:00Z',
         },
       })
 
