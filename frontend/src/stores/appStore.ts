@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { Race, BetType, PageType } from '../types';
 
+const TOAST_AUTO_HIDE_MS = 2000;
+
 interface AppState {
   // ナビゲーション
   currentPage: PageType;
@@ -32,46 +34,62 @@ interface AppState {
   hideToast: () => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  // ナビゲーション
-  currentPage: 'races',
-  setCurrentPage: (page) => set({ currentPage: page }),
+export const useAppStore = create<AppState>((set) => {
+  let toastTimerId: ReturnType<typeof setTimeout> | null = null;
 
-  // レース選択
-  selectedRace: null,
-  setSelectedRace: (race) => set({ selectedRace: race, selectedHorses: [] }),
+  return {
+    // ナビゲーション
+    currentPage: 'races',
+    setCurrentPage: (page) => set({ currentPage: page }),
 
-  // 馬選択
-  selectedHorses: [],
-  toggleHorse: (number) =>
-    set((state) => {
-      const index = state.selectedHorses.indexOf(number);
-      if (index === -1) {
-        return { selectedHorses: [...state.selectedHorses, number] };
-      } else {
-        return {
-          selectedHorses: state.selectedHorses.filter((n) => n !== number),
-        };
+    // レース選択
+    selectedRace: null,
+    setSelectedRace: (race) => set({ selectedRace: race, selectedHorses: [] }),
+
+    // 馬選択
+    selectedHorses: [],
+    toggleHorse: (number) =>
+      set((state) => {
+        const index = state.selectedHorses.indexOf(number);
+        if (index === -1) {
+          return { selectedHorses: [...state.selectedHorses, number] };
+        } else {
+          return {
+            selectedHorses: state.selectedHorses.filter((n) => n !== number),
+          };
+        }
+      }),
+    clearSelectedHorses: () => set({ selectedHorses: [] }),
+
+    // 賭け設定
+    betType: 'quinella',
+    setBetType: (type) => set({ betType: type }),
+    betAmount: 1000,
+    setBetAmount: (amount) => set({ betAmount: amount }),
+
+    // 相談セッション
+    consultationSessionId: null,
+    setConsultationSessionId: (id) => set({ consultationSessionId: id }),
+
+    // トースト
+    toastMessage: null,
+    toastType: null,
+    showToast: (message, type = 'success') => {
+      if (toastTimerId !== null) {
+        clearTimeout(toastTimerId);
       }
-    }),
-  clearSelectedHorses: () => set({ selectedHorses: [] }),
-
-  // 賭け設定
-  betType: 'quinella',
-  setBetType: (type) => set({ betType: type }),
-  betAmount: 1000,
-  setBetAmount: (amount) => set({ betAmount: amount }),
-
-  // 相談セッション
-  consultationSessionId: null,
-  setConsultationSessionId: (id) => set({ consultationSessionId: id }),
-
-  // トースト
-  toastMessage: null,
-  toastType: null,
-  showToast: (message, type = 'success') => {
-    set({ toastMessage: message, toastType: type });
-    setTimeout(() => set({ toastMessage: null, toastType: null }), 2000);
-  },
-  hideToast: () => set({ toastMessage: null, toastType: null }),
-}));
+      set({ toastMessage: message, toastType: type });
+      toastTimerId = setTimeout(() => {
+        set({ toastMessage: null, toastType: null });
+        toastTimerId = null;
+      }, TOAST_AUTO_HIDE_MS);
+    },
+    hideToast: () => {
+      if (toastTimerId !== null) {
+        clearTimeout(toastTimerId);
+        toastTimerId = null;
+      }
+      set({ toastMessage: null, toastType: null });
+    },
+  };
+});
