@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ..enums import BettingRecordStatus
 from .money import Money
 
 if TYPE_CHECKING:
@@ -28,8 +29,6 @@ class BettingSummary:
         確定済み（SETTLED）のレコードのみを集計対象とする。
         未確定（PENDING）やキャンセル済み（CANCELLED）は除外する。
         """
-        from ..enums import BettingRecordStatus
-
         settled = [r for r in records if r.status == BettingRecordStatus.SETTLED]
 
         if not settled:

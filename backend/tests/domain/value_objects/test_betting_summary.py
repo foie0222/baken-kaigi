@@ -2,7 +2,7 @@
 from datetime import date
 
 from src.domain.entities import BettingRecord
-from src.domain.enums import BetType, BettingRecordStatus
+from src.domain.enums import BetType
 from src.domain.identifiers import RaceId, UserId
 from src.domain.value_objects import BettingSummary, HorseNumbers, Money
 
