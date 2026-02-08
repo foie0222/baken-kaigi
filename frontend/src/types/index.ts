@@ -424,5 +424,28 @@ export interface BettingRecordFilter {
   betType?: BetType;
 }
 
+// 負け額限度額
+export interface LossLimit {
+  lossLimit: number;
+  totalLossThisMonth: number;
+  remainingLossLimit: number;
+  pendingChange: PendingLossLimitChange | null;
+}
+
+export interface PendingLossLimitChange {
+  changeType: 'increase' | 'decrease';
+  status: 'pending';
+  effectiveAt: string;
+  currentLimit: number;
+  requestedLimit: number;
+}
+
+export interface LossLimitCheckResult {
+  canPurchase: boolean;
+  remainingLimit: number;
+  warningLevel: 'none' | 'warning' | 'critical';
+  message: string;
+}
+
 // アプリ状態
 export type PageType = 'races' | 'dashboard' | 'history' | 'settings' | 'cart';

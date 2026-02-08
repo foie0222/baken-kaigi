@@ -11,6 +11,7 @@ from .consultation_service import (
 )
 from .deadline_checker import DeadlineCheckResult, DeadlineChecker
 from .feedback_generator import FeedbackGenerator
+from .loss_limit_service import LossLimitService
 from .purchase_validator import PurchaseValidator
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "DeadlineChecker",
     "DeadlinePassedError",
     "FeedbackGenerator",
+    "LossLimitService",
     "PurchaseValidator",
     "SessionNotInProgressError",
     "ValidationResult",

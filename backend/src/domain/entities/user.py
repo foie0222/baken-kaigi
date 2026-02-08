@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from ..enums import AuthProvider, UserStatus
 from ..identifiers import UserId
-from ..value_objects import DateOfBirth, DisplayName, Email
+from ..value_objects import DateOfBirth, DisplayName, Email, Money
 
 
 @dataclass
@@ -22,6 +22,9 @@ class User:
     auth_provider: AuthProvider
     status: UserStatus = UserStatus.ACTIVE
     deletion_requested_at: datetime | None = None
+    loss_limit: Money | None = None
+    total_loss_this_month: Money = field(default_factory=Money.zero)
+    loss_limit_set_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -58,3 +61,30 @@ class User:
     def is_pending_deletion(self) -> bool:
         """削除保留中かどうか."""
         return self.status == UserStatus.PENDING_DELETION
+
+    def set_loss_limit(self, amount: Money) -> None:
+        """月間負け額限度額を設定する."""
+        if amount.value <= 0:
+            raise ValueError("Loss limit must be positive")
+        self.loss_limit = amount
+        self.loss_limit_set_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
+
+    def get_remaining_loss_limit(self) -> Money | None:
+        """残り負け額限度額を取得する."""
+        if self.loss_limit is None:
+            return None
+        remaining = self.loss_limit.value - self.total_loss_this_month.value
+        if remaining < 0:
+            return Money.zero()
+        return Money.of(remaining)
+
+    def record_loss(self, amount: Money) -> None:
+        """損失を記録する."""
+        self.total_loss_this_month = self.total_loss_this_month.add(amount)
+        self.updated_at = datetime.now(timezone.utc)
+
+    def reset_monthly_loss(self) -> None:
+        """月初に累計損失額をリセットする."""
+        self.total_loss_this_month = Money.zero()
+        self.updated_at = datetime.now(timezone.utc)

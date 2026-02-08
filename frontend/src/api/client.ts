@@ -17,6 +17,9 @@ import type {
   BettingRecord,
   BettingSummary,
   BettingRecordFilter,
+  LossLimit,
+  PendingLossLimitChange,
+  LossLimitCheckResult,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -421,6 +424,63 @@ class ApiClient {
     return { success: false, error: res.error };
   }
 
+  // 負け額限度額 API
+  async getLossLimit(): Promise<ApiResponse<LossLimit>> {
+    const res = await this.request<Record<string, unknown>>('/users/loss-limit');
+    if (res.success && res.data) {
+      const d = res.data;
+      let pendingChange: PendingLossLimitChange | null = null;
+      if (d.pending_change && typeof d.pending_change === 'object') {
+        const pc = d.pending_change as Record<string, unknown>;
+        pendingChange = {
+          changeType: pc.change_type as 'increase' | 'decrease',
+          status: 'pending',
+          effectiveAt: pc.effective_at as string,
+          currentLimit: pc.current_limit as number,
+          requestedLimit: pc.requested_limit as number,
+        };
+      }
+      return {
+        success: true,
+        data: {
+          lossLimit: d.loss_limit as number,
+          totalLossThisMonth: d.total_loss_this_month as number,
+          remainingLossLimit: d.remaining_loss_limit as number,
+          pendingChange,
+        },
+      };
+    }
+    return { success: false, error: res.error };
+  }
+
+  async setLossLimit(amount: number): Promise<ApiResponse<void>> {
+    return this.request<void>('/users/loss-limit', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    });
+  }
+
+  async requestLossLimitChange(amount: number): Promise<ApiResponse<PendingLossLimitChange>> {
+    const res = await this.request<Record<string, unknown>>('/users/loss-limit', {
+      method: 'PUT',
+      body: JSON.stringify({ amount }),
+    });
+    if (res.success && res.data) {
+      const d = res.data;
+      return {
+        success: true,
+        data: {
+          changeType: d.change_type as 'increase' | 'decrease',
+          status: 'pending',
+          effectiveAt: d.effective_at as string,
+          currentLimit: d.current_limit as number,
+          requestedLimit: d.requested_limit as number,
+        },
+      };
+    }
+    return { success: false, error: res.error };
+  }
+
   async getBettingRecords(filters?: BettingRecordFilter): Promise<ApiResponse<BettingRecord[]>> {
     const params = new URLSearchParams();
     if (filters?.dateFrom) params.set('date_from', filters.dateFrom);
@@ -451,6 +511,25 @@ class ApiClient {
         recordCount: d.record_count as number,
         roi: d.roi as number,
       }};
+    }
+    return { success: false, error: res.error };
+  }
+
+  async checkLossLimit(amount: number): Promise<ApiResponse<LossLimitCheckResult>> {
+    const res = await this.request<Record<string, unknown>>(
+      `/users/loss-limit/check?amount=${encodeURIComponent(amount)}`
+    );
+    if (res.success && res.data) {
+      const d = res.data;
+      return {
+        success: true,
+        data: {
+          canPurchase: d.can_purchase as boolean,
+          remainingLimit: d.remaining_limit as number,
+          warningLevel: d.warning_level as 'none' | 'warning' | 'critical',
+          message: d.message as string,
+        },
+      };
     }
     return { success: false, error: res.error };
   }

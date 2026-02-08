@@ -45,6 +45,14 @@ def start_consultation(event: dict, context: Any) -> dict:
     # 認証ユーザーID（オプション）
     user_id = get_authenticated_user_id(event)
 
+    # ログインユーザーの場合、残り許容負け額を取得
+    remaining_loss_limit = None
+    if user_id is not None:
+        user_repo = Dependencies.get_user_repository()
+        user = user_repo.find_by_id(user_id)
+        if user is not None:
+            remaining_loss_limit = user.get_remaining_loss_limit()
+
     # ユースケース実行
     cart_repo = Dependencies.get_cart_repository()
     session_repo = Dependencies.get_session_repository()
@@ -56,7 +64,10 @@ def start_consultation(event: dict, context: Any) -> dict:
     )
 
     try:
-        result = use_case.execute(CartId(body["cart_id"]))
+        result = use_case.execute(
+            CartId(body["cart_id"]),
+            remaining_loss_limit=remaining_loss_limit,
+        )
     except StartCartNotFoundError:
         return not_found_response("Cart", event=event)
     except EmptyCartError:

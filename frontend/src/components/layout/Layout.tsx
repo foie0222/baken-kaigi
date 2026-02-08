@@ -3,6 +3,7 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { Toast } from '../common/Toast';
 import { CookieConsentBanner } from '../common/CookieConsentBanner';
+import { LossLimitAlert } from '../loss-limit/LossLimitAlert';
 
 function HelpLink() {
   return (
@@ -23,6 +24,7 @@ export function Layout() {
   return (
     <>
       <Header />
+      <LossLimitAlert />
       <main>
         <Outlet />
       </main>

@@ -15,6 +15,7 @@
 | FeedbackGenerator | AIを使用したフィードバック生成 | AIClient（インフラ）, RaceDataProvider（外部） |
 | BetSelectionValidator | 買い目の検証 | - |
 | DeadlineChecker | 投票締め切りのチェック | RaceDataProvider（外部） |
+| LossLimitService | 限度額の変更リクエスト管理と購入可否判定 | User, LossLimitChange |
 
 ---
 
@@ -318,6 +319,87 @@ interface RaceDataProvider {
 
 ---
 
+## LossLimitService（限度額管理サービス）
+
+### 責務
+
+ユーザーの負け額限度額の変更リクエストを管理し、購入時の限度額チェックを行う。増額には7日間の待機期間を設けることで、衝動的な限度額引き上げを防止する。
+
+### 依存関係
+
+```
+LossLimitService
+  ├── User
+  └── LossLimitChange
+```
+
+### 操作
+
+#### requestChange
+
+```
+requestChange(user: User, newLimit: Money): LossLimitChange
+
+入力:
+  - user: 限度額を変更するユーザー
+  - newLimit: 新しい希望限度額
+
+処理:
+  1. newLimitが有効な範囲（1,000円〜1,000,000円）であることを確認
+  2. changeTypeを判定（newLimit > currentLimit なら INCREASE、そうでなければ DECREASE）
+  3. LossLimitChangeを作成:
+     - 増額: status=PENDING, effectiveAt=7日後
+     - 減額: status=APPROVED, effectiveAt=即時
+  4. 減額の場合、即座にユーザーの限度額を更新
+
+出力:
+  - LossLimitChange
+
+例外:
+  - InvalidLossLimitException: 限度額が有効範囲外の場合
+  - LossLimitNotSetException: 初回設定前に変更しようとした場合
+```
+
+#### checkLimit
+
+```
+checkLimit(user: User, betAmount: Money): LossLimitCheckResult
+
+入力:
+  - user: チェック対象のユーザー
+  - betAmount: 購入予定金額
+
+処理:
+  1. ユーザーの限度額が未設定の場合、制限なし（canPurchase=true）
+  2. totalLossThisMonth + betAmount が lossLimit 以下か判定
+  3. 警告レベルを判定:
+     - NONE: 限度額の80%未満
+     - CAUTION: 限度額の80%以上100%未満
+     - WARNING: 限度額超過
+
+出力:
+  - LossLimitCheckResult
+```
+
+#### processPendingChanges
+
+```
+processPendingChanges(): List<LossLimitChange>
+
+入力:
+  - なし
+
+処理:
+  1. PENDING状態のLossLimitChangeを全件取得
+  2. effectiveAtが現在時刻以前のものをフィルタ
+  3. 対象の変更を承認し、ユーザーの限度額を更新
+
+出力:
+  - 処理されたLossLimitChangeのリスト
+```
+
+---
+
 ## サービス間の協調
 
 ### 相談開始フロー
@@ -337,4 +419,34 @@ ConsultationService.startConsultation(cart, remainingLimit)
     │
     └── FeedbackGenerator.generateAmountFeedback(total, limit, avg)
             └── AIClient.generateAmountFeedback(context)
+```
+
+### 限度額変更フロー
+
+```
+LossLimitService.requestChange(user, newLimit)
+    │
+    ├── [減額の場合]
+    │       ├── LossLimitChange.create(status=APPROVED, effectiveAt=即時)
+    │       └── User.setLossLimit(newLimit)
+    │
+    └── [増額の場合]
+            └── LossLimitChange.create(status=PENDING, effectiveAt=7日後)
+
+LossLimitService.processPendingChanges()  ※バッチ処理
+    │
+    ├── LossLimitChange.approve()
+    └── User.setLossLimit(requestedLimit)
+```
+
+### 購入時限度額チェックフロー
+
+```
+LossLimitService.checkLimit(user, betAmount)
+    │
+    ├── User.hasLossLimit() → false → LossLimitCheckResult.noLimit()
+    │
+    └── User.hasLossLimit() → true
+            ├── User.getRemainingLossLimit()
+            └── 警告レベル判定 → LossLimitCheckResult
 ```
