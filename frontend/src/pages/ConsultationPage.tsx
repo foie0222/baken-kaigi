@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
@@ -111,7 +111,6 @@ export function ConsultationPage() {
     return () => {
       isMounted = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ユーザーメッセージ送信
