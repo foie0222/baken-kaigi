@@ -3,7 +3,7 @@
 
 Usage:
     # モック環境（デフォルト）
-    cdk deploy BakenKaigiApiStack
+    cdk deploy BakenKaigiApiStack BakenKaigiBatchStack
 
     # JRA-VAN 連携環境（EC2 + Lambda in VPC）
     cdk deploy --all --context jravan=true
@@ -19,6 +19,7 @@ Usage:
 import aws_cdk as cdk
 
 from stacks.api_stack import BakenKaigiApiStack
+from stacks.batch_stack import BakenKaigiBatchStack
 from stacks.jravan_server_stack import JraVanServerStack
 from stacks.github_oidc_stack import GitHubOidcStack
 
@@ -66,6 +67,15 @@ if use_jravan:
         env=env,
     )
 
+    # バッチ処理スタック（JRA-VAN 連携）
+    BakenKaigiBatchStack(
+        app,
+        "BakenKaigiBatchStack",
+        vpc=jravan_stack.vpc,
+        jravan_api_url=jravan_stack.api_url,
+        env=env,
+    )
+
 else:
     # ========================================
     # モックモード（デフォルト）
@@ -75,6 +85,13 @@ else:
         app,
         "BakenKaigiApiStack",
         allow_dev_origins=allow_dev_origins,
+        env=env,
+    )
+
+    # バッチ処理スタック（モックモード）
+    BakenKaigiBatchStack(
+        app,
+        "BakenKaigiBatchStack",
         env=env,
     )
 

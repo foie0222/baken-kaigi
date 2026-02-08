@@ -61,12 +61,12 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が59個作成されること（API 34 + バッチ 10 + IPAT 7 + 賭け履歴 4 + 損失制限 4）."""
-        template.resource_count_is("AWS::Lambda::Function", 59)
+        """Lambda関数が49個作成されること（API 34 + IPAT 7 + 賭け履歴 4 + 損失制限 4）."""
+        template.resource_count_is("AWS::Lambda::Function", 49)
 
     def test_lambda_layer_created(self, template):
-        """Lambda Layerが2個作成されること（API用 + バッチ用）."""
-        template.resource_count_is("AWS::Lambda::LayerVersion", 2)
+        """Lambda Layerが1個作成されること（API用）."""
+        template.resource_count_is("AWS::Lambda::LayerVersion", 1)
 
     def test_api_gateway_created(self, template):
         """API Gatewayが作成されること."""
@@ -349,18 +349,6 @@ class TestApiStack:
             },
         )
 
-    def test_ai_shisu_scraper_lambda(self, template):
-        """AI指数スクレイピングLambdaが存在すること."""
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {
-                "FunctionName": "baken-kaigi-ai-shisu-scraper",
-                "Handler": "batch.ai_shisu_scraper.handler",
-                "Timeout": 300,
-                "MemorySize": 512,
-            },
-        )
-
     def test_ai_predictions_dynamodb_table(self, template):
         """AI予想データ用DynamoDBテーブルが存在すること."""
         template.has_resource_properties(
@@ -414,48 +402,6 @@ class TestApiStack:
                 "KeySchema": [
                     {"AttributeName": "record_id", "KeyType": "HASH"},
                 ],
-            },
-        )
-
-    def test_eventbridge_rule_for_scraper(self, template):
-        """スクレイパー用EventBridgeルールが存在すること."""
-        template.has_resource_properties(
-            "AWS::Events::Rule",
-            {
-                "Name": "baken-kaigi-ai-shisu-scraper-rule",
-                "ScheduleExpression": "cron(0 12 ? * * *)",  # UTC 12:00 = JST 21:00
-            },
-        )
-
-    def test_muryou_keiba_ai_scraper_lambda(self, template):
-        """無料競馬AIスクレイピングLambdaが存在すること."""
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {
-                "FunctionName": "baken-kaigi-muryou-keiba-ai-scraper",
-                "Handler": "batch.muryou_keiba_ai_scraper.handler",
-                "Timeout": 300,
-                "MemorySize": 512,
-            },
-        )
-
-    def test_eventbridge_rule_for_muryou_scraper_morning(self, template):
-        """無料競馬AIスクレイパー用EventBridgeルール（当日朝）が存在すること."""
-        template.has_resource_properties(
-            "AWS::Events::Rule",
-            {
-                "Name": "baken-kaigi-muryou-keiba-ai-scraper-morning-rule",
-                "ScheduleExpression": "cron(30 0 ? * * *)",  # UTC 0:30 = JST 9:30
-            },
-        )
-
-    def test_eventbridge_rule_for_muryou_scraper_evening(self, template):
-        """無料競馬AIスクレイパー用EventBridgeルール（前日夜）が存在すること."""
-        template.has_resource_properties(
-            "AWS::Events::Rule",
-            {
-                "Name": "baken-kaigi-muryou-keiba-ai-scraper-evening-rule",
-                "ScheduleExpression": "cron(0 12 ? * * *)",  # UTC 12:00 = JST 21:00
             },
         )
 
