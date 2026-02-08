@@ -116,7 +116,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             response.raise_for_status()
             return self._to_race_data(response.json())
         except requests.RequestException as e:
-            logger.error(f"Failed to get race {race_id}: {e}")
+            logger.exception("Failed to get race %s", race_id)
             raise JraVanApiError(f"Failed to get race: {e}") from e
 
     def get_races_by_date(
@@ -138,7 +138,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             races_data = response.json()
             return [self._to_race_data(r) for r in races_data]
         except requests.RequestException as e:
-            logger.error(f"Failed to get races for {target_date}: {e}")
+            logger.exception("Failed to get races for %s", target_date)
             raise JraVanApiError(f"Failed to get races: {e}") from e
 
     def get_runners(self, race_id: RaceId) -> list[RunnerData]:
@@ -153,7 +153,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             runners_data = response.json()
             return [self._to_runner_data(r) for r in runners_data]
         except requests.RequestException as e:
-            logger.error(f"Failed to get runners for {race_id}: {e}")
+            logger.exception("Failed to get runners for %s", race_id)
             raise JraVanApiError(f"Failed to get runners: {e}") from e
 
     def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
@@ -862,7 +862,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             data = response.json()
             return self._to_trainer_info_data(data)
         except requests.RequestException as e:
-            logger.error(f"Failed to get trainer info for {trainer_id}: {e}")
+            logger.exception("Failed to get trainer info for %s", trainer_id)
             return None
 
     def get_trainer_stats_detail(
@@ -908,7 +908,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
             ]
             return stats, track_stats, class_stats
         except requests.RequestException as e:
-            logger.error(f"Failed to get trainer stats for {trainer_id}: {e}")
+            logger.exception("Failed to get trainer stats for %s", trainer_id)
             return None, [], []
 
     def _to_trainer_info_data(self, data: dict) -> TrainerInfoData:

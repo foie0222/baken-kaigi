@@ -51,7 +51,7 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 return None
-            logger.error(f"Failed to get credentials for {user_id}: {e}")
+            logger.exception("Failed to get credentials for %s", user_id)
             raise
 
     def save_credentials(self, user_id: UserId, credentials: IpatCredentials) -> None:
@@ -74,7 +74,7 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
                     SecretString=secret_value,
                 )
             else:
-                logger.error(f"Failed to save credentials for {user_id}: {e}")
+                logger.exception("Failed to save credentials for %s", user_id)
                 raise
 
     def delete_credentials(self, user_id: UserId) -> None:
@@ -87,7 +87,7 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 return
-            logger.error(f"Failed to delete credentials for {user_id}: {e}")
+            logger.exception("Failed to delete credentials for %s", user_id)
             raise
 
     def has_credentials(self, user_id: UserId) -> bool:
@@ -100,5 +100,5 @@ class SecretsManagerCredentialsProvider(IpatCredentialsProvider):
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 return False
-            logger.error(f"Failed to check credentials for {user_id}: {e}")
+            logger.exception("Failed to check credentials for %s", user_id)
             raise
