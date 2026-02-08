@@ -77,21 +77,24 @@ class LossLimitService:
                 message="限度額を超過しています",
             )
 
+        # 賭け後の残額を計算
+        remaining_after_bet = remaining.subtract(bet_amount)
+
         # 使用率で警告レベルを判定
         usage_ratio = potential_total.value / user.loss_limit.value
         if usage_ratio >= 0.8:
             return LossLimitCheckResult(
                 can_purchase=True,
-                remaining_amount=remaining,
+                remaining_amount=remaining_after_bet,
                 warning_level=WarningLevel.CAUTION,
-                message=f"限度額の80%を超えています（残り: {remaining.value}円）",
+                message=f"限度額の80%以上に達しています（残り: {remaining_after_bet.value}円）",
             )
 
         return LossLimitCheckResult(
             can_purchase=True,
-            remaining_amount=remaining,
+            remaining_amount=remaining_after_bet,
             warning_level=WarningLevel.NONE,
-            message=f"購入可能です（残り: {remaining.value}円）",
+            message=f"購入可能です（残り: {remaining_after_bet.value}円）",
         )
 
     def process_pending_changes(
