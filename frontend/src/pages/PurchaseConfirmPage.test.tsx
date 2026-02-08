@@ -11,7 +11,7 @@ vi.mock('../api/client', () => ({
     submitPurchase: vi.fn(),
     getIpatBalance: vi.fn(() => Promise.resolve({
       success: true,
-      data: { betBalance: 100000, limitVoteAmount: 200000 },
+      data: { betBalance: 100000, limitVoteAmount: 200000, betDedicatedBalance: 100000, settlePossibleBalance: 100000 },
     })),
     getPurchaseHistory: vi.fn(),
   },
@@ -65,7 +65,7 @@ describe('PurchaseConfirmPage', () => {
       // 残高500円（不足）
       vi.mocked(apiClient.getIpatBalance).mockResolvedValue({
         success: true,
-        data: { betBalance: 500, limitVoteAmount: 200000 },
+        data: { betBalance: 500, limitVoteAmount: 200000, betDedicatedBalance: 500, settlePossibleBalance: 500 },
       })
 
       render(<PurchaseConfirmPage />)
@@ -105,7 +105,7 @@ describe('PurchaseConfirmPage', () => {
       // 残高100000円（十分）
       vi.mocked(apiClient.getIpatBalance).mockResolvedValue({
         success: true,
-        data: { betBalance: 100000, limitVoteAmount: 200000 },
+        data: { betBalance: 100000, limitVoteAmount: 200000, betDedicatedBalance: 100000, settlePossibleBalance: 100000 },
       })
 
       render(<PurchaseConfirmPage />)
