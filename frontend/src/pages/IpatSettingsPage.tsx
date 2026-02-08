@@ -60,7 +60,7 @@ export function IpatSettingsPage() {
     await deleteCredentials();
   };
 
-  // ステータス未ロード中はローディング表示
+  // ステータス未ロード中はローディングまたはエラー表示
   if (status === null) {
     return (
       <div className="fade-in" style={{ padding: 16 }}>
@@ -68,9 +68,36 @@ export function IpatSettingsPage() {
           ← 設定に戻る
         </button>
         <h2 style={{ textAlign: 'center', marginBottom: 24 }}>IPAT設定</h2>
-        <div style={{ textAlign: 'center', padding: 48, color: '#999' }}>
-          読み込み中...
-        </div>
+        {error ? (
+          <>
+            <div style={{ background: '#fce4ec', color: '#c62828', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
+              {error}
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={() => checkStatus()}
+                disabled={isLoading}
+                style={{
+                  padding: '12px 24px',
+                  background: '#1a73e8',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: isLoading ? 0.5 : 1,
+                }}
+              >
+                {isLoading ? '読み込み中...' : '再読み込み'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: 'center', padding: 48, color: '#999' }}>
+            読み込み中...
+          </div>
+        )}
       </div>
     );
   }
