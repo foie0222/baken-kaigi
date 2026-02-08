@@ -356,6 +356,58 @@ describe('cartStore', () => {
     })
   })
 
+  describe('addItem金額バリデーション', () => {
+    it('MAX_BET_AMOUNTを超える金額のアイテムは追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 150000 })
+      )
+
+      expect(result).toBe(false)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+
+    it('MAX_BET_AMOUNTちょうどの金額は追加できる', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 100000 })
+      )
+
+      expect(result).toBe(true)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+    })
+
+    it('MIN_BET_AMOUNT未満の金額は追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 50 })
+      )
+
+      expect(result).toBe(false)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+
+    it('0円のアイテムは追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 0 })
+      )
+
+      expect(result).toBe(false)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+
+    it('負の金額のアイテムは追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: -1000 })
+      )
+
+      expect(result).toBe(false)
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+  })
+
   describe('様々な券種', () => {
     it('単勝を追加できる', () => {
       useCartStore.getState().addItem(

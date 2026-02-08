@@ -12,6 +12,7 @@ import { BetMethodSheet } from '../components/bet/BetMethodSheet';
 import { HorseCheckboxList } from '../components/bet/HorseCheckboxList';
 import { BetProposalSheet } from '../components/proposal/BetProposalSheet';
 import { useBetCalculation } from '../hooks/useBetCalculation';
+import { MAX_BET_AMOUNT } from '../constants/betting';
 import './RaceDetailPage.css';
 
 const initialSelections: ColumnSelections = { col1: [], col2: [], col3: [] };
@@ -91,7 +92,8 @@ export function RaceDetailPage() {
   };
 
   const handleAmountPlus = () => {
-    setBetAmount(betAmount < 500 ? betAmount + 100 : betAmount + 500);
+    const increment = betAmount < 500 ? 100 : 500;
+    setBetAmount(Math.min(betAmount + increment, MAX_BET_AMOUNT));
   };
 
   const handleAddToCart = () => {

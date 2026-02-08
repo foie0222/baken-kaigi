@@ -30,6 +30,11 @@ export const useCartStore = create<CartState>()(
       currentRunnersData: [],
 
       addItem: (item) => {
+        // 金額バリデーション
+        if (item.amount < MIN_BET_AMOUNT || item.amount > MAX_BET_AMOUNT) {
+          return false;
+        }
+
         const state = get();
 
         // カートが空でない場合、同一レースかチェック
