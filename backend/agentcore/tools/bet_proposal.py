@@ -275,7 +275,7 @@ def _estimate_bet_odds(odds_list: list[float], bet_type: str) -> float:
     Returns:
         推定オッズ（0以下なら算出不可）
     """
-    valid = [o for o in odds_list if o > 0]
+    valid = [float(o) for o in odds_list if o > 0]
     if not valid:
         return 0.0
 
