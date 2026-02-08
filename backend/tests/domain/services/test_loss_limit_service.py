@@ -1,8 +1,6 @@
 """LossLimitServiceのテスト."""
 from datetime import date, datetime, timedelta, timezone
 
-import pytest
-
 from src.domain.entities import User
 from src.domain.entities.loss_limit_change import LossLimitChange
 from src.domain.enums import (
@@ -197,13 +195,14 @@ class TestProcessPendingChanges:
             current_limit=Money.of(50000),
             requested_limit=Money.of(100000),
         )
-        change.approve()
+        # PENDINGのまま — process_pending_changesが自動承認する
 
         # effective_atは7日後なので、8日後のnowを渡す
         future = datetime.now(timezone.utc) + timedelta(days=8)
         service.process_pending_changes([change], user, now=future)
 
         assert user.loss_limit == Money.of(100000)
+        assert change.status == LossLimitChangeStatus.APPROVED
 
     def test_有効期限未到達の変更は適用されない(self):
         service = LossLimitService()

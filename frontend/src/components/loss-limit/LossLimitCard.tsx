@@ -162,7 +162,7 @@ export function LossLimitCard() {
             今月の損失: <strong style={{ color: usageRate >= 80 ? getBarColor() : '#374151' }}>{formatAmount(totalLossThisMonth)}円</strong>
           </span>
           <span style={{ color: '#666' }}>
-            残り: <strong>{formatAmount(Math.max(remainingLossLimit, 0))}円</strong>
+            残り: <strong>{formatAmount(Math.max(remainingLossLimit ?? 0, 0))}円</strong>
           </span>
         </div>
       </div>

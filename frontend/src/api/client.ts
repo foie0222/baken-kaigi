@@ -433,9 +433,11 @@ class ApiClient {
       if (d.pending_change && typeof d.pending_change === 'object') {
         const pc = d.pending_change as Record<string, unknown>;
         pendingChange = {
+          changeId: pc.change_id as string,
           changeType: pc.change_type as 'increase' | 'decrease',
-          status: 'pending',
+          status: (pc.status as string).toLowerCase() as PendingLossLimitChange['status'],
           effectiveAt: pc.effective_at as string,
+          requestedAt: pc.requested_at as string,
           currentLimit: pc.current_limit as number,
           requestedLimit: pc.requested_limit as number,
         };
@@ -443,9 +445,9 @@ class ApiClient {
       return {
         success: true,
         data: {
-          lossLimit: d.loss_limit as number,
-          totalLossThisMonth: d.total_loss_this_month as number,
-          remainingLossLimit: d.remaining_loss_limit as number,
+          lossLimit: (d.loss_limit as number | null) ?? null,
+          totalLossThisMonth: (d.total_loss_this_month as number) ?? 0,
+          remainingLossLimit: (d.remaining_loss_limit as number | null) ?? null,
           pendingChange,
         },
       };
@@ -460,7 +462,7 @@ class ApiClient {
     });
   }
 
-  async requestLossLimitChange(amount: number): Promise<ApiResponse<PendingLossLimitChange>> {
+  async requestLossLimitChange(amount: number): Promise<ApiResponse<PendingLossLimitChange & { appliedImmediately: boolean }>> {
     const res = await this.request<Record<string, unknown>>('/users/loss-limit', {
       method: 'PUT',
       body: JSON.stringify({ amount }),
@@ -470,11 +472,14 @@ class ApiClient {
       return {
         success: true,
         data: {
+          changeId: d.change_id as string,
           changeType: d.change_type as 'increase' | 'decrease',
-          status: 'pending',
+          status: (d.status as string).toLowerCase() as PendingLossLimitChange['status'],
           effectiveAt: d.effective_at as string,
+          requestedAt: new Date().toISOString(),
           currentLimit: d.current_limit as number,
           requestedLimit: d.requested_limit as number,
+          appliedImmediately: d.applied_immediately as boolean,
         },
       };
     }
@@ -525,8 +530,8 @@ class ApiClient {
         success: true,
         data: {
           canPurchase: d.can_purchase as boolean,
-          remainingLimit: d.remaining_limit as number,
-          warningLevel: d.warning_level as 'none' | 'warning' | 'critical',
+          remainingAmount: (d.remaining_amount as number | null) ?? null,
+          warningLevel: d.warning_level as 'none' | 'caution' | 'warning',
           message: d.message as string,
         },
       };

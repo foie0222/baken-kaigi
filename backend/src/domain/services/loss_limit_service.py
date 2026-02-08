@@ -101,6 +101,15 @@ class LossLimitService:
         now: datetime | None = None,
     ) -> None:
         """待機期間完了した変更を適用する."""
+        effective_now = now or datetime.now(timezone.utc)
         for change in changes:
-            if change.is_effective(now):
+            # PENDING で待機期間経過 → 自動承認
+            if (
+                change.status == LossLimitChangeStatus.PENDING
+                and change.effective_at is not None
+                and change.effective_at <= effective_now
+            ):
+                change.approve()
+
+            if change.is_effective(effective_now):
                 user.set_loss_limit(change.requested_limit)

@@ -71,9 +71,9 @@ class TestGetLossLimit:
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
         assert body["loss_limit"] == 50000
-        assert body["remaining_amount"] == 40000
+        assert body["remaining_loss_limit"] == 40000
         assert body["total_loss_this_month"] == 10000
-        assert body["pending_changes"] == []
+        assert body["pending_change"] is None
 
     def test_限度額未設定(self):
         repo = Dependencies.get_user_repository()
@@ -83,7 +83,7 @@ class TestGetLossLimit:
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
         assert body["loss_limit"] is None
-        assert body["remaining_amount"] is None
+        assert body["remaining_loss_limit"] is None
 
     def test_保留中の変更リクエストを含む(self):
         repo = Dependencies.get_user_repository()
@@ -102,8 +102,8 @@ class TestGetLossLimit:
         resp = get_loss_limit_handler(event, None)
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
-        assert len(body["pending_changes"]) == 1
-        assert body["pending_changes"][0]["requested_limit"] == 100000
+        assert body["pending_change"] is not None
+        assert body["pending_change"]["requested_limit"] == 100000
 
     def test_未認証で401(self):
         resp = get_loss_limit_handler(_make_event(), None)
@@ -168,6 +168,8 @@ class TestUpdateLossLimit:
         body = json.loads(resp["body"])
         assert body["applied_immediately"] is True
         assert body["requested_limit"] == 30000
+        assert body["status"] == "approved"
+        assert body["current_limit"] == 50000
 
     def test_増額はPENDINGになる(self):
         repo = Dependencies.get_user_repository()
@@ -178,6 +180,8 @@ class TestUpdateLossLimit:
         body = json.loads(resp["body"])
         assert body["applied_immediately"] is False
         assert body["change_type"] == "increase"
+        assert body["status"] == "pending"
+        assert body["current_limit"] == 50000
 
     def test_未認証で401(self):
         resp = update_loss_limit_handler(_make_event(body={"amount": 30000}), None)

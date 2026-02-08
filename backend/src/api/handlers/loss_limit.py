@@ -61,25 +61,25 @@ def get_loss_limit_handler(event: dict, context: Any) -> dict:
     except GetUserNotFoundError:
         return not_found_response("User", event=event)
 
-    pending_changes = [
-        {
+    pending_change = None
+    if result.pending_changes:
+        c = result.pending_changes[0]
+        pending_change = {
             "change_id": str(c.change_id),
-            "current_limit": c.current_limit.value,
-            "requested_limit": c.requested_limit.value,
             "change_type": c.change_type.value,
             "status": c.status.value,
+            "current_limit": c.current_limit.value,
+            "requested_limit": c.requested_limit.value,
             "effective_at": c.effective_at.isoformat(),
             "requested_at": c.requested_at.isoformat(),
         }
-        for c in result.pending_changes
-    ]
 
     return success_response(
         {
             "loss_limit": result.loss_limit.value if result.loss_limit else None,
-            "remaining_amount": result.remaining_amount.value if result.remaining_amount else None,
             "total_loss_this_month": result.total_loss_this_month.value,
-            "pending_changes": pending_changes,
+            "remaining_loss_limit": result.remaining_amount.value if result.remaining_amount else None,
+            "pending_change": pending_change,
         },
         event=event,
     )
@@ -184,6 +184,8 @@ def update_loss_limit_handler(event: dict, context: Any) -> dict:
         {
             "change_id": str(result.change.change_id),
             "change_type": result.change.change_type.value,
+            "status": result.change.status.value,
+            "current_limit": result.change.current_limit.value,
             "requested_limit": result.change.requested_limit.value,
             "effective_at": result.change.effective_at.isoformat(),
             "applied_immediately": result.applied_immediately,

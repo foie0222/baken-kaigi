@@ -1,7 +1,7 @@
 """負け額限度額取得ユースケース."""
 from dataclasses import dataclass
 
-from src.domain.entities import LossLimitChange, User
+from src.domain.entities import LossLimitChange
 from src.domain.identifiers import UserId
 from src.domain.ports.loss_limit_change_repository import LossLimitChangeRepository
 from src.domain.ports.user_repository import UserRepository

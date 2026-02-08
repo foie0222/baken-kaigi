@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from src.domain.entities import User
-from src.domain.enums import AuthProvider, UserStatus
+from src.domain.enums import AuthProvider
 from src.domain.identifiers import UserId
 from src.domain.value_objects import DateOfBirth, DisplayName, Email, Money
 

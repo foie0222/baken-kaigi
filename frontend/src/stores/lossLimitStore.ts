@@ -5,7 +5,7 @@ import { apiClient } from '../api/client';
 interface LossLimitState {
   lossLimit: number | null;
   totalLossThisMonth: number;
-  remainingLossLimit: number;
+  remainingLossLimit: number | null;
   pendingChange: PendingLossLimitChange | null;
   isLoading: boolean;
   error: string | null;
@@ -17,10 +17,10 @@ interface LossLimitState {
   clearError: () => void;
 }
 
-export const useLossLimitStore = create<LossLimitState>()((set) => ({
+export const useLossLimitStore = create<LossLimitState>()((set, get) => ({
   lossLimit: null,
   totalLossThisMonth: 0,
-  remainingLossLimit: 0,
+  remainingLossLimit: null,
   pendingChange: null,
   isLoading: false,
   error: null,
@@ -57,13 +57,8 @@ export const useLossLimitStore = create<LossLimitState>()((set) => ({
         set({ isLoading: false, error: response.error || '限度額の設定に失敗しました' });
         return;
       }
-      set({
-        lossLimit: amount,
-        totalLossThisMonth: 0,
-        remainingLossLimit: amount,
-        pendingChange: null,
-        isLoading: false,
-      });
+      // サーバーから最新値を取得
+      await get().fetchLossLimit();
     } catch (error) {
       set({
         isLoading: false,
@@ -80,8 +75,15 @@ export const useLossLimitStore = create<LossLimitState>()((set) => ({
         set({ isLoading: false, error: response.error || '限度額の変更リクエストに失敗しました' });
         return null;
       }
-      set({ pendingChange: response.data, isLoading: false });
-      return response.data;
+      const { appliedImmediately, ...changeData } = response.data;
+      if (appliedImmediately) {
+        // 即時反映（減額）の場合、サーバーから最新値を取得
+        await get().fetchLossLimit();
+        return changeData;
+      }
+      // PENDING（増額）の場合、pendingChangeをセット
+      set({ pendingChange: changeData, isLoading: false });
+      return changeData;
     } catch (error) {
       set({
         isLoading: false,

@@ -15,7 +15,8 @@ export function LossLimitAlert() {
     return null;
   }
 
-  const isCritical = remainingLossLimit <= 0;
+  const remaining = remainingLossLimit ?? 0;
+  const isCritical = remaining <= 0;
 
   return (
     <div role="alert" aria-live="assertive" style={{
@@ -35,7 +36,7 @@ export function LossLimitAlert() {
         <span>負け額限度額に到達しました。今月は馬券を購入できません。</span>
       ) : (
         <span>
-          負け額限度額の{Math.round(usageRate)}%に到達しました（残り: {remainingLossLimit.toLocaleString()}円）
+          負け額限度額の{Math.round(usageRate)}%に到達しました（残り: {remaining.toLocaleString()}円）
         </span>
       )}
     </div>

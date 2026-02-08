@@ -426,24 +426,26 @@ export interface BettingRecordFilter {
 
 // 負け額限度額
 export interface LossLimit {
-  lossLimit: number;
+  lossLimit: number | null;
   totalLossThisMonth: number;
-  remainingLossLimit: number;
+  remainingLossLimit: number | null;
   pendingChange: PendingLossLimitChange | null;
 }
 
 export interface PendingLossLimitChange {
+  changeId: string;
   changeType: 'increase' | 'decrease';
-  status: 'pending';
+  status: 'pending' | 'approved' | 'rejected';
   effectiveAt: string;
+  requestedAt: string;
   currentLimit: number;
   requestedLimit: number;
 }
 
 export interface LossLimitCheckResult {
   canPurchase: boolean;
-  remainingLimit: number;
-  warningLevel: 'none' | 'warning' | 'critical';
+  remainingAmount: number | null;
+  warningLevel: 'none' | 'caution' | 'warning';
   message: string;
 }
 
