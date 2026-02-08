@@ -121,6 +121,22 @@ class TestCalculateExpectedValue:
         result = _calculate_expected_value(0, 1, "win")
         assert result["value_rating"] == "データ不足"
 
+    def test_Decimal型のオッズでも正常に計算できる(self):
+        """DynamoDB由来のDecimal型oddsでもTypeErrorにならない."""
+        from decimal import Decimal
+
+        result = _calculate_expected_value(Decimal("100.0"), 10, "win")
+        assert result["expected_return"] == 2.0
+        assert result["value_rating"] == "妙味あり"
+
+    def test_Decimal型のオッズとint人気で計算できる(self):
+        """Decimal型oddsとint型popularityの組み合わせ."""
+        from decimal import Decimal
+
+        result = _calculate_expected_value(Decimal("3.5"), Decimal("5"), "place")
+        assert result["expected_return"] == 1.05
+        assert result["value_rating"] == "適正"
+
 
 class TestCalculateCombinationProbability:
     """組み合わせ確率のテスト."""

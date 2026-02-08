@@ -344,6 +344,8 @@ def _calculate_expected_value(
     Returns:
         期待値分析結果
     """
+    odds = float(odds)
+    popularity = int(popularity)
     if odds <= 0:
         return {
             "estimated_probability": 0,
