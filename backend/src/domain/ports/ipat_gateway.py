@@ -4,6 +4,12 @@ from abc import ABC, abstractmethod
 from ..value_objects import IpatBalance, IpatBetLine, IpatCredentials
 
 
+class IpatGatewayError(Exception):
+    """IPAT ゲートウェイエラー."""
+
+    pass
+
+
 class IpatGateway(ABC):
     """IPAT投票ゲートウェイのインターフェース."""
 

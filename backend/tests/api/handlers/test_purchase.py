@@ -15,7 +15,7 @@ from src.domain.enums import BetType, IpatBetType, IpatVenueCode, PurchaseStatus
 from src.domain.identifiers import CartId, PurchaseId, RaceId, UserId
 from src.domain.value_objects import BetSelection, HorseNumbers, IpatBetLine, IpatCredentials, Money
 from src.infrastructure.providers.in_memory_credentials_provider import InMemoryCredentialsProvider
-from src.infrastructure.providers.jravan_ipat_gateway import IpatGatewayError
+from src.domain.ports import IpatGatewayError
 from src.infrastructure.providers.mock_ipat_gateway import MockIpatGateway
 from src.infrastructure.providers.stub_spending_limit_provider import StubSpendingLimitProvider
 from src.infrastructure.repositories.in_memory_cart_repository import InMemoryCartRepository
@@ -142,7 +142,44 @@ class TestSubmitPurchaseHandler:
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 500
         body = json.loads(result["body"])
-        assert "IPAT" in body["error"]["message"]
+        assert "IPAT通信エラー" in body["error"]["message"]
+
+    def test_投票送信時IpatGatewayError発生で500(self) -> None:
+        cart_repo, _, cred_provider, gateway, _ = _setup_deps()
+
+        cart = Cart(cart_id=CartId("cart-001"), user_id=UserId("user-001"))
+        cart.add_item(
+            race_id=RaceId("202605051211"),
+            race_name="東京11R",
+            bet_selection=BetSelection(
+                bet_type=BetType.WIN,
+                horse_numbers=HorseNumbers.of(1),
+                amount=Money.of(100),
+            ),
+        )
+        cart_repo.save(cart)
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+        # 投票送信時にエラーを発生させる設定
+        gateway.set_submit_error(IpatGatewayError("投票送信失敗"))
+
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 500
+        body = json.loads(result["body"])
+        assert "IPAT通信エラー" in body["error"]["message"]
 
 
 class TestGetPurchaseHistoryHandler:

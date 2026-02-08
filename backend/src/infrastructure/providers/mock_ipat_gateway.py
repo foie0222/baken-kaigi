@@ -4,7 +4,7 @@ from src.domain.value_objects import IpatBalance, IpatBetLine, IpatCredentials
 
 
 class MockIpatGateway(IpatGateway):
-    """IPATゲートウェイのモック実装（テスト用、常に成功）."""
+    """IPATゲートウェイのモック実装（テスト用、エラー設定可能）."""
 
     def __init__(self) -> None:
         """初期化."""
@@ -20,13 +20,13 @@ class MockIpatGateway(IpatGateway):
         self._submit_error = error
 
     def submit_bets(self, credentials: IpatCredentials, bet_lines: list[IpatBetLine]) -> bool:
-        """投票を送信する（常に成功）."""
+        """投票を送信する（エラー設定時は例外送出）."""
         if self._submit_error:
             raise self._submit_error
         return True
 
     def get_balance(self, credentials: IpatCredentials) -> IpatBalance:
-        """残高を取得する（固定値を返す）."""
+        """残高を取得する（エラー設定時は例外送出）."""
         if self._balance_error:
             raise self._balance_error
         return IpatBalance(

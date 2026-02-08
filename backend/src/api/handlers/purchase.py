@@ -1,5 +1,8 @@
 """購入APIハンドラー."""
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from src.api.auth import AuthenticationError, require_authenticated_user_id
 from src.api.dependencies import Dependencies
@@ -20,8 +23,8 @@ from src.application.use_cases.submit_purchase import (
     PurchaseValidationError,
     SubmitPurchaseUseCase,
 )
-from src.infrastructure.providers.jravan_ipat_gateway import IpatGatewayError
 from src.domain.identifiers import PurchaseId
+from src.domain.ports import IpatGatewayError
 
 
 def submit_purchase_handler(event: dict, context: Any) -> dict:
@@ -78,7 +81,8 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
     except IpatSubmissionError as e:
         return internal_error_response(str(e), event=event)
     except IpatGatewayError as e:
-        return internal_error_response(f"IPAT通信エラー: {e}", event=event)
+        logger.error("IpatGatewayError: %s", e)
+        return internal_error_response("IPAT通信エラーが発生しました", event=event)
 
     return success_response(
         {
