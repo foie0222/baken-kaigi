@@ -61,8 +61,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が49個作成されること（API 34 + IPAT 7 + 賭け履歴 4 + 損失制限 4）."""
-        template.resource_count_is("AWS::Lambda::Function", 49)
+        """Lambda関数が43個作成されること（API 34 + IPAT 7 + 賭け履歴 1 + 損失制限 1）."""
+        template.resource_count_is("AWS::Lambda::Function", 43)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること（API用）."""
@@ -362,34 +362,23 @@ class TestApiStack:
             },
         )
 
-    def test_betting_record_endpoints(self, template):
-        """賭け履歴APIのLambda関数が存在すること."""
+    def test_betting_record_endpoint(self, template):
+        """賭け履歴APIの統合Lambda関数が存在すること."""
         template.has_resource_properties(
             "AWS::Lambda::Function",
             {
-                "FunctionName": "baken-kaigi-create-betting-record",
-                "Handler": "src.api.handlers.betting_record.create_betting_record_handler",
+                "FunctionName": "baken-kaigi-betting-record",
+                "Handler": "src.api.handlers.betting_record.betting_record_handler",
             },
         )
+
+    def test_loss_limit_endpoint(self, template):
+        """損失制限APIの統合Lambda関数が存在すること."""
         template.has_resource_properties(
             "AWS::Lambda::Function",
             {
-                "FunctionName": "baken-kaigi-get-betting-records",
-                "Handler": "src.api.handlers.betting_record.get_betting_records_handler",
-            },
-        )
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {
-                "FunctionName": "baken-kaigi-get-betting-summary",
-                "Handler": "src.api.handlers.betting_record.get_betting_summary_handler",
-            },
-        )
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {
-                "FunctionName": "baken-kaigi-settle-betting-record",
-                "Handler": "src.api.handlers.betting_record.settle_betting_record_handler",
+                "FunctionName": "baken-kaigi-loss-limit",
+                "Handler": "src.api.handlers.loss_limit.loss_limit_handler",
             },
         )
 

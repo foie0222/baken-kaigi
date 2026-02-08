@@ -8,6 +8,7 @@ from src.api.dependencies import Dependencies
 from src.api.handlers.loss_limit import (
     check_loss_limit_handler,
     get_loss_limit_handler,
+    loss_limit_handler,
     set_loss_limit_handler,
     update_loss_limit_handler,
 )
@@ -262,4 +263,49 @@ class TestCheckLossLimit:
     def test_amountが0以下で400(self):
         event = _make_event(sub="user-123", query={"amount": "0"})
         resp = check_loss_limit_handler(event, None)
+        assert resp["statusCode"] == 400
+
+
+class TestLossLimitRouter:
+    """loss_limit_handler ルーティングのテスト."""
+
+    def test_GET_loss_limitでgetに振り分け(self):
+        repo = Dependencies.get_user_repository()
+        repo.save(_make_user(loss_limit=Money.of(50000)))
+        event = _make_event(sub="user-123")
+        event["resource"] = "/users/loss-limit"
+        event["httpMethod"] = "GET"
+        resp = loss_limit_handler(event, None)
+        assert resp["statusCode"] == 200
+
+    def test_POST_loss_limitでsetに振り分け(self):
+        repo = Dependencies.get_user_repository()
+        repo.save(_make_user())
+        event = _make_event(sub="user-123", body={"amount": 50000})
+        event["resource"] = "/users/loss-limit"
+        event["httpMethod"] = "POST"
+        resp = loss_limit_handler(event, None)
+        assert resp["statusCode"] == 201
+
+    def test_PUT_loss_limitでupdateに振り分け(self):
+        repo = Dependencies.get_user_repository()
+        repo.save(_make_user(loss_limit=Money.of(50000)))
+        event = _make_event(sub="user-123", body={"amount": 30000})
+        event["resource"] = "/users/loss-limit"
+        event["httpMethod"] = "PUT"
+        resp = loss_limit_handler(event, None)
+        assert resp["statusCode"] == 200
+
+    def test_GET_loss_limit_checkでcheckに振り分け(self):
+        repo = Dependencies.get_user_repository()
+        repo.save(_make_user(loss_limit=Money.of(50000)))
+        event = _make_event(sub="user-123", query={"amount": "5000"})
+        event["resource"] = "/users/loss-limit/check"
+        event["httpMethod"] = "GET"
+        resp = loss_limit_handler(event, None)
+        assert resp["statusCode"] == 200
+
+    def test_不明なルートで400(self):
+        event = {"resource": "/unknown", "httpMethod": "GET"}
+        resp = loss_limit_handler(event, None)
         assert resp["statusCode"] == 400

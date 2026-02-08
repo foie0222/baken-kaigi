@@ -17,6 +17,10 @@ from .pace_analysis import (
     _assess_race_difficulty,
     _predict_pace,
 )
+# ツール実行結果をキャプチャする変数（agent.py がセパレータ付与に使用）
+_last_proposal_result: dict | None = None
+
+
 from .risk_analysis import (
     _assess_skip_recommendation,
 )
@@ -329,6 +333,58 @@ def _generate_bet_candidates(
 
     bets = []
     for bet_type in bet_types:
+        # 単勝/複勝は軸馬のみで買い目生成（相手馬不要）
+        if bet_type in ("win", "place"):
+            for axis in axis_horses:
+                axis_hn = axis["horse_number"]
+                axis_runner = runners_map.get(axis_hn, {})
+                axis_pop = axis_runner.get("popularity") or 99
+                axis_odds = axis_runner.get("odds") or 0
+
+                ev = _calculate_expected_value(
+                    axis_odds, axis_pop, bet_type, total_runners, race_conditions
+                )
+
+                if axis["composite_score"] >= 70:
+                    confidence = "high"
+                elif axis["composite_score"] >= 50:
+                    confidence = "medium"
+                else:
+                    confidence = "low"
+
+                bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
+                axis_name = axis_runner.get("horse_name", "")
+
+                # AI順位を取得
+                ai_rank_map = {
+                    p.get("horse_number"): p.get("rank", 99)
+                    for p in ai_predictions
+                }
+                axis_ai = ai_rank_map.get(axis_hn, 99)
+                parts = []
+                if axis_ai <= 3:
+                    parts.append(f"AI{axis_ai}位")
+                ev_val = ev.get("expected_return", 0)
+                rating = ev.get("value_rating", "")
+                if rating:
+                    parts.append(f"期待値{ev_val}（{rating}）")
+                parts.append(f"{bet_type_name} {axis_hn}番{axis_name}")
+                reasoning = "。".join(parts)
+
+                bets.append({
+                    "bet_type": bet_type,
+                    "bet_type_name": bet_type_name,
+                    "horse_numbers": [axis_hn],
+                    "bet_display": str(axis_hn),
+                    "confidence": confidence,
+                    "expected_value": ev.get("expected_return", 0),
+                    "composite_odds": axis_odds,
+                    "reasoning": reasoning,
+                    "bet_count": 1,
+                })
+            continue
+
+
         for axis in axis_horses:
             axis_hn = axis["horse_number"]
             axis_runner = runners_map.get(axis_hn, {})
@@ -340,10 +396,6 @@ def _generate_bet_candidates(
                 partner_runner = runners_map.get(partner_hn, {})
                 partner_pop = partner_runner.get("popularity") or 99
                 partner_odds = partner_runner.get("odds") or 0
-
-                if bet_type in ("win", "place"):
-                    # 単勝/複勝は軸馬のみ
-                    continue
 
                 # 馬番表示
                 if bet_type in ("quinella", "quinella_place"):
@@ -829,6 +881,8 @@ def generate_bet_proposal(
         - analysis_comment: 分析ナラティブ
         - disclaimer: 免責事項
     """
+    global _last_proposal_result
+    _last_proposal_result = None
     try:
         # データ収集
         from .race_data import _fetch_race_detail, _extract_race_conditions
@@ -857,7 +911,7 @@ def generate_bet_proposal(
         # 脚質データ取得
         running_styles = _get_running_styles(race_id)
 
-        return _generate_bet_proposal_impl(
+        result = _generate_bet_proposal_impl(
             race_id=race_id,
             budget=budget,
             runners_data=runners_data,
@@ -870,6 +924,9 @@ def generate_bet_proposal(
             preferred_bet_types=preferred_bet_types,
             axis_horses=axis_horses,
         )
+        if "error" not in result:
+            _last_proposal_result = result
+        return result
     except requests.RequestException as e:
         return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:

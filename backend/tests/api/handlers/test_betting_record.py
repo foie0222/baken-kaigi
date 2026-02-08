@@ -4,6 +4,7 @@ from datetime import date
 
 from src.api.dependencies import Dependencies
 from src.api.handlers.betting_record import (
+    betting_record_handler,
     create_betting_record_handler,
     get_betting_records_handler,
     get_betting_summary_handler,
@@ -323,4 +324,61 @@ class TestSettleBettingRecordHandler:
             body={"payout": -100},
         )
         result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+
+class TestBettingRecordRouter:
+    """betting_record_handler ルーティングのテスト."""
+
+    def test_POST_betting_recordsでcreateに振り分け(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R 日本ダービー",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        event["resource"] = "/betting-records"
+        event["httpMethod"] = "POST"
+        result = betting_record_handler(event, None)
+        assert result["statusCode"] == 201
+
+    def test_GET_betting_recordsでlistに振り分け(self) -> None:
+        _setup_deps()
+        event = _auth_event()
+        event["resource"] = "/betting-records"
+        event["httpMethod"] = "GET"
+        result = betting_record_handler(event, None)
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body == []
+
+    def test_GET_betting_records_summaryでsummaryに振り分け(self) -> None:
+        _setup_deps()
+        event = _auth_event()
+        event["resource"] = "/betting-records/summary"
+        event["httpMethod"] = "GET"
+        result = betting_record_handler(event, None)
+        assert result["statusCode"] == 200
+
+    def test_PUT_settleでsettleに振り分け(self) -> None:
+        repo = _setup_deps()
+        record = _make_record()
+        repo.save(record)
+
+        event = _auth_event(
+            path_params={"record_id": record.record_id.value},
+            body={"payout": 500},
+        )
+        event["resource"] = "/betting-records/{record_id}/settle"
+        event["httpMethod"] = "PUT"
+        result = betting_record_handler(event, None)
+        assert result["statusCode"] == 200
+
+    def test_不明なルートで400(self) -> None:
+        event = {"resource": "/unknown", "httpMethod": "GET"}
+        result = betting_record_handler(event, None)
         assert result["statusCode"] == 400
