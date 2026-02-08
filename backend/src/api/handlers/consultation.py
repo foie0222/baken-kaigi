@@ -42,6 +42,9 @@ def start_consultation(event: dict, context: Any) -> dict:
     if "cart_id" not in body:
         return bad_request_response("cart_id is required", event=event)
 
+    if not isinstance(body["cart_id"], str):
+        return bad_request_response("cart_id must be a string", event=event)
+
     # 認証ユーザーID（オプション）
     user_id = get_authenticated_user_id(event)
 
@@ -153,6 +156,9 @@ def send_message(event: dict, context: Any) -> dict:
 
     if "content" not in body:
         return bad_request_response("content is required", event=event)
+
+    if not isinstance(body["content"], str):
+        return bad_request_response("content must be a string", event=event)
 
     # ユースケース実行
     session_repo = Dependencies.get_session_repository()
