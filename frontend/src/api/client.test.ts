@@ -457,6 +457,85 @@ describe('ApiClient', () => {
     })
   })
 
+  describe('購入レスポンスの安全な変換', () => {
+    it('undefined/nullフィールドでも例外が発生しない', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          purchase_id: null,
+          status: undefined,
+          total_amount: undefined,
+          created_at: null,
+        }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.submitPurchase('cart-1', '20260207', '05', 11)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.purchaseId).toBe('')
+      expect(result.data?.status).toBe('PENDING')
+      expect(result.data?.totalAmount).toBe(0)
+    })
+
+    it('正常なstatusが正しく変換される', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          purchase_id: 'p-001',
+          status: 'completed',
+          total_amount: 1000,
+          created_at: '2026-02-07T10:00:00',
+        }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.submitPurchase('cart-1', '20260207', '05', 11)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.status).toBe('COMPLETED')
+    })
+
+    it('不正なstatusはPENDINGにフォールバックする', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          purchase_id: 'p-001',
+          status: 'unknown_status',
+          total_amount: 1000,
+          created_at: '2026-02-07T10:00:00',
+        }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.submitPurchase('cart-1', '20260207', '05', 11)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.status).toBe('PENDING')
+    })
+
+    it('updatedAtが空文字のときcreatedAtにフォールバックする', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          purchase_id: 'p-001',
+          cart_id: 'cart-1',
+          status: 'completed',
+          total_amount: 1000,
+          bet_line_count: 2,
+          created_at: '2026-02-07T10:00:00',
+          updated_at: '',
+        }]),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getPurchaseHistory()
+
+      expect(result.success).toBe(true)
+      expect(result.data?.[0].updatedAt).toBe('2026-02-07T10:00:00')
+    })
+  })
+
   describe('AI買い目提案 (requestBetProposal)', () => {
     const mockRunners = [
       { horse_number: 1, horse_name: 'テスト馬1', odds: 3.5, popularity: 1, frame_number: 1 },
