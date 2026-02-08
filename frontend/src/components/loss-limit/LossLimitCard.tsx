@@ -129,14 +129,21 @@ export function LossLimitCard() {
         </div>
 
         {/* プログレスバー */}
-        <div style={{
-          width: '100%',
-          height: 8,
-          background: '#e5e7eb',
-          borderRadius: 4,
-          marginBottom: 8,
-          overflow: 'hidden',
-        }}>
+        <div
+          role="progressbar"
+          aria-valuenow={Math.round(usageRate)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="限度額使用率"
+          style={{
+            width: '100%',
+            height: 8,
+            background: '#e5e7eb',
+            borderRadius: 4,
+            marginBottom: 8,
+            overflow: 'hidden',
+          }}
+        >
           <div style={{
             width: `${Math.min(usageRate, 100)}%`,
             height: '100%',
@@ -179,7 +186,7 @@ export function LossLimitCard() {
               fontSize: 12,
               fontWeight: 600,
             }}>
-              PENDING
+              保留中
             </span>
             <span style={{ fontWeight: 600 }}>
               限度額{pendingChange.changeType === 'increase' ? '引き上げ' : '引き下げ'}リクエスト
@@ -316,7 +323,7 @@ export function LossLimitCard() {
           </form>
 
           <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>
-            引き下げは即時反映、引き上げには待機期間があります。
+            引き下げは即時反映、引き上げには7日間の待機期間があります。
           </p>
         </div>
       )}

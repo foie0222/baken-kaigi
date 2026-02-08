@@ -384,18 +384,19 @@ checkLimit(user: User, betAmount: Money): LossLimitCheckResult
 #### processPendingChanges
 
 ```
-processPendingChanges(): List<LossLimitChange>
+processPendingChanges(changes: List<LossLimitChange>, user: User, now: DateTime?): void
 
 入力:
-  - なし
+  - changes: 処理対象の変更リクエストリスト
+  - user: 限度額を適用するユーザー
+  - now: 判定基準日時（省略時は現在時刻）
 
 処理:
-  1. PENDING状態のLossLimitChangeを全件取得
-  2. effectiveAtが現在時刻以前のものをフィルタ
-  3. 対象の変更を承認し、ユーザーの限度額を更新
+  1. 各changeについてisEffective(now)で有効期限到達を判定
+  2. 有効な変更についてユーザーの限度額を更新
 
 出力:
-  - 処理されたLossLimitChangeのリスト
+  - なし（ユーザーエンティティを直接更新）
 ```
 
 ---

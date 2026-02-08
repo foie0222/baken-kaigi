@@ -1,14 +1,12 @@
 """負け額限度額設定ユースケース."""
 from dataclasses import dataclass
 
+from src.domain.constants import LOSS_LIMIT_MAX, LOSS_LIMIT_MIN
 from src.domain.identifiers import UserId
 from src.domain.ports.loss_limit_change_repository import LossLimitChangeRepository
 from src.domain.ports.user_repository import UserRepository
 from src.domain.services import LossLimitService
 from src.domain.value_objects import Money
-
-MIN_LOSS_LIMIT = 1000
-MAX_LOSS_LIMIT = 1000000
 
 
 class UserNotFoundError(Exception):
@@ -66,9 +64,9 @@ class SetLossLimitUseCase:
             LossLimitAlreadySetError: 既に限度額が設定済みの場合
             InvalidLossLimitAmountError: 無効な金額の場合
         """
-        if amount < MIN_LOSS_LIMIT or amount > MAX_LOSS_LIMIT:
+        if amount < LOSS_LIMIT_MIN or amount > LOSS_LIMIT_MAX:
             raise InvalidLossLimitAmountError(
-                f"Loss limit must be between {MIN_LOSS_LIMIT} and {MAX_LOSS_LIMIT}"
+                f"Loss limit must be between {LOSS_LIMIT_MIN} and {LOSS_LIMIT_MAX}"
             )
 
         user = self._user_repository.find_by_id(user_id)

@@ -1,18 +1,11 @@
-import { useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useLossLimitStore } from '../../stores/lossLimitStore';
 
 export function LossLimitAlert() {
   const { isAuthenticated } = useAuthStore();
-  const { lossLimit, totalLossThisMonth, remainingLossLimit, fetchLossLimit } = useLossLimitStore();
+  const { lossLimit, totalLossThisMonth, remainingLossLimit } = useLossLimitStore();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchLossLimit();
-    }
-  }, [isAuthenticated, fetchLossLimit]);
-
-  if (!isAuthenticated || lossLimit === null || lossLimit === 0) {
+  if (!isAuthenticated || lossLimit === null || lossLimit <= 0) {
     return null;
   }
 
@@ -25,7 +18,7 @@ export function LossLimitAlert() {
   const isCritical = remainingLossLimit <= 0;
 
   return (
-    <div style={{
+    <div role="alert" aria-live="assertive" style={{
       background: isCritical
         ? 'linear-gradient(90deg, #dc2626, #b91c1c)'
         : 'linear-gradient(90deg, #f59e0b, #d97706)',
@@ -37,7 +30,7 @@ export function LossLimitAlert() {
       alignItems: 'center',
       gap: 8,
     }}>
-      <span>{isCritical ? '!' : '!'}</span>
+      <span aria-hidden="true">{isCritical ? '!!' : '!'}</span>
       {isCritical ? (
         <span>負け額限度額に到達しました。今月は馬券を購入できません。</span>
       ) : (

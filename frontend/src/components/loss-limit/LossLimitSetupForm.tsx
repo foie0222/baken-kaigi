@@ -72,25 +72,30 @@ export function LossLimitSetupForm() {
         </p>
 
         {(error || validationError) && (
-          <div style={{
-            background: '#fef2f2',
-            color: '#c62828',
-            padding: 12,
-            borderRadius: 8,
-            marginBottom: 16,
-            fontSize: 14,
-          }}>
+          <div
+            id="loss-limit-error"
+            role="alert"
+            style={{
+              background: '#fef2f2',
+              color: '#c62828',
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 16,
+              fontSize: 14,
+            }}
+          >
             {validationError || error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>
+            <label htmlFor="loss-limit-amount" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>
               月間限度額
             </label>
             <div style={{ position: 'relative' }}>
               <input
+                id="loss-limit-amount"
                 type="number"
                 value={amount}
                 onChange={(e) => {
@@ -102,6 +107,7 @@ export function LossLimitSetupForm() {
                 max={MAX_AMOUNT}
                 step={STEP}
                 inputMode="numeric"
+                aria-describedby={(error || validationError) ? 'loss-limit-error' : undefined}
                 style={{
                   width: '100%',
                   padding: '12px 36px 12px 12px',

@@ -6,6 +6,7 @@ import pytest
 from src.application.use_cases.update_loss_limit import (
     InvalidLossLimitAmountError,
     LossLimitNotSetError,
+    PendingChangeExistsError,
     UpdateLossLimitUseCase,
     UserNotFoundError,
 )
@@ -106,3 +107,16 @@ class TestUpdateLossLimitUseCase:
 
         with pytest.raises(UserNotFoundError):
             use_case.execute(UserId("nonexistent"), 50000)
+
+    def test_PENDING中に新規リクエストでエラー(self):
+        user_repo = InMemoryUserRepository()
+        change_repo = InMemoryLossLimitChangeRepository()
+        user_repo.save(_make_user(loss_limit=Money.of(50000)))
+        use_case = UpdateLossLimitUseCase(user_repo, change_repo)
+
+        # 増額リクエスト（PENDING状態になる）
+        use_case.execute(UserId("user-123"), 100000)
+
+        # さらに変更リクエストを出すとエラー
+        with pytest.raises(PendingChangeExistsError):
+            use_case.execute(UserId("user-123"), 80000)

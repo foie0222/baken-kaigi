@@ -146,3 +146,34 @@ class TestLossLimitChangeIsEffective:
         )
         change.reject()
         assert change.is_effective() is False
+
+    def test_now引数で有効期限判定できる(self):
+        change = LossLimitChange.create(
+            user_id=UserId("user-123"),
+            current_limit=Money.of(50000),
+            requested_limit=Money.of(100000),
+        )
+        change.approve()
+        # effective_at は 7日後なので、8日後の now を渡すと有効
+        future = datetime.now(timezone.utc) + timedelta(days=8)
+        assert change.is_effective(now=future) is True
+
+    def test_now引数でeffective_at未到達なら無効(self):
+        change = LossLimitChange.create(
+            user_id=UserId("user-123"),
+            current_limit=Money.of(50000),
+            requested_limit=Money.of(100000),
+        )
+        change.approve()
+        # effective_at は 7日後なので、6日後の now を渡すと無効
+        before = datetime.now(timezone.utc) + timedelta(days=6)
+        assert change.is_effective(now=before) is False
+
+    def test_now引数なしは後方互換(self):
+        change = LossLimitChange.create(
+            user_id=UserId("user-123"),
+            current_limit=Money.of(100000),
+            requested_limit=Money.of(50000),
+        )
+        # 減額は即時effective - now引数なしでも動作する
+        assert change.is_effective() is True

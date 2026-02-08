@@ -95,8 +95,9 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is True
-        assert result.remaining_limit is None
+        assert result.remaining_amount is None
         assert result.warning_level == WarningLevel.NONE
+        assert result.message == "限度額が設定されていません"
 
     def test_limit範囲内で購入可能(self):
         service = LossLimitService()
@@ -106,7 +107,7 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is True
-        assert result.remaining_limit == Money.of(50000)
+        assert result.remaining_amount == Money.of(50000)
         assert result.warning_level == WarningLevel.NONE
 
     def test_limit超過で購入不可(self):
@@ -118,8 +119,9 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is False
-        assert result.remaining_limit == Money.of(5000)
+        assert result.remaining_amount == Money.of(5000)
         assert result.warning_level == WarningLevel.WARNING
+        assert result.message == "限度額を超過しています"
 
     def test_limit80パーセント接近で注意(self):
         service = LossLimitService()
@@ -142,7 +144,31 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is True
-        assert result.remaining_limit == Money.of(10000)
+        assert result.remaining_amount == Money.of(10000)
+
+    def test_80パーセント境界値_ちょうど80パーセントでCAUTION(self):
+        service = LossLimitService()
+        user = _make_user()
+        user.set_loss_limit(Money.of(100000))
+        user.record_loss(Money.of(70000))
+
+        # (70000 + 10000) / 100000 = 0.8 → CAUTION
+        result = service.check_limit(user, Money.of(10000))
+
+        assert result.can_purchase is True
+        assert result.warning_level == WarningLevel.CAUTION
+
+    def test_80パーセント境界値_80パーセント未満ギリギリでNONE(self):
+        service = LossLimitService()
+        user = _make_user()
+        user.set_loss_limit(Money.of(100000))
+        user.record_loss(Money.of(69000))
+
+        # (69000 + 10000) / 100000 = 0.79 → NONE
+        result = service.check_limit(user, Money.of(10000))
+
+        assert result.can_purchase is True
+        assert result.warning_level == WarningLevel.NONE
 
     def test_残り限度額ゼロで購入不可(self):
         service = LossLimitService()
@@ -153,8 +179,9 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(100))
 
         assert result.can_purchase is False
-        assert result.remaining_limit == Money.zero()
+        assert result.remaining_amount == Money.zero()
         assert result.warning_level == WarningLevel.WARNING
+        assert result.message == "限度額に達しています"
 
 
 class TestProcessPendingChanges:
@@ -170,11 +197,11 @@ class TestProcessPendingChanges:
             current_limit=Money.of(50000),
             requested_limit=Money.of(100000),
         )
-        # effective_atを過去に設定
-        change.effective_at = datetime.now(timezone.utc) - timedelta(hours=1)
         change.approve()
 
-        service.process_pending_changes([change], user)
+        # effective_atは7日後なので、8日後のnowを渡す
+        future = datetime.now(timezone.utc) + timedelta(days=8)
+        service.process_pending_changes([change], user, now=future)
 
         assert user.loss_limit == Money.of(100000)
 
@@ -207,5 +234,14 @@ class TestProcessPendingChanges:
         change.reject()
 
         service.process_pending_changes([change], user)
+
+        assert user.loss_limit == Money.of(50000)
+
+    def test_空リストの場合は何もしない(self):
+        service = LossLimitService()
+        user = _make_user()
+        user.set_loss_limit(Money.of(50000))
+
+        service.process_pending_changes([], user)
 
         assert user.loss_limit == Money.of(50000)

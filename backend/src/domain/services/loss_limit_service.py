@@ -50,17 +50,19 @@ class LossLimitService:
         if user.loss_limit is None:
             return LossLimitCheckResult(
                 can_purchase=True,
-                remaining_limit=None,
+                remaining_amount=None,
                 warning_level=WarningLevel.NONE,
+                message="限度額が設定されていません",
             )
 
         remaining = user.get_remaining_loss_limit()
 
-        if remaining is None or remaining == Money.zero():
+        if remaining == Money.zero():
             return LossLimitCheckResult(
                 can_purchase=False,
-                remaining_limit=remaining or Money.zero(),
+                remaining_amount=Money.zero(),
                 warning_level=WarningLevel.WARNING,
+                message="限度額に達しています",
             )
 
         # 賭けた場合の累計損失を計算
@@ -68,25 +70,37 @@ class LossLimitService:
         can_purchase = potential_total.is_less_than_or_equal(user.loss_limit)
 
         if not can_purchase:
-            warning_level = WarningLevel.WARNING
-        else:
-            # 使用率で警告レベルを判定
-            usage_ratio = potential_total.value / user.loss_limit.value
-            if usage_ratio >= 0.8:
-                warning_level = WarningLevel.CAUTION
-            else:
-                warning_level = WarningLevel.NONE
+            return LossLimitCheckResult(
+                can_purchase=False,
+                remaining_amount=remaining,
+                warning_level=WarningLevel.WARNING,
+                message="限度額を超過しています",
+            )
+
+        # 使用率で警告レベルを判定
+        usage_ratio = potential_total.value / user.loss_limit.value
+        if usage_ratio >= 0.8:
+            return LossLimitCheckResult(
+                can_purchase=True,
+                remaining_amount=remaining,
+                warning_level=WarningLevel.CAUTION,
+                message=f"限度額の80%を超えています（残り: {remaining.value}円）",
+            )
 
         return LossLimitCheckResult(
-            can_purchase=can_purchase,
-            remaining_limit=remaining,
-            warning_level=warning_level,
+            can_purchase=True,
+            remaining_amount=remaining,
+            warning_level=WarningLevel.NONE,
+            message=f"購入可能です（残り: {remaining.value}円）",
         )
 
     def process_pending_changes(
-        self, changes: list[LossLimitChange], user: User
+        self,
+        changes: list[LossLimitChange],
+        user: User,
+        now: datetime | None = None,
     ) -> None:
         """待機期間完了した変更を適用する."""
         for change in changes:
-            if change.is_effective():
+            if change.is_effective(now):
                 user.set_loss_limit(change.requested_limit)

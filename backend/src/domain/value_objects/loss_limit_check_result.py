@@ -12,5 +12,6 @@ class LossLimitCheckResult:
     """負け額限度額のチェック結果."""
 
     can_purchase: bool
-    remaining_limit: Money | None
+    remaining_amount: Money | None
     warning_level: WarningLevel
+    message: str

@@ -28,6 +28,7 @@ from src.application.use_cases.set_loss_limit import (
 )
 from src.application.use_cases.update_loss_limit import (
     LossLimitNotSetError,
+    PendingChangeExistsError,
     UpdateLossLimitUseCase,
 )
 from src.application.use_cases.update_loss_limit import (
@@ -76,7 +77,7 @@ def get_loss_limit_handler(event: dict, context: Any) -> dict:
     return success_response(
         {
             "loss_limit": result.loss_limit.value if result.loss_limit else None,
-            "remaining_limit": result.remaining_limit.value if result.remaining_limit else None,
+            "remaining_amount": result.remaining_amount.value if result.remaining_amount else None,
             "total_loss_this_month": result.total_loss_this_month.value,
             "pending_changes": pending_changes,
         },
@@ -170,7 +171,13 @@ def update_loss_limit_handler(event: dict, context: Any) -> dict:
         return not_found_response("User", event=event)
     except LossLimitNotSetError:
         return bad_request_response("Loss limit is not set yet", event=event)
+    except PendingChangeExistsError:
+        return bad_request_response(
+            "A pending change request already exists", event=event
+        )
     except UpdateInvalidAmountError as e:
+        return bad_request_response(str(e), event=event)
+    except ValueError as e:
         return bad_request_response(str(e), event=event)
 
     return success_response(
@@ -224,8 +231,9 @@ def check_loss_limit_handler(event: dict, context: Any) -> dict:
     return success_response(
         {
             "can_purchase": result.can_purchase,
-            "remaining_limit": result.remaining_limit.value if result.remaining_limit else None,
+            "remaining_amount": result.remaining_amount.value if result.remaining_amount else None,
             "warning_level": result.warning_level.value,
+            "message": result.message,
         },
         event=event,
     )

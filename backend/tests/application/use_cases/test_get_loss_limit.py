@@ -40,7 +40,7 @@ class TestGetLossLimitUseCase:
         result = use_case.execute(UserId("user-123"))
 
         assert result.loss_limit is None
-        assert result.remaining_limit is None
+        assert result.remaining_amount is None
         assert result.total_loss_this_month == Money.zero()
         assert result.pending_changes == []
 
@@ -54,7 +54,7 @@ class TestGetLossLimitUseCase:
         result = use_case.execute(UserId("user-123"))
 
         assert result.loss_limit == Money.of(50000)
-        assert result.remaining_limit == Money.of(40000)
+        assert result.remaining_amount == Money.of(40000)
         assert result.total_loss_this_month == Money.of(10000)
 
     def test_保留中の変更リクエストがある場合(self):

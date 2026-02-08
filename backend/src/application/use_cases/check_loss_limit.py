@@ -21,8 +21,9 @@ class CheckLossLimitResult:
     """限度額チェック結果."""
 
     can_purchase: bool
-    remaining_limit: Money | None
+    remaining_amount: Money | None
     warning_level: WarningLevel
+    message: str
 
 
 class CheckLossLimitUseCase:
@@ -55,6 +56,7 @@ class CheckLossLimitUseCase:
 
         return CheckLossLimitResult(
             can_purchase=result.can_purchase,
-            remaining_limit=result.remaining_limit,
+            remaining_amount=result.remaining_amount,
             warning_level=result.warning_level,
+            message=result.message,
         )

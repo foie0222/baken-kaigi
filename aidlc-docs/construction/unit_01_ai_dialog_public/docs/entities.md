@@ -199,7 +199,7 @@ IN_PROGRESS ---[end()]--> COMPLETED
 
 ```
 PENDING ---[process() 7日経過]--> APPROVED
-PENDING ---[cancel()]--> REJECTED
+PENDING ---[reject()]--> REJECTED
 ```
 
 ---

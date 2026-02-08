@@ -71,7 +71,7 @@ class TestGetLossLimit:
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
         assert body["loss_limit"] == 50000
-        assert body["remaining_limit"] == 40000
+        assert body["remaining_amount"] == 40000
         assert body["total_loss_this_month"] == 10000
         assert body["pending_changes"] == []
 
@@ -83,7 +83,7 @@ class TestGetLossLimit:
         assert resp["statusCode"] == 200
         body = json.loads(resp["body"])
         assert body["loss_limit"] is None
-        assert body["remaining_limit"] is None
+        assert body["remaining_amount"] is None
 
     def test_保留中の変更リクエストを含む(self):
         repo = Dependencies.get_user_repository()
@@ -194,6 +194,29 @@ class TestUpdateLossLimit:
         event = _make_event(sub="user-123", body={"amount": 50000})
         resp = update_loss_limit_handler(event, None)
         assert resp["statusCode"] == 400
+
+    def test_同額変更で400(self):
+        repo = Dependencies.get_user_repository()
+        repo.save(_make_user(loss_limit=Money.of(50000)))
+        event = _make_event(sub="user-123", body={"amount": 50000})
+        resp = update_loss_limit_handler(event, None)
+        assert resp["statusCode"] == 400
+        body = json.loads(resp["body"])
+        assert "same" in body["error"]["message"].lower()
+
+    def test_PENDING中に新規リクエストで400(self):
+        repo = Dependencies.get_user_repository()
+        repo.save(_make_user(loss_limit=Money.of(50000)))
+        # 増額リクエスト（PENDING状態になる）
+        event = _make_event(sub="user-123", body={"amount": 100000})
+        resp = update_loss_limit_handler(event, None)
+        assert resp["statusCode"] == 200
+        # さらに変更リクエストを出すと400
+        event2 = _make_event(sub="user-123", body={"amount": 80000})
+        resp2 = update_loss_limit_handler(event2, None)
+        assert resp2["statusCode"] == 400
+        body = json.loads(resp2["body"])
+        assert "pending" in body["error"]["message"].lower()
 
 
 class TestCheckLossLimit:

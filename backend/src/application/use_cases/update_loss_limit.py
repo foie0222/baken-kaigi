@@ -1,6 +1,7 @@
 """負け額限度額変更ユースケース."""
 from dataclasses import dataclass
 
+from src.domain.constants import LOSS_LIMIT_MAX, LOSS_LIMIT_MIN
 from src.domain.entities import LossLimitChange
 from src.domain.enums import LossLimitChangeType
 from src.domain.identifiers import UserId
@@ -8,9 +9,6 @@ from src.domain.ports.loss_limit_change_repository import LossLimitChangeReposit
 from src.domain.ports.user_repository import UserRepository
 from src.domain.services import LossLimitService
 from src.domain.value_objects import Money
-
-MIN_LOSS_LIMIT = 1000
-MAX_LOSS_LIMIT = 1000000
 
 
 class UserNotFoundError(Exception):
@@ -29,6 +27,12 @@ class LossLimitNotSetError(Exception):
 
 class InvalidLossLimitAmountError(Exception):
     """無効な限度額のエラー."""
+
+    pass
+
+
+class PendingChangeExistsError(Exception):
+    """保留中の変更リクエストが存在するエラー."""
 
     pass
 
@@ -69,9 +73,9 @@ class UpdateLossLimitUseCase:
             LossLimitNotSetError: 限度額が未設定の場合
             InvalidLossLimitAmountError: 無効な金額の場合
         """
-        if new_amount < MIN_LOSS_LIMIT or new_amount > MAX_LOSS_LIMIT:
+        if new_amount < LOSS_LIMIT_MIN or new_amount > LOSS_LIMIT_MAX:
             raise InvalidLossLimitAmountError(
-                f"Loss limit must be between {MIN_LOSS_LIMIT} and {MAX_LOSS_LIMIT}"
+                f"Loss limit must be between {LOSS_LIMIT_MIN} and {LOSS_LIMIT_MAX}"
             )
 
         user = self._user_repository.find_by_id(user_id)
@@ -80,6 +84,12 @@ class UpdateLossLimitUseCase:
 
         if user.loss_limit is None:
             raise LossLimitNotSetError("Loss limit is not set yet")
+
+        pending = self._change_repository.find_pending_by_user_id(user_id)
+        if pending:
+            raise PendingChangeExistsError(
+                "A pending change request already exists"
+            )
 
         new_limit = Money.of(new_amount)
         change = self._loss_limit_service.request_change(user, new_limit)

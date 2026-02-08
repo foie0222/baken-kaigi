@@ -297,6 +297,10 @@ class BakenKaigiApiStack(Stack):
                 name="user_id",
                 type=dynamodb.AttributeType.STRING,
             ),
+            sort_key=dynamodb.Attribute(
+                name="requested_at",
+                type=dynamodb.AttributeType.STRING,
+            ),
         )
 
         # Purchase Order テーブル
@@ -2142,8 +2146,15 @@ class BakenKaigiApiStack(Stack):
             session_table.grant_read_write_data(fn)
 
         # 損失制限関連 Lambda に User テーブルと LossLimitChange テーブルへのアクセス権限を付与
-        loss_limit_functions = [get_loss_limit_fn, set_loss_limit_fn, update_loss_limit_fn, check_loss_limit_fn]
-        for fn in loss_limit_functions:
+        # 読み取り専用 Lambda
+        for fn in [get_loss_limit_fn, check_loss_limit_fn]:
+            user_table.grant_read_data(fn)
+
+        # get_loss_limit は change テーブルも読み取り
+        loss_limit_change_table.grant_read_data(get_loss_limit_fn)
+
+        # 書き込みが必要な Lambda
+        for fn in [set_loss_limit_fn, update_loss_limit_fn]:
             user_table.grant_read_write_data(fn)
             loss_limit_change_table.grant_read_write_data(fn)
 

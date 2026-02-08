@@ -21,7 +21,7 @@ class GetLossLimitResult:
     """負け額限度額取得結果."""
 
     loss_limit: Money | None
-    remaining_limit: Money | None
+    remaining_amount: Money | None
     total_loss_this_month: Money
     pending_changes: list[LossLimitChange]
 
@@ -58,7 +58,7 @@ class GetLossLimitUseCase:
 
         return GetLossLimitResult(
             loss_limit=user.loss_limit,
-            remaining_limit=user.get_remaining_loss_limit(),
+            remaining_amount=user.get_remaining_loss_limit(),
             total_loss_this_month=user.total_loss_this_month,
             pending_changes=pending_changes,
         )

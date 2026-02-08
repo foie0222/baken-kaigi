@@ -67,8 +67,10 @@ class LossLimitChange:
             raise ValueError("Change is not pending")
         self.status = LossLimitChangeStatus.REJECTED
 
-    def is_effective(self) -> bool:
+    def is_effective(self, now: datetime | None = None) -> bool:
         """変更が有効かどうか判定する."""
         if self.status != LossLimitChangeStatus.APPROVED:
             return False
-        return datetime.now(timezone.utc) >= self.effective_at
+        if now is None:
+            now = datetime.now(timezone.utc)
+        return now >= self.effective_at
