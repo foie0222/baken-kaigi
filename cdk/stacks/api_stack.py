@@ -1386,8 +1386,8 @@ class BakenKaigiApiStack(Stack):
             authorizer=cognito_authorizer,
         )
 
-        # /betting-records/{recordId}/settle
-        betting_record_by_id = betting_records.add_resource("{recordId}")
+        # /betting-records/{record_id}/settle
+        betting_record_by_id = betting_records.add_resource("{record_id}")
         betting_record_settle = betting_record_by_id.add_resource("settle")
         betting_record_settle.add_method(
             "PUT",

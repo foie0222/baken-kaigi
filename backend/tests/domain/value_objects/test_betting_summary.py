@@ -34,7 +34,7 @@ class TestBettingSummaryFromRecords:
 
         assert summary.total_investment == Money.zero()
         assert summary.total_payout == Money.zero()
-        assert summary.net_profit == Money.zero()
+        assert summary.net_profit == 0
         assert summary.win_rate == 0.0
         assert summary.record_count == 0
         assert summary.roi == 0.0
@@ -50,7 +50,7 @@ class TestBettingSummaryFromRecords:
 
         assert summary.total_investment == Money.of(1500)
         assert summary.total_payout == Money.of(4500)
-        assert summary.net_profit == Money.of(3000)
+        assert summary.net_profit == 3000
         assert summary.win_rate == 1.0
         assert summary.record_count == 2
         assert summary.roi == 300.0
@@ -66,7 +66,7 @@ class TestBettingSummaryFromRecords:
 
         assert summary.total_investment == Money.of(1500)
         assert summary.total_payout == Money.zero()
-        assert summary.net_profit == Money.zero()
+        assert summary.net_profit == -1500
         assert summary.win_rate == 0.0
         assert summary.record_count == 2
         assert summary.roi == 0.0
@@ -84,7 +84,7 @@ class TestBettingSummaryFromRecords:
 
         assert summary.total_investment == Money.of(4000)
         assert summary.total_payout == Money.of(7000)
-        assert summary.net_profit == Money.of(3000)
+        assert summary.net_profit == 3000
         assert summary.win_rate == 0.5
         assert summary.record_count == 4
         assert summary.roi == 175.0
@@ -125,3 +125,25 @@ class TestBettingSummaryRoi:
         summary = BettingSummary.from_records(records)
 
         assert summary.roi == 100.0
+
+    def test_全ハズレでnet_profitがマイナスになる(self) -> None:
+        """全ハズレ時にnet_profitが負値になることを確認."""
+        records = [
+            _make_settled_record(200, 0),
+            _make_settled_record(300, 0),
+        ]
+
+        summary = BettingSummary.from_records(records)
+
+        assert summary.net_profit == -500
+        assert summary.total_investment == Money.of(500)
+        assert summary.total_payout == Money.zero()
+
+    def test_roiが50パーセントのケース(self) -> None:
+        """半額回収の場合にROIが50%であることを確認."""
+        records = [_make_settled_record(1000, 500)]
+
+        summary = BettingSummary.from_records(records)
+
+        assert summary.roi == 50.0
+        assert summary.net_profit == -500

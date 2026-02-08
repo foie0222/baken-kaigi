@@ -94,7 +94,7 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
             "horse_numbers": [Decimal(str(n)) for n in record.horse_numbers.to_list()],
             "amount": Decimal(str(record.amount.value)),
             "payout": Decimal(str(record.payout.value)),
-            "profit": Decimal(str(record.profit.value)),
+            "profit": Decimal(str(record.profit)),
             "status": record.status.value,
             "created_at": record.created_at.isoformat(),
         }
@@ -122,7 +122,7 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
             ),
             amount=Money.of(int(item["amount"])),
             payout=Money.of(int(item["payout"])),
-            profit=Money.of(int(item["profit"])),
+            profit=int(item["profit"]),
             status=BettingRecordStatus(item["status"]),
             created_at=datetime.fromisoformat(item["created_at"]),
             settled_at=settled_at,

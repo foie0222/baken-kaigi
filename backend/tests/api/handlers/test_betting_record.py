@@ -122,6 +122,48 @@ class TestCreateBettingRecordHandler:
         result = create_betting_record_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_amount_0以下で400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R 日本ダービー",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 0,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_不正なbet_typeで400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R 日本ダービー",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "invalid_type",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_不正なrace_dateで400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R 日本ダービー",
+            "race_date": "invalid-date",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
 
 class TestGetBettingRecordsHandler:
     """get_betting_records_handler のテスト."""
@@ -244,5 +286,43 @@ class TestSettleBettingRecordHandler:
     def test_record_id未指定で400(self) -> None:
         _setup_deps()
         event = _auth_event(body={"payout": 500})
+        result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_他ユーザーのレコードをsettleすると404(self) -> None:
+        repo = _setup_deps()
+        record = _make_record(user_id="user-002")
+        repo.save(record)
+
+        event = _auth_event(
+            user_id="user-001",
+            path_params={"record_id": record.record_id.value},
+            body={"payout": 500},
+        )
+        result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 404
+
+    def test_既にSETTLEDのレコードを再settleするとエラー(self) -> None:
+        repo = _setup_deps()
+        record = _make_record()
+        record.settle(Money.of(500))
+        repo.save(record)
+
+        event = _auth_event(
+            path_params={"record_id": record.record_id.value},
+            body={"payout": 1000},
+        )
+        result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_payout負値で400(self) -> None:
+        repo = _setup_deps()
+        record = _make_record()
+        repo.save(record)
+
+        event = _auth_event(
+            path_params={"record_id": record.record_id.value},
+            body={"payout": -100},
+        )
         result = settle_betting_record_handler(event, None)
         assert result["statusCode"] == 400

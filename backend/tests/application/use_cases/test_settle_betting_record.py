@@ -46,7 +46,7 @@ class TestSettleBettingRecordUseCase:
 
         assert settled.status == BettingRecordStatus.SETTLED
         assert settled.payout.value == 500
-        assert settled.profit.value == 400
+        assert settled.profit == 400
 
     def test_ハズレの場合利益ゼロ(self) -> None:
         repo = InMemoryBettingRecordRepository()
@@ -62,7 +62,7 @@ class TestSettleBettingRecordUseCase:
 
         assert settled.status == BettingRecordStatus.SETTLED
         assert settled.payout.value == 0
-        assert settled.profit.value == 0
+        assert settled.profit == -100
 
     def test_存在しない記録でエラー(self) -> None:
         repo = InMemoryBettingRecordRepository()

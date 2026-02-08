@@ -57,21 +57,26 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
         return bad_request_response("horse_numbers is required", event=event)
     if amount is None:
         return bad_request_response("amount is required", event=event)
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        return bad_request_response("amount must be a positive number", event=event)
 
     use_case = CreateBettingRecordUseCase(
         betting_record_repository=Dependencies.get_betting_record_repository(),
     )
 
-    record = use_case.execute(
-        user_id=user_id.value,
-        race_id=race_id,
-        race_name=race_name,
-        race_date=race_date,
-        venue=venue,
-        bet_type=bet_type,
-        horse_numbers=horse_numbers,
-        amount=amount,
-    )
+    try:
+        record = use_case.execute(
+            user_id=user_id.value,
+            race_id=race_id,
+            race_name=race_name,
+            race_date=race_date,
+            venue=venue,
+            bet_type=bet_type,
+            horse_numbers=horse_numbers,
+            amount=amount,
+        )
+    except (ValueError, KeyError) as e:
+        return bad_request_response(str(e), event=event)
 
     return success_response(
         {
@@ -123,7 +128,7 @@ def get_betting_records_handler(event: dict, context: Any) -> dict:
             "horse_numbers": r.horse_numbers.to_list(),
             "amount": r.amount.value,
             "payout": r.payout.value,
-            "profit": r.profit.value,
+            "profit": r.profit,
             "status": r.status.value,
             "created_at": r.created_at.isoformat(),
         }
@@ -152,7 +157,7 @@ def get_betting_summary_handler(event: dict, context: Any) -> dict:
     return success_response({
         "total_investment": summary.total_investment.value,
         "total_payout": summary.total_payout.value,
-        "net_profit": summary.net_profit.value,
+        "net_profit": summary.net_profit,
         "win_rate": summary.win_rate,
         "record_count": summary.record_count,
         "roi": summary.roi,
@@ -181,6 +186,8 @@ def settle_betting_record_handler(event: dict, context: Any) -> dict:
     payout = body.get("payout")
     if payout is None:
         return bad_request_response("payout is required", event=event)
+    if not isinstance(payout, (int, float)) or payout < 0:
+        return bad_request_response("payout must be a non-negative number", event=event)
 
     use_case = SettleBettingRecordUseCase(
         betting_record_repository=Dependencies.get_betting_record_repository(),
@@ -194,11 +201,13 @@ def settle_betting_record_handler(event: dict, context: Any) -> dict:
         )
     except BettingRecordNotFoundError:
         return not_found_response("Betting record", event=event)
+    except ValueError as e:
+        return bad_request_response(str(e), event=event)
 
     return success_response({
         "record_id": record.record_id.value,
         "status": record.status.value,
         "payout": record.payout.value,
-        "profit": record.profit.value,
+        "profit": record.profit,
         "settled_at": record.settled_at.isoformat() if record.settled_at else None,
     }, event=event)

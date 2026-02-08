@@ -24,7 +24,7 @@ class BettingRecord:
     horse_numbers: HorseNumbers
     amount: Money
     payout: Money
-    profit: Money
+    profit: int
     status: BettingRecordStatus
     created_at: datetime
     settled_at: Optional[datetime] = None
@@ -53,7 +53,7 @@ class BettingRecord:
             horse_numbers=horse_numbers,
             amount=amount,
             payout=Money.zero(),
-            profit=Money.zero(),
+            profit=0,
             status=BettingRecordStatus.PENDING,
             created_at=datetime.now(),
         )
@@ -64,10 +64,7 @@ class BettingRecord:
             raise ValueError("settle can only be called on PENDING records")
         self.status = BettingRecordStatus.SETTLED
         self.payout = payout
-        if payout.value >= self.amount.value:
-            self.profit = Money.of(payout.value - self.amount.value)
-        else:
-            self.profit = Money.zero()
+        self.profit = payout.value - self.amount.value
         self.settled_at = datetime.now()
 
     def cancel(self) -> None:

@@ -40,13 +40,9 @@ class GetBettingSummaryUseCase:
                 to_date = date(now.year - 1, 12, 31)
             else:
                 from_date = date(now.year, now.month - 1, 1)
-                # 月末を計算
-                if now.month == 1:
-                    to_date = date(now.year - 1, 12, 31)
-                else:
-                    import calendar
-                    last_day = calendar.monthrange(now.year, now.month - 1)[1]
-                    to_date = date(now.year, now.month - 1, last_day)
+                import calendar
+                last_day = calendar.monthrange(now.year, now.month - 1)[1]
+                to_date = date(now.year, now.month - 1, last_day)
             return from_date, to_date
 
         # all_time

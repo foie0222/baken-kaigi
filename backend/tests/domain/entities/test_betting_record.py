@@ -41,7 +41,7 @@ class TestBettingRecordCreate:
         assert record.horse_numbers == HorseNumbers.of(3)
         assert record.amount == Money.of(1000)
         assert record.payout == Money.zero()
-        assert record.profit == Money.zero()
+        assert record.profit == 0
         assert record.status == BettingRecordStatus.PENDING
         assert record.record_id is not None
         assert record.created_at is not None
@@ -71,7 +71,7 @@ class TestBettingRecordSettle:
 
         assert record.status == BettingRecordStatus.SETTLED
         assert record.payout == Money.of(3000)
-        assert record.profit == Money.of(2000)
+        assert record.profit == 2000
         assert record.settled_at is not None
 
     def test_settleでハズレの場合_払戻ゼロで損益がマイナスになる(self) -> None:
@@ -82,7 +82,7 @@ class TestBettingRecordSettle:
 
         assert record.status == BettingRecordStatus.SETTLED
         assert record.payout == Money.zero()
-        assert record.profit == Money.of(0)
+        assert record.profit == -1000
         assert record.settled_at is not None
 
     def test_SETTLED状態からsettleすると例外(self) -> None:
@@ -138,11 +138,27 @@ class TestBettingRecordProfit:
         record = _make_record(amount=Money.of(500))
         record.settle(payout=Money.of(2500))
 
-        assert record.profit == Money.of(2000)
+        assert record.profit == 2000
 
-    def test_ハズレ時の純損益がゼロ(self) -> None:
-        """ハズレ時の損益はゼロ（Moneyは負の値を持てない）であることを確認."""
+    def test_ハズレ時の純損益がマイナスになる(self) -> None:
+        """ハズレ時の損益が投資額のマイナスになることを確認."""
         record = _make_record(amount=Money.of(1000))
         record.settle(payout=Money.of(0))
 
-        assert record.profit == Money.zero()
+        assert record.profit == -1000
+
+    def test_ハズレ時のprofitがマイナスになる(self) -> None:
+        """payout < amountの場合にprofitがマイナスになることを確認."""
+        record = _make_record(amount=Money.of(500))
+        record.settle(payout=Money.of(200))
+
+        assert record.profit == -300
+
+    def test_金額ゼロで的中率に影響しない(self) -> None:
+        """payout=0の場合、的中扱いにならないことを確認."""
+        record = _make_record(amount=Money.of(100))
+        record.settle(payout=Money.of(0))
+
+        assert record.payout == Money.zero()
+        assert record.profit == -100
+        assert record.status == BettingRecordStatus.SETTLED
