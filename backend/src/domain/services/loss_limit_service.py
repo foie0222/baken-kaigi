@@ -87,7 +87,7 @@ class LossLimitService:
                 can_purchase=True,
                 remaining_amount=remaining_after_bet,
                 warning_level=WarningLevel.CAUTION,
-                message=f"限度額の80%を超えています（残り: {remaining_after_bet.value}円）",
+                message=f"限度額の80%以上に達しています（残り: {remaining_after_bet.value}円）",
             )
 
         return LossLimitCheckResult(

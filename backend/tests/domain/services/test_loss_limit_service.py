@@ -149,6 +149,9 @@ class TestCheckLimit:
         assert result.can_purchase is True
         # 賭け後の残額: 10000 - 10000 = 0
         assert result.remaining_amount == Money.of(0)
+        # (40000+10000)/50000 = 1.0 → CAUTION
+        assert result.warning_level == WarningLevel.CAUTION
+        assert "0" in result.message
 
     def test_80パーセント境界値_ちょうど80パーセントでCAUTION(self):
         service = LossLimitService()
@@ -161,6 +164,7 @@ class TestCheckLimit:
 
         assert result.can_purchase is True
         assert result.warning_level == WarningLevel.CAUTION
+        assert "80%以上" in result.message
 
     def test_80パーセント境界値_80パーセント未満ギリギリでNONE(self):
         service = LossLimitService()
