@@ -32,6 +32,8 @@ interface AppState {
   hideToast: () => void;
 }
 
+let toastTimerId: ReturnType<typeof setTimeout> | null = null;
+
 export const useAppStore = create<AppState>((set) => ({
   // ナビゲーション
   currentPage: 'races',
@@ -70,8 +72,14 @@ export const useAppStore = create<AppState>((set) => ({
   toastMessage: null,
   toastType: null,
   showToast: (message, type = 'success') => {
+    if (toastTimerId !== null) {
+      clearTimeout(toastTimerId);
+    }
     set({ toastMessage: message, toastType: type });
-    setTimeout(() => set({ toastMessage: null, toastType: null }), 2000);
+    toastTimerId = setTimeout(() => {
+      set({ toastMessage: null, toastType: null });
+      toastTimerId = null;
+    }, 2000);
   },
   hideToast: () => set({ toastMessage: null, toastType: null }),
 }));

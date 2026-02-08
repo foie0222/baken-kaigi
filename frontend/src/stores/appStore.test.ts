@@ -211,5 +211,23 @@ describe('appStore', () => {
       useAppStore.getState().hideToast()
       expect(useAppStore.getState().toastType).toBeNull()
     })
+
+    it('連続showToastで前のタイマーがキャンセルされる', () => {
+      useAppStore.getState().showToast('最初のメッセージ')
+      expect(useAppStore.getState().toastMessage).toBe('最初のメッセージ')
+
+      // 1秒後に新しいトーストを表示
+      vi.advanceTimersByTime(1000)
+      useAppStore.getState().showToast('2番目のメッセージ')
+      expect(useAppStore.getState().toastMessage).toBe('2番目のメッセージ')
+
+      // 最初のタイマーの残り1秒が経過しても消えないこと
+      vi.advanceTimersByTime(1000)
+      expect(useAppStore.getState().toastMessage).toBe('2番目のメッセージ')
+
+      // 2番目のタイマーの残り1秒が経過すると消える
+      vi.advanceTimersByTime(1000)
+      expect(useAppStore.getState().toastMessage).toBeNull()
+    })
   })
 })
