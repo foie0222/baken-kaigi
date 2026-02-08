@@ -11,6 +11,7 @@ from .horse_numbers import HorseNumbers
 from .ipat_balance import IpatBalance
 from .ipat_bet_line import IpatBetLine
 from .ipat_credentials import IpatCredentials
+from .loss_limit_check_result import LossLimitCheckResult
 from .money import Money
 from .race_reference import RaceReference
 
@@ -27,6 +28,7 @@ __all__ = [
     "IpatBalance",
     "IpatBetLine",
     "IpatCredentials",
+    "LossLimitCheckResult",
     "Money",
     "RaceReference",
 ]

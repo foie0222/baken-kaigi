@@ -14,6 +14,8 @@
 | CartItem | カート内の個々のアイテム | - |
 | ConsultationSession | AIとの相談セッション | ○ |
 | Message | 相談セッション内のメッセージ | - |
+| User | 認証済みユーザー（限度額管理を含む） | ○ |
+| LossLimitChange | 限度額変更リクエスト | - |
 
 ---
 
@@ -192,3 +194,88 @@ IN_PROGRESS ---[setDataFeedbacks()]--> IN_PROGRESS
 IN_PROGRESS ---[setAmountFeedback()]--> IN_PROGRESS
 IN_PROGRESS ---[end()]--> COMPLETED
 ```
+
+### LossLimitChange
+
+```
+PENDING ---[process() 7日経過]--> APPROVED
+PENDING ---[reject()]--> REJECTED
+```
+
+---
+
+## User（ユーザー）
+
+### 説明
+認証済みユーザー。月間負け額限度額の設定・管理を行い、ギャンブル依存症対策の自己制御機能を提供する。
+
+### 識別子
+- `userId: UserId` - ユーザーの一意識別子
+
+### 属性
+
+| 属性名 | 型 | 説明 |
+|-------|-----|------|
+| userId | UserId | ユーザーの一意識別子 |
+| lossLimit | Money? | 月間負け額限度額（未設定時はnull） |
+| totalLossThisMonth | Money | 今月の累計損失額 |
+| lossLimitSetAt | DateTime? | 限度額設定日時（未設定時はnull） |
+
+### 振る舞い
+
+| メソッド | 説明 | 事前条件 | 事後条件 |
+|---------|------|---------|---------|
+| setLossLimit(amount) | 限度額を設定する | amountが有効な金額 | lossLimit更新、lossLimitSetAt更新 |
+| getRemainingLossLimit() | 残り許容負け額を取得 | - | lossLimit - totalLossThisMonth を返す（未設定時はnull） |
+| addLoss(amount) | 損失額を加算 | amountが0以上 | totalLossThisMonth加算 |
+| isLimitExceeded(additionalAmount) | 追加金額で限度額超過するか判定 | - | totalLossThisMonth + additionalAmount > lossLimit |
+| hasLossLimit() | 限度額が設定済みか判定 | - | lossLimitがnullでない |
+| resetMonthlyLoss() | 月次の損失額をリセット | - | totalLossThisMonthが0になる |
+
+### ビジネスルール
+
+1. **限度額の範囲**: 1,000円〜1,000,000円の範囲内で設定可能
+2. **損失額のリセット**: totalLossThisMonthは月初にリセットされる
+3. **限度額未設定**: lossLimitがnullの場合、限度額チェックは行わない（制限なし）
+4. **既存データとの後方互換**: lossLimitはnull許容で、既存ユーザーに影響しない
+
+---
+
+## LossLimitChange（限度額変更リクエスト）
+
+### 説明
+ユーザーの限度額変更リクエスト。増額には7日間の待機期間を設け、衝動的な限度額引き上げを防止する。減額は即時反映される。
+
+### 識別子
+- `changeId: LossLimitChangeId` - 変更リクエストの一意識別子
+
+### 属性
+
+| 属性名 | 型 | 説明 |
+|-------|-----|------|
+| changeId | LossLimitChangeId | 変更リクエストの一意識別子 |
+| userId | UserId | リクエストしたユーザーのID |
+| currentLimit | Money | 変更前の限度額 |
+| requestedLimit | Money | 変更後の希望限度額 |
+| changeType | LossLimitChangeType | 変更種別（INCREASE/DECREASE） |
+| status | LossLimitChangeStatus | ステータス（PENDING/APPROVED/REJECTED） |
+| effectiveAt | DateTime | 変更適用日時（増額は7日後、減額は即時） |
+| requestedAt | DateTime | リクエスト日時 |
+
+### 振る舞い
+
+| メソッド | 説明 | 事前条件 | 事後条件 |
+|---------|------|---------|---------|
+| approve() | 変更を承認する | statusがPENDING | statusがAPPROVED |
+| reject() | 変更を却下する | statusがPENDING | statusがREJECTED |
+| isEffective(now) | 変更適用可能か判定 | statusがAPPROVED | now >= effectiveAt |
+| isIncrease() | 増額リクエストか判定 | - | changeTypeがINCREASE |
+| isDecrease() | 減額リクエストか判定 | - | changeTypeがDECREASE |
+| isPending() | 待機中か判定 | - | statusがPENDING |
+
+### ビジネスルール
+
+1. **増額の待機期間**: 増額リクエストはeffectiveAtが7日後に設定され、待機期間中はPENDING状態
+2. **減額の即時反映**: 減額リクエストはeffectiveAtが即時に設定され、直ちにAPPROVED状態になる
+3. **状態遷移**: PENDING → APPROVED または PENDING → REJECTED のみ許容
+4. **変更種別の自動判定**: requestedLimit > currentLimit なら INCREASE、そうでなければ DECREASE

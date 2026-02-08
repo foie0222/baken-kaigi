@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBettingStore } from '../stores/bettingStore';
+import { useLossLimitStore } from '../stores/lossLimitStore';
 import type { BettingSummary, BettingRecord } from '../types';
 import { BetTypeLabels } from '../types';
+import { LossLimitSetupForm } from '../components/loss-limit/LossLimitSetupForm';
+import { LossLimitCard } from '../components/loss-limit/LossLimitCard';
 
 function formatCurrency(value: number): string {
   const prefix = value < 0 ? '-' : '';
@@ -248,13 +251,20 @@ export function DashboardPage() {
     fetchRecords,
     fetchAllSummaries,
   } = useBettingStore();
+  const { lossLimit, isLoading: isLoadingLossLimit, fetchLossLimit } = useLossLimitStore();
 
   const isLoading = isLoadingRecords || isLoadingSummary;
 
   useEffect(() => {
     fetchAllSummaries();
     fetchRecords();
-  }, [fetchAllSummaries, fetchRecords]);
+    fetchLossLimit();
+  }, [fetchAllSummaries, fetchRecords, fetchLossLimit]);
+
+  // 限度額未設定の場合はセットアップフォームを表示
+  if (!isLoadingLossLimit && (lossLimit === null || lossLimit === 0)) {
+    return <LossLimitSetupForm />;
+  }
 
   return (
     <div className="fade-in" style={{ padding: 0 }}>
@@ -274,6 +284,9 @@ export function DashboardPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* 負け額限度額カード */}
+          <LossLimitCard />
+
           {/* サマリーカード群 */}
           <SummaryCard title="今月の損益" summary={thisMonthSummary} comparison={lastMonthSummary} />
           <SummaryCard title="先月の損益" summary={lastMonthSummary} />

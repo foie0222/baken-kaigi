@@ -19,6 +19,8 @@
 | メッセージ | Message | 相談セッション内の個々の発言（ユーザーまたはAI） | US-01-004 |
 | データフィードバック | DataFeedback | 選択した馬に関するデータに基づくAIからの情報 | US-01-005 |
 | 掛け金フィードバック | AmountFeedback | 掛け金額に対するAIからの情報・警告 | US-01-006 |
+| ユーザー | User | 認証済みユーザー（限度額管理を含む） | US-02-001 |
+| 限度額変更リクエスト | LossLimitChange | ユーザーの限度額変更申請 | US-02-002 |
 
 ### サポートドメイン（外部から取得するリードモデル）
 
@@ -75,6 +77,14 @@
 | 合計掛け金 | TotalAmount | カート内の全買い目の金額合計 | US-01-003b, 003c |
 | 投票締め切り | BettingDeadline | 馬券購入の締め切り時刻 | US-01-004 |
 | 限度額超過 | LimitExceeded | 掛け金が残り許容負け額を超えている状態 | US-01-003c, 006 |
+| 負け額限度額 | LossLimit | ユーザーが自身に設定する月間の負け額上限 | US-02-001 |
+| 今月の累計損失額 | TotalLossThisMonth | 当月におけるユーザーの累計損失額 | US-02-001 |
+| 限度額変更種別 | LossLimitChangeType | 限度額変更の種類（増額/減額） | US-02-002 |
+| 限度額変更ステータス | LossLimitChangeStatus | 限度額変更リクエストの状態（待機中/承認済み/却下済み） | US-02-002 |
+| 待機期間 | CoolingOffPeriod | 増額リクエストに適用される7日間の待機期間（依存症対策） | US-02-002 |
+| 限度額チェック結果 | LossLimitCheckResult | 購入時の限度額に対する判定結果 | US-02-003 |
+| 限度額接近アラート | LossLimitAlert | 限度額の80%に到達した際に表示される警告 | US-02-004 |
+| 購入自動停止 | AutoStop | 限度額到達時に購入関連操作を無効化する機能 | US-02-003 |
 
 ---
 
@@ -101,6 +111,8 @@ flowchart TB
         Message["Message"]
         DataFeedback["DataFeedback"]
         AmountFeedback["AmountFeedback"]
+        User["User"]
+        LossLimitChange["LossLimitChange"]
 
         Cart -->|1..*| CartItem
         CartItem -->|1| BetSelection
@@ -108,6 +120,8 @@ flowchart TB
         Session -->|0..*| Message
         Session -->|0..*| DataFeedback
         Session -->|0..1| AmountFeedback
+        User -->|0..*| LossLimitChange
+        User -.->|残り許容負け額| Session
     end
 
     subgraph ReadModel["リードモデル（外部データ）"]
@@ -145,3 +159,7 @@ flowchart TB
 | US-01-004 | ConsultationSession, Message, BettingDeadline |
 | US-01-005 | DataFeedback, PastPerformance（リードモデル） |
 | US-01-006 | AmountFeedback, TotalAmount, RemainingLossLimit |
+| US-02-001 | User, LossLimit, TotalLossThisMonth |
+| US-02-002 | LossLimitChange, LossLimitChangeType, CoolingOffPeriod |
+| US-02-003 | LossLimitCheckResult, AutoStop |
+| US-02-004 | LossLimitAlert, WarningLevel |
