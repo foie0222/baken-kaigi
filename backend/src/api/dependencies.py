@@ -3,6 +3,7 @@ import os
 
 from src.domain.ports import (
     AIClient,
+    BettingRecordRepository,
     CartRepository,
     ConsultationSessionRepository,
     IpatCredentialsProvider,
@@ -48,6 +49,7 @@ class Dependencies:
     _ipat_gateway: IpatGateway | None = None
     _credentials_provider: IpatCredentialsProvider | None = None
     _spending_limit_provider: SpendingLimitProvider | None = None
+    _betting_record_repository: BettingRecordRepository | None = None
 
     @classmethod
     def get_cart_repository(cls) -> CartRepository:
@@ -216,6 +218,29 @@ class Dependencies:
         cls._spending_limit_provider = provider
 
     @classmethod
+    def get_betting_record_repository(cls) -> BettingRecordRepository:
+        """投票記録リポジトリを取得する."""
+        if cls._betting_record_repository is None:
+            if os.environ.get("BETTING_RECORD_TABLE_NAME") is not None:
+                from src.infrastructure.repositories.dynamodb_betting_record_repository import (
+                    DynamoDBBettingRecordRepository,
+                )
+
+                cls._betting_record_repository = DynamoDBBettingRecordRepository()
+            else:
+                from src.infrastructure.repositories.in_memory_betting_record_repository import (
+                    InMemoryBettingRecordRepository,
+                )
+
+                cls._betting_record_repository = InMemoryBettingRecordRepository()
+        return cls._betting_record_repository
+
+    @classmethod
+    def set_betting_record_repository(cls, repository: BettingRecordRepository) -> None:
+        """投票記録リポジトリを設定する（テスト用）."""
+        cls._betting_record_repository = repository
+
+    @classmethod
     def reset(cls) -> None:
         """全ての依存性をリセットする（テスト用）."""
         cls._cart_repository = None
@@ -227,3 +252,4 @@ class Dependencies:
         cls._ipat_gateway = None
         cls._credentials_provider = None
         cls._spending_limit_provider = None
+        cls._betting_record_repository = None

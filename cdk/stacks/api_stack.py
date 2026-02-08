@@ -302,6 +302,31 @@ class BakenKaigiApiStack(Stack):
             ),
         )
 
+        # Betting Record テーブル
+        betting_record_table = dynamodb.Table(
+            self,
+            "BettingRecordTable",
+            table_name="baken-kaigi-betting-record",
+            partition_key=dynamodb.Attribute(
+                name="record_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+        # user_id + race_date での検索用 GSI
+        betting_record_table.add_global_secondary_index(
+            index_name="user_id-race_date-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="race_date",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
+
         # ========================================
         # AgentCore Runtime
         # ========================================
@@ -417,6 +442,7 @@ class BakenKaigiApiStack(Stack):
             "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
             "USER_TABLE_NAME": user_table.table_name,
             "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
+            "BETTING_RECORD_TABLE_NAME": betting_record_table.table_name,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -969,6 +995,62 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # ========================================
+        # 投票記録API
+        # ========================================
+
+        create_betting_record_fn = lambda_.Function(
+            self,
+            "CreateBettingRecordFunction",
+            handler="src.api.handlers.betting_record.create_betting_record_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-create-betting-record",
+            description="投票記録作成",
+            **lambda_common_props,
+        )
+
+        get_betting_records_fn = lambda_.Function(
+            self,
+            "GetBettingRecordsFunction",
+            handler="src.api.handlers.betting_record.get_betting_records_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-betting-records",
+            description="投票記録一覧取得",
+            **lambda_common_props,
+        )
+
+        get_betting_summary_fn = lambda_.Function(
+            self,
+            "GetBettingSummaryFunction",
+            handler="src.api.handlers.betting_record.get_betting_summary_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-betting-summary",
+            description="投票成績サマリー取得",
+            **lambda_common_props,
+        )
+
+        settle_betting_record_fn = lambda_.Function(
+            self,
+            "SettleBettingRecordFunction",
+            handler="src.api.handlers.betting_record.settle_betting_record_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-settle-betting-record",
+            description="投票記録精算",
+            **lambda_common_props,
+        )
+
         # Cognito Post Confirmation トリガー
         cognito_post_confirmation_fn = lambda_.Function(
             self,
@@ -1375,6 +1457,44 @@ class BakenKaigiApiStack(Stack):
         settings_ipat.add_method(
             "DELETE",
             apigw.LambdaIntegration(delete_ipat_credentials_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /betting-records
+        betting_records = api.root.add_resource("betting-records")
+        betting_records.add_method(
+            "POST",
+            apigw.LambdaIntegration(create_betting_record_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        betting_records.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_betting_records_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /betting-records/summary
+        betting_summary = betting_records.add_resource("summary")
+        betting_summary.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_betting_summary_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /betting-records/{record_id}/settle
+        betting_record_by_id = betting_records.add_resource("{record_id}")
+        betting_record_settle = betting_record_by_id.add_resource("settle")
+        betting_record_settle.add_method(
+            "PUT",
+            apigw.LambdaIntegration(settle_betting_record_fn),
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -1942,6 +2062,16 @@ class BakenKaigiApiStack(Stack):
         ]
         for fn in ipat_credential_functions:
             fn.add_to_role_policy(ipat_secrets_policy)
+
+        # 投票記録関連 Lambda に Betting Record テーブルへのアクセス権限を付与
+        betting_record_functions = [
+            create_betting_record_fn,
+            get_betting_records_fn,
+            get_betting_summary_fn,
+            settle_betting_record_fn,
+        ]
+        for fn in betting_record_functions:
+            betting_record_table.grant_read_write_data(fn)
 
         # ========================================
         # 出力

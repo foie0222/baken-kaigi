@@ -14,6 +14,9 @@ import type {
   IpatCredentialsInput,
   IpatStatus,
   IpatBalance,
+  BettingRecord,
+  BettingSummary,
+  BettingRecordFilter,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -388,6 +391,87 @@ class ApiClient {
       }};
     }
     return { success: false, error: res.error };
+  }
+
+  // 賭け記録API
+  async createBettingRecord(data: {
+    raceId: string;
+    raceName: string;
+    raceDate: string;
+    venue: string;
+    betType: string;
+    horseNumbers: number[];
+    amount: number;
+  }): Promise<ApiResponse<BettingRecord>> {
+    const res = await this.request<Record<string, unknown>>('/betting-records', {
+      method: 'POST',
+      body: JSON.stringify({
+        race_id: data.raceId,
+        race_name: data.raceName,
+        race_date: data.raceDate,
+        venue: data.venue,
+        bet_type: data.betType,
+        horse_numbers: data.horseNumbers,
+        amount: data.amount,
+      }),
+    });
+    if (res.success && res.data) {
+      return { success: true, data: this.mapBettingRecord(res.data) };
+    }
+    return { success: false, error: res.error };
+  }
+
+  async getBettingRecords(filters?: BettingRecordFilter): Promise<ApiResponse<BettingRecord[]>> {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.set('date_from', filters.dateFrom);
+    if (filters?.dateTo) params.set('date_to', filters.dateTo);
+    if (filters?.venue) params.set('venue', filters.venue);
+    if (filters?.betType) params.set('bet_type', filters.betType);
+    const queryString = params.toString();
+    const res = await this.request<Record<string, unknown>[]>(
+      `/betting-records${queryString ? `?${queryString}` : ''}`
+    );
+    if (res.success && res.data) {
+      return { success: true, data: res.data.map((d) => this.mapBettingRecord(d)) };
+    }
+    return { success: false, error: res.error };
+  }
+
+  async getBettingSummary(period: 'this_month' | 'last_month' | 'all_time'): Promise<ApiResponse<BettingSummary>> {
+    const res = await this.request<Record<string, unknown>>(
+      `/betting-records/summary?period=${period}`
+    );
+    if (res.success && res.data) {
+      const d = res.data;
+      return { success: true, data: {
+        totalInvestment: d.total_investment as number,
+        totalPayout: d.total_payout as number,
+        netProfit: d.net_profit as number,
+        winRate: d.win_rate as number,
+        recordCount: d.record_count as number,
+        roi: d.roi as number,
+      }};
+    }
+    return { success: false, error: res.error };
+  }
+
+  private mapBettingRecord(d: Record<string, unknown>): BettingRecord {
+    return {
+      recordId: d.record_id as string,
+      userId: d.user_id as string,
+      raceId: d.race_id as string,
+      raceName: d.race_name as string,
+      raceDate: d.race_date as string,
+      venue: d.venue as string,
+      betType: d.bet_type as BettingRecord['betType'],
+      horseNumbers: d.horse_numbers as number[],
+      amount: d.amount as number,
+      payout: d.payout as number,
+      profit: d.profit as number,
+      status: (d.status as string).toUpperCase() as BettingRecord['status'],
+      createdAt: d.created_at as string,
+      settledAt: (d.settled_at as string | null) || null,
+    };
   }
 
   // AgentCore が利用可能かどうか
