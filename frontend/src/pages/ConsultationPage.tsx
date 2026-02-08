@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
@@ -41,8 +41,12 @@ export function ConsultationPage() {
   } | null>(null);
   const [editAmount, setEditAmount] = useState(0);
 
-  // 初回ロード時に AI からの初期分析を取得
-  const fetchInitialAnalysis = useCallback(async () => {
+  // 初回マウント時のカートデータをキャプチャ（カート変更でAPI再呼び出しを防止）
+  const initialItemsRef = useRef(items);
+  const initialRunnersRef = useRef(currentRunnersData);
+
+  // 初回ロード時に AI からの初期分析を取得（マウント時のみ実行）
+  useEffect(() => {
     if (!apiClient.isAgentCoreAvailable()) {
       setMessages([
         {
@@ -54,47 +58,60 @@ export function ConsultationPage() {
       return;
     }
 
+    let isMounted = true;
     setIsLoading(true);
-    try {
-      const runnersData = currentRunnersData.length > 0 ? currentRunnersData : undefined;
-      const response = await apiClient.consultWithAgent({
-        prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
-        cart_items: items.map((item) => ({
-          raceId: item.raceId,
-          raceName: item.raceName,
-          betType: item.betType,
-          horseNumbers: item.horseNumbers,
-          amount: item.amount,
-        })),
-        runners_data: runnersData,
-      });
 
-      if (response.success && response.data) {
-        setMessages([{ type: 'ai', text: response.data.message }]);
-        setSessionId(response.data.session_id);
-      } else {
+    const fetchInitialAnalysis = async () => {
+      try {
+        const capturedItems = initialItemsRef.current;
+        const capturedRunners = initialRunnersRef.current;
+        const runnersData = capturedRunners.length > 0 ? capturedRunners : undefined;
+        const response = await apiClient.consultWithAgent({
+          prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
+          cart_items: capturedItems.map((item) => ({
+            raceId: item.raceId,
+            raceName: item.raceName,
+            betType: item.betType,
+            horseNumbers: item.horseNumbers,
+            amount: item.amount,
+          })),
+          runners_data: runnersData,
+        });
+
+        if (!isMounted) return;
+
+        if (response.success && response.data) {
+          setMessages([{ type: 'ai', text: response.data.message }]);
+          setSessionId(response.data.session_id);
+        } else {
+          setMessages([
+            {
+              type: 'ai',
+              text: '分析中に問題が発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
+            },
+          ]);
+        }
+      } catch {
+        if (!isMounted) return;
         setMessages([
           {
             type: 'ai',
-            text: '分析中に問題が発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
+            text: '通信エラーが発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
           },
         ]);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    } catch {
-      setMessages([
-        {
-          type: 'ai',
-          text: '通信エラーが発生しました。\n再度お試しいただくか、買い目一覧をご確認ください。',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [items, currentRunnersData]);
+    };
 
-  useEffect(() => {
     fetchInitialAnalysis();
-  }, [fetchInitialAnalysis]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ユーザーメッセージ送信
   const handleSendMessage = async () => {
