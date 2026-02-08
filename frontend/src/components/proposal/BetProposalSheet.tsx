@@ -44,32 +44,36 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
     setResult(null);
     setAddedIndices(new Set());
 
-    const runnersData = race.horses.map((h) => ({
-      horse_number: h.number,
-      horse_name: h.name,
-      odds: h.odds,
-      popularity: h.popularity,
-      frame_number: h.wakuBan,
-    }));
+    try {
+      const runnersData = race.horses.map((h) => ({
+        horse_number: h.number,
+        horse_name: h.name,
+        odds: h.odds,
+        popularity: h.popularity,
+        frame_number: h.wakuBan,
+      }));
 
-    const axisHorses = axisInput
-      .split(/[,\s、]+/)
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !isNaN(n) && n > 0);
+      const axisHorses = axisInput
+        .split(/[,\s、]+/)
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n) && n > 0);
 
-    const response = await apiClient.requestBetProposal(
-      race.id,
-      budget,
-      runnersData,
-      axisHorses.length > 0 ? { axisHorses } : undefined
-    );
+      const response = await apiClient.requestBetProposal(
+        race.id,
+        budget,
+        runnersData,
+        axisHorses.length > 0 ? { axisHorses } : undefined
+      );
 
-    setLoading(false);
-
-    if (response.success && response.data) {
-      setResult(response.data);
-    } else {
-      setError(response.error || '提案の生成に失敗しました');
+      if (response.success && response.data) {
+        setResult(response.data);
+      } else {
+        setError(response.error || '提案の生成に失敗しました');
+      }
+    } catch {
+      setError('通信エラーが発生しました。再度お試しください。');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -37,13 +37,13 @@ export function ProposalCard({ bet, onAddToCart, isAdded }: ProposalCardProps) {
         <div className="proposal-bet-display">{bet.bet_display}</div>
         <div className="proposal-details">
           <span className="proposal-detail-item">
-            {bet.bet_count}点 / {bet.amount.toLocaleString()}円
+            {bet.bet_count}点 / {(bet.amount ?? 0).toLocaleString()}円
           </span>
           <span className="proposal-detail-item">
-            合成オッズ: {bet.composite_odds.toFixed(1)}倍
+            推定オッズ: {(bet.composite_odds ?? 0).toFixed(1)}倍
           </span>
           <span className="proposal-detail-item">
-            期待値: {bet.expected_value.toFixed(2)}
+            期待値: {(bet.expected_value ?? 0).toFixed(2)}
           </span>
         </div>
         <p className="proposal-reasoning">{bet.reasoning}</p>

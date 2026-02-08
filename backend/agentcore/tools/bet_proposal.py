@@ -11,9 +11,7 @@ from strands import tool
 
 from .bet_analysis import (
     BET_TYPE_NAMES,
-    _calculate_composite_odds,
     _calculate_expected_value,
-    _estimate_probability,
 )
 from .jravan_client import get_api_url, get_headers
 from .pace_analysis import (
@@ -45,7 +43,7 @@ DIFFICULTY_BET_TYPES = {
 # 予算配分: 信頼度別の配分比率
 ALLOCATION_HIGH = 0.50
 ALLOCATION_MEDIUM = 0.30
-ALLOCATION_VALUE = 0.20
+ALLOCATION_LOW = 0.20
 
 # トリガミ除外閾値
 TORIGAMI_COMPOSITE_ODDS_THRESHOLD = 2.0
@@ -73,6 +71,16 @@ MAX_AXIS_HORSES = 2
 
 # オッズ乖離スコア: AI上位なのに人気が低い馬にボーナス
 ODDS_GAP_BONUS_THRESHOLD = 5  # AI上位5位以内で人気が5番人気以下
+
+# 券種別オッズ推定の補正係数（単勝オッズの積からの補正）
+# 参考: JRA統計の券種別平均還元率と組み合わせ数から算出
+BET_TYPE_ODDS_MULTIPLIER = {
+    "quinella": 0.85,        # 馬連: √(o1*o2) * 0.85
+    "quinella_place": 0.45,  # ワイド: √(o1*o2) * 0.45（3着内なので低い）
+    "exacta": 1.7,           # 馬単: √(o1*o2) * 1.7（着順指定で高い）
+    "trio": 1.5,             # 三連複: ∛(o1*o2*o3) * 1.5
+    "trifecta": 4.0,         # 三連単: ∛(o1*o2*o3) * 4.0（着順指定で非常に高い）
+}
 
 # 脚質相性: ペースと脚質の相性マッピング
 PACE_STYLE_COMPAT = {
@@ -239,6 +247,41 @@ def _select_bet_types_by_difficulty(
 # =============================================================================
 
 
+def _estimate_bet_odds(odds_list: list[float], bet_type: str) -> float:
+    """単勝オッズから券種別の推定オッズを計算する.
+
+    馬連・馬単・三連複・三連単などの実際のオッズは
+    単勝オッズの積と券種特性から推定する。
+
+    Args:
+        odds_list: 各馬の単勝オッズリスト
+        bet_type: 券種コード
+
+    Returns:
+        推定オッズ（0以下なら算出不可）
+    """
+    valid = [o for o in odds_list if o > 0]
+    if not valid:
+        return 0.0
+
+    multiplier = BET_TYPE_ODDS_MULTIPLIER.get(bet_type, 1.0)
+
+    if len(valid) == 2:
+        # 2頭の組み合わせ: 幾何平均 × 補正係数
+        geo_mean = math.sqrt(valid[0] * valid[1])
+        return round(geo_mean * multiplier, 1)
+    elif len(valid) >= 3:
+        # 3頭の組み合わせ: 幾何平均 × 補正係数
+        product = 1.0
+        for o in valid[:3]:
+            product *= o
+        geo_mean = product ** (1 / 3)
+        return round(geo_mean * multiplier, 1)
+    else:
+        # 1頭の場合はそのまま
+        return round(valid[0] * multiplier, 1)
+
+
 def _generate_bet_candidates(
     axis_horses: list[dict],
     runners_data: list[dict],
@@ -318,17 +361,20 @@ def _generate_bet_candidates(
                     horse_numbers = [axis_hn, partner_hn]
                     bet_display = f"{axis_hn}-{partner_hn}"
 
-                # 期待値計算（軸馬の人気で代表）
-                ev = _calculate_expected_value(
-                    axis_odds, axis_pop, bet_type, total_runners, race_conditions
+                # 推定オッズ計算（単勝オッズから券種別に推定）
+                estimated_odds = _estimate_bet_odds(
+                    [axis_odds, partner_odds], bet_type
                 )
 
-                # 合成オッズ計算
-                odds_list = [o for o in [axis_odds, partner_odds] if o > 0]
-                composite = _calculate_composite_odds(odds_list)
+                # 期待値計算（推定オッズと代表人気で計算）
+                # 人気は2頭の平均を使用
+                avg_pop = max(1, (axis_pop + partner_pop) // 2)
+                ev = _calculate_expected_value(
+                    estimated_odds, avg_pop, bet_type, total_runners, race_conditions
+                )
 
-                # トリガミチェック
-                if composite.get("composite_odds", 0) < TORIGAMI_COMPOSITE_ODDS_THRESHOLD and composite.get("composite_odds", 0) > 0:
+                # トリガミチェック（推定オッズが閾値未満なら除外）
+                if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
                     continue  # トリガミ除外
 
                 # 信頼度判定
@@ -356,7 +402,7 @@ def _generate_bet_candidates(
                     "bet_display": bet_display,
                     "confidence": confidence,
                     "expected_value": ev.get("expected_return", 0),
-                    "composite_odds": composite.get("composite_odds", 0),
+                    "composite_odds": estimated_odds,
                     "reasoning": reasoning,
                     "bet_count": 1,
                 })
@@ -386,22 +432,22 @@ def _generate_bet_candidates(
                         horse_numbers = [axis_hn, p1_hn, p2_hn]
                         bet_display = f"{axis_hn}-{p1_hn}-{p2_hn}"
 
-                    # 期待値
-                    ev = _calculate_expected_value(
-                        axis_odds, axis_pop, bet_type, total_runners, race_conditions
+                    p1_pop = p1_runner.get("popularity") or 99
+                    p2_pop = p2_runner.get("popularity") or 99
+
+                    # 推定オッズ（券種別補正係数を適用）
+                    estimated_odds = _estimate_bet_odds(
+                        [axis_odds, p1_odds, p2_odds], bet_type
                     )
 
-                    # 推定組み合わせオッズ（三連系は各馬の単勝オッズの積の立方根で概算）
-                    valid_odds = [o for o in [axis_odds, p1_odds, p2_odds] if o > 0]
-                    if len(valid_odds) == 3:
-                        estimated_combo_odds = (valid_odds[0] * valid_odds[1] * valid_odds[2]) ** (1/3)
-                    elif valid_odds:
-                        estimated_combo_odds = sum(valid_odds) / len(valid_odds)
-                    else:
-                        estimated_combo_odds = 0
+                    # 期待値（3頭の平均人気で計算）
+                    avg_pop = max(1, (axis_pop + p1_pop + p2_pop) // 3)
+                    ev = _calculate_expected_value(
+                        estimated_odds, avg_pop, bet_type, total_runners, race_conditions
+                    )
 
-                    # トリガミチェック（推定オッズが2.0未満なら除外）
-                    if 0 < estimated_combo_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
+                    # トリガミチェック
+                    if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
                         continue
 
                     avg_score = (axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3
@@ -421,7 +467,7 @@ def _generate_bet_candidates(
                         "bet_display": bet_display,
                         "confidence": confidence,
                         "expected_value": ev.get("expected_return", 0),
-                        "composite_odds": round(estimated_combo_odds, 2),
+                        "composite_odds": estimated_odds,
                         "reasoning": reasoning,
                         "bet_count": 1,
                     })
@@ -502,10 +548,34 @@ def _allocate_budget(
     if medium:
         groups.append(("medium", medium, ALLOCATION_MEDIUM))
     if value:
-        groups.append(("value", value, ALLOCATION_VALUE))
+        groups.append(("low", value, ALLOCATION_LOW))
 
     if not groups:
         return bets
+
+    # 予算で買える最大買い目数（最低100円/点）
+    max_affordable = budget // MIN_BET_AMOUNT
+    if max_affordable <= 0:
+        return bets
+
+    # 買い目数が予算を超過する場合、高信頼度順に絞り込み
+    if len(bets) > max_affordable:
+        priority = {"high": 0, "medium": 1, "low": 2}
+        bets.sort(key=lambda b: (priority.get(b.get("confidence", "low"), 2), -b.get("expected_value", 0)))
+        bets = bets[:max_affordable]
+        # 再分類
+        high = [b for b in bets if b.get("confidence") == "high"]
+        medium = [b for b in bets if b.get("confidence") == "medium"]
+        value = [b for b in bets if b.get("confidence") == "low"]
+        groups = []
+        if high:
+            groups.append(("high", high, ALLOCATION_HIGH))
+        if medium:
+            groups.append(("medium", medium, ALLOCATION_MEDIUM))
+        if value:
+            groups.append(("low", value, ALLOCATION_LOW))
+        if not groups:
+            return bets
 
     # 比率を正規化
     total_ratio = sum(g[2] for g in groups)
@@ -518,6 +588,21 @@ def _allocate_budget(
         for bet in group_bets:
             bet["amount"] = per_bet
             total_amount += per_bet
+
+    # 予算超過時は低信頼度から金額削減
+    if total_amount > budget:
+        overage = total_amount - budget
+        # 低→中→高の順で削減
+        for b in reversed(bets):
+            if overage <= 0:
+                break
+            reducible = b["amount"] - MIN_BET_AMOUNT
+            if reducible > 0:
+                reduction = min(reducible, overage)
+                reduction = (reduction // 100) * 100
+                if reduction > 0:
+                    b["amount"] -= reduction
+                    overage -= reduction
 
     return bets
 

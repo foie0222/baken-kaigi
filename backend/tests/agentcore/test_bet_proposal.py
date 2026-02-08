@@ -13,6 +13,7 @@ from tools.bet_proposal import (
     _generate_bet_candidates,
     _allocate_budget,
     _assess_ai_consensus,
+    _estimate_bet_odds,
     _generate_bet_proposal_impl,
     SKIP_GATE_THRESHOLD,
     TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
@@ -224,6 +225,85 @@ class TestAllocateBudget:
         """買い目が空の場合は空リストが返る."""
         result = _allocate_budget([], 10000)
         assert result == []
+
+    def test_予算超過は買い目削減で防止(self):
+        """予算が少なく買い目が多い場合、買い目を削減して予算内に収める."""
+        bets = [
+            {"confidence": "high", "bet_type": "quinella", "expected_value": 1.2},
+            {"confidence": "high", "bet_type": "quinella", "expected_value": 1.1},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.9},
+            {"confidence": "low", "bet_type": "quinella", "expected_value": 0.8},
+            {"confidence": "low", "bet_type": "quinella", "expected_value": 0.7},
+        ]
+        result = _allocate_budget(bets, 300)
+        total = sum(b.get("amount", 0) for b in result if "amount" in b)
+        assert total <= 300
+
+    def test_予算超過時は高信頼度が優先される(self):
+        """予算不足で買い目を絞る場合、高信頼度が優先される."""
+        bets = [
+            {"confidence": "low", "bet_type": "quinella", "expected_value": 0.7},
+            {"confidence": "high", "bet_type": "quinella", "expected_value": 1.2},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+        ]
+        result = _allocate_budget(bets, 200)
+        # 予算200円 → 最大2点
+        bets_with_amount = [b for b in result if "amount" in b]
+        assert len(bets_with_amount) <= 2
+        # 高信頼度が残っているはず
+        confidences = {b["confidence"] for b in bets_with_amount}
+        assert "high" in confidences
+
+
+# =============================================================================
+# 推定オッズテスト
+# =============================================================================
+
+
+class TestEstimateBetOdds:
+    """券種別オッズ推定のテスト."""
+
+    def test_馬連は幾何平均ベースで推定される(self):
+        """馬連のオッズは2頭の単勝オッズの幾何平均 × 補正係数."""
+        import math
+        odds = _estimate_bet_odds([3.5, 8.0], "quinella")
+        geo_mean = math.sqrt(3.5 * 8.0)
+        expected = round(geo_mean * 0.85, 1)
+        assert odds == expected
+        # 馬連は単勝より低くなるのが自然（1番人気と3番人気の組み合わせ）
+        assert odds > 2.0  # トリガミにはならない
+
+    def test_馬単は馬連より高い(self):
+        """馬単は着順指定なので馬連より高い."""
+        quinella = _estimate_bet_odds([3.5, 8.0], "quinella")
+        exacta = _estimate_bet_odds([3.5, 8.0], "exacta")
+        assert exacta > quinella
+
+    def test_ワイドは馬連より低い(self):
+        """ワイドは3着内なので馬連より低い."""
+        quinella = _estimate_bet_odds([3.5, 8.0], "quinella")
+        wide = _estimate_bet_odds([3.5, 8.0], "quinella_place")
+        assert wide < quinella
+
+    def test_三連複は3頭のオッズから推定される(self):
+        """三連複は3頭の幾何平均ベース."""
+        odds = _estimate_bet_odds([3.5, 8.0, 15.0], "trio")
+        assert odds > 0
+        # 三連複は2頭系より高いはず
+        quinella = _estimate_bet_odds([3.5, 8.0], "quinella")
+        assert odds > quinella
+
+    def test_三連単は三連複より高い(self):
+        """三連単は着順指定なので三連複より高い."""
+        trio = _estimate_bet_odds([3.5, 8.0, 15.0], "trio")
+        trifecta = _estimate_bet_odds([3.5, 8.0, 15.0], "trifecta")
+        assert trifecta > trio
+
+    def test_オッズ0の場合は0を返す(self):
+        """有効なオッズが無い場合は0."""
+        assert _estimate_bet_odds([0, 0], "quinella") == 0.0
+        assert _estimate_bet_odds([], "quinella") == 0.0
 
 
 # =============================================================================
