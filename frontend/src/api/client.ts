@@ -56,6 +56,21 @@ class ApiClient {
   }
 
   /**
+   * APIエラーレスポンスからエラーメッセージ文字列を抽出する
+   * バックエンドは {error: {message, code}} または {error: "string"} の形式で返す
+   */
+  private extractErrorMessage(data: Record<string, unknown>, statusCode: number): string {
+    const err = data.error;
+    if (err && typeof err === 'object' && 'message' in (err as Record<string, unknown>)) {
+      return (err as Record<string, string>).message;
+    }
+    if (typeof err === 'string') {
+      return err;
+    }
+    return `HTTP ${statusCode}`;
+  }
+
+  /**
    * 共通ヘッダーを生成する（API Key含む）
    */
   private async createHeaders(additionalHeaders: HeadersInit = {}): Promise<HeadersInit> {
@@ -97,7 +112,7 @@ class ApiClient {
       if (!response.ok) {
         return {
           success: false,
-          error: data.error?.message || (typeof data.error === 'string' ? data.error : null) || `HTTP ${response.status}`,
+          error: this.extractErrorMessage(data, response.status),
         };
       }
 
@@ -258,7 +273,7 @@ class ApiClient {
       if (!response.ok) {
         return {
           success: false,
-          error: data.error?.message || (typeof data.error === 'string' ? data.error : null) || `HTTP ${response.status}`,
+          error: this.extractErrorMessage(data, response.status),
         };
       }
 

@@ -247,6 +247,67 @@ describe('ApiClient', () => {
     })
   })
 
+  describe('エラーメッセージ抽出', () => {
+    it('ネストされたエラーオブジェクトからmessageを抽出できる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { message: '認証情報が無効です', code: 'INVALID_CREDENTIALS' } }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getRaces()
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('認証情報が無効です')
+    })
+
+    it('文字列エラーをそのまま返す', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Internal Server Error' }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getRaces()
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Internal Server Error')
+    })
+
+    it('errorフィールドがない場合HTTPステータスを返す', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({}),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getRaces()
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('HTTP 403')
+    })
+
+    it('AgentCoreでもネストされたエラーオブジェクトからmessageを抽出できる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { message: 'リクエストが不正です', code: 'BAD_REQUEST' } }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.consultWithAgent({
+        prompt: 'テスト',
+        cart_items: [],
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('リクエストが不正です')
+    })
+  })
+
   describe('データ変換', () => {
     it('APIレースをフロントエンド形式に変換する', async () => {
       mockFetch.mockResolvedValueOnce({
