@@ -182,6 +182,111 @@ class TestSubmitPurchaseHandler:
         assert "IPAT通信エラー" in body["error"]["message"]
 
 
+    def test_race_numberがfloatの場合intに変換される(self) -> None:
+        cart_repo, _, cred_provider, _, _ = _setup_deps()
+
+        cart = Cart(cart_id=CartId("cart-001"), user_id=UserId("user-001"))
+        cart.add_item(
+            race_id=RaceId("202605051211"),
+            race_name="東京11R",
+            bet_selection=BetSelection(
+                bet_type=BetType.WIN,
+                horse_numbers=HorseNumbers.of(1),
+                amount=Money.of(100),
+            ),
+        )
+        cart_repo.save(cart)
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11.0,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        body = json.loads(result["body"])
+        assert isinstance(body["purchase_id"], str)
+
+    def test_race_numberが小数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11.5,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberがboolの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": True,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberが文字列の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": "11",
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberが0の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 0,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberが13以上の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 13,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberがNaNの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event()
+        event["body"] = '{"cart_id":"cart-001","race_date":"20260207","course_code":"05","race_number":NaN}'
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_numberがInfinityの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event()
+        event["body"] = '{"cart_id":"cart-001","race_date":"20260207","course_code":"05","race_number":Infinity}'
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+
 class TestGetPurchaseHistoryHandler:
     """get_purchase_history_handler のテスト."""
 
