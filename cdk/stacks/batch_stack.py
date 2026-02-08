@@ -83,13 +83,8 @@ class BakenKaigiBatchStack(Stack):
             exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
         )
 
-        # VPC 設定（JRA-VAN 連携時）
-        vpc_props: dict = {}
-        if vpc is not None:
-            vpc_props["vpc"] = vpc
-            vpc_props["vpc_subnets"] = ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
-            )
+        # NOTE: スクレイパー Lambda は外部サイトにHTTPアクセスするためVPC外に配置。
+        # VPC設定はEC2にアクセスが必要な jra_checksum_updater にのみ適用する。
 
         # ========================================
         # AI予想スクレイパー Lambda
@@ -111,7 +106,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             },
-            **vpc_props,
         )
         ai_predictions_table.grant_write_data(ai_shisu_scraper_fn)
 
@@ -131,7 +125,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             },
-            **vpc_props,
         )
         ai_predictions_table.grant_write_data(keiba_ai_athena_scraper_fn)
 
@@ -151,7 +144,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             },
-            **vpc_props,
         )
         ai_predictions_table.grant_write_data(keiba_ai_navi_scraper_fn)
 
@@ -171,7 +163,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             },
-            **vpc_props,
         )
         ai_predictions_table.grant_write_data(umamax_scraper_fn)
 
@@ -191,7 +182,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             },
-            **vpc_props,
         )
         ai_predictions_table.grant_write_data(muryou_scraper_fn)
 
@@ -215,7 +205,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
             },
-            **vpc_props,
         )
         speed_indices_table.grant_write_data(jiro8_scraper_fn)
 
@@ -235,7 +224,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
             },
-            **vpc_props,
         )
         speed_indices_table.grant_write_data(kichiuma_scraper_fn)
 
@@ -255,7 +243,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
             },
-            **vpc_props,
         )
         speed_indices_table.grant_write_data(daily_speed_scraper_fn)
 
@@ -279,7 +266,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
                 "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
             },
-            **vpc_props,
         )
         past_performances_table.grant_write_data(keibagrant_scraper_fn)
 
@@ -486,8 +472,8 @@ class BakenKaigiBatchStack(Stack):
                 subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
             )
 
-        if use_jravan:
-            jra_checksum_updater_props["environment"]["JRAVAN_API_URL"] = jravan_api_url  # type: ignore
+        if use_jravan and jravan_api_url is not None:
+            jra_checksum_updater_props["environment"]["JRAVAN_API_URL"] = jravan_api_url
 
         jra_checksum_updater_fn = lambda_.Function(
             self,
