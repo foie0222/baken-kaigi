@@ -436,6 +436,33 @@ class TestCorsConfiguration:
             {"HttpMethod": "OPTIONS"},
         )
 
+    def test_lambda_env_has_allow_dev_origins_when_enabled(self, template_with_dev_origins):
+        """allow_dev_origins=Trueの場合、すべてのLambda関数の環境変数にALLOW_DEV_ORIGINSが含まれること."""
+        resources = template_with_dev_origins.find_resources("AWS::Lambda::Function")
+        for logical_id, resource in resources.items():
+            env_vars = (
+                resource.get("Properties", {})
+                .get("Environment", {})
+                .get("Variables", {})
+            )
+            assert env_vars.get("ALLOW_DEV_ORIGINS") == "true", (
+                f"{logical_id} should have ALLOW_DEV_ORIGINS=true"
+            )
+
+    def test_lambda_env_no_allow_dev_origins_by_default(self, template_without_dev_origins):
+        """デフォルトではLambda環境変数にALLOW_DEV_ORIGINSが含まれないこと."""
+        # すべてのLambda関数の環境変数にALLOW_DEV_ORIGINSが設定されていないことを確認
+        resources = template_without_dev_origins.find_resources("AWS::Lambda::Function")
+        for logical_id, resource in resources.items():
+            env_vars = (
+                resource.get("Properties", {})
+                .get("Environment", {})
+                .get("Variables", {})
+            )
+            assert "ALLOW_DEV_ORIGINS" not in env_vars, (
+                f"{logical_id}: ALLOW_DEV_ORIGINS should not be set when allow_dev_origins=False"
+            )
+
     def test_cors_denies_dev_origins_by_default(self, template_without_dev_origins):
         """デフォルトで開発用オリジンは許可されないこと."""
         # OPTIONS メソッドが存在（CORS有効）

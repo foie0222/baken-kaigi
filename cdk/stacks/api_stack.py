@@ -471,6 +471,10 @@ class BakenKaigiApiStack(Stack):
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
+        # 開発用オリジン許可時の環境変数を追加
+        if allow_dev_origins:
+            lambda_environment["ALLOW_DEV_ORIGINS"] = "true"
+
         # JRA-VAN 連携時の環境変数を追加
         if use_jravan:
             lambda_environment["RACE_DATA_PROVIDER"] = "jravan"
@@ -1560,6 +1564,7 @@ class BakenKaigiApiStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             layers=[deps_layer],
             environment={
+                **lambda_environment,
                 "PYTHONPATH": "/var/task:/opt/python",
                 # agentcore CLIでデプロイしたAgentを参照
                 "AGENTCORE_AGENT_ARN": agentcore_agent_arn,
