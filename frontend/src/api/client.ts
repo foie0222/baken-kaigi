@@ -314,11 +314,16 @@ class ApiClient {
     });
     if (res.success && res.data) {
       const d = res.data;
+      const rawStatus = String(d.status ?? 'pending').toUpperCase();
+      const validStatuses = ['PENDING', 'SUBMITTED', 'COMPLETED', 'FAILED'] as const;
+      const status = validStatuses.includes(rawStatus as typeof validStatuses[number])
+        ? rawStatus as PurchaseResult['status']
+        : 'PENDING' as PurchaseResult['status'];
       return { success: true, data: {
-        purchaseId: d.purchase_id as string,
-        status: (d.status as string).toUpperCase() as PurchaseResult['status'],
-        totalAmount: d.total_amount as number,
-        createdAt: d.created_at as string,
+        purchaseId: String(d.purchase_id ?? ''),
+        status,
+        totalAmount: Number(d.total_amount ?? 0),
+        createdAt: String(d.created_at ?? ''),
       }};
     }
     return { success: false, error: res.error };
@@ -327,16 +332,23 @@ class ApiClient {
   async getPurchaseHistory(): Promise<ApiResponse<PurchaseOrder[]>> {
     const res = await this.request<Record<string, unknown>[]>('/purchases');
     if (res.success && res.data) {
-      return { success: true, data: res.data.map((d) => ({
-        purchaseId: d.purchase_id as string,
-        cartId: (d.cart_id as string) || '',
-        status: (d.status as string).toUpperCase() as PurchaseOrder['status'],
-        totalAmount: d.total_amount as number,
-        betLineCount: (d.bet_line_count as number) || 0,
-        errorMessage: d.error_message as string | undefined,
-        createdAt: d.created_at as string,
-        updatedAt: (d.updated_at as string) || (d.created_at as string),
-      }))};
+      return { success: true, data: res.data.map((d) => {
+        const rawStatus = String(d.status ?? 'pending').toUpperCase();
+        const validStatuses = ['PENDING', 'SUBMITTED', 'COMPLETED', 'FAILED'] as const;
+        const status = validStatuses.includes(rawStatus as typeof validStatuses[number])
+          ? rawStatus as PurchaseOrder['status']
+          : 'PENDING' as PurchaseOrder['status'];
+        return {
+          purchaseId: String(d.purchase_id ?? ''),
+          cartId: String(d.cart_id ?? ''),
+          status,
+          totalAmount: Number(d.total_amount ?? 0),
+          betLineCount: Number(d.bet_line_count ?? 0),
+          errorMessage: d.error_message != null ? String(d.error_message) : undefined,
+          createdAt: String(d.created_at ?? ''),
+          updatedAt: String(d.updated_at || d.created_at || ''),
+        };
+      })};
     }
     return { success: false, error: res.error };
   }
@@ -345,15 +357,20 @@ class ApiClient {
     const res = await this.request<Record<string, unknown>>(`/purchases/${encodeURIComponent(purchaseId)}`);
     if (res.success && res.data) {
       const d = res.data;
+      const rawStatus = String(d.status ?? 'pending').toUpperCase();
+      const validStatuses = ['PENDING', 'SUBMITTED', 'COMPLETED', 'FAILED'] as const;
+      const status = validStatuses.includes(rawStatus as typeof validStatuses[number])
+        ? rawStatus as PurchaseOrder['status']
+        : 'PENDING' as PurchaseOrder['status'];
       return { success: true, data: {
-        purchaseId: d.purchase_id as string,
-        cartId: (d.cart_id as string) || '',
-        status: (d.status as string).toUpperCase() as PurchaseOrder['status'],
-        totalAmount: d.total_amount as number,
-        betLineCount: (d.bet_line_count as number) || 0,
-        errorMessage: d.error_message as string | undefined,
-        createdAt: d.created_at as string,
-        updatedAt: (d.updated_at as string) || (d.created_at as string),
+        purchaseId: String(d.purchase_id ?? ''),
+        cartId: String(d.cart_id ?? ''),
+        status,
+        totalAmount: Number(d.total_amount ?? 0),
+        betLineCount: Number(d.bet_line_count ?? 0),
+        errorMessage: d.error_message != null ? String(d.error_message) : undefined,
+        createdAt: String(d.created_at ?? ''),
+        updatedAt: String(d.updated_at || d.created_at || ''),
       }};
     }
     return { success: false, error: res.error };
@@ -488,14 +505,19 @@ class ApiClient {
       let pendingChange: PendingLossLimitChange | null = null;
       if (d.pending_change && typeof d.pending_change === 'object') {
         const pc = d.pending_change as Record<string, unknown>;
+        const rawPcStatus = String(pc.status ?? 'pending').toLowerCase();
+        const validPcStatuses = ['pending', 'approved', 'rejected'] as const;
+        const pcStatus = validPcStatuses.includes(rawPcStatus as typeof validPcStatuses[number])
+          ? rawPcStatus as PendingLossLimitChange['status']
+          : 'pending' as PendingLossLimitChange['status'];
         pendingChange = {
-          changeId: pc.change_id as string,
+          changeId: String(pc.change_id ?? ''),
           changeType: pc.change_type as 'increase' | 'decrease',
-          status: (pc.status as string).toLowerCase() as PendingLossLimitChange['status'],
-          effectiveAt: pc.effective_at as string,
-          requestedAt: pc.requested_at as string,
-          currentLimit: pc.current_limit as number,
-          requestedLimit: pc.requested_limit as number,
+          status: pcStatus,
+          effectiveAt: String(pc.effective_at ?? ''),
+          requestedAt: String(pc.requested_at ?? ''),
+          currentLimit: Number(pc.current_limit ?? 0),
+          requestedLimit: Number(pc.requested_limit ?? 0),
         };
       }
       return {
@@ -528,14 +550,18 @@ class ApiClient {
       return {
         success: true,
         data: {
-          changeId: d.change_id as string,
+          changeId: String(d.change_id ?? ''),
           changeType: d.change_type as 'increase' | 'decrease',
-          status: (d.status as string).toLowerCase() as PendingLossLimitChange['status'],
-          effectiveAt: d.effective_at as string,
+          status: (['pending', 'approved', 'rejected'] as const).includes(
+            String(d.status ?? 'pending').toLowerCase() as 'pending' | 'approved' | 'rejected'
+          )
+            ? String(d.status ?? 'pending').toLowerCase() as PendingLossLimitChange['status']
+            : 'pending' as PendingLossLimitChange['status'],
+          effectiveAt: String(d.effective_at ?? ''),
           requestedAt: new Date().toISOString(),
-          currentLimit: d.current_limit as number,
-          requestedLimit: d.requested_limit as number,
-          appliedImmediately: d.applied_immediately as boolean,
+          currentLimit: Number(d.current_limit ?? 0),
+          requestedLimit: Number(d.requested_limit ?? 0),
+          appliedImmediately: Boolean(d.applied_immediately),
         },
       };
     }
@@ -596,21 +622,26 @@ class ApiClient {
   }
 
   private mapBettingRecord(d: Record<string, unknown>): BettingRecord {
+    const rawStatus = String(d.status ?? 'pending').toUpperCase();
+    const validStatuses = ['PENDING', 'SETTLED', 'CANCELLED'] as const;
+    const status = validStatuses.includes(rawStatus as typeof validStatuses[number])
+      ? rawStatus as BettingRecord['status']
+      : 'PENDING' as BettingRecord['status'];
     return {
-      recordId: d.record_id as string,
-      userId: d.user_id as string,
-      raceId: d.race_id as string,
-      raceName: d.race_name as string,
-      raceDate: d.race_date as string,
-      venue: d.venue as string,
+      recordId: String(d.record_id ?? ''),
+      userId: String(d.user_id ?? ''),
+      raceId: String(d.race_id ?? ''),
+      raceName: String(d.race_name ?? ''),
+      raceDate: String(d.race_date ?? ''),
+      venue: String(d.venue ?? ''),
       betType: d.bet_type as BettingRecord['betType'],
-      horseNumbers: d.horse_numbers as number[],
-      amount: d.amount as number,
-      payout: d.payout as number,
-      profit: d.profit as number,
-      status: (d.status as string).toUpperCase() as BettingRecord['status'],
-      createdAt: d.created_at as string,
-      settledAt: (d.settled_at as string | null) || null,
+      horseNumbers: Array.isArray(d.horse_numbers) ? d.horse_numbers as number[] : [],
+      amount: Number(d.amount ?? 0),
+      payout: Number(d.payout ?? 0),
+      profit: Number(d.profit ?? 0),
+      status,
+      createdAt: String(d.created_at ?? ''),
+      settledAt: d.settled_at ? String(d.settled_at) : null,
     };
   }
 
