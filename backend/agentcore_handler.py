@@ -112,6 +112,7 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     payload = {
         "prompt": body.get("prompt", ""),
         "cart_items": body.get("cart_items", []),
+        "runners_data": body.get("runners_data", []),
     }
 
     try:
