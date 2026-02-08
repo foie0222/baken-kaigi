@@ -40,6 +40,18 @@ def save_ipat_credentials_handler(event: dict, context: Any) -> dict:
             event=event,
         )
 
+    for field_name, field_value in [
+        ("inet_id", inet_id),
+        ("subscriber_number", subscriber_number),
+        ("pin", pin),
+        ("pars_number", pars_number),
+    ]:
+        if not isinstance(field_value, str):
+            return bad_request_response(
+                f"{field_name} must be a string",
+                event=event,
+            )
+
     use_case = SaveIpatCredentialsUseCase(
         credentials_provider=Dependencies.get_credentials_provider(),
     )

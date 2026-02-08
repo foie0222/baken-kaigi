@@ -70,6 +70,50 @@ class TestSaveIpatCredentialsHandler:
         result = save_ipat_credentials_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_inet_idが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "inet_id": 12345678,
+            "subscriber_number": "12345678",
+            "pin": "1234",
+            "pars_number": "5678",
+        })
+        result = save_ipat_credentials_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_subscriber_numberが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "inet_id": "ABcd1234",
+            "subscriber_number": 12345678,
+            "pin": "1234",
+            "pars_number": "5678",
+        })
+        result = save_ipat_credentials_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_pinがリストの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
+            "pin": [1, 2, 3, 4],
+            "pars_number": "5678",
+        })
+        result = save_ipat_credentials_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_pars_numberがboolの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
+            "pin": "1234",
+            "pars_number": True,
+        })
+        result = save_ipat_credentials_handler(event, None)
+        assert result["statusCode"] == 400
+
 
 class TestGetIpatStatusHandler:
     """get_ipat_status_handler のテスト."""
