@@ -50,6 +50,12 @@ def add_to_cart(event: dict, context: Any) -> dict:
         if param not in body:
             return bad_request_response(f"{param} is required", event=event)
 
+    # 文字列フィールドの型チェック
+    if not isinstance(body["race_id"], str):
+        return bad_request_response("race_id must be a string", event=event)
+    if not isinstance(body["race_name"], str):
+        return bad_request_response("race_name must be a string", event=event)
+
     # パラメータ変換
     cart_id = CartId(body["cart_id"]) if body.get("cart_id") else None
 
@@ -59,6 +65,11 @@ def add_to_cart(event: dict, context: Any) -> dict:
         bet_type = BetType(bet_type_str)
     except (ValueError, AttributeError):
         return bad_request_response(f"Invalid bet_type: {body['bet_type']}", event=event)
+
+    if not isinstance(body["horse_numbers"], list):
+        return bad_request_response("horse_numbers must be a list", event=event)
+    if not all(isinstance(n, int) and not isinstance(n, bool) for n in body["horse_numbers"]):
+        return bad_request_response("horse_numbers must be a list of integers", event=event)
 
     try:
         horse_numbers = HorseNumbers.from_list(body["horse_numbers"])
