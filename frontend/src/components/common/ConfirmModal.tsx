@@ -1,4 +1,5 @@
 import { useEffect, useCallback, type ReactNode } from 'react';
+import { acquireScrollLock, releaseScrollLock } from '../../utils/scrollLock';
 import './ConfirmModal.css';
 
 interface ConfirmModalProps {
@@ -33,13 +34,13 @@ export function ConfirmModal({
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
+      acquireScrollLock();
       document.addEventListener('keydown', handleKeyDown);
-    } else {
-      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = '';
+      if (isOpen) {
+        releaseScrollLock();
+      }
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, handleKeyDown]);
