@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { BottomSheet } from '../common/BottomSheet';
 import { ProposalCard } from './ProposalCard';
 import { apiClient } from '../../api/client';
@@ -25,6 +25,7 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
   const [result, setResult] = useState<BetProposalResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set());
+  const isMountedRef = useRef(true);
 
   const resetState = () => {
     setResult(null);
@@ -33,12 +34,14 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
   };
 
   const handleClose = () => {
+    isMountedRef.current = false;
     resetState();
     setLoading(false);
     onClose();
   };
 
   const handleGenerate = async () => {
+    isMountedRef.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -53,10 +56,14 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
         frame_number: h.wakuBan,
       }));
 
-      const axisHorses = axisInput
-        .split(/[,\s、]+/)
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !isNaN(n) && n > 0);
+      // 出走馬に存在する馬番のみ抽出し、重複を除去
+      const validNumbers = new Set(race.horses.map((h) => h.number));
+      const axisHorses = [...new Set(
+        axisInput
+          .split(/[,\s、]+/)
+          .map((s) => parseInt(s.trim(), 10))
+          .filter((n) => !isNaN(n) && validNumbers.has(n))
+      )];
 
       const response = await apiClient.requestBetProposal(
         race.id,
@@ -65,15 +72,20 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
         axisHorses.length > 0 ? { axisHorses } : undefined
       );
 
+      if (!isMountedRef.current) return;
+
       if (response.success && response.data) {
         setResult(response.data);
       } else {
         setError(response.error || '提案の生成に失敗しました');
       }
     } catch {
+      if (!isMountedRef.current) return;
       setError('通信エラーが発生しました。再度お試しください。');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -111,9 +123,10 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
   const handleAddAll = () => {
     if (!result) return;
     let addedCount = 0;
+    const newIndices = new Set(addedIndices);
 
     result.proposed_bets.forEach((bet, index) => {
-      if (addedIndices.has(index)) return;
+      if (newIndices.has(index)) return;
 
       const success = addItem({
         raceId: race.id,
@@ -136,11 +149,12 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
 
       if (success) {
         addedCount++;
-        setAddedIndices((prev) => new Set(prev).add(index));
+        newIndices.add(index);
       }
     });
 
     if (addedCount > 0) {
+      setAddedIndices(newIndices);
       showToast(`${addedCount}件をカートに追加しました`);
     }
   };

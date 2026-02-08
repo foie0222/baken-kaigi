@@ -415,13 +415,11 @@ export function RaceDetailPage() {
         selectedMethod={betMethod}
         onSelect={handleBetMethodChange}
       />
-      {race && (
-        <BetProposalSheet
-          isOpen={isProposalSheetOpen}
-          onClose={() => setIsProposalSheetOpen(false)}
-          race={race}
-        />
-      )}
+      <BetProposalSheet
+        isOpen={isProposalSheetOpen}
+        onClose={() => setIsProposalSheetOpen(false)}
+        race={race}
+      />
     </div>
   );
 }

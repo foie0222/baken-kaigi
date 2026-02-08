@@ -113,6 +113,25 @@ class TestSelectAxisHorses:
             assert "composite_score" in axis
             assert axis["composite_score"] > 0
 
+    def test_存在しない馬番は無視して自動選定にフォールバック(self):
+        """ユーザー指定の馬番が全て出走馬に存在しない場合、自動選定にフォールバックする."""
+        runners = _make_runners(18)
+        ai_preds = _make_ai_predictions(18)
+        result = _select_axis_horses(runners, ai_preds, user_axis=[99, 100])
+        # 自動選定にフォールバックし、AI上位2頭が選ばれる
+        assert len(result) == 2
+        selected_numbers = {r["horse_number"] for r in result}
+        assert 1 in selected_numbers
+        assert 2 in selected_numbers
+
+    def test_一部存在しない馬番は有効なものだけ採用(self):
+        """ユーザー指定の一部が無効でも、有効な馬番のみ採用する."""
+        runners = _make_runners(18)
+        ai_preds = _make_ai_predictions(18)
+        result = _select_axis_horses(runners, ai_preds, user_axis=[3, 99])
+        assert len(result) == 1
+        assert result[0]["horse_number"] == 3
+
     def test_AI上位で不人気馬はスコアにオッズ乖離ボーナス(self):
         """AI上位だが人気が低い馬にはオッズ乖離ボーナスが付く."""
         runners = _make_runners(18)

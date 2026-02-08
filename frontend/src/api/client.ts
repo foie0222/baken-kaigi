@@ -431,7 +431,16 @@ class ApiClient {
       return { success: false, error: '提案データが見つかりませんでした' };
     }
 
-    const jsonStr = message.substring(jsonIdx + jsonSeparator.length).trim();
+    let jsonStr = message.substring(jsonIdx + jsonSeparator.length).trim();
+    // コードフェンス除去（```json ... ``` 形式に対応）
+    jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/,'');
+    // 最初の { から最後の } までを抽出
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) {
+      return { success: false, error: '提案データが見つかりませんでした' };
+    }
+    jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
     try {
       const data = JSON.parse(jsonStr) as BetProposalResponse;
       return { success: true, data };

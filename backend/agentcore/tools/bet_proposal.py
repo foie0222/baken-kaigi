@@ -13,7 +13,6 @@ from .bet_analysis import (
     BET_TYPE_NAMES,
     _calculate_expected_value,
 )
-from .jravan_client import get_api_url, get_headers
 from .pace_analysis import (
     _assess_race_difficulty,
     _predict_pace,
@@ -62,9 +61,6 @@ MAX_BETS = 8
 
 # 最低掛け金
 MIN_BET_AMOUNT = 100
-
-# AI合議レベルの閾値
-AI_CONSENSUS_TOP_MATCH = 2  # 上位何頭が一致すれば「概ね合意」か
 
 # 軸馬の最大数
 MAX_AXIS_HORSES = 2
@@ -122,7 +118,6 @@ def _calculate_composite_score(
     for pred in ai_predictions:
         if pred.get("horse_number") == horse_number:
             ai_rank = pred.get("rank", 99)
-            ai_raw_score = pred.get("score", 0)
             # 順位ベースのスコア（1位=100, 18位=15）
             ai_score = max(0, 100 - (ai_rank - 1) * 5)
             break
@@ -185,19 +180,22 @@ def _select_axis_horses(
     runners_map = {r.get("horse_number"): r for r in runners_data}
 
     if user_axis:
-        # ユーザー指定の軸馬
-        result = []
-        for hn in user_axis[:MAX_AXIS_HORSES]:
-            runner = runners_map.get(hn, {})
-            score = _calculate_composite_score(
-                hn, runners_data, ai_predictions, predicted_pace, running_styles
-            )
-            result.append({
-                "horse_number": hn,
-                "horse_name": runner.get("horse_name", ""),
-                "composite_score": score,
-            })
-        return result
+        # ユーザー指定の軸馬（出走馬に存在する馬番のみ採用）
+        valid_axis = [hn for hn in user_axis if hn in runners_map][:MAX_AXIS_HORSES]
+        if valid_axis:
+            result = []
+            for hn in valid_axis:
+                runner = runners_map.get(hn, {})
+                score = _calculate_composite_score(
+                    hn, runners_data, ai_predictions, predicted_pace, running_styles
+                )
+                result.append({
+                    "horse_number": hn,
+                    "horse_name": runner.get("horse_name", ""),
+                    "composite_score": score,
+                })
+            return result
+        # 有効な馬番がなければ自動選定にフォールバック
 
     # 自動選定: 全馬の複合スコアを計算
     scored = []
@@ -392,7 +390,7 @@ def _generate_bet_candidates(
                 reasoning = _generate_bet_reasoning(
                     axis_hn, axis_name, axis_pop,
                     partner_hn, partner_name, partner_pop,
-                    bet_type, ev, ai_predictions,
+                    bet_type, bet_display, ev, ai_predictions,
                 )
 
                 bets.append({
@@ -485,6 +483,7 @@ def _generate_bet_reasoning(
     partner_name: str,
     partner_pop: int,
     bet_type: str,
+    bet_display: str,
     ev: dict,
     ai_predictions: list[dict],
 ) -> str:
@@ -506,7 +505,7 @@ def _generate_bet_reasoning(
         parts.append(f"期待値{ev_val}（{rating}）")
 
     bet_name = BET_TYPE_NAMES.get(bet_type, bet_type)
-    parts.append(f"{bet_name} {axis_hn}-{partner_hn}")
+    parts.append(f"{bet_name} {bet_display}")
 
     return "。".join(parts)
 
