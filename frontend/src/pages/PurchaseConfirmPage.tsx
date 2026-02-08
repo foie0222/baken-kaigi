@@ -87,6 +87,8 @@ export function PurchaseConfirmPage() {
   const courseCode = firstItem.raceVenue;
   const raceNumber = parseInt(firstItem.raceNumber.replace('R', '') || '0', 10);
 
+  const isPurchaseDisabled = isLoading || !balance || totalAmount > balance.betBalance;
+
   const handlePurchase = async () => {
     setShowConfirmModal(false);
     await submitPurchase(cartId, raceDate, courseCode, raceNumber);
@@ -169,9 +171,9 @@ export function PurchaseConfirmPage() {
           padding: 14,
           fontSize: 16,
           fontWeight: 600,
-          opacity: isLoading ? 0.5 : 1,
+          opacity: isPurchaseDisabled ? 0.5 : 1,
         }}
-        disabled={isLoading}
+        disabled={isPurchaseDisabled}
         onClick={() => setShowConfirmModal(true)}
       >
         {isLoading ? '処理中...' : '購入する'}

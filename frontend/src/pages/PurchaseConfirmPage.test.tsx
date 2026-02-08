@@ -11,7 +11,7 @@ vi.mock('../api/client', () => ({
     submitPurchase: vi.fn(),
     getIpatBalance: vi.fn(() => Promise.resolve({
       success: true,
-      data: { betBalance: 100000, limitVoteAmount: 200000 },
+      data: { betBalance: 100000, limitVoteAmount: 200000, betDedicatedBalance: 100000, settlePossibleBalance: 100000 },
     })),
     getPurchaseHistory: vi.fn(),
   },
@@ -55,6 +55,67 @@ describe('PurchaseConfirmPage', () => {
       history: [],
       isLoading: false,
       error: null,
+    })
+  })
+
+  describe('残高不足時の購入ボタン無効化', () => {
+    it('残高不足時に購入ボタンがdisabledになる', async () => {
+      addTestCartItem() // 1000円のアイテム
+
+      // 残高500円（不足）
+      vi.mocked(apiClient.getIpatBalance).mockResolvedValue({
+        success: true,
+        data: { betBalance: 500, limitVoteAmount: 200000, betDedicatedBalance: 500, settlePossibleBalance: 500 },
+      })
+
+      render(<PurchaseConfirmPage />)
+
+      // 残高取得完了を待つ
+      await waitFor(() => {
+        expect(usePurchaseStore.getState().balance).not.toBeNull()
+      })
+
+      const purchaseButton = screen.getByRole('button', { name: '購入する' })
+      expect(purchaseButton).toBeDisabled()
+    })
+
+    it('残高未取得時に購入ボタンがdisabledになる', async () => {
+      addTestCartItem()
+
+      // 残高取得失敗
+      vi.mocked(apiClient.getIpatBalance).mockResolvedValue({
+        success: false,
+        error: '取得に失敗しました',
+      })
+
+      render(<PurchaseConfirmPage />)
+
+      // isLoadingがfalseになるのを待つ
+      await waitFor(() => {
+        expect(usePurchaseStore.getState().isLoading).toBe(false)
+      })
+
+      const purchaseButton = screen.getByRole('button', { name: '購入する' })
+      expect(purchaseButton).toBeDisabled()
+    })
+
+    it('残高十分な場合は購入ボタンが有効', async () => {
+      addTestCartItem() // 1000円のアイテム
+
+      // 残高100000円（十分）
+      vi.mocked(apiClient.getIpatBalance).mockResolvedValue({
+        success: true,
+        data: { betBalance: 100000, limitVoteAmount: 200000, betDedicatedBalance: 100000, settlePossibleBalance: 100000 },
+      })
+
+      render(<PurchaseConfirmPage />)
+
+      await waitFor(() => {
+        expect(usePurchaseStore.getState().balance).not.toBeNull()
+      })
+
+      const purchaseButton = screen.getByRole('button', { name: '購入する' })
+      expect(purchaseButton).not.toBeDisabled()
     })
   })
 
