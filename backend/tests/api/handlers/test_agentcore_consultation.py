@@ -46,3 +46,47 @@ class TestInvokeAgentcoreErrorHandling:
             assert result["statusCode"] == 500
             # logger.exception が呼ばれていることを確認
             mock_logger.exception.assert_called_once()
+
+
+class TestInvokeAgentcoreTypeValidation:
+    """invoke_agentcore の型バリデーションテスト."""
+
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_promptが整数の場合400エラー(self) -> None:
+        """promptが文字列でない場合400エラーになることを確認."""
+        event = {"body": json.dumps({"prompt": 12345})}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 400
+        body = json.loads(result["body"])
+        assert "prompt" in body["error"]
+
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_promptがリストの場合400エラー(self) -> None:
+        """promptがリストの場合400エラーになることを確認."""
+        event = {"body": json.dumps({"prompt": ["hello"]})}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 400
+        body = json.loads(result["body"])
+        assert "prompt" in body["error"]
+
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_session_idが整数の場合400エラー(self) -> None:
+        """session_idが文字列でない場合400エラーになることを確認."""
+        event = {"body": json.dumps({"prompt": "テスト", "session_id": 12345})}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 400
+        body = json.loads(result["body"])
+        assert "session_id" in body["error"]
+
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_cart_itemsが文字列の場合400エラー(self) -> None:
+        """cart_itemsがリストでない場合400エラーになることを確認."""
+        event = {"body": json.dumps({"prompt": "テスト", "cart_items": "invalid"})}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 400
+        body = json.loads(result["body"])
+        assert "cart_items" in body["error"]

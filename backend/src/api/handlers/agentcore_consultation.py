@@ -106,6 +106,17 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     if "prompt" not in body:
         return _make_response({"error": "prompt is required"}, 400, event=event)
 
+    if not isinstance(body["prompt"], str):
+        return _make_response({"error": "prompt must be a string"}, 400, event=event)
+
+    # session_id の型チェック（オプションだが指定時は文字列であること）
+    if "session_id" in body and not isinstance(body["session_id"], str):
+        return _make_response({"error": "session_id must be a string"}, 400, event=event)
+
+    # cart_items の型チェック（オプションだが指定時はリストであること）
+    if "cart_items" in body and not isinstance(body["cart_items"], list):
+        return _make_response({"error": "cart_items must be a list"}, 400, event=event)
+
     # セッション ID（既存または新規生成）
     session_id = body.get("session_id") or str(uuid.uuid4())
 

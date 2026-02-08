@@ -467,3 +467,61 @@ class TestGetConsultationHandler:
         response = get_consultation(event, None)
 
         assert response["statusCode"] == 404
+
+
+class TestStartConsultationTypeValidation:
+    """start_consultation の型バリデーションテスト."""
+
+    def test_cart_idが整数の場合400エラー(self) -> None:
+        """cart_idが文字列でない場合400エラーになることを確認."""
+        from src.api.handlers.consultation import start_consultation
+
+        event = {"body": json.dumps({"cart_id": 12345})}
+        response = start_consultation(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "cart_id" in body["error"]["message"]
+
+    def test_cart_idがリストの場合400エラー(self) -> None:
+        """cart_idがリストの場合400エラーになることを確認."""
+        from src.api.handlers.consultation import start_consultation
+
+        event = {"body": json.dumps({"cart_id": ["abc", "def"]})}
+        response = start_consultation(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "cart_id" in body["error"]["message"]
+
+
+class TestSendMessageTypeValidation:
+    """send_message の型バリデーションテスト."""
+
+    def test_contentが整数の場合400エラー(self) -> None:
+        """contentが文字列でない場合400エラーになることを確認."""
+        from src.api.handlers.consultation import send_message
+
+        event = {
+            "pathParameters": {"session_id": "test-session"},
+            "body": json.dumps({"content": 12345}),
+        }
+        response = send_message(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "content" in body["error"]["message"]
+
+    def test_contentがリストの場合400エラー(self) -> None:
+        """contentがリストの場合400エラーになることを確認."""
+        from src.api.handlers.consultation import send_message
+
+        event = {
+            "pathParameters": {"session_id": "test-session"},
+            "body": json.dumps({"content": ["hello", "world"]}),
+        }
+        response = send_message(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "content" in body["error"]["message"]
