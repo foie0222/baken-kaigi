@@ -39,6 +39,26 @@ from src.application.use_cases.update_loss_limit import (
 )
 
 
+def loss_limit_handler(event: dict, context: Any) -> dict:
+    """負け額限度額APIルーティングハンドラー.
+
+    リクエストのresourceとhttpMethodに基づいて適切なハンドラーに振り分ける。
+    """
+    resource = event.get("resource", "")
+    method = event.get("httpMethod", "")
+
+    if resource == "/users/loss-limit" and method == "GET":
+        return get_loss_limit_handler(event, context)
+    if resource == "/users/loss-limit" and method == "POST":
+        return set_loss_limit_handler(event, context)
+    if resource == "/users/loss-limit" and method == "PUT":
+        return update_loss_limit_handler(event, context)
+    if resource == "/users/loss-limit/check" and method == "GET":
+        return check_loss_limit_handler(event, context)
+
+    return bad_request_response("Unknown route", event=event)
+
+
 def get_loss_limit_handler(event: dict, context: Any) -> dict:
     """負け額限度額を取得する.
 

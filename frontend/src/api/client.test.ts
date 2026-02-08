@@ -456,4 +456,105 @@ describe('ApiClient', () => {
       expect(result.error).toBe('Internal Server Error')
     })
   })
+
+  describe('AI買い目提案 (requestBetProposal)', () => {
+    const mockRunners = [
+      { horse_number: 1, horse_name: 'テスト馬1', odds: 3.5, popularity: 1, frame_number: 1 },
+      { horse_number: 2, horse_name: 'テスト馬2', odds: 5.0, popularity: 2, frame_number: 2 },
+    ]
+    const mockProposal = {
+      race_summary: {
+        race_name: 'テストレース',
+        difficulty_stars: 3,
+        predicted_pace: 'ミドル',
+        ai_consensus_level: '概ね合意',
+        skip_score: 3,
+        skip_recommendation: '通常判断',
+      },
+      proposed_bets: [{
+        bet_type: 'quinella',
+        horse_numbers: [1, 2],
+        bet_display: '1-2',
+        amount: 1000,
+        bet_count: 1,
+        confidence: 'high',
+        expected_value: 1.2,
+        composite_odds: 5.0,
+        reasoning: 'テスト根拠',
+      }],
+      total_amount: 1000,
+      budget_remaining: 2000,
+      analysis_comment: 'テスト分析',
+      disclaimer: '免責事項',
+    }
+
+    it('セパレータ+JSONで正常にパースできる', async () => {
+      const message = `分析結果です。\n\n---BET_PROPOSALS_JSON---\n${JSON.stringify(mockProposal)}`
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message, session_id: 'session_1' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.proposed_bets).toHaveLength(1)
+      expect(result.data?.total_amount).toBe(1000)
+    })
+
+    it('コードフェンス付きJSONでもパースできる', async () => {
+      const message = `分析結果です。\n\n---BET_PROPOSALS_JSON---\n\`\`\`json\n${JSON.stringify(mockProposal)}\n\`\`\``
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message, session_id: 'session_1' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.proposed_bets).toHaveLength(1)
+    })
+
+    it('セパレータ欠落時にエラーを返す', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: 'セパレータなしの応答', session_id: 'session_1' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('提案データが見つかりませんでした')
+    })
+
+    it('JSON不正時にエラーを返す', async () => {
+      const message = '分析結果です。\n\n---BET_PROPOSALS_JSON---\n{invalid json}'
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message, session_id: 'session_1' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('提案データの解析に失敗しました')
+    })
+
+    it('API呼び出し失敗時にエラーを返す', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'Internal Server Error' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+
+      expect(result.success).toBe(false)
+    })
+  })
 })

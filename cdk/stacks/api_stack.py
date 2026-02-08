@@ -379,7 +379,7 @@ class BakenKaigiApiStack(Stack):
             "AgentCoreRuntimeRole",
             role_name="baken-kaigi-agentcore-runtime-role",
             assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-            description="AgentCore Runtime用のIAMロール",
+            description="IAM role for AgentCore Runtime",
         )
 
         # DynamoDB 読み取り権限
@@ -486,6 +486,9 @@ class BakenKaigiApiStack(Stack):
             "environment": lambda_environment,
         }
 
+        # VPC不要Lambda用の共通プロパティ（DynamoDB/Secrets Manager等のAWSサービスのみ使用）
+        lambda_no_vpc_props = dict(lambda_common_props)
+
         # VPC 設定（JRA-VAN 連携時に必要）
         # Lambda はプライベート（ISOLATED）サブネットに配置
         # DynamoDB へは VPC Gateway Endpoint 経由でアクセス
@@ -561,7 +564,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-add-to-cart",
             description="カートに買い目追加",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         get_cart_fn = lambda_.Function(
@@ -574,7 +577,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-cart",
             description="カート取得",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         remove_from_cart_fn = lambda_.Function(
@@ -587,7 +590,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-remove-from-cart",
             description="カートアイテム削除",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         clear_cart_fn = lambda_.Function(
@@ -600,7 +603,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-clear-cart",
             description="カートクリア",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         # 相談API
@@ -614,7 +617,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-start-consultation",
             description="AI相談開始",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         send_message_fn = lambda_.Function(
@@ -627,7 +630,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-send-message",
             description="メッセージ送信",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         get_consultation_fn = lambda_.Function(
@@ -640,7 +643,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-consultation",
             description="相談セッション取得",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         # 馬API
@@ -896,7 +899,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-user-profile",
             description="ユーザープロフィール取得",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         update_user_profile_fn = lambda_.Function(
@@ -909,7 +912,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-update-user-profile",
             description="ユーザープロフィール更新",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         delete_account_fn = lambda_.Function(
@@ -922,63 +925,24 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-delete-account",
             description="アカウント削除",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         # ========================================
         # 損失制限API
         # ========================================
 
-        get_loss_limit_fn = lambda_.Function(
+        loss_limit_fn = lambda_.Function(
             self,
-            "GetLossLimitFunction",
-            handler="src.api.handlers.loss_limit.get_loss_limit_handler",
+            "LossLimitFunction",
+            handler="src.api.handlers.loss_limit.loss_limit_handler",
             code=lambda_.Code.from_asset(
                 str(project_root / "backend"),
                 exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
-            function_name="baken-kaigi-get-loss-limit",
-            description="損失制限設定取得",
-            **lambda_common_props,
-        )
-
-        set_loss_limit_fn = lambda_.Function(
-            self,
-            "SetLossLimitFunction",
-            handler="src.api.handlers.loss_limit.set_loss_limit_handler",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-set-loss-limit",
-            description="損失制限設定作成",
-            **lambda_common_props,
-        )
-
-        update_loss_limit_fn = lambda_.Function(
-            self,
-            "UpdateLossLimitFunction",
-            handler="src.api.handlers.loss_limit.update_loss_limit_handler",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-update-loss-limit",
-            description="損失制限設定更新",
-            **lambda_common_props,
-        )
-
-        check_loss_limit_fn = lambda_.Function(
-            self,
-            "CheckLossLimitFunction",
-            handler="src.api.handlers.loss_limit.check_loss_limit_handler",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-check-loss-limit",
-            description="損失制限チェック",
-            **lambda_common_props,
+            function_name="baken-kaigi-loss-limit",
+            description="損失制限API（統合ハンドラー）",
+            **lambda_no_vpc_props,
         )
 
         # ========================================
@@ -1009,7 +973,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-purchase-history",
             description="購入履歴取得",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         get_purchase_detail_fn = lambda_.Function(
@@ -1022,7 +986,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-purchase-detail",
             description="購入詳細取得",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         get_ipat_balance_fn = lambda_.Function(
@@ -1049,7 +1013,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-save-ipat-credentials",
             description="IPAT認証情報保存",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         get_ipat_status_fn = lambda_.Function(
@@ -1062,7 +1026,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-ipat-status",
             description="IPAT設定ステータス取得",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         delete_ipat_credentials_fn = lambda_.Function(
@@ -1075,63 +1039,24 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-delete-ipat-credentials",
             description="IPAT認証情報削除",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         # ========================================
         # 投票記録API
         # ========================================
 
-        create_betting_record_fn = lambda_.Function(
+        betting_record_fn = lambda_.Function(
             self,
-            "CreateBettingRecordFunction",
-            handler="src.api.handlers.betting_record.create_betting_record_handler",
+            "BettingRecordFunction",
+            handler="src.api.handlers.betting_record.betting_record_handler",
             code=lambda_.Code.from_asset(
                 str(project_root / "backend"),
                 exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
-            function_name="baken-kaigi-create-betting-record",
-            description="投票記録作成",
-            **lambda_common_props,
-        )
-
-        get_betting_records_fn = lambda_.Function(
-            self,
-            "GetBettingRecordsFunction",
-            handler="src.api.handlers.betting_record.get_betting_records_handler",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-get-betting-records",
-            description="投票記録一覧取得",
-            **lambda_common_props,
-        )
-
-        get_betting_summary_fn = lambda_.Function(
-            self,
-            "GetBettingSummaryFunction",
-            handler="src.api.handlers.betting_record.get_betting_summary_handler",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-get-betting-summary",
-            description="投票成績サマリー取得",
-            **lambda_common_props,
-        )
-
-        settle_betting_record_fn = lambda_.Function(
-            self,
-            "SettleBettingRecordFunction",
-            handler="src.api.handlers.betting_record.settle_betting_record_handler",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-settle-betting-record",
-            description="投票記録精算",
-            **lambda_common_props,
+            function_name="baken-kaigi-betting-record",
+            description="投票記録API（統合ハンドラー）",
+            **lambda_no_vpc_props,
         )
 
         # Cognito Post Confirmation トリガー
@@ -1145,7 +1070,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-cognito-post-confirmation",
             description="Cognito確認完了トリガー",
-            **lambda_common_props,
+            **lambda_no_vpc_props,
         )
 
         # Post Confirmation トリガー設定
@@ -1480,23 +1405,24 @@ class BakenKaigiApiStack(Stack):
 
         # /users/loss-limit
         users_loss_limit = users.add_resource("loss-limit")
+        loss_limit_integration = apigw.LambdaIntegration(loss_limit_fn)
         users_loss_limit.add_method(
             "GET",
-            apigw.LambdaIntegration(get_loss_limit_fn),
+            loss_limit_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
         )
         users_loss_limit.add_method(
             "POST",
-            apigw.LambdaIntegration(set_loss_limit_fn),
+            loss_limit_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
         )
         users_loss_limit.add_method(
             "PUT",
-            apigw.LambdaIntegration(update_loss_limit_fn),
+            loss_limit_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -1506,7 +1432,7 @@ class BakenKaigiApiStack(Stack):
         users_loss_limit_check = users_loss_limit.add_resource("check")
         users_loss_limit_check.add_method(
             "GET",
-            apigw.LambdaIntegration(check_loss_limit_fn),
+            loss_limit_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -1581,16 +1507,17 @@ class BakenKaigiApiStack(Stack):
 
         # /betting-records
         betting_records = api.root.add_resource("betting-records")
+        betting_record_integration = apigw.LambdaIntegration(betting_record_fn)
         betting_records.add_method(
             "POST",
-            apigw.LambdaIntegration(create_betting_record_fn),
+            betting_record_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
         )
         betting_records.add_method(
             "GET",
-            apigw.LambdaIntegration(get_betting_records_fn),
+            betting_record_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -1600,7 +1527,7 @@ class BakenKaigiApiStack(Stack):
         betting_summary = betting_records.add_resource("summary")
         betting_summary.add_method(
             "GET",
-            apigw.LambdaIntegration(get_betting_summary_fn),
+            betting_record_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -1611,7 +1538,7 @@ class BakenKaigiApiStack(Stack):
         betting_record_settle = betting_record_by_id.add_resource("settle")
         betting_record_settle.add_method(
             "PUT",
-            apigw.LambdaIntegration(settle_betting_record_fn),
+            betting_record_integration,
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -2146,17 +2073,8 @@ class BakenKaigiApiStack(Stack):
             session_table.grant_read_write_data(fn)
 
         # 損失制限関連 Lambda に User テーブルと LossLimitChange テーブルへのアクセス権限を付与
-        # 読み取り専用 Lambda
-        for fn in [get_loss_limit_fn, check_loss_limit_fn]:
-            user_table.grant_read_data(fn)
-
-        # get_loss_limit は change テーブルも読み取り
-        loss_limit_change_table.grant_read_data(get_loss_limit_fn)
-
-        # 書き込みが必要な Lambda
-        for fn in [set_loss_limit_fn, update_loss_limit_fn]:
-            user_table.grant_read_write_data(fn)
-            loss_limit_change_table.grant_read_write_data(fn)
+        user_table.grant_read_write_data(loss_limit_fn)
+        loss_limit_change_table.grant_read_write_data(loss_limit_fn)
 
         # IPAT購入関連 Lambda に Purchase Order テーブルへのアクセス権限を付与
         purchase_functions = [
@@ -2194,14 +2112,7 @@ class BakenKaigiApiStack(Stack):
             fn.add_to_role_policy(ipat_secrets_policy)
 
         # 投票記録関連 Lambda に Betting Record テーブルへのアクセス権限を付与
-        betting_record_functions = [
-            create_betting_record_fn,
-            get_betting_records_fn,
-            get_betting_summary_fn,
-            settle_betting_record_fn,
-        ]
-        for fn in betting_record_functions:
-            betting_record_table.grant_read_write_data(fn)
+        betting_record_table.grant_read_write_data(betting_record_fn)
 
         # ========================================
         # 出力

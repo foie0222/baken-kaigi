@@ -403,7 +403,7 @@ class ApiClient {
     budget: number,
     runnersData: RunnerData[],
     options?: {
-      preferredBetTypes?: string[];
+      preferredBetTypes?: BetType[];
       axisHorses?: number[];
     }
   ): Promise<ApiResponse<BetProposalResponse>> {
