@@ -1,6 +1,7 @@
 """値オブジェクトモジュール."""
 from .amount_feedback import AmountFeedback
 from .bet_selection import BetSelection
+from .betting_summary import BettingSummary
 from .data_feedback import DataFeedback
 from .date_of_birth import DateOfBirth
 from .display_name import DisplayName
@@ -16,6 +17,7 @@ from .race_reference import RaceReference
 __all__ = [
     "AmountFeedback",
     "BetSelection",
+    "BettingSummary",
     "DataFeedback",
     "DateOfBirth",
     "DisplayName",

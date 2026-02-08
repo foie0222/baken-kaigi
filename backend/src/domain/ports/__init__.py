@@ -1,5 +1,6 @@
 """ポートモジュール."""
 from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, ConsultationContext
+from .betting_record_repository import BettingRecordRepository
 from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
 from .ipat_credentials_provider import IpatCredentialsProvider
@@ -64,6 +65,7 @@ __all__ = [
     "AIClient",
     "AmountFeedbackContext",
     "AncestorData",
+    "BettingRecordRepository",
     "AptitudeSummaryData",
     "BetFeedbackContext",
     "BreederInfoData",

@@ -420,5 +420,41 @@ export interface BetProposalResponse {
   disclaimer: string;
 }
 
+// 賭け記録
+export interface BettingRecord {
+  recordId: string;
+  userId: string;
+  raceId: string;
+  raceName: string;
+  raceDate: string;
+  venue: string;
+  betType: BetType;
+  horseNumbers: number[];
+  amount: number;
+  payout: number;
+  profit: number;
+  status: 'PENDING' | 'SETTLED' | 'CANCELLED';
+  createdAt: string;
+  settledAt: string | null;
+}
+
+// 損益サマリー
+export interface BettingSummary {
+  totalInvestment: number;
+  totalPayout: number;
+  netProfit: number;
+  winRate: number;
+  recordCount: number;
+  roi: number;
+}
+
+// フィルタ
+export interface BettingRecordFilter {
+  dateFrom?: string;
+  dateTo?: string;
+  venue?: string;
+  betType?: BetType;
+}
+
 // アプリ状態
 export type PageType = 'races' | 'dashboard' | 'history' | 'settings' | 'cart';
