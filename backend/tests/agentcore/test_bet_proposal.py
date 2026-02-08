@@ -324,6 +324,34 @@ class TestEstimateBetOdds:
         assert _estimate_bet_odds([0, 0], "quinella") == 0.0
         assert _estimate_bet_odds([], "quinella") == 0.0
 
+    def test_Decimal型のオッズでも正常に計算できる(self):
+        """DynamoDB由来のDecimal型を含むオッズリストでもエラーにならない."""
+        from decimal import Decimal
+
+        result = _estimate_bet_odds([Decimal("3.5"), Decimal("8.0")], "quinella")
+        assert result > 0
+        # float版と同じ結果になることを確認
+        float_result = _estimate_bet_odds([3.5, 8.0], "quinella")
+        assert result == float_result
+
+    def test_Decimal型とfloat型が混在しても計算できる(self):
+        """Decimalとfloatが混在しても正常に計算される."""
+        from decimal import Decimal
+
+        result = _estimate_bet_odds([Decimal("3.5"), 8.0], "quinella")
+        assert result > 0
+
+    def test_Decimal型の三連系オッズでも計算できる(self):
+        """3頭のDecimal型オッズでも正常に計算される."""
+        from decimal import Decimal
+
+        result = _estimate_bet_odds(
+            [Decimal("3.5"), Decimal("8.0"), Decimal("15.0")], "trio"
+        )
+        assert result > 0
+        float_result = _estimate_bet_odds([3.5, 8.0, 15.0], "trio")
+        assert result == float_result
+
 
 # =============================================================================
 # トリガミ除外テスト

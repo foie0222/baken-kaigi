@@ -262,14 +262,14 @@ def _select_bet_types_by_difficulty(
 # =============================================================================
 
 
-def _estimate_bet_odds(odds_list: list[float], bet_type: str) -> float:
+def _estimate_bet_odds(odds_list: list, bet_type: str) -> float:
     """単勝オッズから券種別の推定オッズを計算する.
 
     馬連・馬単・三連複・三連単などの実際のオッズは
     単勝オッズの積と券種特性から推定する。
 
     Args:
-        odds_list: 各馬の単勝オッズリスト
+        odds_list: 各馬の単勝オッズリスト（float, int, Decimal を許容）
         bet_type: 券種コード
 
     Returns:
