@@ -1,0 +1,204 @@
+"""投票記録APIハンドラー."""
+from typing import Any
+
+from src.api.auth import AuthenticationError, require_authenticated_user_id
+from src.api.dependencies import Dependencies
+from src.api.request import get_body, get_path_parameter, get_query_parameter
+from src.api.response import (
+    bad_request_response,
+    internal_error_response,
+    not_found_response,
+    success_response,
+    unauthorized_response,
+)
+from src.application.use_cases.create_betting_record import CreateBettingRecordUseCase
+from src.application.use_cases.get_betting_records import GetBettingRecordsUseCase
+from src.application.use_cases.get_betting_summary import GetBettingSummaryUseCase
+from src.application.use_cases.settle_betting_record import (
+    BettingRecordNotFoundError,
+    SettleBettingRecordUseCase,
+)
+
+
+def create_betting_record_handler(event: dict, context: Any) -> dict:
+    """投票記録を作成する.
+
+    POST /betting-records
+    """
+    try:
+        user_id = require_authenticated_user_id(event)
+    except AuthenticationError:
+        return unauthorized_response(event=event)
+
+    try:
+        body = get_body(event)
+    except ValueError as e:
+        return bad_request_response(str(e), event=event)
+
+    race_id = body.get("race_id")
+    race_name = body.get("race_name")
+    race_date = body.get("race_date")
+    venue = body.get("venue")
+    bet_type = body.get("bet_type")
+    horse_numbers = body.get("horse_numbers")
+    amount = body.get("amount")
+
+    if not race_id:
+        return bad_request_response("race_id is required", event=event)
+    if not race_name:
+        return bad_request_response("race_name is required", event=event)
+    if not race_date:
+        return bad_request_response("race_date is required", event=event)
+    if not venue:
+        return bad_request_response("venue is required", event=event)
+    if not bet_type:
+        return bad_request_response("bet_type is required", event=event)
+    if not horse_numbers:
+        return bad_request_response("horse_numbers is required", event=event)
+    if amount is None:
+        return bad_request_response("amount is required", event=event)
+
+    use_case = CreateBettingRecordUseCase(
+        betting_record_repository=Dependencies.get_betting_record_repository(),
+    )
+
+    record = use_case.execute(
+        user_id=user_id.value,
+        race_id=race_id,
+        race_name=race_name,
+        race_date=race_date,
+        venue=venue,
+        bet_type=bet_type,
+        horse_numbers=horse_numbers,
+        amount=amount,
+    )
+
+    return success_response(
+        {
+            "record_id": record.record_id.value,
+            "status": record.status.value,
+            "amount": record.amount.value,
+            "created_at": record.created_at.isoformat(),
+        },
+        status_code=201,
+        event=event,
+    )
+
+
+def get_betting_records_handler(event: dict, context: Any) -> dict:
+    """投票記録一覧を取得する.
+
+    GET /betting-records
+    """
+    try:
+        user_id = require_authenticated_user_id(event)
+    except AuthenticationError:
+        return unauthorized_response(event=event)
+
+    date_from = get_query_parameter(event, "date_from")
+    date_to = get_query_parameter(event, "date_to")
+    venue = get_query_parameter(event, "venue")
+    bet_type = get_query_parameter(event, "bet_type")
+
+    use_case = GetBettingRecordsUseCase(
+        betting_record_repository=Dependencies.get_betting_record_repository(),
+    )
+
+    records = use_case.execute(
+        user_id=user_id.value,
+        date_from=date_from,
+        date_to=date_to,
+        venue=venue,
+        bet_type=bet_type,
+    )
+
+    return success_response([
+        {
+            "record_id": r.record_id.value,
+            "race_id": r.race_id.value,
+            "race_name": r.race_name,
+            "race_date": r.race_date.isoformat(),
+            "venue": r.venue,
+            "bet_type": r.bet_type.value,
+            "horse_numbers": r.horse_numbers.to_list(),
+            "amount": r.amount.value,
+            "payout": r.payout.value,
+            "profit": r.profit.value,
+            "status": r.status.value,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in records
+    ], event=event)
+
+
+def get_betting_summary_handler(event: dict, context: Any) -> dict:
+    """投票成績サマリーを取得する.
+
+    GET /betting-records/summary
+    """
+    try:
+        user_id = require_authenticated_user_id(event)
+    except AuthenticationError:
+        return unauthorized_response(event=event)
+
+    period = get_query_parameter(event, "period", default="all_time")
+
+    use_case = GetBettingSummaryUseCase(
+        betting_record_repository=Dependencies.get_betting_record_repository(),
+    )
+
+    summary = use_case.execute(user_id=user_id.value, period=period)
+
+    return success_response({
+        "total_investment": summary.total_investment.value,
+        "total_payout": summary.total_payout.value,
+        "net_profit": summary.net_profit.value,
+        "win_rate": summary.win_rate,
+        "record_count": summary.record_count,
+        "roi": summary.roi,
+    }, event=event)
+
+
+def settle_betting_record_handler(event: dict, context: Any) -> dict:
+    """投票記録を確定する.
+
+    PUT /betting-records/{record_id}/settle
+    """
+    try:
+        user_id = require_authenticated_user_id(event)
+    except AuthenticationError:
+        return unauthorized_response(event=event)
+
+    record_id = get_path_parameter(event, "record_id")
+    if not record_id:
+        return bad_request_response("record_id is required", event=event)
+
+    try:
+        body = get_body(event)
+    except ValueError as e:
+        return bad_request_response(str(e), event=event)
+
+    payout = body.get("payout")
+    if payout is None:
+        return bad_request_response("payout is required", event=event)
+
+    use_case = SettleBettingRecordUseCase(
+        betting_record_repository=Dependencies.get_betting_record_repository(),
+    )
+
+    try:
+        record = use_case.execute(
+            user_id=user_id.value,
+            record_id=record_id,
+            payout=payout,
+        )
+    except BettingRecordNotFoundError:
+        return not_found_response("Betting record", event=event)
+
+    return success_response({
+        "record_id": record.record_id.value,
+        "status": record.status.value,
+        "payout": record.payout.value,
+        "profit": record.profit.value,
+        "settled_at": record.settled_at.isoformat() if record.settled_at else None,
+    }, event=event)
