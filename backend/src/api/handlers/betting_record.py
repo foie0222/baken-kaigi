@@ -1,4 +1,5 @@
 """投票記録APIハンドラー."""
+import math
 from typing import Any
 
 from src.api.auth import AuthenticationError, require_authenticated_user_id
@@ -76,7 +77,15 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
         return bad_request_response("horse_numbers is required", event=event)
     if amount is None:
         return bad_request_response("amount is required", event=event)
-    if not isinstance(amount, (int, float)) or amount <= 0:
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)):
+        return bad_request_response("amount must be a positive number", event=event)
+    if isinstance(amount, float):
+        if not math.isfinite(amount):
+            return bad_request_response("amount must be a finite number", event=event)
+        if amount != int(amount):
+            return bad_request_response("amount must be a whole number", event=event)
+        amount = int(amount)
+    if amount <= 0:
         return bad_request_response("amount must be a positive number", event=event)
 
     use_case = CreateBettingRecordUseCase(
@@ -218,7 +227,15 @@ def settle_betting_record_handler(event: dict, context: Any) -> dict:
     payout = body.get("payout")
     if payout is None:
         return bad_request_response("payout is required", event=event)
-    if not isinstance(payout, (int, float)) or payout < 0:
+    if isinstance(payout, bool) or not isinstance(payout, (int, float)):
+        return bad_request_response("payout must be a non-negative number", event=event)
+    if isinstance(payout, float):
+        if not math.isfinite(payout):
+            return bad_request_response("payout must be a finite number", event=event)
+        if payout != int(payout):
+            return bad_request_response("payout must be a whole number", event=event)
+        payout = int(payout)
+    if payout < 0:
         return bad_request_response("payout must be a non-negative number", event=event)
 
     use_case = SettleBettingRecordUseCase(
