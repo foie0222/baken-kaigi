@@ -48,6 +48,26 @@ class TestInvokeAgentcoreErrorHandling:
             mock_logger.exception.assert_called_once()
 
 
+class TestInvokeAgentcoreBodyValidation:
+    """invoke_agentcore のボディバリデーションテスト."""
+
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_ボディが数値JSONの場合400エラー(self) -> None:
+        """ボディがJSONオブジェクトでない場合400エラーになることを確認."""
+        event = {"body": "123"}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 400
+
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_ボディが配列JSONの場合400エラー(self) -> None:
+        """ボディがJSON配列の場合400エラーになることを確認."""
+        event = {"body": '[1, 2, 3]'}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 400
+
+
 class TestInvokeAgentcoreTypeValidation:
     """invoke_agentcore の型バリデーションテスト."""
 

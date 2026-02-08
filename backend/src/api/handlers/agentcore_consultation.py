@@ -70,9 +70,14 @@ def _get_body(event: dict) -> dict:
     if not body:
         return {}
     try:
-        return json.loads(body)
+        parsed = json.loads(body)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON body: {e}")
+
+    if not isinstance(parsed, dict):
+        raise ValueError("Request body must be a JSON object")
+
+    return parsed
 
 
 def invoke_agentcore(event: dict, context: Any) -> dict:

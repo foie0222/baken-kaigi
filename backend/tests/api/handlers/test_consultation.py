@@ -469,6 +469,28 @@ class TestGetConsultationHandler:
         assert response["statusCode"] == 404
 
 
+class TestStartConsultationBodyValidation:
+    """start_consultation のボディバリデーションテスト."""
+
+    def test_ボディが数値JSONの場合400エラー(self) -> None:
+        """ボディがJSONオブジェクトでない場合400エラーになることを確認."""
+        from src.api.handlers.consultation import start_consultation
+
+        event = {"body": "123"}
+        response = start_consultation(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_ボディが配列JSONの場合400エラー(self) -> None:
+        """ボディがJSON配列の場合400エラーになることを確認."""
+        from src.api.handlers.consultation import start_consultation
+
+        event = {"body": '[1, 2, 3]'}
+        response = start_consultation(event, None)
+
+        assert response["statusCode"] == 400
+
+
 class TestStartConsultationTypeValidation:
     """start_consultation の型バリデーションテスト."""
 

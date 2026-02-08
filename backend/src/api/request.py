@@ -54,9 +54,14 @@ def get_body(event: dict) -> dict[str, Any]:
         return {}
 
     try:
-        return json.loads(body)
+        parsed = json.loads(body)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON body: {e}")
+
+    if not isinstance(parsed, dict):
+        raise ValueError("Request body must be a JSON object")
+
+    return parsed
 
 
 def get_header(event: dict, name: str) -> str | None:
