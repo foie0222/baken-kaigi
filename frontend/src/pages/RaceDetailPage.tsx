@@ -10,6 +10,7 @@ import { getBetMethodLabel } from '../utils/betMethods';
 import { BetTypeSheet } from '../components/bet/BetTypeSheet';
 import { BetMethodSheet } from '../components/bet/BetMethodSheet';
 import { HorseCheckboxList } from '../components/bet/HorseCheckboxList';
+import { BetProposalSheet } from '../components/proposal/BetProposalSheet';
 import { useBetCalculation } from '../hooks/useBetCalculation';
 import './RaceDetailPage.css';
 
@@ -35,6 +36,7 @@ export function RaceDetailPage() {
   // ボトムシートの開閉状態
   const [isBetTypeSheetOpen, setIsBetTypeSheetOpen] = useState(false);
   const [isBetMethodSheetOpen, setIsBetMethodSheetOpen] = useState(false);
+  const [isProposalSheetOpen, setIsProposalSheetOpen] = useState(false);
 
   // 点数計算
   const { betCount } = useBetCalculation(betType, betMethod, selections);
@@ -368,6 +370,17 @@ export function RaceDetailPage() {
         )}
 
         <button
+          className="btn-proposal"
+          onClick={() => setIsProposalSheetOpen(true)}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+            <line x1="9" y1="21" x2="15" y2="21" />
+          </svg>
+          AI分析提案
+        </button>
+
+        <button
           className="btn-add-cart-subtle"
           onClick={handleAddToCart}
           disabled={betCount === 0}
@@ -401,6 +414,11 @@ export function RaceDetailPage() {
         betType={betType}
         selectedMethod={betMethod}
         onSelect={handleBetMethodChange}
+      />
+      <BetProposalSheet
+        isOpen={isProposalSheetOpen}
+        onClose={() => setIsProposalSheetOpen(false)}
+        race={race}
       />
     </div>
   );

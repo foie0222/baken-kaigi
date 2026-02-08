@@ -14,6 +14,7 @@ import type {
   IpatCredentialsInput,
   IpatStatus,
   IpatBalance,
+  BetProposalResponse,
   BettingRecord,
   BettingSummary,
   BettingRecordFilter,
@@ -394,6 +395,61 @@ class ApiClient {
       }};
     }
     return { success: false, error: res.error };
+  }
+
+  // AI買い目提案
+  async requestBetProposal(
+    raceId: string,
+    budget: number,
+    runnersData: RunnerData[],
+    options?: {
+      preferredBetTypes?: string[];
+      axisHorses?: number[];
+    }
+  ): Promise<ApiResponse<BetProposalResponse>> {
+    const optionParts: string[] = [];
+    if (options?.preferredBetTypes?.length) {
+      optionParts.push(`希望券種: ${options.preferredBetTypes.join(', ')}`);
+    }
+    if (options?.axisHorses?.length) {
+      optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
+    }
+    const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
+
+    const prompt = `レースID ${raceId} について、予算${budget}円でgenerate_bet_proposalツールを使って買い目提案を生成してください。${optionText}`;
+    const result = await this.consultWithAgent({
+      prompt,
+      cart_items: [],
+      runners_data: runnersData,
+    });
+
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error };
+    }
+
+    const message = result.data.message;
+    const jsonSeparator = '---BET_PROPOSALS_JSON---';
+    const jsonIdx = message.indexOf(jsonSeparator);
+    if (jsonIdx === -1) {
+      return { success: false, error: '提案データが見つかりませんでした' };
+    }
+
+    let jsonStr = message.substring(jsonIdx + jsonSeparator.length).trim();
+    // コードフェンス除去（```json ... ``` 形式に対応）
+    jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/,'');
+    // 最初の { から最後の } までを抽出
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) {
+      return { success: false, error: '提案データが見つかりませんでした' };
+    }
+    jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    try {
+      const data = JSON.parse(jsonStr) as BetProposalResponse;
+      return { success: true, data };
+    } catch {
+      return { success: false, error: '提案データの解析に失敗しました' };
+    }
   }
 
   // 賭け記録API

@@ -1,0 +1,339 @@
+/* 提案フォーム */
+.proposal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.proposal-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proposal-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proposal-label-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #999;
+}
+
+.proposal-budget-presets {
+  display: flex;
+  gap: 8px;
+}
+
+.proposal-preset-btn {
+  flex: 1;
+  padding: 10px 8px;
+  border: 1.5px solid #ddd;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.proposal-preset-btn.active {
+  border-color: #1a5f2a;
+  background: #e8f5e9;
+  color: #1a5f2a;
+}
+
+.proposal-preset-btn:active {
+  transform: scale(0.97);
+}
+
+.proposal-axis-input {
+  padding: 10px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.proposal-axis-input:focus {
+  border-color: #1a5f2a;
+}
+
+.proposal-generate-btn {
+  padding: 14px 16px;
+  background: #1a5f2a;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.proposal-generate-btn:active {
+  opacity: 0.85;
+}
+
+/* ローディング */
+.proposal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+}
+
+.proposal-loading p {
+  font-size: 14px;
+  color: #666;
+}
+
+.proposal-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e8e8e8;
+  border-top-color: #1a5f2a;
+  border-radius: 50%;
+  animation: proposalSpin 0.8s linear infinite;
+}
+
+@keyframes proposalSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* エラー */
+.proposal-error {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.proposal-error p {
+  font-size: 14px;
+  color: #e53935;
+  margin-bottom: 12px;
+}
+
+.proposal-retry-btn {
+  padding: 10px 24px;
+  border: 1.5px solid #1a5f2a;
+  background: white;
+  color: #1a5f2a;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 結果 */
+.proposal-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* レースサマリーカード */
+.proposal-summary-card {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.proposal-summary-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.proposal-summary-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.proposal-summary-details span {
+  background: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.proposal-skip-warning {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fff8e1;
+  border-left: 3px solid #f59e0b;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #92400e;
+}
+
+/* 買い目カード */
+.proposal-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proposal-card {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-left: 4px solid #9ca3af;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.proposal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.proposal-bet-type {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+}
+
+.proposal-confidence {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.proposal-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proposal-bet-display {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a5f2a;
+}
+
+.proposal-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.proposal-detail-item {
+  font-size: 11px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 3px 7px;
+  border-radius: 4px;
+}
+
+.proposal-reasoning {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.proposal-add-btn {
+  margin-top: 8px;
+  padding: 8px 16px;
+  border: 1.5px solid #1a5f2a;
+  background: white;
+  color: #1a5f2a;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+}
+
+.proposal-add-btn:active {
+  background: #e8f5e9;
+}
+
+.proposal-add-btn.added {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+  color: #66bb6a;
+  cursor: default;
+}
+
+/* 合計 */
+.proposal-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a5f2a;
+}
+
+/* 分析コメント */
+.proposal-analysis-comment {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.6;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+/* 全てカートに追加 */
+.proposal-add-all-btn {
+  padding: 14px 16px;
+  background: #1a5f2a;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.proposal-add-all-btn:active {
+  opacity: 0.85;
+}
+
+.proposal-add-all-btn.added {
+  background: #c8e6c9;
+  color: #66bb6a;
+  cursor: default;
+}
+
+/* 条件変更ボタン */
+.proposal-back-btn {
+  padding: 10px 16px;
+  border: 1.5px solid #ddd;
+  background: white;
+  color: #666;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proposal-back-btn:active {
+  background: #f5f5f5;
+}
+
+/* 免責事項 */
+.proposal-disclaimer {
+  font-size: 10px;
+  color: #999;
+  line-height: 1.5;
+  text-align: center;
+  padding: 4px 0;
+}

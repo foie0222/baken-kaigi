@@ -240,3 +240,26 @@
   font-weight: 600;
   color: #1a5f2a;
 }
+
+/* AI分析提案ボタン */
+.btn-proposal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: white;
+  color: #1a5f2a;
+  border: 2px solid #1a5f2a;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-proposal:active {
+  background: #e8f5e9;
+}

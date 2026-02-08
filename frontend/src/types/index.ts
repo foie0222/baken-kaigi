@@ -388,6 +388,38 @@ export interface IpatCredentialsInput {
   parsNumber: string;
 }
 
+// AI分析提案
+export interface ProposedBet {
+  bet_type: BetType;
+  horse_numbers: number[];
+  amount: number;
+  bet_count: number;
+  bet_display: string;
+  confidence: 'high' | 'medium' | 'low';
+  expected_value: number;
+  composite_odds: number;
+  reasoning: string;
+}
+
+export interface RaceSummary {
+  race_name: string;
+  difficulty_stars: number;
+  predicted_pace: string;
+  ai_consensus_level: string;
+  skip_score: number;
+  skip_recommendation: string;
+}
+
+export interface BetProposalResponse {
+  race_id: string;
+  race_summary: RaceSummary;
+  proposed_bets: ProposedBet[];
+  total_amount: number;
+  budget_remaining: number;
+  analysis_comment: string;
+  disclaimer: string;
+}
+
 // 賭け記録
 export interface BettingRecord {
   recordId: string;

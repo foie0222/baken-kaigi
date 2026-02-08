@@ -47,6 +47,7 @@ def _get_agent():
         from strands.models import BedrockModel
         from tools.ai_prediction import get_ai_prediction
         from tools.bet_analysis import analyze_bet_selection
+        from tools.bet_proposal import generate_bet_proposal
         from tools.odds_analysis import analyze_odds_movement
         from tools.pace_analysis import analyze_race_characteristics
         from tools.past_performance import get_past_performance
@@ -73,6 +74,7 @@ def _get_agent():
                 analyze_odds_movement,  # オッズ変動・妙味分析
                 analyze_race_characteristics,  # 展開予想・レース特性分析
                 analyze_risk_factors,  # リスク分析・心理バイアス対策
+                generate_bet_proposal,  # 買い目提案一括生成
             ],
         )
         logger.info("Agent created successfully")
