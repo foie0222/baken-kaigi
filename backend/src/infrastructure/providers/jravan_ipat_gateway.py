@@ -73,7 +73,7 @@ class JraVanIpatGateway(IpatGateway):
             data = response.json()
             return data.get("success", False)
         except requests.RequestException as e:
-            logger.error(f"Failed to submit bets: {e}")
+            logger.exception("Failed to submit bets")
             raise IpatGatewayError(f"Failed to submit bets: {e}") from e
 
     def get_balance(self, credentials: IpatCredentials) -> IpatBalance:
@@ -103,5 +103,5 @@ class JraVanIpatGateway(IpatGateway):
                 limit_vote_amount=data["limit_vote_amount"],
             )
         except requests.RequestException as e:
-            logger.error(f"Failed to get balance: {e}")
+            logger.exception("Failed to get balance")
             raise IpatGatewayError(f"Failed to get balance: {e}") from e
