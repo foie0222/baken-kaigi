@@ -277,6 +277,32 @@ class BakenKaigiApiStack(Stack):
             projection_type=dynamodb.ProjectionType.ALL,
         )
 
+        # LossLimitChange テーブル
+        loss_limit_change_table = dynamodb.Table(
+            self,
+            "LossLimitChangeTable",
+            table_name="baken-kaigi-loss-limit-change",
+            partition_key=dynamodb.Attribute(
+                name="change_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+            point_in_time_recovery=True,
+        )
+        # user_id での検索用 GSI
+        loss_limit_change_table.add_global_secondary_index(
+            index_name="user_id-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="requested_at",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
+
         # Purchase Order テーブル
         purchase_order_table = dynamodb.Table(
             self,
@@ -443,6 +469,7 @@ class BakenKaigiApiStack(Stack):
             "USER_TABLE_NAME": user_table.table_name,
             "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
             "BETTING_RECORD_TABLE_NAME": betting_record_table.table_name,
+            "LOSS_LIMIT_CHANGE_TABLE_NAME": loss_limit_change_table.table_name,
             "CODE_VERSION": "5",  # コード更新強制用
         }
 
@@ -895,6 +922,62 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-delete-account",
             description="アカウント削除",
+            **lambda_common_props,
+        )
+
+        # ========================================
+        # 損失制限API
+        # ========================================
+
+        get_loss_limit_fn = lambda_.Function(
+            self,
+            "GetLossLimitFunction",
+            handler="src.api.handlers.loss_limit.get_loss_limit_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-loss-limit",
+            description="損失制限設定取得",
+            **lambda_common_props,
+        )
+
+        set_loss_limit_fn = lambda_.Function(
+            self,
+            "SetLossLimitFunction",
+            handler="src.api.handlers.loss_limit.set_loss_limit_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-set-loss-limit",
+            description="損失制限設定作成",
+            **lambda_common_props,
+        )
+
+        update_loss_limit_fn = lambda_.Function(
+            self,
+            "UpdateLossLimitFunction",
+            handler="src.api.handlers.loss_limit.update_loss_limit_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-update-loss-limit",
+            description="損失制限設定更新",
+            **lambda_common_props,
+        )
+
+        check_loss_limit_fn = lambda_.Function(
+            self,
+            "CheckLossLimitFunction",
+            handler="src.api.handlers.loss_limit.check_loss_limit_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-check-loss-limit",
+            description="損失制限チェック",
             **lambda_common_props,
         )
 
@@ -1390,6 +1473,40 @@ class BakenKaigiApiStack(Stack):
         users_account.add_method(
             "DELETE",
             apigw.LambdaIntegration(delete_account_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /users/loss-limit
+        users_loss_limit = users.add_resource("loss-limit")
+        users_loss_limit.add_method(
+            "GET",
+            apigw.LambdaIntegration(get_loss_limit_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        users_loss_limit.add_method(
+            "POST",
+            apigw.LambdaIntegration(set_loss_limit_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        users_loss_limit.add_method(
+            "PUT",
+            apigw.LambdaIntegration(update_loss_limit_fn),
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /users/loss-limit/check
+        users_loss_limit_check = users_loss_limit.add_resource("check")
+        users_loss_limit_check.add_method(
+            "GET",
+            apigw.LambdaIntegration(check_loss_limit_fn),
             api_key_required=True,
             authorization_type=apigw.AuthorizationType.COGNITO,
             authorizer=cognito_authorizer,
@@ -2027,6 +2144,19 @@ class BakenKaigiApiStack(Stack):
         for fn in consultation_functions:
             cart_table.grant_read_data(fn)
             session_table.grant_read_write_data(fn)
+
+        # 損失制限関連 Lambda に User テーブルと LossLimitChange テーブルへのアクセス権限を付与
+        # 読み取り専用 Lambda
+        for fn in [get_loss_limit_fn, check_loss_limit_fn]:
+            user_table.grant_read_data(fn)
+
+        # get_loss_limit は change テーブルも読み取り
+        loss_limit_change_table.grant_read_data(get_loss_limit_fn)
+
+        # 書き込みが必要な Lambda
+        for fn in [set_loss_limit_fn, update_loss_limit_fn]:
+            user_table.grant_read_write_data(fn)
+            loss_limit_change_table.grant_read_write_data(fn)
 
         # IPAT購入関連 Lambda に Purchase Order テーブルへのアクセス権限を付与
         purchase_functions = [

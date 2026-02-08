@@ -21,6 +21,10 @@
 | フィードバック | DataFeedback | データに基づくフィードバック |
 | フィードバック | AmountFeedback | 掛け金フィードバック |
 | フィードバック | HorseDataSummary | 馬のデータ要約 |
+| 識別子 | LossLimitChangeId | 限度額変更リクエストの識別子 |
+| 列挙 | LossLimitChangeType | 限度額変更種別 |
+| 列挙 | LossLimitChangeStatus | 限度額変更ステータス |
+| コア | LossLimitCheckResult | 限度額チェック結果 |
 | 参照 | RaceReference | レースへの参照情報 |
 
 ---
@@ -72,6 +76,14 @@ RaceId {
 ```
 UserId {
     value: String  // ユーザーシステムのID
+}
+```
+
+### LossLimitChangeId
+
+```
+LossLimitChangeId {
+    value: String  // UUID形式
 }
 ```
 
@@ -219,6 +231,48 @@ UserId {
 | NOT_STARTED | 未開始 |
 | IN_PROGRESS | 進行中 |
 | COMPLETED | 完了 |
+
+---
+
+### LossLimitChangeType（限度額変更種別）
+
+| 値 | 説明 |
+|----|------|
+| INCREASE | 増額（待機期間7日） |
+| DECREASE | 減額（即時反映） |
+
+---
+
+### LossLimitChangeStatus（限度額変更ステータス）
+
+| 値 | 説明 |
+|----|------|
+| PENDING | 待機中（増額リクエストの待機期間） |
+| APPROVED | 承認済み（適用済みまたは適用可能） |
+| REJECTED | 却下済み（キャンセル等） |
+
+---
+
+### LossLimitCheckResult（限度額チェック結果）
+
+限度額に対する購入可否の判定結果を表現する。
+
+#### 属性
+
+| 属性名 | 型 | 説明 | 制約 |
+|-------|-----|------|------|
+| canPurchase | Boolean | 購入可能かどうか | 必須 |
+| remainingAmount | Money? | 残り許容負け額 | 限度額設定時のみ |
+| warningLevel | WarningLevel | 警告レベル | 必須 |
+| message | String | 判定メッセージ | 必須 |
+
+#### ファクトリメソッド
+
+| メソッド | 説明 |
+|---------|------|
+| noLimit() | 限度額未設定（制限なし）の結果を生成 |
+| withinLimit(remaining, warningLevel) | 限度額内の結果を生成 |
+| exceeded(remaining) | 限度額超過の結果を生成 |
 
 ---
 

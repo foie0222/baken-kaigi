@@ -1,0 +1,4 @@
+"""ドメイン定数."""
+
+LOSS_LIMIT_MIN = 1000
+LOSS_LIMIT_MAX = 1000000

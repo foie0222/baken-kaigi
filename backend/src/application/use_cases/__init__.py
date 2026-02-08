@@ -24,6 +24,21 @@ from .get_user_profile import GetUserProfileUseCase, UserNotFoundError, UserProf
 from .register_user import RegisterUserUseCase, RegisterUserResult, UserAlreadyExistsError
 from .request_account_deletion import AccountDeletionResult, RequestAccountDeletionUseCase
 from .update_user_profile import UpdateUserProfileResult, UpdateUserProfileUseCase
+from .get_loss_limit import GetLossLimitResult, GetLossLimitUseCase
+from .get_loss_limit import UserNotFoundError as LossLimitUserNotFoundError
+from .set_loss_limit import (
+    InvalidLossLimitAmountError,
+    LossLimitAlreadySetError,
+    SetLossLimitResult,
+    SetLossLimitUseCase,
+)
+from .update_loss_limit import (
+    LossLimitNotSetError,
+    UpdateLossLimitResult,
+    UpdateLossLimitUseCase,
+)
+from .update_loss_limit import InvalidLossLimitAmountError as UpdateInvalidLossLimitAmountError
+from .check_loss_limit import CheckLossLimitResult, CheckLossLimitUseCase
 
 __all__ = [
     # Race Use Cases
@@ -65,4 +80,17 @@ __all__ = [
     "UserAlreadyExistsError",
     "UserNotFoundError",
     "UserProfileResult",
+    # Loss Limit Use Cases
+    "GetLossLimitUseCase",
+    "GetLossLimitResult",
+    "SetLossLimitUseCase",
+    "SetLossLimitResult",
+    "UpdateLossLimitUseCase",
+    "UpdateLossLimitResult",
+    "CheckLossLimitUseCase",
+    "CheckLossLimitResult",
+    "InvalidLossLimitAmountError",
+    "LossLimitAlreadySetError",
+    "LossLimitNotSetError",
+    "LossLimitUserNotFoundError",
 ]

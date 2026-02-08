@@ -5,6 +5,7 @@ from .cart_repository import CartRepository
 from .consultation_session_repository import ConsultationSessionRepository
 from .ipat_credentials_provider import IpatCredentialsProvider
 from .ipat_gateway import IpatGateway
+from .loss_limit_change_repository import LossLimitChangeRepository
 from .purchase_order_repository import PurchaseOrderRepository
 from .spending_limit_provider import SpendingLimitProvider
 from .user_repository import UserRepository
@@ -76,6 +77,7 @@ __all__ = [
     "ConsultationSessionRepository",
     "IpatCredentialsProvider",
     "IpatGateway",
+    "LossLimitChangeRepository",
     "PurchaseOrderRepository",
     "SpendingLimitProvider",
     "CourseAptitudeData",

@@ -9,7 +9,7 @@ from src.domain.entities import User
 from src.domain.enums import AuthProvider, UserStatus
 from src.domain.identifiers import UserId
 from src.domain.ports.user_repository import UserRepository
-from src.domain.value_objects import DateOfBirth, DisplayName, Email
+from src.domain.value_objects import DateOfBirth, DisplayName, Email, Money
 
 
 class DynamoDBUserRepository(UserRepository):
@@ -66,6 +66,11 @@ class DynamoDBUserRepository(UserRepository):
         }
         if user.deletion_requested_at is not None:
             item["deletion_requested_at"] = user.deletion_requested_at.isoformat()
+        if user.loss_limit is not None:
+            item["loss_limit"] = user.loss_limit.value
+        item["total_loss_this_month"] = user.total_loss_this_month.value
+        if user.loss_limit_set_at is not None:
+            item["loss_limit_set_at"] = user.loss_limit_set_at.isoformat()
         return item
 
     @staticmethod
@@ -78,6 +83,16 @@ class DynamoDBUserRepository(UserRepository):
         if item.get("deletion_requested_at"):
             deletion_requested_at = datetime.fromisoformat(item["deletion_requested_at"])
 
+        loss_limit = None
+        if item.get("loss_limit") is not None:
+            loss_limit = Money.of(int(item["loss_limit"]))
+
+        total_loss_this_month = Money.of(int(item.get("total_loss_this_month", 0)))
+
+        loss_limit_set_at = None
+        if item.get("loss_limit_set_at"):
+            loss_limit_set_at = datetime.fromisoformat(item["loss_limit_set_at"])
+
         return User(
             user_id=UserId(item["user_id"]),
             email=Email(item["email"]),
@@ -88,6 +103,9 @@ class DynamoDBUserRepository(UserRepository):
             auth_provider=AuthProvider(item["auth_provider"]),
             status=UserStatus(item["status"]),
             deletion_requested_at=deletion_requested_at,
+            loss_limit=loss_limit,
+            total_loss_this_month=total_loss_this_month,
+            loss_limit_set_at=loss_limit_set_at,
             created_at=datetime.fromisoformat(item["created_at"]),
             updated_at=datetime.fromisoformat(item["updated_at"]),
         )

@@ -645,6 +645,7 @@ class TestIntegration:
         for bet in result["proposed_bets"]:
             assert bet["bet_type"] == "quinella_place"
 
+
     def test_全体フロー_単勝指定で買い目が生成される(self):
         """preferred_bet_types=['win']で単勝の買い目が生成される."""
         runners = _make_runners(12)

@@ -20,6 +20,7 @@ from .pace_analysis import (
 # ツール実行結果をキャプチャする変数（agent.py がセパレータ付与に使用）
 _last_proposal_result: dict | None = None
 
+
 from .risk_analysis import (
     _assess_skip_recommendation,
 )
@@ -382,6 +383,7 @@ def _generate_bet_candidates(
                     "bet_count": 1,
                 })
             continue
+
 
         for axis in axis_horses:
             axis_hn = axis["horse_number"]

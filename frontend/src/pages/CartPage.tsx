@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
+import { useLossLimitStore } from '../stores/lossLimitStore';
 import { BetTypeLabels, getVenueName } from '../types';
 
 export function CartPage() {
@@ -10,7 +11,9 @@ export function CartPage() {
   const { items, removeItem, clearCart, getTotalAmount } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
+  const { lossLimit, remainingLossLimit } = useLossLimitStore();
   const totalAmount = getTotalAmount();
+  const isLossLimitReached = lossLimit !== null && remainingLossLimit !== null && remainingLossLimit <= 0;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -118,10 +121,30 @@ export function CartPage() {
             </div>
           </div>
 
+          {isLossLimitReached && (
+            <div style={{
+              background: '#fef2f2',
+              color: '#c62828',
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 12,
+              fontSize: 14,
+              fontWeight: 600,
+              textAlign: 'center',
+            }}>
+              月間の負け額限度額に達しているため、購入操作はできません
+            </div>
+          )}
+
           <button className="add-more-btn" onClick={() => navigate('/')}>
             ＋ 別のレースの買い目を追加
           </button>
-          <button className="btn-ai-confirm" onClick={handleConsult}>
+          <button
+            className="btn-ai-confirm"
+            onClick={handleConsult}
+            disabled={isLossLimitReached}
+            style={isLossLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+          >
             AIと一緒に確認する →
           </button>
           <p className="ai-guide-text">
@@ -132,8 +155,14 @@ export function CartPage() {
           {isAuthenticated && ipatStatus?.configured && items.length > 0 && (
             <button
               className="btn-primary"
-              style={{ width: '100%', marginTop: 12, background: '#2e7d32' }}
+              style={{
+                width: '100%',
+                marginTop: 12,
+                background: isLossLimitReached ? '#9e9e9e' : '#2e7d32',
+                cursor: isLossLimitReached ? 'not-allowed' : 'pointer',
+              }}
               onClick={() => navigate('/purchase/confirm')}
+              disabled={isLossLimitReached}
             >
               IPATで購入する
             </button>

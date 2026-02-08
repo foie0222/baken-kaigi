@@ -8,6 +8,7 @@ from src.domain.ports import (
     ConsultationSessionRepository,
     IpatCredentialsProvider,
     IpatGateway,
+    LossLimitChangeRepository,
     PurchaseOrderRepository,
     RaceDataProvider,
     SpendingLimitProvider,
@@ -16,6 +17,7 @@ from src.domain.ports.user_repository import UserRepository
 from src.infrastructure import (
     InMemoryCartRepository,
     InMemoryConsultationSessionRepository,
+    InMemoryLossLimitChangeRepository,
     InMemoryUserRepository,
     MockAIClient,
     MockRaceDataProvider,
@@ -50,6 +52,7 @@ class Dependencies:
     _credentials_provider: IpatCredentialsProvider | None = None
     _spending_limit_provider: SpendingLimitProvider | None = None
     _betting_record_repository: BettingRecordRepository | None = None
+    _loss_limit_change_repository: LossLimitChangeRepository | None = None
 
     @classmethod
     def get_cart_repository(cls) -> CartRepository:
@@ -202,6 +205,25 @@ class Dependencies:
         cls._credentials_provider = provider
 
     @classmethod
+    def get_loss_limit_change_repository(cls) -> LossLimitChangeRepository:
+        """負け額限度額変更リポジトリを取得する."""
+        if cls._loss_limit_change_repository is None:
+            if _use_dynamodb():
+                from src.infrastructure.repositories.dynamodb_loss_limit_change_repository import (
+                    DynamoDBLossLimitChangeRepository,
+                )
+
+                cls._loss_limit_change_repository = DynamoDBLossLimitChangeRepository()
+            else:
+                cls._loss_limit_change_repository = InMemoryLossLimitChangeRepository()
+        return cls._loss_limit_change_repository
+
+    @classmethod
+    def set_loss_limit_change_repository(cls, repository: LossLimitChangeRepository) -> None:
+        """負け額限度額変更リポジトリを設定する（テスト用）."""
+        cls._loss_limit_change_repository = repository
+
+    @classmethod
     def get_spending_limit_provider(cls) -> SpendingLimitProvider:
         """月間支出制限プロバイダーを取得する."""
         if cls._spending_limit_provider is None:
@@ -253,3 +275,4 @@ class Dependencies:
         cls._credentials_provider = None
         cls._spending_limit_provider = None
         cls._betting_record_repository = None
+        cls._loss_limit_change_repository = None
