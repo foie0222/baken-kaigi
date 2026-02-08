@@ -2,6 +2,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from botocore.exceptions import BotoCoreError, ClientError
+
 from src.api.handlers.agentcore_consultation import invoke_agentcore
 
 
@@ -10,11 +12,12 @@ class TestInvokeAgentcoreErrorHandling:
 
     @patch("src.api.handlers.agentcore_consultation.boto3")
     @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
-    def test_boto3例外時に安全なエラーメッセージを返す(self, mock_boto3) -> None:
-        """boto3呼び出し失敗時に内部エラー詳細がクライアントに漏洩しない."""
+    def test_ClientError時に安全なエラーメッセージを返す(self, mock_boto3) -> None:
+        """ClientError発生時に内部エラー詳細がクライアントに漏洩しない."""
         mock_client = MagicMock()
-        mock_client.invoke_agent_runtime.side_effect = Exception(
-            "An error occurred (AccessDeniedException): User is not authorized"
+        mock_client.invoke_agent_runtime.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "User is not authorized"}},
+            "InvokeAgentRuntime",
         )
         mock_boto3.client.return_value = mock_client
 
@@ -29,10 +32,10 @@ class TestInvokeAgentcoreErrorHandling:
 
     @patch("src.api.handlers.agentcore_consultation.boto3")
     @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
-    def test_boto3例外時にloggerで記録される(self, mock_boto3) -> None:
-        """boto3呼び出し失敗時にlogger.exceptionでスタックトレースが記録される."""
+    def test_BotoCoreError時にloggerで記録される(self, mock_boto3) -> None:
+        """BotoCoreError発生時にlogger.exceptionでスタックトレースが記録される."""
         mock_client = MagicMock()
-        mock_client.invoke_agent_runtime.side_effect = RuntimeError("connection timeout")
+        mock_client.invoke_agent_runtime.side_effect = BotoCoreError()
         mock_boto3.client.return_value = mock_client
 
         event = {"body": json.dumps({"prompt": "テスト"})}
@@ -41,5 +44,5 @@ class TestInvokeAgentcoreErrorHandling:
             result = invoke_agentcore(event, None)
 
             assert result["statusCode"] == 500
-            # logger.exception が呼ばれていることを確認（print()ではなく）
+            # logger.exception が呼ばれていることを確認
             mock_logger.exception.assert_called_once()

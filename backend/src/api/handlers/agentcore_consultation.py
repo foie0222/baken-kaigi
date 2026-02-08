@@ -10,11 +10,12 @@ import uuid
 from typing import Any
 
 import boto3
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 
 # ロガー設定
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-from botocore.config import Config
 
 
 # AgentCore Runtime の ARN（CDKで動的に設定される）
@@ -150,7 +151,7 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
             "session_id": result.get("session_id", session_id),
         }, event=event)
 
-    except Exception:
+    except (BotoCoreError, ClientError):
         logger.exception("AgentCore invocation error")
         return _make_response({"error": "AgentCore invocation failed"}, 500, event=event)
 

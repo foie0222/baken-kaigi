@@ -11,6 +11,7 @@ from typing import Any
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 
 # Lambda環境でログを出力するための設定
 logger = logging.getLogger(__name__)
@@ -172,10 +173,9 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
             "session_id": result.get("session_id", session_id),
         }, event=event)
 
-    except Exception as e:
-        error_msg = str(e)
-        logger.exception("AgentCore invocation error: %s", error_msg)
-        return _make_response({"error": f"AgentCore invocation failed: {error_msg}"}, 500, event=event)
+    except (BotoCoreError, ClientError):
+        logger.exception("AgentCore invocation error")
+        return _make_response({"error": "AgentCore invocation failed"}, 500, event=event)
 
 
 def _handle_response(response: dict) -> dict:
