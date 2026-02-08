@@ -1564,10 +1564,10 @@ class BakenKaigiApiStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             layers=[deps_layer],
             environment={
+                **lambda_environment,
                 "PYTHONPATH": "/var/task:/opt/python",
                 # agentcore CLIでデプロイしたAgentを参照
                 "AGENTCORE_AGENT_ARN": agentcore_agent_arn,
-                **({"ALLOW_DEV_ORIGINS": "true"} if allow_dev_origins else {}),
             },
         )
 
