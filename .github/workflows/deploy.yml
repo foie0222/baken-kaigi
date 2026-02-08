@@ -49,7 +49,13 @@ jobs:
         working-directory: cdk
 
       - name: CDK Deploy
-        run: cdk deploy --all --context jravan=true --require-approval never
+        run: |
+          # ApiStack を先にデプロイ（旧バッチリソース削除）してから
+          # BatchStack をデプロイ（新バッチリソース作成）する。
+          # 同名 Lambda の競合を防ぐためデプロイ順序を明示的に指定。
+          # ※ JraVanServerStack は依存関係により自動的に先にデプロイされる
+          cdk deploy BakenKaigiApiStack --context jravan=true --require-approval never
+          cdk deploy BakenKaigiBatchStack --context jravan=true --require-approval never
         working-directory: cdk
 
       - name: Output CDK deployment summary
@@ -58,6 +64,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- AWS Region: ap-northeast-1" >> $GITHUB_STEP_SUMMARY
+          echo "- Deploy order: BakenKaigiApiStack → BakenKaigiBatchStack" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployed Stacks" >> $GITHUB_STEP_SUMMARY
           cdk ls --context jravan=true >> $GITHUB_STEP_SUMMARY

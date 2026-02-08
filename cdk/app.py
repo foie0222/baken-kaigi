@@ -2,11 +2,13 @@
 """CDK アプリケーションエントリーポイント.
 
 Usage:
-    # モック環境（デフォルト）
-    cdk deploy BakenKaigiApiStack
+    # モック環境（デフォルト）- 順次デプロイ（Lambda名の競合回避のため）
+    cdk deploy BakenKaigiApiStack --require-approval never
+    cdk deploy BakenKaigiBatchStack --require-approval never
 
-    # JRA-VAN 連携環境（EC2 + Lambda in VPC）
-    cdk deploy --all --context jravan=true
+    # JRA-VAN 連携環境（EC2 + Lambda in VPC）- 順次デプロイ
+    cdk deploy BakenKaigiApiStack --context jravan=true --require-approval never
+    cdk deploy BakenKaigiBatchStack --context jravan=true --require-approval never
 
     # 開発用オリジン（localhost）を許可する場合
     # 注意: 本番環境では絶対に使用しないこと
@@ -19,6 +21,7 @@ Usage:
 import aws_cdk as cdk
 
 from stacks.api_stack import BakenKaigiApiStack
+from stacks.batch_stack import BakenKaigiBatchStack
 from stacks.jravan_server_stack import JraVanServerStack
 from stacks.github_oidc_stack import GitHubOidcStack
 
@@ -57,7 +60,7 @@ if use_jravan:
     )
 
     # API スタック（JRA-VAN 連携）
-    BakenKaigiApiStack(
+    api_stack = BakenKaigiApiStack(
         app,
         "BakenKaigiApiStack",
         vpc=jravan_stack.vpc,
@@ -66,16 +69,38 @@ if use_jravan:
         env=env,
     )
 
+    # バッチ処理スタック（JRA-VAN 連携）
+    # ApiStack を先にデプロイして旧バッチリソースを削除してから
+    # BatchStack をデプロイする（同名 Lambda の競合防止）
+    batch_stack = BakenKaigiBatchStack(
+        app,
+        "BakenKaigiBatchStack",
+        vpc=jravan_stack.vpc,
+        jravan_api_url=jravan_stack.api_url,
+        env=env,
+    )
+    batch_stack.add_dependency(api_stack)
+
 else:
     # ========================================
     # モックモード（デフォルト）
     # VPC 不要、MockRaceDataProvider を使用
     # ========================================
-    BakenKaigiApiStack(
+    api_stack = BakenKaigiApiStack(
         app,
         "BakenKaigiApiStack",
         allow_dev_origins=allow_dev_origins,
         env=env,
     )
+
+    # バッチ処理スタック（モックモード）
+    # ApiStack を先にデプロイして旧バッチリソースを削除してから
+    # BatchStack をデプロイする（同名 Lambda の競合防止）
+    batch_stack = BakenKaigiBatchStack(
+        app,
+        "BakenKaigiBatchStack",
+        env=env,
+    )
+    batch_stack.add_dependency(api_stack)
 
 app.synth()
