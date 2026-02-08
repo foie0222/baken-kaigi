@@ -169,9 +169,9 @@ export function PurchaseConfirmPage() {
           padding: 14,
           fontSize: 16,
           fontWeight: 600,
-          opacity: isLoading ? 0.5 : 1,
+          opacity: (isLoading || !balance || totalAmount > balance.betBalance) ? 0.5 : 1,
         }}
-        disabled={isLoading}
+        disabled={isLoading || !balance || totalAmount > balance.betBalance}
         onClick={() => setShowConfirmModal(true)}
       >
         {isLoading ? '処理中...' : '購入する'}
