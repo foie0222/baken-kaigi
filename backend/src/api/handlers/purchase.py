@@ -20,6 +20,7 @@ from src.application.use_cases.submit_purchase import (
     PurchaseValidationError,
     SubmitPurchaseUseCase,
 )
+from src.infrastructure.providers.jravan_ipat_gateway import IpatGatewayError
 from src.domain.identifiers import PurchaseId
 
 
@@ -76,6 +77,8 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         return bad_request_response(str(e), event=event)
     except IpatSubmissionError as e:
         return internal_error_response(str(e), event=event)
+    except IpatGatewayError as e:
+        return internal_error_response(f"IPAT通信エラー: {e}", event=event)
 
     return success_response(
         {
