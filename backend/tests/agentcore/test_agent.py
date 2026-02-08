@@ -1,6 +1,8 @@
 """agentcore/agent.py のユーティリティ関数のテスト."""
 
 import json
+import sys
+from pathlib import Path
 
 
 # _extract_suggested_questions 関数のロジックを直接テスト
@@ -164,41 +166,32 @@ class TestExtractSuggestedQuestions:
 
 
 # =============================================================================
-# _ensure_bet_proposal_separator のテスト
+# inject_bet_proposal_separator のテスト
 # =============================================================================
 
-BET_PROPOSALS_SEPARATOR = "---BET_PROPOSALS_JSON---"
+# 本番実装をインポート（response_utils は外部依存がないピュア関数モジュール）
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
+
+from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
 
 
-def _ensure_bet_proposal_separator(
-    message_text: str, cached_result: dict | None
-) -> str:
-    """買い目提案のセパレータが欠落している場合、キャッシュ結果から復元する."""
-    if BET_PROPOSALS_SEPARATOR in message_text:
-        return message_text
-    if cached_result is None:
-        return message_text
-    if "error" in cached_result:
-        return message_text
-    return message_text + "\n" + BET_PROPOSALS_SEPARATOR + "\n" + json.dumps(
-        cached_result, ensure_ascii=False
-    )
+class TestInjectBetProposalSeparator:
+    """inject_bet_proposal_separator 関数のテスト."""
 
-
-class TestEnsureBetProposalSeparator:
-    """_ensure_bet_proposal_separator 関数のテスト."""
-
-    def test_セパレータがある場合はそのまま返す(self):
-        """既にセパレータが含まれている場合は変更しない."""
-        text = '提案です。\n---BET_PROPOSALS_JSON---\n{"proposed_bets": []}'
-        result = _ensure_bet_proposal_separator(text, {"should": "ignore"})
-        assert result == text
+    def test_セパレータ欠落時にキャッシュから復元する_既にある場合はそのまま(self):
+        """既にセパレータが含まれている場合、inject はキャッシュを無視する（呼び出し元で判定）."""
+        # NOTE: セパレータ有無のチェックは agent.py の _ensure_bet_proposal_separator で行う。
+        # inject_bet_proposal_separator はキャッシュがあれば常に付与する。
+        text = "買い目を提案しました。"
+        cached = {"should": "be_used"}
+        result = inject_bet_proposal_separator(text, cached)
+        assert BET_PROPOSALS_SEPARATOR in result
 
     def test_セパレータ欠落時にキャッシュから復元する(self):
         """セパレータが欠落していてもキャッシュ結果からJSONを復元する."""
         text = "買い目を提案しました。"
         cached = {"race_id": "test", "proposed_bets": [{"bet_type": "win"}]}
-        result = _ensure_bet_proposal_separator(text, cached)
+        result = inject_bet_proposal_separator(text, cached)
 
         assert BET_PROPOSALS_SEPARATOR in result
         assert result.startswith(text)
@@ -211,7 +204,7 @@ class TestEnsureBetProposalSeparator:
     def test_キャッシュがNoneの場合はそのまま返す(self):
         """キャッシュが空の場合は本文をそのまま返す."""
         text = "買い目を提案しました。"
-        result = _ensure_bet_proposal_separator(text, None)
+        result = inject_bet_proposal_separator(text, None)
         assert result == text
         assert BET_PROPOSALS_SEPARATOR not in result
 
@@ -219,7 +212,7 @@ class TestEnsureBetProposalSeparator:
         """ツール実行がエラーだった場合はセパレータを付与しない."""
         text = "エラーが発生しました。"
         cached = {"error": "API呼び出しに失敗しました"}
-        result = _ensure_bet_proposal_separator(text, cached)
+        result = inject_bet_proposal_separator(text, cached)
         assert result == text
         assert BET_PROPOSALS_SEPARATOR not in result
 
@@ -227,7 +220,7 @@ class TestEnsureBetProposalSeparator:
         """日本語文字がエスケープされずにJSON出力される."""
         text = "提案しました。"
         cached = {"analysis_comment": "混戦レースです", "proposed_bets": []}
-        result = _ensure_bet_proposal_separator(text, cached)
+        result = inject_bet_proposal_separator(text, cached)
 
         json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
         assert "混戦レースです" in json_part

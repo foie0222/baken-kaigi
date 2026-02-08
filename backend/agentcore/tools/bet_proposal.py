@@ -846,6 +846,8 @@ def generate_bet_proposal(
         - analysis_comment: 分析ナラティブ
         - disclaimer: 免責事項
     """
+    global _last_proposal_result
+    _last_proposal_result = None  # 呼び出し単位でキャッシュをリセット
     try:
         # データ収集
         from .race_data import _fetch_race_detail, _extract_race_conditions
@@ -874,7 +876,6 @@ def generate_bet_proposal(
         # 脚質データ取得
         running_styles = _get_running_styles(race_id)
 
-        global _last_proposal_result
         result = _generate_bet_proposal_impl(
             race_id=race_id,
             budget=budget,

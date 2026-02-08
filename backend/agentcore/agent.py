@@ -3,7 +3,6 @@
 AgentCore Runtime にデプロイされるメインエージェント。
 """
 
-import json
 import logging
 import os
 import sys
@@ -194,28 +193,21 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     return main_text, questions
 
 
-BET_PROPOSALS_SEPARATOR = "---BET_PROPOSALS_JSON---"
-
-
 def _ensure_bet_proposal_separator(message_text: str) -> str:
     """買い目提案のセパレータが欠落している場合、ツール結果キャッシュから復元する."""
+    from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
+    from tools.bet_proposal import get_last_proposal_result
+
+    # セパレータ有無に関わらず、呼び出し単位でツール結果キャッシュを必ず取得して消費する
+    cached_result = get_last_proposal_result()
+
     if BET_PROPOSALS_SEPARATOR in message_text:
         return message_text
 
-    from tools.bet_proposal import get_last_proposal_result
+    if cached_result is not None:
+        logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
 
-    cached_result = get_last_proposal_result()
-    if cached_result is None or "error" in cached_result:
-        return message_text
-
-    logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
-    return (
-        message_text
-        + "\n"
-        + BET_PROPOSALS_SEPARATOR
-        + "\n"
-        + json.dumps(cached_result, ensure_ascii=False)
-    )
+    return inject_bet_proposal_separator(message_text, cached_result)
 
 
 def _format_cart_summary(cart_items: list) -> str:

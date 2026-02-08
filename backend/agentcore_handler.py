@@ -82,6 +82,7 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     Request Body:
         prompt: ユーザーメッセージ
         cart_items: カート内容（オプション）
+        runners_data: 出走馬データ（オプション）
         session_id: セッションID（オプション）
 
     Returns:
