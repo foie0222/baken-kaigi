@@ -53,10 +53,16 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
 
     if not cart_id:
         return bad_request_response("cart_id is required", event=event)
+    if not isinstance(cart_id, str):
+        return bad_request_response("cart_id must be a string", event=event)
     if not race_date:
         return bad_request_response("race_date is required", event=event)
+    if not isinstance(race_date, str):
+        return bad_request_response("race_date must be a string", event=event)
     if not course_code:
         return bad_request_response("course_code is required", event=event)
+    if not isinstance(course_code, str):
+        return bad_request_response("course_code must be a string", event=event)
     if race_number is None:
         return bad_request_response("race_number is required", event=event)
     if isinstance(race_number, bool) or not isinstance(race_number, (int, float)):
