@@ -130,7 +130,7 @@ def set_loss_limit_handler(event: dict, context: Any) -> dict:
         return bad_request_response("amount is required", event=event)
 
     amount = body["amount"]
-    if not isinstance(amount, int):
+    if isinstance(amount, bool) or not isinstance(amount, int):
         return bad_request_response("amount must be an integer", event=event)
 
     user_repo = Dependencies.get_user_repository()
@@ -178,7 +178,7 @@ def update_loss_limit_handler(event: dict, context: Any) -> dict:
         return bad_request_response("amount is required", event=event)
 
     amount = body["amount"]
-    if not isinstance(amount, int):
+    if isinstance(amount, bool) or not isinstance(amount, int):
         return bad_request_response("amount must be an integer", event=event)
 
     user_repo = Dependencies.get_user_repository()
