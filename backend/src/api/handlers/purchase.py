@@ -1,5 +1,6 @@
 """購入APIハンドラー."""
 import logging
+import math
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,16 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         return bad_request_response("course_code is required", event=event)
     if race_number is None:
         return bad_request_response("race_number is required", event=event)
+    if isinstance(race_number, bool) or not isinstance(race_number, (int, float)):
+        return bad_request_response("race_number must be an integer between 1 and 12", event=event)
+    if isinstance(race_number, float):
+        if not math.isfinite(race_number):
+            return bad_request_response("race_number must be a finite number", event=event)
+        if race_number != int(race_number):
+            return bad_request_response("race_number must be a whole number", event=event)
+        race_number = int(race_number)
+    if race_number < 1 or race_number > 12:
+        return bad_request_response("race_number must be between 1 and 12", event=event)
 
     use_case = SubmitPurchaseUseCase(
         cart_repository=Dependencies.get_cart_repository(),
