@@ -168,6 +168,41 @@ class TestCreateBettingRecordHandler:
         result = create_betting_record_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_amountがNaNの場合400(self) -> None:
+        """NaNのamountはバリデーションエラー."""
+        _setup_deps()
+        event = {
+            "requestContext": {"authorizer": {"claims": {"sub": "user-001"}}},
+            "body": '{"race_id":"202605051211","race_name":"東京11R","race_date":"2026-05-05","venue":"東京","bet_type":"win","horse_numbers":[1],"amount":NaN}',
+        }
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_amountがInfinityの場合400(self) -> None:
+        """Infinityのamountはバリデーションエラー."""
+        _setup_deps()
+        event = {
+            "requestContext": {"authorizer": {"claims": {"sub": "user-001"}}},
+            "body": '{"race_id":"202605051211","race_name":"東京11R","race_date":"2026-05-05","venue":"東京","bet_type":"win","horse_numbers":[1],"amount":Infinity}',
+        }
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_amountがboolの場合400(self) -> None:
+        """boolのamountはバリデーションエラー."""
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R 日本ダービー",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": True,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
     def test_不正なbet_typeで400(self) -> None:
         _setup_deps()
         event = _auth_event(body={
@@ -331,6 +366,33 @@ class TestSettleBettingRecordHandler:
         event = _auth_event(
             path_params={"record_id": record.record_id.value},
             body={"payout": 500.5},
+        )
+        result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_payoutがNaNの場合400(self) -> None:
+        """NaNのpayoutはバリデーションエラー."""
+        repo = _setup_deps()
+        record = _make_record()
+        repo.save(record)
+
+        event = {
+            "requestContext": {"authorizer": {"claims": {"sub": "user-001"}}},
+            "pathParameters": {"record_id": record.record_id.value},
+            "body": '{"payout":NaN}',
+        }
+        result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_payoutがboolの場合400(self) -> None:
+        """boolのpayoutはバリデーションエラー."""
+        repo = _setup_deps()
+        record = _make_record()
+        repo.save(record)
+
+        event = _auth_event(
+            path_params={"record_id": record.record_id.value},
+            body={"payout": False},
         )
         result = settle_betting_record_handler(event, None)
         assert result["statusCode"] == 400
