@@ -105,7 +105,8 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is True
-        assert result.remaining_amount == Money.of(50000)
+        # 賭け後の残額: 50000 - 10000 = 40000
+        assert result.remaining_amount == Money.of(40000)
         assert result.warning_level == WarningLevel.NONE
 
     def test_limit超過で購入不可(self):
@@ -117,6 +118,7 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is False
+        # 超過時の残額は賭け前の残り（5000円）を返す（賭けられないので差し引かない）
         assert result.remaining_amount == Money.of(5000)
         assert result.warning_level == WarningLevel.WARNING
         assert result.message == "限度額を超過しています"
@@ -132,6 +134,9 @@ class TestCheckLimit:
 
         assert result.can_purchase is True
         assert result.warning_level == WarningLevel.CAUTION
+        # 賭け後の残額: 15000 - 10000 = 5000
+        assert result.remaining_amount == Money.of(5000)
+        assert "5000" in result.message
 
     def test_limitちょうどで購入可能(self):
         service = LossLimitService()
@@ -142,7 +147,8 @@ class TestCheckLimit:
         result = service.check_limit(user, Money.of(10000))
 
         assert result.can_purchase is True
-        assert result.remaining_amount == Money.of(10000)
+        # 賭け後の残額: 10000 - 10000 = 0
+        assert result.remaining_amount == Money.of(0)
 
     def test_80パーセント境界値_ちょうど80パーセントでCAUTION(self):
         service = LossLimitService()
@@ -167,6 +173,9 @@ class TestCheckLimit:
 
         assert result.can_purchase is True
         assert result.warning_level == WarningLevel.NONE
+        # 賭け後の残額: 31000 - 10000 = 21000
+        assert result.remaining_amount == Money.of(21000)
+        assert "21000" in result.message
 
     def test_残り限度額ゼロで購入不可(self):
         service = LossLimitService()
