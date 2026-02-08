@@ -61,8 +61,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が51個作成されること（API 34 + バッチ 10 + IPAT 7）."""
-        template.resource_count_is("AWS::Lambda::Function", 51)
+        """Lambda関数が55個作成されること（API 34 + バッチ 10 + IPAT 7 + 賭け履歴 4）."""
+        template.resource_count_is("AWS::Lambda::Function", 55)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが2個作成されること（API用 + バッチ用）."""
@@ -370,6 +370,49 @@ class TestApiStack:
                 "KeySchema": [
                     {"AttributeName": "race_id", "KeyType": "HASH"},
                     {"AttributeName": "source", "KeyType": "RANGE"},
+                ],
+            },
+        )
+
+    def test_betting_record_endpoints(self, template):
+        """賭け履歴APIのLambda関数が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-create-betting-record",
+                "Handler": "src.api.handlers.betting_record.create_betting_record_handler",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-betting-records",
+                "Handler": "src.api.handlers.betting_record.get_betting_records_handler",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-betting-summary",
+                "Handler": "src.api.handlers.betting_record.get_betting_summary_handler",
+            },
+        )
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-settle-betting-record",
+                "Handler": "src.api.handlers.betting_record.settle_betting_record_handler",
+            },
+        )
+
+    def test_betting_record_dynamodb_table(self, template):
+        """賭け履歴DynamoDBテーブルが存在すること."""
+        template.has_resource_properties(
+            "AWS::DynamoDB::Table",
+            {
+                "TableName": "baken-kaigi-betting-record",
+                "KeySchema": [
+                    {"AttributeName": "record_id", "KeyType": "HASH"},
                 ],
             },
         )
