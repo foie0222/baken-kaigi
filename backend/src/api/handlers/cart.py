@@ -82,11 +82,14 @@ def add_to_cart(event: dict, context: Any) -> dict:
     except ValueError as e:
         return bad_request_response(str(e), event=event)
 
-    bet_selection = BetSelection(
-        bet_type=bet_type,
-        horse_numbers=horse_numbers,
-        amount=amount,
-    )
+    try:
+        bet_selection = BetSelection(
+            bet_type=bet_type,
+            horse_numbers=horse_numbers,
+            amount=amount,
+        )
+    except ValueError as e:
+        return bad_request_response(str(e), event=event)
 
     # 認証ユーザーID（オプション）
     user_id = get_authenticated_user_id(event)

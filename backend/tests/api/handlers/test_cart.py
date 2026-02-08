@@ -188,6 +188,59 @@ class TestAddToCartAmountValidation:
 
         assert response["statusCode"] == 400
 
+    def test_amountがNaNの場合400(self) -> None:
+        """NaN → 400 Bad Request（JSONパーサーがNaN非対応のため get_body で弾かれる）."""
+        from src.api.handlers.cart import add_to_cart
+
+        repository = MockCartRepository()
+        Dependencies.set_cart_repository(repository)
+
+        event = {
+            "body": '{"race_id":"2024060111","race_name":"日本ダービー","bet_type":"WIN","horse_numbers":[1],"amount":NaN}',
+        }
+
+        response = add_to_cart(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_amountがInfinityの場合400(self) -> None:
+        """Infinity → 400 Bad Request."""
+        from src.api.handlers.cart import add_to_cart
+
+        repository = MockCartRepository()
+        Dependencies.set_cart_repository(repository)
+
+        event = {
+            "body": '{"race_id":"2024060111","race_name":"日本ダービー","bet_type":"WIN","horse_numbers":[1],"amount":Infinity}',
+        }
+
+        response = add_to_cart(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_amountが100円未満の場合400(self) -> None:
+        """50 → 400 Bad Request（BetSelectionバリデーション）."""
+        from src.api.handlers.cart import add_to_cart
+
+        repository = MockCartRepository()
+        Dependencies.set_cart_repository(repository)
+
+        event = {
+            "body": json.dumps(
+                {
+                    "race_id": "2024060111",
+                    "race_name": "日本ダービー",
+                    "bet_type": "WIN",
+                    "horse_numbers": [1],
+                    "amount": 50,
+                }
+            ),
+        }
+
+        response = add_to_cart(event, None)
+
+        assert response["statusCode"] == 400
+
 
 class TestAddToCartHandler:
     """POST /cart/items ハンドラーのテスト."""
