@@ -102,7 +102,7 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
       horseNumbers: bet.horse_numbers,
       betDisplay: bet.bet_display,
       betCount: bet.bet_count,
-      amount: bet.amount,
+      amount: bet.amount ?? 0,
       runnersData: race.horses.map((h) => ({
         horse_number: h.number,
         horse_name: h.name,
@@ -137,7 +137,7 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
         horseNumbers: bet.horse_numbers,
         betDisplay: bet.bet_display,
         betCount: bet.bet_count,
-        amount: bet.amount,
+        amount: bet.amount ?? 0,
         runnersData: race.horses.map((h) => ({
           horse_number: h.number,
           horse_name: h.name,

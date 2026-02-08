@@ -27,21 +27,24 @@ vi.mock('../../stores/appStore', () => ({
 const mockRace: RaceDetail = {
   id: 'race_001',
   name: 'テストレース',
-  number: 11,
+  number: '11R',
   venue: '東京',
+  time: '15:30',
+  course: '',
+  condition: '良',
+  date: '2024-01-01',
   startTime: '2024-01-01T15:30:00',
   bettingDeadline: '2024-01-01T15:25:00',
-  trackCondition: '良',
-  surface: '芝',
-  distance: 1600,
   horses: [
     {
       number: 1, name: 'テスト馬1', odds: 3.5, popularity: 1,
       jockey: 'テスト騎手1', wakuBan: 1, weight: 480, weightDiff: 0,
+      color: '#1a73e8', textColor: '#ffffff',
     },
     {
       number: 2, name: 'テスト馬2', odds: 5.0, popularity: 2,
       jockey: 'テスト騎手2', wakuBan: 2, weight: 460, weightDiff: -2,
+      color: '#000000', textColor: '#ffffff',
     },
   ],
 }
@@ -77,6 +80,7 @@ describe('BetProposalSheet', () => {
     mockRequest.mockResolvedValueOnce({
       success: true,
       data: {
+        race_id: 'race_001',
         race_summary: {
           race_name: 'テストレース',
           difficulty_stars: 3,
