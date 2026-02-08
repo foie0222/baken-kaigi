@@ -1,4 +1,6 @@
-"""agentcore/agent.py の _extract_suggested_questions 関数のテスト."""
+"""agentcore/agent.py のユーティリティ関数のテスト."""
+
+import json
 
 
 # _extract_suggested_questions 関数のロジックを直接テスト
@@ -159,3 +161,75 @@ class TestExtractSuggestedQuestions:
         assert len(questions) == 2
         assert questions[0] == "質問1"
         assert questions[1] == "質問2"
+
+
+# =============================================================================
+# _ensure_bet_proposal_separator のテスト
+# =============================================================================
+
+BET_PROPOSALS_SEPARATOR = "---BET_PROPOSALS_JSON---"
+
+
+def _ensure_bet_proposal_separator(
+    message_text: str, cached_result: dict | None
+) -> str:
+    """買い目提案のセパレータが欠落している場合、キャッシュ結果から復元する."""
+    if BET_PROPOSALS_SEPARATOR in message_text:
+        return message_text
+    if cached_result is None:
+        return message_text
+    if "error" in cached_result:
+        return message_text
+    return message_text + "\n" + BET_PROPOSALS_SEPARATOR + "\n" + json.dumps(
+        cached_result, ensure_ascii=False
+    )
+
+
+class TestEnsureBetProposalSeparator:
+    """_ensure_bet_proposal_separator 関数のテスト."""
+
+    def test_セパレータがある場合はそのまま返す(self):
+        """既にセパレータが含まれている場合は変更しない."""
+        text = '提案です。\n---BET_PROPOSALS_JSON---\n{"proposed_bets": []}'
+        result = _ensure_bet_proposal_separator(text, {"should": "ignore"})
+        assert result == text
+
+    def test_セパレータ欠落時にキャッシュから復元する(self):
+        """セパレータが欠落していてもキャッシュ結果からJSONを復元する."""
+        text = "買い目を提案しました。"
+        cached = {"race_id": "test", "proposed_bets": [{"bet_type": "win"}]}
+        result = _ensure_bet_proposal_separator(text, cached)
+
+        assert BET_PROPOSALS_SEPARATOR in result
+        assert result.startswith(text)
+        # セパレータ以降がJSON
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        parsed = json.loads(json_part)
+        assert parsed["race_id"] == "test"
+        assert parsed["proposed_bets"] == [{"bet_type": "win"}]
+
+    def test_キャッシュがNoneの場合はそのまま返す(self):
+        """キャッシュが空の場合は本文をそのまま返す."""
+        text = "買い目を提案しました。"
+        result = _ensure_bet_proposal_separator(text, None)
+        assert result == text
+        assert BET_PROPOSALS_SEPARATOR not in result
+
+    def test_キャッシュがエラーの場合はそのまま返す(self):
+        """ツール実行がエラーだった場合はセパレータを付与しない."""
+        text = "エラーが発生しました。"
+        cached = {"error": "API呼び出しに失敗しました"}
+        result = _ensure_bet_proposal_separator(text, cached)
+        assert result == text
+        assert BET_PROPOSALS_SEPARATOR not in result
+
+    def test_日本語を含むJSONが正しくシリアライズされる(self):
+        """日本語文字がエスケープされずにJSON出力される."""
+        text = "提案しました。"
+        cached = {"analysis_comment": "混戦レースです", "proposed_bets": []}
+        result = _ensure_bet_proposal_separator(text, cached)
+
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        assert "混戦レースです" in json_part
+        parsed = json.loads(json_part)
+        assert parsed["analysis_comment"] == "混戦レースです"

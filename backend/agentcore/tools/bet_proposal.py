@@ -22,6 +22,23 @@ from .risk_analysis import (
 )
 
 # =============================================================================
+# ツール結果キャッシュ（セパレータ復元用）
+# =============================================================================
+
+# NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
+# 並行リクエストによる競合状態は発生しない。
+_last_proposal_result: dict | None = None
+
+
+def get_last_proposal_result() -> dict | None:
+    """キャッシュされた最新のツール結果を取得し、キャッシュをクリアする."""
+    global _last_proposal_result
+    result = _last_proposal_result
+    _last_proposal_result = None
+    return result
+
+
+# =============================================================================
 # 定数
 # =============================================================================
 
@@ -857,7 +874,8 @@ def generate_bet_proposal(
         # 脚質データ取得
         running_styles = _get_running_styles(race_id)
 
-        return _generate_bet_proposal_impl(
+        global _last_proposal_result
+        result = _generate_bet_proposal_impl(
             race_id=race_id,
             budget=budget,
             runners_data=runners_data,
@@ -870,6 +888,8 @@ def generate_bet_proposal(
             preferred_bet_types=preferred_bet_types,
             axis_horses=axis_horses,
         )
+        _last_proposal_result = result
+        return result
     except requests.RequestException as e:
         return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
