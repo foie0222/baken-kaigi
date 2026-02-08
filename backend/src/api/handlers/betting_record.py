@@ -87,6 +87,8 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
         return bad_request_response("horse_numbers is required", event=event)
     if not isinstance(horse_numbers, list):
         return bad_request_response("horse_numbers must be a list", event=event)
+    if not all(isinstance(n, int) and not isinstance(n, bool) for n in horse_numbers):
+        return bad_request_response("horse_numbers must be a list of integers", event=event)
     if amount is None:
         return bad_request_response("amount is required", event=event)
     if isinstance(amount, bool) or not isinstance(amount, (int, float)):
