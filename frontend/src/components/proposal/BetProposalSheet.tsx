@@ -93,7 +93,7 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
     if (!result) return;
     const bet = result.proposed_bets[index];
 
-    const result = addItem({
+    const addResult = addItem({
       raceId: race.id,
       raceName: race.name,
       raceVenue: race.venue,
@@ -112,11 +112,11 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
       })),
     });
 
-    if (result === 'ok') {
+    if (addResult === 'ok') {
       setAddedIndices((prev) => new Set(prev).add(index));
       showToast('カートに追加しました');
     } else {
-      const message = result === 'different_race'
+      const message = addResult === 'different_race'
         ? 'カートには同じレースの買い目のみ追加できます'
         : '金額が範囲外です';
       showToast(message, 'error');
