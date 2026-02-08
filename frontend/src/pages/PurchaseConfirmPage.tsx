@@ -21,39 +21,7 @@ export function PurchaseConfirmPage() {
     };
   }, [fetchBalance, clearError, clearResult]);
 
-  // カートが空の場合はカートページへ
-  if (items.length === 0 && !purchaseResult) {
-    return (
-      <div className="fade-in" style={{ padding: 16, textAlign: 'center' }}>
-        <p style={{ marginBottom: 16 }}>カートが空です</p>
-        <button
-          className="btn-primary"
-          style={{ width: '100%' }}
-          onClick={() => navigate('/cart')}
-        >
-          カートに戻る
-        </button>
-      </div>
-    );
-  }
-
-  // レース情報をカートアイテムから取得
-  const firstItem = items[0];
-  const raceDate = firstItem?.raceId?.slice(0, 8) || '';
-  const courseCode = firstItem?.raceVenue || '';
-  const raceNumber = parseInt(firstItem?.raceNumber?.replace('R', '') || '0', 10);
-
-  const handlePurchase = async () => {
-    setShowConfirmModal(false);
-    await submitPurchase(cartId, raceDate, courseCode, raceNumber);
-    // 購入完了時のみカートをクリア（エラーやnullの場合はクリアしない）
-    const result = usePurchaseStore.getState().purchaseResult;
-    if (result?.status === 'COMPLETED') {
-      clearCart();
-    }
-  };
-
-  // 購入結果表示
+  // 購入結果表示（カートクリア後もpurchaseResultがあれば結果画面を表示）
   if (purchaseResult) {
     const isSuccess = purchaseResult.status === 'COMPLETED';
     return (
@@ -96,6 +64,38 @@ export function PurchaseConfirmPage() {
       </div>
     );
   }
+
+  // カートが空の場合はカートページへ
+  if (items.length === 0) {
+    return (
+      <div className="fade-in" style={{ padding: 16, textAlign: 'center' }}>
+        <p style={{ marginBottom: 16 }}>カートが空です</p>
+        <button
+          className="btn-primary"
+          style={{ width: '100%' }}
+          onClick={() => navigate('/cart')}
+        >
+          カートに戻る
+        </button>
+      </div>
+    );
+  }
+
+  // レース情報をカートアイテムから取得（items.length > 0 が保証されている）
+  const firstItem = items[0];
+  const raceDate = firstItem.raceId.slice(0, 8);
+  const courseCode = firstItem.raceVenue;
+  const raceNumber = parseInt(firstItem.raceNumber.replace('R', '') || '0', 10);
+
+  const handlePurchase = async () => {
+    setShowConfirmModal(false);
+    await submitPurchase(cartId, raceDate, courseCode, raceNumber);
+    // 購入完了時のみカートをクリア（エラーやnullの場合はクリアしない）
+    const result = usePurchaseStore.getState().purchaseResult;
+    if (result?.status === 'COMPLETED') {
+      clearCart();
+    }
+  };
 
   return (
     <div className="fade-in" style={{ padding: 16 }}>
