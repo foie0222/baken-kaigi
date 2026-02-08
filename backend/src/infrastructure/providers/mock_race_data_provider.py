@@ -1286,7 +1286,7 @@ class MockRaceDataProvider(RaceDataProvider):
         minute = 30 if race_number % 2 == 0 else 0
         start_time = datetime.combine(
             target_date, datetime.min.time()
-        ).replace(hour=hour, minute=minute)
+        ).replace(hour=hour, minute=minute, tzinfo=timezone.utc)
 
         # 締切は発走の2分前
         betting_deadline = start_time - timedelta(minutes=2)
