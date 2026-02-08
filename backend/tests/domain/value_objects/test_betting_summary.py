@@ -2,7 +2,7 @@
 from datetime import date
 
 from src.domain.entities import BettingRecord
-from src.domain.enums import BetType
+from src.domain.enums import BetType, BettingRecordStatus
 from src.domain.identifiers import RaceId, UserId
 from src.domain.value_objects import BettingSummary, HorseNumbers, Money
 
@@ -87,8 +87,8 @@ class TestBettingSummaryFromRecords:
         assert summary.record_count == 4
         assert summary.roi == 175.0
 
-    def test_未確定レコードも集計に含まれる(self) -> None:
-        """未確定のレコードも件数に含まれることを確認."""
+    def test_未確定レコードは集計から除外される(self) -> None:
+        """未確定（PENDING）のレコードはサマリーから除外されることを確認."""
         settled = _make_settled_record(1000, 3000)
         pending = BettingRecord.create(
             user_id=UserId("user-1"),
@@ -103,9 +103,57 @@ class TestBettingSummaryFromRecords:
 
         summary = BettingSummary.from_records([settled, pending])
 
-        assert summary.record_count == 2
-        assert summary.total_investment == Money.of(1500)
+        # PENDINGレコードは除外されるので確定済み1件分のみ
+        assert summary.record_count == 1
+        assert summary.total_investment == Money.of(1000)
         assert summary.total_payout == Money.of(3000)
+        assert summary.net_profit == 2000
+
+    def test_キャンセル済みレコードは集計から除外される(self) -> None:
+        """キャンセル済みのレコードはサマリーから除外されることを確認."""
+        settled = _make_settled_record(1000, 5000)
+        cancelled = BettingRecord.create(
+            user_id=UserId("user-1"),
+            race_id=RaceId("202602010811"),
+            race_name="東京11R テスト",
+            race_date=date(2026, 2, 1),
+            venue="東京",
+            bet_type=BetType.WIN,
+            horse_numbers=HorseNumbers.of(7),
+            amount=Money.of(2000),
+        )
+        cancelled.cancel()
+
+        summary = BettingSummary.from_records([settled, cancelled])
+
+        # CANCELLEDレコードは除外されるので確定済み1件分のみ
+        assert summary.record_count == 1
+        assert summary.total_investment == Money.of(1000)
+        assert summary.total_payout == Money.of(5000)
+        assert summary.net_profit == 4000
+        assert summary.roi == 500.0
+
+    def test_全レコードが未確定の場合はゼロサマリー(self) -> None:
+        """全てPENDINGの場合はゼロサマリーになることを確認."""
+        pending = BettingRecord.create(
+            user_id=UserId("user-1"),
+            race_id=RaceId("202602010811"),
+            race_name="東京11R テスト",
+            race_date=date(2026, 2, 1),
+            venue="東京",
+            bet_type=BetType.WIN,
+            horse_numbers=HorseNumbers.of(5),
+            amount=Money.of(500),
+        )
+
+        summary = BettingSummary.from_records([pending])
+
+        assert summary.record_count == 0
+        assert summary.total_investment == Money.zero()
+        assert summary.total_payout == Money.zero()
+        assert summary.net_profit == 0
+        assert summary.win_rate == 0.0
+        assert summary.roi == 0.0
 
 
 class TestBettingSummaryRoi:
