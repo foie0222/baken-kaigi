@@ -1,4 +1,5 @@
 """カートAPI ハンドラー."""
+import math
 from typing import Any
 
 from src.api.auth import get_authenticated_user_id
@@ -64,16 +65,31 @@ def add_to_cart(event: dict, context: Any) -> dict:
     except ValueError as e:
         return bad_request_response(str(e), event=event)
 
+    raw_amount = body["amount"]
+    if isinstance(raw_amount, bool) or not isinstance(raw_amount, (int, float)):
+        return bad_request_response("amount must be a positive integer", event=event)
+    if isinstance(raw_amount, float):
+        if not math.isfinite(raw_amount):
+            return bad_request_response("amount must be a finite number", event=event)
+        if raw_amount != int(raw_amount):
+            return bad_request_response("amount must be a whole number", event=event)
+        raw_amount = int(raw_amount)
+    if raw_amount <= 0:
+        return bad_request_response("amount must be a positive integer", event=event)
+
     try:
-        amount = Money(body["amount"])
+        amount = Money(raw_amount)
     except ValueError as e:
         return bad_request_response(str(e), event=event)
 
-    bet_selection = BetSelection(
-        bet_type=bet_type,
-        horse_numbers=horse_numbers,
-        amount=amount,
-    )
+    try:
+        bet_selection = BetSelection(
+            bet_type=bet_type,
+            horse_numbers=horse_numbers,
+            amount=amount,
+        )
+    except ValueError as e:
+        return bad_request_response(str(e), event=event)
 
     # 認証ユーザーID（オプション）
     user_id = get_authenticated_user_id(event)
