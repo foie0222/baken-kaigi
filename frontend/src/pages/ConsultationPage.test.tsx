@@ -490,5 +490,33 @@ describe('ConsultationPage', () => {
       // エラーメッセージが表示される
       expect(await screen.findByText(/通信エラーが発生しました/)).toBeInTheDocument()
     })
+
+    it('カート変更時にAPI再呼び出しが発生しない', async () => {
+      // AgentCoreを利用可能に設定
+      vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
+      vi.mocked(apiClient.consultWithAgent).mockResolvedValue({
+        success: true,
+        data: {
+          message: '初回分析結果です。',
+          session_id: 'test-session-id',
+        },
+      })
+
+      const { user } = render(<ConsultationPage />)
+
+      // 初回分析が完了するのを待つ
+      expect(await screen.findByText(/初回分析結果です/)).toBeInTheDocument()
+      expect(apiClient.consultWithAgent).toHaveBeenCalledTimes(1)
+
+      // カートの買い目を削除してもAPIが再呼び出しされない
+      const deleteButton = screen.getByRole('button', { name: '買い目を削除' })
+      await user.click(deleteButton)
+      // 削除確認モーダルで「削除する」を押す
+      const confirmButton = await screen.findByRole('button', { name: '削除する' })
+      await user.click(confirmButton)
+
+      // APIが再呼び出しされていないことを確認（1回のまま）
+      expect(apiClient.consultWithAgent).toHaveBeenCalledTimes(1)
+    })
   })
 })
