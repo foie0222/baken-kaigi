@@ -81,7 +81,7 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
     except IpatSubmissionError as e:
         return internal_error_response(str(e), event=event)
     except IpatGatewayError as e:
-        logger.error("IpatGatewayError: %s", e)
+        logger.exception("IpatGatewayError: %s", e)
         return internal_error_response("IPAT通信エラーが発生しました", event=event)
 
     return success_response(
