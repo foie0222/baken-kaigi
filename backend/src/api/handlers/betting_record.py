@@ -65,16 +65,28 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
 
     if not race_id:
         return bad_request_response("race_id is required", event=event)
+    if not isinstance(race_id, str):
+        return bad_request_response("race_id must be a string", event=event)
     if not race_name:
         return bad_request_response("race_name is required", event=event)
+    if not isinstance(race_name, str):
+        return bad_request_response("race_name must be a string", event=event)
     if not race_date:
         return bad_request_response("race_date is required", event=event)
+    if not isinstance(race_date, str):
+        return bad_request_response("race_date must be a string", event=event)
     if not venue:
         return bad_request_response("venue is required", event=event)
+    if not isinstance(venue, str):
+        return bad_request_response("venue must be a string", event=event)
     if not bet_type:
         return bad_request_response("bet_type is required", event=event)
+    if not isinstance(bet_type, str):
+        return bad_request_response("bet_type must be a string", event=event)
     if not horse_numbers:
         return bad_request_response("horse_numbers is required", event=event)
+    if not isinstance(horse_numbers, list):
+        return bad_request_response("horse_numbers must be a list", event=event)
     if amount is None:
         return bad_request_response("amount is required", event=event)
     if isinstance(amount, bool) or not isinstance(amount, (int, float)):

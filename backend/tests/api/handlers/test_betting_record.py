@@ -217,6 +217,76 @@ class TestCreateBettingRecordHandler:
         result = create_betting_record_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_race_idが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": 202605051211,
+            "race_name": "東京11R",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_race_dateが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R",
+            "race_date": 20260505,
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_venueが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R",
+            "race_date": "2026-05-05",
+            "venue": 123,
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_bet_typeが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": 1,
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_horse_numbersが文字列の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": "1,2,3",
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 400
+
     def test_不正なrace_dateで400(self) -> None:
         _setup_deps()
         event = _auth_event(body={

@@ -286,6 +286,39 @@ class TestSubmitPurchaseHandler:
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_race_dateが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": 20260207,
+            "course_code": "05",
+            "race_number": 11,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_course_codeが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": 5,
+            "race_number": 11,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_cart_idが整数の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": 12345,
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
 
 class TestGetPurchaseHistoryHandler:
     """get_purchase_history_handler のテスト."""
