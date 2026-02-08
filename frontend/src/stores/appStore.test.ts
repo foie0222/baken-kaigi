@@ -212,6 +212,17 @@ describe('appStore', () => {
       expect(useAppStore.getState().toastType).toBeNull()
     })
 
+    it('hideToast後にタイマーが残らない', () => {
+      useAppStore.getState().showToast('テストメッセージ')
+      useAppStore.getState().hideToast()
+      expect(useAppStore.getState().toastMessage).toBeNull()
+
+      // showToast時のタイマーが残っていないことを確認
+      useAppStore.getState().showToast('新しいメッセージ')
+      vi.advanceTimersByTime(2000)
+      expect(useAppStore.getState().toastMessage).toBeNull()
+    })
+
     it('連続showToastで前のタイマーがキャンセルされる', () => {
       useAppStore.getState().showToast('最初のメッセージ')
       expect(useAppStore.getState().toastMessage).toBe('最初のメッセージ')
