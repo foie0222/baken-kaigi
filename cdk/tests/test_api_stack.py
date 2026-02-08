@@ -436,6 +436,32 @@ class TestCorsConfiguration:
             {"HttpMethod": "OPTIONS"},
         )
 
+    def test_lambda_env_has_allow_dev_origins_when_enabled(self, template_with_dev_origins):
+        """allow_dev_origins=Trueの場合、Lambda環境変数にALLOW_DEV_ORIGINSが含まれること."""
+        from aws_cdk import assertions
+
+        template_with_dev_origins.has_resource_properties(
+            "AWS::Lambda::Function",
+            assertions.Match.object_like({
+                "Environment": {
+                    "Variables": assertions.Match.object_like({
+                        "ALLOW_DEV_ORIGINS": "true",
+                    }),
+                },
+            }),
+        )
+
+    def test_lambda_env_no_allow_dev_origins_by_default(self, template_without_dev_origins):
+        """デフォルトではLambda環境変数にALLOW_DEV_ORIGINSが含まれないこと."""
+        from aws_cdk import assertions
+
+        # いずれかのLambdaにALLOW_DEV_ORIGINSが設定されていないことを確認
+        resources = template_without_dev_origins.find_resources("AWS::Lambda::Function")
+        for _logical_id, resource in resources.items():
+            env_vars = resource.get("Properties", {}).get("Environment", {}).get("Variables", {})
+            assert "ALLOW_DEV_ORIGINS" not in env_vars, \
+                f"ALLOW_DEV_ORIGINS should not be set when allow_dev_origins=False"
+
     def test_cors_denies_dev_origins_by_default(self, template_without_dev_origins):
         """デフォルトで開発用オリジンは許可されないこと."""
         # OPTIONS メソッドが存在（CORS有効）
