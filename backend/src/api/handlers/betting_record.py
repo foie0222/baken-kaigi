@@ -78,6 +78,10 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
         return bad_request_response("amount is required", event=event)
     if not isinstance(amount, (int, float)) or amount <= 0:
         return bad_request_response("amount must be a positive number", event=event)
+    if isinstance(amount, float):
+        if amount != int(amount):
+            return bad_request_response("amount must be a whole number", event=event)
+        amount = int(amount)
 
     use_case = CreateBettingRecordUseCase(
         betting_record_repository=Dependencies.get_betting_record_repository(),
@@ -220,6 +224,10 @@ def settle_betting_record_handler(event: dict, context: Any) -> dict:
         return bad_request_response("payout is required", event=event)
     if not isinstance(payout, (int, float)) or payout < 0:
         return bad_request_response("payout must be a non-negative number", event=event)
+    if isinstance(payout, float):
+        if payout != int(payout):
+            return bad_request_response("payout must be a whole number", event=event)
+        payout = int(payout)
 
     use_case = SettleBettingRecordUseCase(
         betting_record_repository=Dependencies.get_betting_record_repository(),
