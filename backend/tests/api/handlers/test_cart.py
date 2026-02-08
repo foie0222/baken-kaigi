@@ -312,6 +312,90 @@ class TestAddToCartHandler:
         assert body["total_amount"] == 600
 
 
+class TestAddToCartTypeValidation:
+    """POST /cart/items の型バリデーションテスト."""
+
+    def test_race_idが整数の場合400(self) -> None:
+        from src.api.handlers.cart import add_to_cart
+
+        Dependencies.set_cart_repository(MockCartRepository())
+        event = {
+            "body": json.dumps({
+                "race_id": 2024060111,
+                "race_name": "日本ダービー",
+                "bet_type": "WIN",
+                "horse_numbers": [1],
+                "amount": 100,
+            }),
+        }
+        response = add_to_cart(event, None)
+        assert response["statusCode"] == 400
+
+    def test_race_nameが整数の場合400(self) -> None:
+        from src.api.handlers.cart import add_to_cart
+
+        Dependencies.set_cart_repository(MockCartRepository())
+        event = {
+            "body": json.dumps({
+                "race_id": "2024060111",
+                "race_name": 12345,
+                "bet_type": "WIN",
+                "horse_numbers": [1],
+                "amount": 100,
+            }),
+        }
+        response = add_to_cart(event, None)
+        assert response["statusCode"] == 400
+
+    def test_race_idが空文字の場合400(self) -> None:
+        from src.api.handlers.cart import add_to_cart
+
+        Dependencies.set_cart_repository(MockCartRepository())
+        event = {
+            "body": json.dumps({
+                "race_id": "",
+                "race_name": "日本ダービー",
+                "bet_type": "WIN",
+                "horse_numbers": [1],
+                "amount": 100,
+            }),
+        }
+        response = add_to_cart(event, None)
+        assert response["statusCode"] == 400
+
+    def test_horse_numbersが文字列の場合400(self) -> None:
+        from src.api.handlers.cart import add_to_cart
+
+        Dependencies.set_cart_repository(MockCartRepository())
+        event = {
+            "body": json.dumps({
+                "race_id": "2024060111",
+                "race_name": "日本ダービー",
+                "bet_type": "WIN",
+                "horse_numbers": "1,2,3",
+                "amount": 100,
+            }),
+        }
+        response = add_to_cart(event, None)
+        assert response["statusCode"] == 400
+
+    def test_horse_numbersの要素が文字列の場合400(self) -> None:
+        from src.api.handlers.cart import add_to_cart
+
+        Dependencies.set_cart_repository(MockCartRepository())
+        event = {
+            "body": json.dumps({
+                "race_id": "2024060111",
+                "race_name": "日本ダービー",
+                "bet_type": "WIN",
+                "horse_numbers": ["1", "2"],
+                "amount": 100,
+            }),
+        }
+        response = add_to_cart(event, None)
+        assert response["statusCode"] == 400
+
+
 class TestGetCartHandler:
     """GET /cart/{cart_id} ハンドラーのテスト."""
 
