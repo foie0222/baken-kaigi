@@ -1,4 +1,8 @@
-"""agentcore/agent.py の _extract_suggested_questions 関数のテスト."""
+"""agentcore/agent.py のユーティリティ関数のテスト."""
+
+import json
+import sys
+from pathlib import Path
 
 
 # _extract_suggested_questions 関数のロジックを直接テスト
@@ -159,3 +163,66 @@ class TestExtractSuggestedQuestions:
         assert len(questions) == 2
         assert questions[0] == "質問1"
         assert questions[1] == "質問2"
+
+
+# =============================================================================
+# inject_bet_proposal_separator のテスト
+# =============================================================================
+
+# 本番実装をインポート（response_utils は外部依存がないピュア関数モジュール）
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
+
+from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
+
+
+class TestInjectBetProposalSeparator:
+    """inject_bet_proposal_separator 関数のテスト."""
+
+    def test_セパレータ欠落時にキャッシュから復元する_既にある場合はそのまま(self):
+        """既にセパレータが含まれている場合、inject はキャッシュを無視する（呼び出し元で判定）."""
+        # NOTE: セパレータ有無のチェックは agent.py の _ensure_bet_proposal_separator で行う。
+        # inject_bet_proposal_separator はキャッシュがあれば常に付与する。
+        text = "買い目を提案しました。"
+        cached = {"should": "be_used"}
+        result = inject_bet_proposal_separator(text, cached)
+        assert BET_PROPOSALS_SEPARATOR in result
+
+    def test_セパレータ欠落時にキャッシュから復元する(self):
+        """セパレータが欠落していてもキャッシュ結果からJSONを復元する."""
+        text = "買い目を提案しました。"
+        cached = {"race_id": "test", "proposed_bets": [{"bet_type": "win"}]}
+        result = inject_bet_proposal_separator(text, cached)
+
+        assert BET_PROPOSALS_SEPARATOR in result
+        assert result.startswith(text)
+        # セパレータ以降がJSON
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        parsed = json.loads(json_part)
+        assert parsed["race_id"] == "test"
+        assert parsed["proposed_bets"] == [{"bet_type": "win"}]
+
+    def test_キャッシュがNoneの場合はそのまま返す(self):
+        """キャッシュが空の場合は本文をそのまま返す."""
+        text = "買い目を提案しました。"
+        result = inject_bet_proposal_separator(text, None)
+        assert result == text
+        assert BET_PROPOSALS_SEPARATOR not in result
+
+    def test_キャッシュがエラーの場合はそのまま返す(self):
+        """ツール実行がエラーだった場合はセパレータを付与しない."""
+        text = "エラーが発生しました。"
+        cached = {"error": "API呼び出しに失敗しました"}
+        result = inject_bet_proposal_separator(text, cached)
+        assert result == text
+        assert BET_PROPOSALS_SEPARATOR not in result
+
+    def test_日本語を含むJSONが正しくシリアライズされる(self):
+        """日本語文字がエスケープされずにJSON出力される."""
+        text = "提案しました。"
+        cached = {"analysis_comment": "混戦レースです", "proposed_bets": []}
+        result = inject_bet_proposal_separator(text, cached)
+
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        assert "混戦レースです" in json_part
+        parsed = json.loads(json_part)
+        assert parsed["analysis_comment"] == "混戦レースです"

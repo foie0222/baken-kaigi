@@ -17,13 +17,26 @@ from .pace_analysis import (
     _assess_race_difficulty,
     _predict_pace,
 )
-# ツール実行結果をキャプチャする変数（agent.py がセパレータ付与に使用）
-_last_proposal_result: dict | None = None
-
-
 from .risk_analysis import (
     _assess_skip_recommendation,
 )
+
+# =============================================================================
+# ツール結果キャッシュ（セパレータ復元用）
+# =============================================================================
+
+# NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
+# 並行リクエストによる競合状態は発生しない。
+_last_proposal_result: dict | None = None
+
+
+def get_last_proposal_result() -> dict | None:
+    """キャッシュされた最新のツール結果を取得し、キャッシュをクリアする."""
+    global _last_proposal_result
+    result = _last_proposal_result
+    _last_proposal_result = None
+    return result
+
 
 # =============================================================================
 # 定数
@@ -882,7 +895,7 @@ def generate_bet_proposal(
         - disclaimer: 免責事項
     """
     global _last_proposal_result
-    _last_proposal_result = None
+    _last_proposal_result = None  # 呼び出し単位でキャッシュをリセット
     try:
         # データ収集
         from .race_data import _fetch_race_detail, _extract_race_conditions

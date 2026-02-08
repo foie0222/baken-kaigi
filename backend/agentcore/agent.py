@@ -3,7 +3,6 @@
 AgentCore Runtime にデプロイされるメインエージェント。
 """
 
-import json
 import logging
 import os
 import sys
@@ -125,23 +124,13 @@ def invoke(payload: dict, context: Any) -> dict:
 
     # エージェント実行（遅延初期化）
     agent = _get_agent()
-
-    # ツール結果キャプチャをリセット
-    import tools.bet_proposal as _bet_proposal_mod
-    _bet_proposal_mod._last_proposal_result = None
-
     result = agent(user_message)
 
     # レスポンスからテキストを抽出
     message_text = _extract_message_text(result.message)
 
-    # 買い目提案のセパレータが欠落している場合、ツール結果から復元
-    proposal_result = _bet_proposal_mod._last_proposal_result
-    if proposal_result is not None and "---BET_PROPOSALS_JSON---" not in message_text:
-        logger.info("BET_PROPOSALS_JSON separator missing, appending from tool result")
-        message_text += "\n\n---BET_PROPOSALS_JSON---\n" + json.dumps(
-            proposal_result, ensure_ascii=False
-        )
+    # 買い目提案セパレータが欠落している場合、ツール結果から復元
+    message_text = _ensure_bet_proposal_separator(message_text)
 
     # クイックリプライ提案を抽出
     message_text, suggested_questions = _extract_suggested_questions(message_text)
@@ -202,6 +191,23 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     questions = [q for q in questions if q][:5]
 
     return main_text, questions
+
+
+def _ensure_bet_proposal_separator(message_text: str) -> str:
+    """買い目提案のセパレータが欠落している場合、ツール結果キャッシュから復元する."""
+    from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
+    from tools.bet_proposal import get_last_proposal_result
+
+    # セパレータ有無に関わらず、呼び出し単位でツール結果キャッシュを必ず取得して消費する
+    cached_result = get_last_proposal_result()
+
+    if BET_PROPOSALS_SEPARATOR in message_text:
+        return message_text
+
+    if cached_result is not None:
+        logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
+
+    return inject_bet_proposal_separator(message_text, cached_result)
 
 
 def _format_cart_summary(cart_items: list) -> str:
