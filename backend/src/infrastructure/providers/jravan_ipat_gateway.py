@@ -9,7 +9,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from src.domain.ports import IpatGateway
+from src.domain.ports import IpatGateway, IpatGatewayError
 from src.domain.value_objects import IpatBalance, IpatBetLine, IpatCredentials
 
 logger = logging.getLogger(__name__)
@@ -105,9 +105,3 @@ class JraVanIpatGateway(IpatGateway):
         except requests.RequestException as e:
             logger.error(f"Failed to get balance: {e}")
             raise IpatGatewayError(f"Failed to get balance: {e}") from e
-
-
-class IpatGatewayError(Exception):
-    """IPAT ゲートウェイエラー."""
-
-    pass

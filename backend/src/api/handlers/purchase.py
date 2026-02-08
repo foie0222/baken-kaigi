@@ -1,5 +1,8 @@
 """購入APIハンドラー."""
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from src.api.auth import AuthenticationError, require_authenticated_user_id
 from src.api.dependencies import Dependencies
@@ -21,6 +24,7 @@ from src.application.use_cases.submit_purchase import (
     SubmitPurchaseUseCase,
 )
 from src.domain.identifiers import PurchaseId
+from src.domain.ports import IpatGatewayError
 
 
 def submit_purchase_handler(event: dict, context: Any) -> dict:
@@ -76,6 +80,9 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         return bad_request_response(str(e), event=event)
     except IpatSubmissionError as e:
         return internal_error_response(str(e), event=event)
+    except IpatGatewayError as e:
+        logger.error("IpatGatewayError: %s", e)
+        return internal_error_response("IPAT通信エラーが発生しました", event=event)
 
     return success_response(
         {
