@@ -29,14 +29,14 @@ def save_ipat_credentials_handler(event: dict, context: Any) -> dict:
     except ValueError as e:
         return bad_request_response(str(e), event=event)
 
-    card_number = body.get("card_number")
-    birthday = body.get("birthday")
+    inet_id = body.get("inet_id")
+    subscriber_number = body.get("subscriber_number")
     pin = body.get("pin")
-    dummy_pin = body.get("dummy_pin")
+    pars_number = body.get("pars_number")
 
-    if not all([card_number, birthday, pin, dummy_pin]):
+    if not all([inet_id, subscriber_number, pin, pars_number]):
         return bad_request_response(
-            "card_number, birthday, pin, dummy_pin are all required",
+            "inet_id, subscriber_number, pin, pars_number are all required",
             event=event,
         )
 
@@ -47,10 +47,10 @@ def save_ipat_credentials_handler(event: dict, context: Any) -> dict:
     try:
         use_case.execute(
             user_id=user_id.value,
-            card_number=card_number,
-            birthday=birthday,
+            inet_id=inet_id,
+            subscriber_number=subscriber_number,
             pin=pin,
-            dummy_pin=dummy_pin,
+            pars_number=pars_number,
         )
     except ValueError as e:
         return bad_request_response(str(e), event=event)

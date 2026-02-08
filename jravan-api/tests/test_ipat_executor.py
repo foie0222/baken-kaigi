@@ -88,7 +88,7 @@ class TestIpatExecutor:
             },
         ]
 
-        result = self.executor.vote("123456789012", "19900101", "1234", "5678", bet_lines)
+        result = self.executor.vote("ABcd1234", "12345678", "1234", "5678", bet_lines)
 
         assert mock_run.called
         assert result["success"] is True
@@ -111,7 +111,7 @@ class TestIpatExecutor:
             },
         ]
 
-        result = self.executor.vote("123456789012", "19900101", "1234", "5678", bet_lines)
+        result = self.executor.vote("ABcd1234", "12345678", "1234", "5678", bet_lines)
 
         assert result["success"] is False
 
@@ -128,7 +128,7 @@ bet_balance=15000
 limit_vote_amount=100000
 """
         with patch("builtins.open", mock_open(read_data=ini_content)):
-            result = self.executor.stat("123456789012", "19900101", "1234", "5678")
+            result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
 
         assert result["success"] is True
         assert result["bet_dedicated_balance"] == 10000
@@ -141,7 +141,7 @@ limit_vote_amount=100000
         """statメソッドでsubprocess失敗時にerrorステータスを返すことを確認."""
         mock_run.return_value = MagicMock(returncode=1, stdout="ERROR")
 
-        result = self.executor.stat("123456789012", "19900101", "1234", "5678")
+        result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
 
         assert result["success"] is False
 

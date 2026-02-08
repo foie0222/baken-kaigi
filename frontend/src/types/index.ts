@@ -382,10 +382,10 @@ export interface IpatStatus {
 
 // IPAT認証情報入力
 export interface IpatCredentialsInput {
-  cardNumber: string;
-  birthday: string;
+  inetId: string;
+  subscriberNumber: string;
   pin: string;
-  dummyPin: string;
+  parsNumber: string;
 }
 
 // 賭け記録

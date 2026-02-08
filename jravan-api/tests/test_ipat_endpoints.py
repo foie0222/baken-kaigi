@@ -28,10 +28,10 @@ class TestIpatVoteEndpoint:
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/vote", json={
-            "card_number": "123456789012",
-            "birthday": "19900101",
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
             "pin": "1234",
-            "dummy_pin": "5678",
+            "pars_number": "5678",
             "bet_lines": [
                 {
                     "opdt": "20260201",
@@ -57,10 +57,10 @@ class TestIpatVoteEndpoint:
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/vote", json={
-            "card_number": "123456789012",
-            "birthday": "19900101",
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
             "pin": "1234",
-            "dummy_pin": "5678",
+            "pars_number": "5678",
             "bet_lines": [
                 {
                     "opdt": "20260201",
@@ -96,10 +96,10 @@ class TestIpatStatEndpoint:
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/stat", json={
-            "card_number": "123456789012",
-            "birthday": "19900101",
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
             "pin": "1234",
-            "dummy_pin": "5678",
+            "pars_number": "5678",
         })
 
         assert response.status_code == 200
@@ -115,10 +115,10 @@ class TestIpatStatEndpoint:
         mock_executor_class.return_value = mock_instance
 
         response = client.post("/ipat/stat", json={
-            "card_number": "123456789012",
-            "birthday": "19900101",
+            "inet_id": "ABcd1234",
+            "subscriber_number": "12345678",
             "pin": "1234",
-            "dummy_pin": "5678",
+            "pars_number": "5678",
         })
 
         assert response.status_code == 200

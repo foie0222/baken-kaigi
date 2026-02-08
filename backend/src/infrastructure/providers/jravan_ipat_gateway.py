@@ -58,10 +58,10 @@ class JraVanIpatGateway(IpatGateway):
                 for line in bet_lines
             ]
             payload = {
-                "card_number": credentials.card_number,
-                "birthday": credentials.birthday,
+                "inet_id": credentials.inet_id,
+                "subscriber_number": credentials.subscriber_number,
                 "pin": credentials.pin,
-                "dummy_pin": credentials.dummy_pin,
+                "pars_number": credentials.pars_number,
                 "bet_lines": bet_line_dicts,
             }
             response = self._session.post(
@@ -80,10 +80,10 @@ class JraVanIpatGateway(IpatGateway):
         """残高を取得する."""
         try:
             payload = {
-                "card_number": credentials.card_number,
-                "birthday": credentials.birthday,
+                "inet_id": credentials.inet_id,
+                "subscriber_number": credentials.subscriber_number,
                 "pin": credentials.pin,
-                "dummy_pin": credentials.dummy_pin,
+                "pars_number": credentials.pars_number,
             }
             response = self._session.post(
                 f"{self._base_url}/ipat/stat",

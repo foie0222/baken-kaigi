@@ -8,7 +8,7 @@ function HelpLink() {
   return (
     <div className="help-link-section">
       <a
-        href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000070789.html"
+        href="https://www.gaprsc.or.jp/index.html"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="ギャンブル依存症の相談窓口へ（新しいタブで開く）"
