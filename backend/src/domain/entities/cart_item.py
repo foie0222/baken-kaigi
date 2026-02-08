@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..enums import BetType
 from ..identifiers import ItemId, RaceId
@@ -38,7 +38,7 @@ class CartItem:
             race_id=race_id,
             race_name=race_name,
             bet_selection=bet_selection,
-            added_at=added_at or datetime.now(),
+            added_at=added_at or datetime.now(timezone.utc),
         )
 
     def get_amount(self) -> Money:

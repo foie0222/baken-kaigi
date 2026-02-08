@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..enums import MessageType
 from ..identifiers import MessageId
@@ -31,7 +31,7 @@ class Message:
             message_id=MessageId.generate(),
             type=MessageType.USER,
             content=content,
-            timestamp=timestamp or datetime.now(),
+            timestamp=timestamp or datetime.now(timezone.utc),
         )
 
     @classmethod
@@ -43,7 +43,7 @@ class Message:
             message_id=MessageId.generate(),
             type=MessageType.AI,
             content=content,
-            timestamp=timestamp or datetime.now(),
+            timestamp=timestamp or datetime.now(timezone.utc),
         )
 
     @classmethod
@@ -55,7 +55,7 @@ class Message:
             message_id=MessageId.generate(),
             type=MessageType.SYSTEM,
             content=content,
-            timestamp=timestamp or datetime.now(),
+            timestamp=timestamp or datetime.now(timezone.utc),
         )
 
     def is_from_user(self) -> bool:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..enums import WarningLevel
 
@@ -49,7 +49,7 @@ class AmountFeedback:
             is_limit_exceeded=is_exceeded,
             warning_level=warning_level,
             comment=comment,
-            generated_at=generated_at or datetime.now(),
+            generated_at=generated_at or datetime.now(timezone.utc),
         )
 
     @staticmethod

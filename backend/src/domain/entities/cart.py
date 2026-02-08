@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..identifiers import CartId, ItemId, RaceId, UserId
 from ..value_objects import BetSelection, Money
@@ -23,7 +23,7 @@ class Cart:
     @classmethod
     def create(cls, user_id: UserId | None = None) -> Cart:
         """新しいカートを作成する."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         return cls(
             cart_id=CartId.generate(),
             user_id=user_id,
@@ -42,7 +42,7 @@ class Cart:
             bet_selection=bet_selection,
         )
         self._items.append(item)
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)
         return item
 
     def remove_item(self, item_id: ItemId) -> bool:
@@ -50,14 +50,14 @@ class Cart:
         for i, item in enumerate(self._items):
             if item.item_id == item_id:
                 self._items.pop(i)
-                self.updated_at = datetime.now()
+                self.updated_at = datetime.now(timezone.utc)
                 return True
         return False
 
     def clear(self) -> None:
         """全アイテムを削除する."""
         self._items.clear()
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)
 
     def get_total_amount(self) -> Money:
         """合計金額を計算する."""
@@ -90,4 +90,4 @@ class Cart:
         if self.user_id is not None:
             raise ValueError("User is already associated with this cart")
         self.user_id = user_id
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)

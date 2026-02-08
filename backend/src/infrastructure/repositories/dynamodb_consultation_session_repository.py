@@ -1,6 +1,6 @@
 """相談セッションリポジトリのDynamoDB実装."""
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -67,7 +67,7 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
 
     def _to_dynamodb_item(self, session: ConsultationSession) -> dict[str, Any]:
         """ConsultationSessionエンティティをDynamoDBアイテムに変換."""
-        ttl = int((datetime.now() + timedelta(hours=TTL_HOURS)).timestamp())
+        ttl = int((datetime.now(timezone.utc) + timedelta(hours=TTL_HOURS)).timestamp())
 
         # カートスナップショットの変換
         cart_snapshot = []

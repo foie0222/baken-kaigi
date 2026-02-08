@@ -4,7 +4,7 @@ EC2 Windows 上の FastAPI サーバー経由で JV-Link からデータを取�
 """
 import logging
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -204,7 +204,7 @@ class JraVanRaceDataProvider(RaceDataProvider):
         start_time = (
             datetime.fromisoformat(data["start_time"])
             if data.get("start_time")
-            else datetime.now()
+            else datetime.now(timezone.utc)
         )
         betting_deadline = (
             datetime.fromisoformat(data["betting_deadline"])

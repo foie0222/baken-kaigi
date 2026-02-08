@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..enums import SessionStatus
 from ..identifiers import SessionId, UserId
@@ -37,7 +37,7 @@ class ConsultationSession:
             _data_feedbacks=[],
             _amount_feedback=None,
             status=SessionStatus.NOT_STARTED,
-            started_at=datetime.now(),
+            started_at=datetime.now(timezone.utc),
             ended_at=None,
         )
 
@@ -50,7 +50,7 @@ class ConsultationSession:
 
         self._cart_snapshot = list(cart_items)
         self.status = SessionStatus.IN_PROGRESS
-        self.started_at = datetime.now()
+        self.started_at = datetime.now(timezone.utc)
 
     def add_user_message(self, content: str) -> Message:
         """ユーザーメッセージを追加する."""
@@ -87,7 +87,7 @@ class ConsultationSession:
         """セッションを終了する."""
         self._ensure_in_progress()
         self.status = SessionStatus.COMPLETED
-        self.ended_at = datetime.now()
+        self.ended_at = datetime.now(timezone.utc)
 
     def get_total_amount(self) -> Money:
         """合計掛け金を取得する."""
