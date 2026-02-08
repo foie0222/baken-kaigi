@@ -1,4 +1,5 @@
 import { useEffect, useCallback, type ReactNode } from 'react';
+import { acquireScrollLock, releaseScrollLock } from '../../utils/scrollLock';
 import './BottomSheet.css';
 
 interface BottomSheetProps {
@@ -17,13 +18,20 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      document.addEventListener('keydown', handleKeyDown);
-    } else {
-      document.body.style.overflow = '';
+      acquireScrollLock();
     }
     return () => {
-      document.body.style.overflow = '';
+      if (isOpen) {
+        releaseScrollLock();
+      }
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, handleKeyDown]);
