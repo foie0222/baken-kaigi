@@ -12,6 +12,7 @@ import { BetMethodSheet } from '../components/bet/BetMethodSheet';
 import { HorseCheckboxList } from '../components/bet/HorseCheckboxList';
 import { BetProposalSheet } from '../components/proposal/BetProposalSheet';
 import { useBetCalculation } from '../hooks/useBetCalculation';
+import { MAX_BET_AMOUNT } from '../constants/betting';
 import './RaceDetailPage.css';
 
 const initialSelections: ColumnSelections = { col1: [], col2: [], col3: [] };
@@ -91,7 +92,10 @@ export function RaceDetailPage() {
   };
 
   const handleAmountPlus = () => {
-    setBetAmount(betAmount < 500 ? betAmount + 100 : betAmount + 500);
+    const increment = betAmount < 500 ? 100 : 500;
+    const effectiveBetCount = betCount > 0 ? betCount : 1;
+    const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
+    setBetAmount((prev) => Math.min(prev + increment, maxPerBet));
   };
 
   const handleAddToCart = () => {
@@ -110,7 +114,7 @@ export function RaceDetailPage() {
     // 表示用文字列を生成
     const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
 
-    const success = addItem({
+    const result = addItem({
       raceId: race.id,
       raceName: race.name,
       raceVenue: race.venue,
@@ -130,8 +134,11 @@ export function RaceDetailPage() {
       })),
     });
 
-    if (!success) {
-      showToast('カートには同じレースの買い目のみ追加できます', 'error');
+    if (result !== 'ok') {
+      const message = result === 'different_race'
+        ? 'カートには同じレースの買い目のみ追加できます'
+        : '金額が範囲外です';
+      showToast(message, 'error');
       return;
     }
 

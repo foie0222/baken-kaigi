@@ -3,11 +3,13 @@ import { persist } from 'zustand/middleware';
 import type { CartItem, RunnerData } from '../types';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
+export type AddItemResult = 'ok' | 'different_race' | 'invalid_amount';
+
 interface CartState {
   cartId: string;
   items: CartItem[];
   currentRunnersData: RunnerData[];
-  addItem: (item: Omit<CartItem, 'id'> & { runnersData?: RunnerData[] }) => boolean;
+  addItem: (item: Omit<CartItem, 'id'> & { runnersData?: RunnerData[] }) => AddItemResult;
   removeItem: (itemId: string) => void;
   updateItemAmount: (itemId: string, amount: number) => void;
   clearCart: () => void;
@@ -30,13 +32,18 @@ export const useCartStore = create<CartState>()(
       currentRunnersData: [],
 
       addItem: (item) => {
+        // 金額バリデーション
+        if (item.amount < MIN_BET_AMOUNT || item.amount > MAX_BET_AMOUNT) {
+          return 'invalid_amount';
+        }
+
         const state = get();
 
         // カートが空でない場合、同一レースかチェック
         if (state.items.length > 0) {
           const existingRaceId = state.items[0].raceId;
           if (item.raceId !== existingRaceId) {
-            return false; // 異なるレースは追加不可
+            return 'different_race';
           }
         }
 
@@ -54,7 +61,7 @@ export const useCartStore = create<CartState>()(
           items: [...state.items, newItem],
           ...updates,
         }));
-        return true;
+        return 'ok';
       },
 
       removeItem: (itemId) => {

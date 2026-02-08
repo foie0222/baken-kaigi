@@ -37,7 +37,7 @@ describe('cartStore', () => {
       const item = createMockCartItem()
       const result = useCartStore.getState().addItem(item)
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(1)
       expect(state.items[0].raceName).toBe('テストレース')
@@ -67,7 +67,7 @@ describe('cartStore', () => {
       useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_001' }))
       const result = useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_002' }))
 
-      expect(result).toBe(false)
+      expect(result).toBe('different_race')
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(1)
       expect(state.items[0].raceId).toBe('race_001')
@@ -76,7 +76,7 @@ describe('cartStore', () => {
     it('カートが空の場合は任意のレースを追加できる', () => {
       const result = useCartStore.getState().addItem(createMockCartItem({ raceId: 'any_race' }))
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(1)
       expect(state.items[0].raceId).toBe('any_race')
@@ -87,7 +87,7 @@ describe('cartStore', () => {
       useCartStore.getState().clearCart()
       const result = useCartStore.getState().addItem(createMockCartItem({ raceId: 'race_002' }))
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(1)
       expect(state.items[0].raceId).toBe('race_002')
@@ -353,6 +353,58 @@ describe('cartStore', () => {
       const state = useCartStore.getState()
       // CartItemにはrunnersDataプロパティがない
       expect('runnersData' in state.items[0]).toBe(false)
+    })
+  })
+
+  describe('addItem金額バリデーション', () => {
+    it('MAX_BET_AMOUNTを超える金額のアイテムは追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 150000 })
+      )
+
+      expect(result).toBe('invalid_amount')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+
+    it('MAX_BET_AMOUNTちょうどの金額は追加できる', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 100000 })
+      )
+
+      expect(result).toBe('ok')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+    })
+
+    it('MIN_BET_AMOUNT未満の金額は追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 50 })
+      )
+
+      expect(result).toBe('invalid_amount')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+
+    it('0円のアイテムは追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: 0 })
+      )
+
+      expect(result).toBe('invalid_amount')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
+    })
+
+    it('負の金額のアイテムは追加できない', () => {
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ amount: -1000 })
+      )
+
+      expect(result).toBe('invalid_amount')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(0)
     })
   })
 
