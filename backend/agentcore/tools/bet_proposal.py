@@ -17,6 +17,9 @@ from .pace_analysis import (
     _assess_race_difficulty,
     _predict_pace,
 )
+# ツール実行結果をキャプチャする変数（agent.py がセパレータ付与に使用）
+_last_proposal_result: dict | None = None
+
 from .risk_analysis import (
     _assess_skip_recommendation,
 )
@@ -829,6 +832,8 @@ def generate_bet_proposal(
         - analysis_comment: 分析ナラティブ
         - disclaimer: 免責事項
     """
+    global _last_proposal_result
+    _last_proposal_result = None
     try:
         # データ収集
         from .race_data import _fetch_race_detail, _extract_race_conditions
@@ -857,7 +862,7 @@ def generate_bet_proposal(
         # 脚質データ取得
         running_styles = _get_running_styles(race_id)
 
-        return _generate_bet_proposal_impl(
+        result = _generate_bet_proposal_impl(
             race_id=race_id,
             budget=budget,
             runners_data=runners_data,
@@ -870,6 +875,9 @@ def generate_bet_proposal(
             preferred_bet_types=preferred_bet_types,
             axis_horses=axis_horses,
         )
+        if "error" not in result:
+            _last_proposal_result = result
+        return result
     except requests.RequestException as e:
         return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:

@@ -3,6 +3,7 @@
 AgentCore Runtime にデプロイされるメインエージェント。
 """
 
+import json
 import logging
 import os
 import sys
@@ -124,10 +125,24 @@ def invoke(payload: dict, context: Any) -> dict:
 
     # エージェント実行（遅延初期化）
     agent = _get_agent()
+
+    # ツール結果キャプチャをリセット
+    from tools.bet_proposal import _last_proposal_result
+    import tools.bet_proposal as _bet_proposal_mod
+    _bet_proposal_mod._last_proposal_result = None
+
     result = agent(user_message)
 
     # レスポンスからテキストを抽出
     message_text = _extract_message_text(result.message)
+
+    # 買い目提案のセパレータが欠落している場合、ツール結果から復元
+    proposal_result = _bet_proposal_mod._last_proposal_result
+    if proposal_result is not None and "---BET_PROPOSALS_JSON---" not in message_text:
+        logger.info("BET_PROPOSALS_JSON separator missing, appending from tool result")
+        message_text += "\n\n---BET_PROPOSALS_JSON---\n" + json.dumps(
+            proposal_result, ensure_ascii=False
+        )
 
     # クイックリプライ提案を抽出
     message_text, suggested_questions = _extract_suggested_questions(message_text)
