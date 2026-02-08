@@ -1,61 +1,52 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { acquireScrollLock, releaseScrollLock, _resetForTest } from './scrollLock';
 
-// テストごとにモジュールをリセットするため動的importを使用
 describe('scrollLock', () => {
   beforeEach(() => {
+    _resetForTest();
     document.body.style.overflow = '';
   });
 
-  it('acquireScrollLock sets overflow to hidden', async () => {
-    // 毎回新しいモジュールインスタンスを取得
-    const mod = await import('./scrollLock');
-    // lockCount をリセットするため、release を十分回数呼ぶ
-    for (let i = 0; i < 10; i++) mod.releaseScrollLock();
-    document.body.style.overflow = '';
-
-    mod.acquireScrollLock();
+  it('acquireScrollLock sets overflow to hidden', () => {
+    acquireScrollLock();
     expect(document.body.style.overflow).toBe('hidden');
-    // cleanup
-    mod.releaseScrollLock();
+    releaseScrollLock();
   });
 
-  it('releaseScrollLock restores overflow when count reaches 0', async () => {
-    const mod = await import('./scrollLock');
-    for (let i = 0; i < 10; i++) mod.releaseScrollLock();
-    document.body.style.overflow = '';
-
-    mod.acquireScrollLock();
-    mod.releaseScrollLock();
+  it('releaseScrollLock restores overflow when count reaches 0', () => {
+    acquireScrollLock();
+    releaseScrollLock();
     expect(document.body.style.overflow).toBe('');
   });
 
-  it('multiple acquires keep overflow hidden until all released', async () => {
-    const mod = await import('./scrollLock');
-    for (let i = 0; i < 10; i++) mod.releaseScrollLock();
-    document.body.style.overflow = '';
-
-    mod.acquireScrollLock();
-    mod.acquireScrollLock();
+  it('multiple acquires keep overflow hidden until all released', () => {
+    acquireScrollLock();
+    acquireScrollLock();
     expect(document.body.style.overflow).toBe('hidden');
 
-    mod.releaseScrollLock();
+    releaseScrollLock();
     expect(document.body.style.overflow).toBe('hidden');
 
-    mod.releaseScrollLock();
+    releaseScrollLock();
     expect(document.body.style.overflow).toBe('');
   });
 
-  it('releaseScrollLock does not go below 0', async () => {
-    const mod = await import('./scrollLock');
-    for (let i = 0; i < 10; i++) mod.releaseScrollLock();
-    document.body.style.overflow = '';
-
-    mod.releaseScrollLock();
-    mod.releaseScrollLock();
+  it('releaseScrollLock does not go below 0', () => {
+    releaseScrollLock();
+    releaseScrollLock();
     expect(document.body.style.overflow).toBe('');
 
-    mod.acquireScrollLock();
+    acquireScrollLock();
     expect(document.body.style.overflow).toBe('hidden');
-    mod.releaseScrollLock();
+    releaseScrollLock();
+  });
+
+  it('restores original overflow value', () => {
+    document.body.style.overflow = 'auto';
+    acquireScrollLock();
+    expect(document.body.style.overflow).toBe('hidden');
+
+    releaseScrollLock();
+    expect(document.body.style.overflow).toBe('auto');
   });
 });

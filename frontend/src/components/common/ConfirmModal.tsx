@@ -35,12 +35,19 @@ export function ConfirmModal({
   useEffect(() => {
     if (isOpen) {
       acquireScrollLock();
-      document.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       if (isOpen) {
         releaseScrollLock();
       }
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, handleKeyDown]);
