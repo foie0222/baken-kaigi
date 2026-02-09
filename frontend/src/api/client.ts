@@ -466,8 +466,11 @@ class ApiClient {
     }
     jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
     try {
-      const data = JSON.parse(jsonStr) as BetProposalResponse;
-      return { success: true, data };
+      const data = JSON.parse(jsonStr);
+      if (!Array.isArray(data.proposed_bets)) {
+        return { success: false, error: data.error || '提案データの形式が不正です' };
+      }
+      return { success: true, data: data as BetProposalResponse };
     } catch {
       return { success: false, error: '提案データの解析に失敗しました' };
     }
