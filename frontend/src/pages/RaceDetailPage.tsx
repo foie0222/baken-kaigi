@@ -58,7 +58,10 @@ export function RaceDetailPage() {
       if (response.success && response.data) {
         setRace(response.data);
       } else {
-        setError(response.error || 'レース詳細の取得に失敗しました');
+        const fallback = 'レース詳細の取得に失敗しました';
+        const err = response.error;
+        // ASCII英語のみのAPIエラーメッセージはフォールバックに変換
+        setError(!err || /^[\x20-\x7E]+$/.test(err) ? fallback : err);
       }
 
       setLoading(false);
