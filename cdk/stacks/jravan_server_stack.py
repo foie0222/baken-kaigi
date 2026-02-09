@@ -70,6 +70,16 @@ class JraVanServerStack(Stack):
                 "DynamoDbEndpoint",
                 service=ec2.GatewayVpcEndpointAwsService.DYNAMODB,
             )
+
+            # Secrets Manager VPC Interface Endpoint
+            # Lambda（ISOLATED サブネット）から Secrets Manager へアクセスするために必要
+            self.vpc.add_interface_endpoint(
+                "SecretsManagerEndpoint",
+                service=ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+                subnets=ec2.SubnetSelection(
+                    subnet_type=ec2.SubnetType.PRIVATE_ISOLATED,
+                ),
+            )
         else:
             self.vpc = vpc
 
