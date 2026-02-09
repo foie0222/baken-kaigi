@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../test/utils'
 import { RaceDetailPage } from './RaceDetailPage'
 import { useCartStore } from '../stores/cartStore'
+import { apiClient } from '../api/client'
 
 // react-router-domのuseParamsをモック
 vi.mock('react-router-dom', async () => {
@@ -61,6 +62,40 @@ describe('RaceDetailPage', () => {
 
       const guideText = await screen.findByText(/カートに追加後、AIと一緒に買い目を確認できます/i)
       expect(guideText).toHaveClass('ai-guide-text')
+    })
+  })
+
+  describe('APIエラーメッセージの日本語化', () => {
+    it('英語のAPIエラーメッセージは日本語フォールバックで表示される', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: false,
+        error: 'Race not found',
+      })
+
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByText('レース詳細の取得に失敗しました')).toBeInTheDocument()
+    })
+
+    it('日本語を含むエラーメッセージはそのまま表示される', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: false,
+        error: 'IPAT通信エラーが発生しました',
+      })
+
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByText('IPAT通信エラーが発生しました')).toBeInTheDocument()
+    })
+
+    it('エラーメッセージがない場合はフォールバックが表示される', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: false,
+      })
+
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByText('レース詳細の取得に失敗しました')).toBeInTheDocument()
     })
   })
 

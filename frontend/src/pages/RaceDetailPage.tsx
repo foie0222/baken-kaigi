@@ -5,6 +5,7 @@ import { useCartStore } from '../stores/cartStore';
 import type { RaceDetail, BetType, BetMethod, ColumnSelections } from '../types';
 import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered, getVenueName } from '../types';
 import { apiClient } from '../api/client';
+import { toJapaneseError } from '../stores/purchaseStore';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
 import { getBetMethodLabel } from '../utils/betMethods';
 import { BetTypeSheet } from '../components/bet/BetTypeSheet';
@@ -58,10 +59,7 @@ export function RaceDetailPage() {
       if (response.success && response.data) {
         setRace(response.data);
       } else {
-        const fallback = 'レース詳細の取得に失敗しました';
-        const err = response.error;
-        // ASCII英語のみのAPIエラーメッセージはフォールバックに変換
-        setError(!err || /^[\x20-\x7E]+$/.test(err) ? fallback : err);
+        setError(toJapaneseError(response.error, 'レース詳細の取得に失敗しました'));
       }
 
       setLoading(false);
