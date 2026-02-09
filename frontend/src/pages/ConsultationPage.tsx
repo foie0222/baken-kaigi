@@ -24,7 +24,8 @@ export function ConsultationPage() {
   const { isAuthenticated } = useAuthStore();
   const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
   const showToast = useAppStore((state) => state.showToast);
-  const isIpatConfigured = isAuthenticated && ipatStatus?.configured;
+  // IPAT設定状態（true: 設定済み, false: 未設定, null: ステータス未取得）
+  const isIpatConfigured = ipatStatus?.configured ?? null;
   const totalAmount = getTotalAmount();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -185,7 +186,7 @@ export function ConsultationPage() {
   };
 
   const handlePurchase = () => {
-    if (!isIpatConfigured) {
+    if (isIpatConfigured === false) {
       showToast('IPAT設定が必要です');
       navigate('/settings/ipat');
       return;
@@ -415,9 +416,9 @@ export function ConsultationPage() {
           <button
             className="btn-purchase-subtle"
             onClick={handlePurchase}
-            disabled={items.length === 0 || !isAuthenticated}
+            disabled={items.length === 0 || !isAuthenticated || isIpatConfigured === null}
           >
-            {!isAuthenticated ? 'ログインして購入' : !isIpatConfigured ? 'IPAT設定して購入' : '購入する'}
+            {!isAuthenticated ? 'ログインして購入' : isIpatConfigured === null ? '確認中...' : isIpatConfigured === false ? 'IPAT設定して購入' : '購入する'}
           </button>
         </div>
       </div>

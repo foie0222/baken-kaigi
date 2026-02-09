@@ -21,6 +21,7 @@ vi.mock('../api/client', () => ({
   apiClient: {
     isAgentCoreAvailable: vi.fn(() => false),
     consultWithAgent: vi.fn(),
+    getIpatStatus: vi.fn(() => Promise.resolve({ success: true, data: { configured: true } })),
   },
 }))
 
@@ -103,6 +104,7 @@ describe('ConsultationPage', () => {
     })
 
     it('IPAT未設定時は「IPAT設定して購入」と表示され、クリックでIPAT設定ページへ遷移する', async () => {
+      vi.mocked(apiClient.getIpatStatus).mockResolvedValue({ success: true, data: { configured: false } })
       useIpatSettingsStore.setState({ status: { configured: false }, isLoading: false, error: null })
 
       const { user } = render(<ConsultationPage />)
@@ -112,6 +114,18 @@ describe('ConsultationPage', () => {
 
       await user.click(purchaseButton)
       expect(mockNavigate).toHaveBeenCalledWith('/settings/ipat')
+    })
+
+    it('IPATステータス未取得時は「確認中...」と表示されボタンが無効化される', async () => {
+      // getIpatStatusが解決しないようにして未取得状態を維持
+      vi.mocked(apiClient.getIpatStatus).mockReturnValue(new Promise(() => {}))
+      useIpatSettingsStore.setState({ status: null, isLoading: true, error: null })
+
+      render(<ConsultationPage />)
+
+      const purchaseButton = await screen.findByRole('button', { name: /確認中/i })
+      expect(purchaseButton).toBeInTheDocument()
+      expect(purchaseButton).toBeDisabled()
     })
   })
 
