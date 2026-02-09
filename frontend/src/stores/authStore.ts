@@ -15,6 +15,24 @@ import {
 } from 'aws-amplify/auth';
 import { isAuthConfigured } from '../config/amplify';
 
+/** Cognitoの英語エラーメッセージを日本語に変換する */
+export function toJapaneseAuthError(error: string | undefined, fallback: string): string {
+  if (!error) return fallback;
+  if (error.includes('Incorrect username or password')) return 'メールアドレスまたはパスワードが正しくありません';
+  if (error.includes('User already exists')) return 'このメールアドレスは既に登録されています';
+  if (error.includes('Password did not conform with policy')) return 'パスワードが要件を満たしていません（8文字以上、大文字・小文字・数字を含む）';
+  if (error.includes('Invalid verification code')) return '確認コードが正しくありません';
+  if (error.includes('Attempt limit exceeded')) return '試行回数の上限に達しました。しばらくしてからお試しください';
+  if (error.includes('User is not confirmed')) return 'メールアドレスの確認が完了していません';
+  if (error.includes('Username/client id combination not found')) return 'アカウントが見つかりません';
+  if (error.includes('Incorrect current password') || error.includes('Incorrect password')) return '現在のパスワードが正しくありません';
+  if (error.includes('Password attempts exceeded')) return 'パスワードの試行回数を超えました。しばらくしてからお試しください';
+  if (error === 'Failed to fetch') return '通信エラーが発生しました';
+  // ASCII印刷可能文字のみのメッセージはフォールバックに変換
+  if (/^[\x20-\x7E]+$/.test(error)) return fallback;
+  return error;
+}
+
 interface AuthUser {
   userId: string;
   email: string;
@@ -93,7 +111,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Registration failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, '登録に失敗しました'),
       });
       throw error;
     }
@@ -107,7 +125,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Confirmation failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, '確認に失敗しました'),
       });
       throw error;
     }
@@ -134,7 +152,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Login failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'ログインに失敗しました'),
       });
       throw error;
     }
@@ -148,7 +166,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Logout failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'ログアウトに失敗しました'),
       });
     }
   },
@@ -160,7 +178,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Google login failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'Googleログインに失敗しました'),
       });
     }
   },
@@ -172,7 +190,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Apple login failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'Appleログインに失敗しました'),
       });
     }
   },
@@ -185,7 +203,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Password reset failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'パスワードリセットに失敗しました'),
       });
       throw error;
     }
@@ -203,7 +221,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Password reset confirmation failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'パスワードリセットの確認に失敗しました'),
       });
       throw error;
     }
@@ -217,7 +235,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Password change failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'パスワード変更に失敗しました'),
       });
       throw error;
     }
@@ -231,7 +249,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Account deletion failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'アカウント削除に失敗しました'),
       });
       throw error;
     }
@@ -256,7 +274,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Profile update failed',
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'プロフィール更新に失敗しました'),
       });
       throw error;
     }
