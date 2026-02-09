@@ -553,6 +553,32 @@ describe('ConsultationPage', () => {
       expect(await screen.findByText(/通信エラーが発生しました/)).toBeInTheDocument()
     })
 
+    it('Markdownテーブルがtable要素としてレンダリングされる', async () => {
+      vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
+      vi.mocked(apiClient.consultWithAgent).mockResolvedValue({
+        success: true,
+        data: {
+          message: '| 順位 | 馬番 | 合議 |\n|------|------|------|\n| 1位 | 2番 | ✓ |\n| 2位 | 4番 | ✓ |',
+          session_id: 'test-session-id',
+        },
+      })
+
+      render(<ConsultationPage />)
+
+      // テーブルがtable要素としてレンダリングされる
+      const table = await screen.findByRole('table')
+      expect(table).toBeInTheDocument()
+
+      // ヘッダーセルが表示される
+      expect(screen.getByRole('columnheader', { name: '順位' })).toBeInTheDocument()
+      expect(screen.getByRole('columnheader', { name: '馬番' })).toBeInTheDocument()
+      expect(screen.getByRole('columnheader', { name: '合議' })).toBeInTheDocument()
+
+      // データセルが表示される
+      expect(screen.getByRole('cell', { name: '1位' })).toBeInTheDocument()
+      expect(screen.getByRole('cell', { name: '2番' })).toBeInTheDocument()
+    })
+
     it('カート変更時にAPI再呼び出しが発生しない', async () => {
       // AgentCoreを利用可能に設定
       vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)

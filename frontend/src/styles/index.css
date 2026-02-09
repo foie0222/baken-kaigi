@@ -985,26 +985,26 @@ main {
     font-size: 13px;
 }
 
-.markdown-content table {
+.chat-message.ai .markdown-content table {
     width: 100%;
     border-collapse: collapse;
     margin: 8px 0;
     font-size: 13px;
 }
 
-.markdown-content th,
-.markdown-content td {
+.chat-message.ai .markdown-content th,
+.chat-message.ai .markdown-content td {
     border: 1px solid #d0d0d0;
     padding: 6px 8px;
     text-align: left;
 }
 
-.markdown-content th {
+.chat-message.ai .markdown-content th {
     background: #f0f0f0;
     font-weight: 700;
 }
 
-.markdown-content tr:nth-child(even) {
+.chat-message.ai .markdown-content tr:nth-child(even) {
     background: #fafafa;
 }
 
