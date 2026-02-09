@@ -31,7 +31,47 @@ vi.mock('aws-amplify/auth', () => ({
   signInWithRedirect: (...args: unknown[]) => mockSignInWithRedirect(...args),
 }))
 
-import { useAuthStore } from './authStore'
+import { useAuthStore, toJapaneseAuthError } from './authStore'
+
+describe('toJapaneseAuthError', () => {
+  const fallback = 'エラーが発生しました'
+
+  it('Cognitoのログインエラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Incorrect username or password.', fallback)).toBe('メールアドレスまたはパスワードが正しくありません')
+  })
+
+  it('ユーザー重複エラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('User already exists', fallback)).toBe('このメールアドレスは既に登録されています')
+  })
+
+  it('パスワードポリシーエラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Password did not conform with policy: Password must have uppercase', fallback)).toBe('パスワードが要件を満たしていません（8文字以上、大文字・小文字・数字を含む）')
+  })
+
+  it('確認コードエラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Invalid verification code provided', fallback)).toBe('確認コードが正しくありません')
+  })
+
+  it('試行回数超過エラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Attempt limit exceeded, please try after some time.', fallback)).toBe('試行回数の上限に達しました。しばらくしてからお試しください')
+  })
+
+  it('通信エラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Failed to fetch', fallback)).toBe('通信エラーが発生しました')
+  })
+
+  it('未知の英語メッセージはフォールバックに変換する', () => {
+    expect(toJapaneseAuthError('Some unknown error', fallback)).toBe(fallback)
+  })
+
+  it('日本語メッセージはそのまま返す', () => {
+    expect(toJapaneseAuthError('日本語のエラー', fallback)).toBe('日本語のエラー')
+  })
+
+  it('undefinedの場合はフォールバックを返す', () => {
+    expect(toJapaneseAuthError(undefined, fallback)).toBe(fallback)
+  })
+})
 
 describe('authStore', () => {
   beforeEach(() => {
@@ -133,7 +173,7 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState()
       expect(state.isLoading).toBe(false)
-      expect(state.error).toBe('User already exists')
+      expect(state.error).toBe('このメールアドレスは既に登録されています')
     })
   })
 
@@ -169,7 +209,7 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState()
       expect(state.isAuthenticated).toBe(false)
-      expect(state.error).toBe('Incorrect username or password')
+      expect(state.error).toBe('メールアドレスまたはパスワードが正しくありません')
     })
   })
 
