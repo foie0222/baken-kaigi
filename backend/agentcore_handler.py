@@ -117,6 +117,11 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         "runners_data": body.get("runners_data", []),
     }
 
+    # リクエストタイプを中継（買い目提案/相談の切り替え用）
+    request_type = body.get("type")
+    if request_type:
+        payload["type"] = request_type
+
     try:
         # boto3 クライアント設定
         config = Config(

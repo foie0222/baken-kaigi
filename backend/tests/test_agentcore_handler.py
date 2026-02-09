@@ -337,3 +337,67 @@ class TestGetBody:
 
         with pytest.raises(ValueError):
             _get_body(event)
+
+
+class TestTypeフィールド中継:
+    """invoke_agentcore が type フィールドを AgentCore に中継することの検証."""
+
+    def test_typeフィールドがpayloadに含まれる(self):
+        """type フィールドがリクエストボディに含まれる場合、payload に中継される."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            body = {
+                "prompt": "買い目を提案して",
+                "type": "bet_proposal",
+            }
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            mock_client = MagicMock()
+            mock_streaming_body = MagicMock()
+            mock_streaming_body.read.return_value = json.dumps(
+                {"message": "提案結果", "session_id": "test-123"}
+            ).encode("utf-8")
+            mock_client.invoke_agent_runtime.return_value = {
+                "contentType": "application/json",
+                "response": mock_streaming_body,
+            }
+
+            with patch("agentcore_handler.boto3") as mock_boto3:
+                mock_boto3.client.return_value = mock_client
+                invoke_agentcore(event, context)
+
+            # invoke_agent_runtime に渡された payload を検証
+            call_args = mock_client.invoke_agent_runtime.call_args
+            sent_payload = json.loads(call_args.kwargs["payload"])
+            assert sent_payload["type"] == "bet_proposal"
+
+    def test_type省略時はpayloadに含まれない(self):
+        """type フィールドが省略された場合、payload に type は含まれない."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            body = {
+                "prompt": "この馬について教えて",
+            }
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            mock_client = MagicMock()
+            mock_streaming_body = MagicMock()
+            mock_streaming_body.read.return_value = json.dumps(
+                {"message": "分析結果", "session_id": "test-456"}
+            ).encode("utf-8")
+            mock_client.invoke_agent_runtime.return_value = {
+                "contentType": "application/json",
+                "response": mock_streaming_body,
+            }
+
+            with patch("agentcore_handler.boto3") as mock_boto3:
+                mock_boto3.client.return_value = mock_client
+                invoke_agentcore(event, context)
+
+            call_args = mock_client.invoke_agent_runtime.call_args
+            sent_payload = json.loads(call_args.kwargs["payload"])
+            assert "type" not in sent_payload

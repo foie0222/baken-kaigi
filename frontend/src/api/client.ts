@@ -42,6 +42,7 @@ export interface AgentCoreConsultationRequest {
   }>;
   runners_data?: RunnerData[];
   session_id?: string;
+  type?: 'consultation' | 'bet_proposal';
 }
 
 export interface AgentCoreConsultationResponse {
@@ -438,6 +439,7 @@ class ApiClient {
       prompt,
       cart_items: [],
       runners_data: runnersData,
+      type: 'bet_proposal',
     });
 
     if (!result.success || !result.data) {

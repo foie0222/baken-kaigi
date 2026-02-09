@@ -4,6 +4,45 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+
+class Testプロンプト切り替え:
+    """request_type に応じてプロンプトが切り替わることの検証."""
+
+    def test_相談用と買い目提案用のプロンプトが異なる(self):
+        from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
+        from agentcore.prompts.consultation import SYSTEM_PROMPT
+
+        assert SYSTEM_PROMPT != BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_相談用プロンプトに6ツールフローが含まれる(self):
+        from agentcore.prompts.consultation import SYSTEM_PROMPT
+
+        assert "絶対に全6ツールを呼び出すこと" in SYSTEM_PROMPT
+
+    def test_買い目提案用プロンプトにgenerate_bet_proposal必須指示が含まれる(self):
+        from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
+
+        assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
+        assert "必ず" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_買い目提案用プロンプトにフォールバック禁止が含まれる(self):
+        from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
+
+        assert "テキストで代替分析を行ってはならない" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_買い目提案用プロンプトにセパレータ指示が含まれる(self):
+        from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
+
+        assert "---BET_PROPOSALS_JSON---" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_プロンプトモジュールからエクスポートされている(self):
+        from agentcore.prompts import BET_PROPOSAL_SYSTEM_PROMPT, SYSTEM_PROMPT
+
+        assert isinstance(SYSTEM_PROMPT, str)
+        assert isinstance(BET_PROPOSAL_SYSTEM_PROMPT, str)
+
 
 # _extract_suggested_questions 関数のロジックを直接テスト
 # Note: agentcore.agent をインポートするには strands/bedrock_agentcore が必要なため、
