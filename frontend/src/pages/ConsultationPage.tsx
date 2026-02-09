@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
@@ -307,7 +308,7 @@ export function ConsultationPage() {
           {messages.map((msg, index) => (
             <div key={index} className={`chat-message ${msg.type}`}>
               <div className="message-bubble markdown-content">
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
               </div>
             </div>
           ))}
