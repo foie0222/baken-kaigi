@@ -103,3 +103,7 @@ class JraVanIpatGateway(IpatGateway):
             )
         except requests.RequestException as e:
             raise IpatGatewayError(f"Failed to get balance: {e}") from e
+        except KeyError as e:
+            raise IpatGatewayError(
+                f"Failed to get balance: missing field {e} in response"
+            ) from e
