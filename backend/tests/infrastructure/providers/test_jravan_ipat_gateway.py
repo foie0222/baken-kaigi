@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from src.domain.enums import IpatBetType, IpatVenueCode
+from src.domain.ports import IpatGatewayError
 from src.domain.value_objects import IpatBalance, IpatBetLine, IpatCredentials
 from src.infrastructure.providers.jravan_ipat_gateway import JraVanIpatGateway
 
@@ -74,6 +75,45 @@ class TestJraVanIpatGateway(unittest.TestCase):
         result = self.gateway.get_balance(self.credentials)
         assert isinstance(result, IpatBalance)
         assert result.bet_balance == 10000
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_残高取得_レスポンスにフィールド不足でIpatGatewayError(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """APIが success:true を返すがbalanceフィールドが欠損した場合."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            # balance fields missing
+        }
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        with self.assertRaises(IpatGatewayError):
+            self.gateway.get_balance(self.credentials)
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_残高取得_一部フィールド欠損でIpatGatewayError(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """一部のbalanceフィールドだけ返された場合."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "bet_dedicated_balance": 10000,
+            # settle_possible_balance, bet_balance, limit_vote_amount missing
+        }
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        with self.assertRaises(IpatGatewayError):
+            self.gateway.get_balance(self.credentials)
 
     @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
     def test_HTTPエラーで例外(self, mock_session_cls: MagicMock) -> None:
