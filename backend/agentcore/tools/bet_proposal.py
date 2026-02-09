@@ -133,10 +133,10 @@ def _calculate_composite_score(
     ai_score = 0.0
     ai_rank = 99
     for pred in ai_predictions:
-        if pred.get("horse_number") == horse_number:
-            ai_rank = pred.get("rank", 99)
+        if int(pred.get("horse_number", 0)) == horse_number:
+            ai_rank = int(pred.get("rank", 99))
             # 順位ベースのスコア（1位=100, 18位=15）
-            ai_score = max(0, 100 - (ai_rank - 1) * 5)
+            ai_score = max(0.0, 100.0 - (ai_rank - 1) * 5.0)
             break
 
     # オッズ乖離スコア

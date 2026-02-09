@@ -1,6 +1,7 @@
 """買い目提案ツールのテスト."""
 
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 # agentcoreモジュールをインポートできるようにパスを追加
@@ -795,3 +796,79 @@ class TestWinPlaceBets:
         quinella_bets = [b for b in bets if b["bet_type"] == "quinella"]
         assert len(win_bets) > 0
         assert len(quinella_bets) > 0
+
+
+# =============================================================================
+# DynamoDB Decimal型互換テスト
+# =============================================================================
+
+
+def _make_decimal_ai_predictions(count: int) -> list[dict]:
+    """DynamoDB由来のDecimal型を含むAI予想データを生成する."""
+    preds = []
+    for i in range(1, count + 1):
+        preds.append({
+            "horse_number": Decimal(str(i)),
+            "horse_name": f"テスト馬{i}",
+            "rank": Decimal(str(i)),
+            "score": Decimal(str(400 - (i - 1) * 30)),
+        })
+    return preds
+
+
+class TestDecimalCompatibility:
+    """DynamoDB Decimal型との互換性テスト."""
+
+    def test_複合スコア計算でDecimal型のrankを処理できる(self):
+        """AI予想のrankがDecimal型でもTypeErrorにならない."""
+        runners = _make_runners(12)
+        ai_preds = _make_decimal_ai_predictions(12)
+        score = _calculate_composite_score(1, runners, ai_preds)
+        assert isinstance(score, float)
+        assert score > 0
+
+    def test_軸馬選定でDecimal型のAI予想を処理できる(self):
+        """Decimal型のAI予想データでも軸馬選定が正常動作する."""
+        runners = _make_runners(12)
+        ai_preds = _make_decimal_ai_predictions(12)
+        result = _select_axis_horses(runners, ai_preds)
+        assert len(result) >= 1
+        assert all(isinstance(a["composite_score"], float) for a in result)
+
+    def test_AI合議レベル判定でDecimal型のscoreを処理できる(self):
+        """AI予想のscoreがDecimal型でも合議レベル判定が正常動作する."""
+        ai_preds = _make_decimal_ai_predictions(12)
+        result = _assess_ai_consensus(ai_preds)
+        assert result in ("完全合意", "概ね合意", "部分合意", "大きな乖離", "データ不足", "混戦")
+
+    def test_買い目生成でDecimal型のAI予想を処理できる(self):
+        """Decimal型のAI予想データでも買い目生成が正常動作する."""
+        runners = _make_runners(12)
+        ai_preds = _make_decimal_ai_predictions(12)
+        axis = [{"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 90}]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["win", "quinella"],
+            total_runners=12,
+        )
+        assert len(bets) > 0
+
+    def test_統合提案でDecimal型のAI予想を処理できる(self):
+        """Decimal型のAI予想データでも統合提案が正常動作する."""
+        runners = _make_runners(12)
+        ai_preds = _make_decimal_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260208_05_11",
+            budget=3000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            race_name="テストレース",
+            race_conditions=["g3"],
+            venue="05",
+            total_runners=12,
+        )
+        assert "error" not in result
+        assert "proposed_bets" in result
+        assert isinstance(result["proposed_bets"], list)
