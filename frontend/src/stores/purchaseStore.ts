@@ -43,7 +43,7 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
         return;
       }
       set({ purchaseResult: response.data, isLoading: false });
-    } catch (error) {
+    } catch {
       set({
         isLoading: false,
         error: '購入に失敗しました',
@@ -60,7 +60,7 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
         return;
       }
       set({ balance: response.data, isLoading: false });
-    } catch (error) {
+    } catch {
       set({
         isLoading: false,
         error: '残高取得に失敗しました',
