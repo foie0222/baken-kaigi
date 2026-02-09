@@ -54,6 +54,23 @@ describe('buildJraShutsubaUrl', () => {
       );
     });
 
+    it('小倉(venue=10)の場合、venue4digitが1010になる', () => {
+      const race = {
+        id: '20260207_10_01',
+        kaisaiKai: '01',
+        kaisaiNichime: '05',
+        jraChecksum: 228, // 0xE4
+        number: '1R',
+        venue: '10',
+      };
+
+      const url = buildJraShutsubaUrl(race);
+
+      expect(url).toBe(
+        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde1010202601050120260207/E4'
+      );
+    });
+
     it('venueコードが1桁の場合、2桁にパディングされる', () => {
       const race = {
         id: '20260124_05_01',
