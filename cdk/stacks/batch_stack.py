@@ -274,9 +274,10 @@ class BakenKaigiBatchStack(Stack):
         # ========================================
 
         # AI指数・夜（毎晩 21:00 JST = 12:00 UTC、翌日分を前日取得）
+        # construct IDは既存リソースとの互換性のため "AiShisuScraperRule" を維持
         ai_shisu_evening_rule = events.Rule(
             self,
-            "AiShisuScraperEveningRule",
+            "AiShisuScraperRule",
             rule_name="baken-kaigi-ai-shisu-scraper-rule",
             description="AI指数スクレイピングを毎晩21:00 JSTに実行（翌日分を前日取得）",
             schedule=events.Schedule.cron(

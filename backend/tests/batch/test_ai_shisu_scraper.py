@@ -266,16 +266,17 @@ class TestSavePredictions:
 class TestScrapeRaces:
     """scrape_races の offset_days テスト."""
 
+    @patch("batch.ai_shisu_scraper.time.sleep")
     @patch("batch.ai_shisu_scraper.get_dynamodb_table")
     @patch("batch.ai_shisu_scraper.fetch_page")
     @patch("batch.ai_shisu_scraper.datetime")
-    def test_offset_days_0で当日分を取得(self, mock_datetime, mock_fetch, mock_table):
+    def test_offset_days_0で当日分を取得(self, mock_datetime, mock_fetch, mock_table, _mock_sleep):
         """正常系: offset_days=0 の場合、当日の日付でスクレイピングする."""
         from batch.ai_shisu_scraper import scrape_races, JST
 
         mock_now = datetime(2026, 2, 9, 9, 0, 0, tzinfo=JST)
         mock_datetime.now.return_value = mock_now
-        mock_datetime.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        mock_datetime.side_effect = datetime
 
         # event_dates ページ: 2/9 のリンクあり
         dates_html = '<html><body><a href="/event_dates/2504">2/9(月)</a></body></html>'
@@ -307,16 +308,17 @@ class TestScrapeRaces:
         item = call_args.kwargs["Item"]
         assert item["race_id"] == "20260209_08_01"
 
+    @patch("batch.ai_shisu_scraper.time.sleep")
     @patch("batch.ai_shisu_scraper.get_dynamodb_table")
     @patch("batch.ai_shisu_scraper.fetch_page")
     @patch("batch.ai_shisu_scraper.datetime")
-    def test_offset_days_1で翌日分を取得(self, mock_datetime, mock_fetch, mock_table):
+    def test_offset_days_1で翌日分を取得(self, mock_datetime, mock_fetch, mock_table, _mock_sleep):
         """正常系: offset_days=1 の場合、翌日の日付でスクレイピングする."""
         from batch.ai_shisu_scraper import scrape_races, JST
 
         mock_now = datetime(2026, 2, 8, 21, 0, 0, tzinfo=JST)
         mock_datetime.now.return_value = mock_now
-        mock_datetime.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        mock_datetime.side_effect = datetime
 
         dates_html = '<html><body><a href="/event_dates/2504">2/9(月)</a></body></html>'
         venue_html = '<html><body><a href="/event_places/9922">京都</a></body></html>'
