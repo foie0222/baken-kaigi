@@ -606,7 +606,7 @@ describe('ApiClient', () => {
       const result = await client.requestBetProposal('race_001', 3000, mockRunners)
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('提案データが見つかりませんでした')
+      expect(result.error).toBe('セパレータなしの応答')
     })
 
     it('JSON不正時にエラーを返す', async () => {

@@ -117,6 +117,18 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         "runners_data": body.get("runners_data", []),
     }
 
+    # リクエストタイプを中継（買い目提案/相談の切り替え用）
+    _VALID_REQUEST_TYPES = {"bet_proposal", "consultation"}
+    request_type = body.get("type")
+    if request_type:
+        if not isinstance(request_type, str) or request_type not in _VALID_REQUEST_TYPES:
+            return _make_response(
+                {"error": f"Invalid type. Must be one of: {', '.join(sorted(_VALID_REQUEST_TYPES))}"},
+                400,
+                event=event,
+            )
+        payload["type"] = request_type
+
     try:
         # boto3 クライアント設定
         config = Config(

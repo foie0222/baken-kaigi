@@ -1,10 +1,11 @@
-"""agentcore/prompts/consultation.py のプロンプト内容テスト."""
+"""agentcore/prompts/consultation.py および bet_proposal.py のプロンプト内容テスト."""
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
 from agentcore.prompts.consultation import SYSTEM_PROMPT
 
 
@@ -210,3 +211,33 @@ class Test推奨表現の追加:
 
     def test_市場見落とし表現(self):
         assert "AI合意上位かつオッズ高い5番は市場の見落とし候補。期待値1.2で統計的に妙味あり" in SYSTEM_PROMPT
+
+
+class TestBetProposalSystemPromptの基本構造:
+    """BET_PROPOSAL_SYSTEM_PROMPTの基本的な構造を検証する."""
+
+    def test_変数が文字列(self):
+        assert isinstance(BET_PROPOSAL_SYSTEM_PROMPT, str)
+        assert len(BET_PROPOSAL_SYSTEM_PROMPT) > 0
+
+    def test_generate_bet_proposalツール名が記載されている(self):
+        assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_ツール呼び出し必須指示が含まれる(self):
+        assert "必ず" in BET_PROPOSAL_SYSTEM_PROMPT
+        assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_フォールバック分析禁止指示が含まれる(self):
+        assert "テキストで代替分析を行ってはならない" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_他ツール呼び出し禁止指示が含まれる(self):
+        assert "以外のツールを呼び出してはならない" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_セパレータ出力指示が含まれる(self):
+        assert "---BET_PROPOSALS_JSON---" in BET_PROPOSAL_SYSTEM_PROMPT
+
+    def test_相談用プロンプトとは異なる内容(self):
+        assert BET_PROPOSAL_SYSTEM_PROMPT != SYSTEM_PROMPT
+
+    def test_相談用プロンプトの6ツールフローを含まない(self):
+        assert "絶対に全6ツールを呼び出すこと" not in BET_PROPOSAL_SYSTEM_PROMPT

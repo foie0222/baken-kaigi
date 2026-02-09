@@ -42,6 +42,7 @@ export interface AgentCoreConsultationRequest {
   }>;
   runners_data?: RunnerData[];
   session_id?: string;
+  type?: 'consultation' | 'bet_proposal';
 }
 
 export interface AgentCoreConsultationResponse {
@@ -438,6 +439,7 @@ class ApiClient {
       prompt,
       cart_items: [],
       runners_data: runnersData,
+      type: 'bet_proposal',
     });
 
     if (!result.success || !result.data) {
@@ -448,7 +450,9 @@ class ApiClient {
     const jsonSeparator = '---BET_PROPOSALS_JSON---';
     const jsonIdx = message.indexOf(jsonSeparator);
     if (jsonIdx === -1) {
-      return { success: false, error: '提案データが見つかりませんでした' };
+      // セパレータがない場合、AIの応答メッセージをエラーとして返す（ツールエラー等のデバッグ用）
+      const aiMessage = message.trim();
+      return { success: false, error: aiMessage || '提案データが見つかりませんでした' };
     }
 
     let jsonStr = message.substring(jsonIdx + jsonSeparator.length).trim();
