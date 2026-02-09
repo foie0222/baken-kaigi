@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
+import { useAuthStore } from '../stores/authStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels, BetMethodLabels, getVenueName } from '../types';
 import type { CartItem } from '../types';
@@ -19,6 +20,7 @@ export function ConsultationPage() {
   const navigate = useNavigate();
   const { items, currentRunnersData, getTotalAmount, removeItem, updateItemAmount } =
     useCartStore();
+  const { isAuthenticated } = useAuthStore();
   const showToast = useAppStore((state) => state.showToast);
   const totalAmount = getTotalAmount();
 
@@ -398,14 +400,13 @@ export function ConsultationPage() {
           <button
             className="btn-purchase-subtle"
             onClick={handlePurchase}
-            disabled={items.length === 0}
+            disabled={items.length === 0 || !isAuthenticated}
           >
-            購入する
+            {isAuthenticated ? '購入する' : 'ログインして購入'}
           </button>
         </div>
       </div>
 
-      {/* 購入確認モーダル */}
       {/* 削除確認モーダル */}
       <ConfirmModal
         isOpen={deleteTarget !== null}
