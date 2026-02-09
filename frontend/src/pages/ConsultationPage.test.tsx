@@ -5,6 +5,16 @@ import { useCartStore } from '../stores/cartStore'
 import { useAuthStore } from '../stores/authStore'
 import { apiClient } from '../api/client'
 
+// react-router-domのuseNavigateをモック
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
 // APIクライアントをモック
 vi.mock('../api/client', () => ({
   apiClient: {
@@ -21,6 +31,7 @@ const testRunnersData = [
 describe('ConsultationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNavigate.mockClear()
     useCartStore.getState().clearCart()
     useAuthStore.setState({ isAuthenticated: true })
     // テスト用の買い目を追加（runnersData付き）
@@ -66,6 +77,27 @@ describe('ConsultationPage', () => {
       expect(stopButton).toHaveClass('btn-stop')
       // 購入するボタンが控えめスタイル
       expect(purchaseButton).toHaveClass('btn-purchase-subtle')
+    })
+  })
+
+  describe('購入ボタンの遷移', () => {
+    it('購入ボタンクリックで購入確認ページへ遷移する', async () => {
+      const { user } = render(<ConsultationPage />)
+
+      const purchaseButton = await screen.findByRole('button', { name: /購入する/i })
+      await user.click(purchaseButton)
+
+      expect(mockNavigate).toHaveBeenCalledWith('/purchase/confirm')
+    })
+
+    it('未認証時は購入ボタンが無効化され「ログインして購入」と表示される', async () => {
+      useAuthStore.setState({ isAuthenticated: false })
+
+      render(<ConsultationPage />)
+
+      const purchaseButton = await screen.findByRole('button', { name: /ログインして購入/i })
+      expect(purchaseButton).toBeInTheDocument()
+      expect(purchaseButton).toBeDisabled()
     })
   })
 
