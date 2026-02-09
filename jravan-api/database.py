@@ -879,7 +879,7 @@ def _parse_tansho_odds(
                     "horse_number": horse_number,
                     "horse_name": horse_names.get(horse_number, ""),
                     "odds": odds,
-                    "popularity": popularity if popularity > 0 else 0,
+                    "popularity": popularity if popularity > 0 else None,
                 })
         except (ValueError, IndexError):
             continue
@@ -1022,7 +1022,7 @@ def get_odds_history(race_id: str) -> dict | None:
                             "horse_number": horse_number,
                             "horse_name": horse_names.get(horse_number, ""),
                             "odds": odds,
-                            "popularity": popularity or 0,
+                            "popularity": popularity,
                         })
                 except (ValueError, TypeError):
                     continue

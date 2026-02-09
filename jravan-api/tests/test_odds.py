@@ -283,10 +283,15 @@ class TestParseHappyoTimestamp:
         result = _parse_happyo_timestamp("2026", "02081627")
         assert result == "2026-02-08T16:27:00"
 
-    def test_ゼロ埋めタイムスタンプはfallback(self):
+    @patch("database.datetime")
+    def test_ゼロ埋めタイムスタンプはfallback(self, mock_datetime: MagicMock):
+        """ゼロ埋めタイムスタンプの場合は datetime.now().isoformat() にフォールバックする."""
+        mock_now = MagicMock()
+        mock_now.isoformat.return_value = "2030-01-02T03:04:05"
+        mock_datetime.now.return_value = mock_now
+
         result = _parse_happyo_timestamp("2026", "00000000")
-        # datetime.now() の isoformat が返るのでフォーマットだけ確認
-        assert "2026" not in result or "T" in result
+        assert result == "2030-01-02T03:04:05"
 
 
 class TestGetOddsHistory:

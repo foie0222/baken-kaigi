@@ -135,7 +135,7 @@ class OddsEntry(BaseModel):
     horse_number: int
     horse_name: str
     odds: float | None
-    popularity: int
+    popularity: int | None
 
 
 class OddsTimestamp(BaseModel):
@@ -471,7 +471,7 @@ def get_odds_history(race_id: str):
                         horse_number=o["horse_number"],
                         horse_name=o["horse_name"],
                         odds=o["odds"],
-                        popularity=o.get("popularity", 0),
+                        popularity=o.get("popularity"),
                     )
                     for o in entry["odds"]
                 ],
