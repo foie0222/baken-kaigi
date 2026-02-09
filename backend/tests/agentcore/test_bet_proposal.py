@@ -839,7 +839,7 @@ class TestDecimalCompatibility:
         """AI予想のscoreがDecimal型でも合議レベル判定が正常動作する."""
         ai_preds = _make_decimal_ai_predictions(12)
         result = _assess_ai_consensus(ai_preds)
-        assert result in ("完全合意", "概ね合意", "部分合意", "大きな乖離", "データ不足", "混戦")
+        assert result in ("明確な上位", "やや接戦", "概ね合意", "データ不足", "混戦")
 
     def test_買い目生成でDecimal型のAI予想を処理できる(self):
         """Decimal型のAI予想データでも買い目生成が正常動作する."""
