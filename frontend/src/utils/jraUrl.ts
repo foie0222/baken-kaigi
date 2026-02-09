@@ -2,9 +2,9 @@
  * JRA公式出馬表URLを生成する
  * URL形式: https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde{4桁venue}{year}{kaisai_kai}{kaisai_nichime}{race_number}{date}/{checksum}
  *
- * 例: pw01dde0106202601080120260124/F3
+ * 例: pw01dde1006202601080120260124/F3
  *     - pw01dde: 固定プレフィックス
- *     - 0106: 01+競馬場コード(06=中山)
+ *     - 1006: 10+競馬場コード(06=中山)
  *     - 2026: 年
  *     - 01: 回次（kaisai_kai）
  *     - 08: 日目（kaisai_nichime）
@@ -39,9 +39,9 @@ export function buildJraShutsubaUrl(race: RaceForJraUrl): string | null {
   // race.number から数字部分を取得（形式: "8R" → "08"）
   const raceNum = race.number.replace('R', '').padStart(2, '0');
 
-  // 競馬場コード（4桁: 01+2桁コード）
+  // 競馬場コード（4桁: 10+2桁コード）
   const venueCode = race.venue.padStart(2, '0');
-  const venue4digit = `01${venueCode}`;
+  const venue4digit = `10${venueCode}`;
 
   // kaisai_kai, kaisai_nichime（2桁にパディング）
   const kaisaiKai = race.kaisaiKai.padStart(2, '0');
