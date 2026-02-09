@@ -130,6 +130,26 @@ class RunningStyleResponse(BaseModel):
     running_style_tendency: str # 馬マスタの脚質傾向
 
 
+class OddsEntry(BaseModel):
+    """個別オッズレスポンス."""
+    horse_number: int
+    horse_name: str
+    odds: float | None
+    popularity: int | None
+
+
+class OddsTimestamp(BaseModel):
+    """タイムスタンプ付きオッズスナップショット."""
+    timestamp: str
+    odds: list[OddsEntry]
+
+
+class OddsHistoryResponse(BaseModel):
+    """オッズ履歴レスポンス."""
+    race_id: str
+    odds_history: list[OddsTimestamp]
+
+
 class JraChecksumResponse(BaseModel):
     """JRAチェックサムレスポンス."""
     checksum: int | None
@@ -432,6 +452,33 @@ def get_running_styles(race_id: str):
         )
         for r in runners
     ]
+
+
+@app.get("/races/{race_id}/odds-history", response_model=OddsHistoryResponse)
+def get_odds_history(race_id: str):
+    """レースのオッズ履歴を取得する."""
+    data = db.get_odds_history(race_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="オッズデータが見つかりません")
+
+    return OddsHistoryResponse(
+        race_id=data["race_id"],
+        odds_history=[
+            OddsTimestamp(
+                timestamp=entry["timestamp"],
+                odds=[
+                    OddsEntry(
+                        horse_number=o["horse_number"],
+                        horse_name=o["horse_name"],
+                        odds=o["odds"],
+                        popularity=o.get("popularity"),
+                    )
+                    for o in entry["odds"]
+                ],
+            )
+            for entry in data["odds_history"]
+        ],
+    )
 
 
 @app.get("/jra-checksum", response_model=JraChecksumResponse)

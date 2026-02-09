@@ -4,10 +4,14 @@
 レース難易度判定、枠順の有利不利、展開サマリーも生成する。
 """
 
+import logging
+
 import requests
 from strands import tool
 
 from .jravan_client import get_api_url, get_headers
+
+logger = logging.getLogger(__name__)
 
 
 # ペース予想結果と有利脚質のマッピング
@@ -59,15 +63,19 @@ ODDS_DANGO_THRESHOLD = 1.3
 
 def _get_running_styles(race_id: str) -> list[dict]:
     """APIから脚質データを取得する."""
+    url = f"{get_api_url()}/races/{race_id}/running-styles"
     try:
         response = requests.get(
-            f"{get_api_url()}/races/{race_id}/running-styles",
+            url,
             headers=get_headers(),
             timeout=10,
         )
         response.raise_for_status()
         return response.json()
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.error(
+            "Failed to get running styles: url=%s, error=%s", url, e
+        )
         return []
 
 

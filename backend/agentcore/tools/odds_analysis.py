@@ -66,8 +66,7 @@ def analyze_odds_movement(
     try:
         # 単勝オッズ履歴を取得
         win_response = requests.get(
-            f"{get_api_url()}/races/{race_id}/odds/history",
-            params={"bet_type": "win"},
+            f"{get_api_url()}/races/{race_id}/odds-history",
             headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )

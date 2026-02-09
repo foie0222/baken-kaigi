@@ -772,6 +772,315 @@ def _to_runner_dict(row: dict) -> dict:
     }
 
 
+def _parse_happyo_timestamp(kaisai_nen: str, happyo: str) -> str:
+    """happyo_tsukihi_jifun を ISO8601 タイムスタンプに変換する.
+
+    Args:
+        kaisai_nen: 開催年（例: "2026"）
+        happyo: 発表月日時分（例: "02081627" → 2月8日16:27）
+
+    Returns:
+        ISO8601 形式のタイムスタンプ文字列
+    """
+    if not happyo or happyo == "00000000" or len(happyo) < 8:
+        return datetime.now().isoformat()
+
+    try:
+        month = int(happyo[0:2])
+        day = int(happyo[2:4])
+        hour = int(happyo[4:6])
+        minute = int(happyo[6:8])
+        year = int(kaisai_nen)
+        return datetime(year, month, day, hour, minute).isoformat()
+    except (ValueError, IndexError):
+        return datetime.now().isoformat()
+
+
+def _parse_fukusho_odds(odds_fukusho: str) -> list[dict]:
+    """odds_fukusho 文字列を解析する.
+
+    JRA-VAN jvd_o1 の odds_fukusho カラムは12文字/馬で連結:
+    馬番(2桁) + 最低オッズ(4桁, ÷10) + 最高オッズ(4桁, ÷10) + 人気(2桁)
+
+    取消馬は "XX**********" (馬番2桁 + アスタリスク10個) となる。
+
+    Args:
+        odds_fukusho: 複勝オッズ連結文字列
+
+    Returns:
+        複勝オッズリスト
+    """
+    if not odds_fukusho:
+        return []
+
+    odds_fukusho = odds_fukusho.strip()
+    result = []
+    for i in range(0, len(odds_fukusho), 12):
+        chunk = odds_fukusho[i:i + 12]
+        if len(chunk) < 12:
+            break
+        if "***" in chunk:
+            continue
+        try:
+            horse_number = int(chunk[0:2])
+            odds_min = int(chunk[2:6]) / 10.0
+            odds_max = int(chunk[6:10]) / 10.0
+            popularity = int(chunk[10:12])
+
+            if horse_number > 0 and odds_min > 0:
+                result.append({
+                    "horse_number": horse_number,
+                    "odds_min": odds_min,
+                    "odds_max": odds_max,
+                    "popularity": popularity,
+                })
+        except (ValueError, IndexError):
+            continue
+
+    return result
+
+
+def _parse_tansho_odds(
+    odds_tansho: str, horse_names: dict[int, str],
+) -> list[dict]:
+    """odds_tansho 文字列を解析する.
+
+    JRA-VAN の odds_tansho カラムは8文字/馬で連結:
+    馬番(2桁) + オッズ(4桁, ÷10) + 人気(2桁)
+
+    取消馬は "XX******" となる。
+
+    Args:
+        odds_tansho: 単勝オッズ連結文字列
+        horse_names: 馬番→馬名の辞書
+
+    Returns:
+        オッズリスト
+    """
+    if not odds_tansho:
+        return []
+
+    odds_tansho = odds_tansho.strip()
+    result = []
+    for i in range(0, len(odds_tansho), 8):
+        if i + 8 > len(odds_tansho):
+            break
+        chunk = odds_tansho[i:i + 8]
+        if chunk.strip() == "" or "***" in chunk:
+            continue
+        try:
+            horse_number = int(chunk[0:2])
+            odds_raw = int(chunk[2:6])
+            popularity = int(chunk[6:8])
+            odds = odds_raw / 10.0 if odds_raw > 0 else None
+
+            if horse_number > 0 and odds is not None:
+                result.append({
+                    "horse_number": horse_number,
+                    "horse_name": horse_names.get(horse_number, ""),
+                    "odds": odds,
+                    "popularity": popularity if popularity > 0 else None,
+                })
+        except (ValueError, IndexError):
+            continue
+
+    return result
+
+
+def _get_horse_names(
+    kaisai_nen: str, kaisai_tsukihi: str,
+    keibajo_code: str, race_bango: str,
+) -> dict[int, str]:
+    """出走馬名を jvd_se から取得する."""
+    horse_names: dict[int, str] = {}
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT umaban, bamei
+                FROM jvd_se
+                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s
+                ORDER BY umaban::integer
+            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+            for row in _fetch_all_as_dicts(cur):
+                try:
+                    num = int(row.get("umaban", 0) or 0)
+                    name = (row.get("bamei", "") or "").strip()
+                    if num > 0:
+                        horse_names[num] = name
+                except (ValueError, TypeError):
+                    continue
+    except Exception as e:
+        logger.debug(f"Failed to get horse names: {e}")
+    return horse_names
+
+
+def get_odds_history(race_id: str) -> dict | None:
+    """レースのオッズ履歴を取得する.
+
+    データ取得の優先順位:
+    1. apd_sokuho_o1: 時系列オッズ（複数タイムスタンプ）
+    2. jvd_o1: 最新スナップショット（1行のみ）
+    3. jvd_se: 確定オッズ（レース後）
+
+    Args:
+        race_id: レースID（YYYYMMDD_XX_RR形式）
+
+    Returns:
+        オッズ履歴データ。データがない場合はNone。
+        形式: {"race_id": str, "odds_history": [{"timestamp": str, "odds": [...]}]}
+    """
+    try:
+        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
+    except ValueError:
+        return None
+
+    horse_names = _get_horse_names(
+        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango,
+    )
+
+    # 1. apd_sokuho_o1 から時系列データを取得
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT odds_tansho, happyo_tsukihi_jifun
+                FROM apd_sokuho_o1
+                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s
+                ORDER BY happyo_tsukihi_jifun
+            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+            sokuho_rows = cur.fetchall()
+    except Exception as e:
+        logger.debug(f"Failed to get apd_sokuho_o1 data: {e}")
+        sokuho_rows = []
+
+    if sokuho_rows:
+        odds_history = []
+        for row in sokuho_rows:
+            odds_tansho = (row[0] or "").strip()
+            happyo = (row[1] or "").strip() if row[1] else ""
+            timestamp = _parse_happyo_timestamp(kaisai_nen, happyo)
+            odds_list = _parse_tansho_odds(odds_tansho, horse_names)
+            if odds_list:
+                odds_history.append({"timestamp": timestamp, "odds": odds_list})
+
+        if odds_history:
+            return {"race_id": race_id, "odds_history": odds_history}
+
+    # 2. jvd_o1 から最新スナップショットを取得
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT odds_tansho, happyo_tsukihi_jifun
+                FROM jvd_o1
+                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s
+            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+            row = cur.fetchone()
+    except Exception as e:
+        logger.debug(f"Failed to get jvd_o1 data: {e}")
+        row = None
+
+    if row and row[0]:
+        odds_tansho = (row[0] or "").strip()
+        happyo = (row[1] or "").strip() if row[1] else ""
+        timestamp = _parse_happyo_timestamp(kaisai_nen, happyo)
+        odds_list = _parse_tansho_odds(odds_tansho, horse_names)
+        if odds_list:
+            return {
+                "race_id": race_id,
+                "odds_history": [{"timestamp": timestamp, "odds": odds_list}],
+            }
+
+    # 3. jvd_se の確定オッズにフォールバック
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT umaban, tansho_odds, tansho_ninkijun
+                FROM jvd_se
+                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s
+                ORDER BY umaban::integer
+            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+            rows = _fetch_all_as_dicts(cur)
+
+            odds_list = []
+            for r in rows:
+                try:
+                    horse_number = int(r.get("umaban", 0) or 0)
+                    odds_str = r.get("tansho_odds", "") or ""
+                    odds = float(odds_str) / 10 if str(odds_str).isdigit() else None
+                    pop_str = r.get("tansho_ninkijun", "") or ""
+                    popularity = int(pop_str) if str(pop_str).isdigit() else None
+
+                    if horse_number > 0 and odds is not None:
+                        odds_list.append({
+                            "horse_number": horse_number,
+                            "horse_name": horse_names.get(horse_number, ""),
+                            "odds": odds,
+                            "popularity": popularity,
+                        })
+                except (ValueError, TypeError):
+                    continue
+
+            if not odds_list:
+                return None
+
+            return {
+                "race_id": race_id,
+                "odds_history": [{
+                    "timestamp": datetime.now().isoformat(),
+                    "odds": odds_list,
+                }],
+            }
+    except Exception as e:
+        logger.debug(f"Failed to get confirmed odds: {e}")
+        return None
+
+
+def get_place_odds(race_id: str) -> list[dict] | None:
+    """複勝オッズを取得する.
+
+    jvd_o1 の odds_fukusho カラムから複勝オッズを取得する。
+    12文字/馬: 馬番(2桁) + 最低オッズ(4桁, ÷10) + 最高オッズ(4桁, ÷10) + 人気(2桁)
+
+    Args:
+        race_id: レースID（YYYYMMDD_XX_RR形式）
+
+    Returns:
+        複勝オッズリスト。データがない場合はNone。
+    """
+    try:
+        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
+    except ValueError:
+        return None
+
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT odds_fukusho
+                FROM jvd_o1
+                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s
+            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+            row = cur.fetchone()
+
+            if not row or not row[0]:
+                return None
+
+            result = _parse_fukusho_odds(row[0])
+            return result if result else None
+
+    except Exception as e:
+        logger.debug(f"Failed to get place odds: {e}")
+        return None
+
+
 def check_connection() -> bool:
     """DB 接続確認."""
     try:
