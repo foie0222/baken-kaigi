@@ -105,9 +105,10 @@ class IpatExecutor:
         with open(self.stat_ini_path) as f:
             config.read_file(f)
 
+        stat = config["stat"]
         return {
-            "bet_dedicated_balance": int(config["stat"]["bet_dedicated_balance"]),
-            "settle_possible_balance": int(config["stat"]["settle_possible_balance"]),
-            "bet_balance": int(config["stat"]["bet_balance"]),
-            "limit_vote_amount": int(config["stat"]["limit_vote_amount"]),
+            "bet_dedicated_balance": int(stat.get("total_vote_amount", 0)),
+            "settle_possible_balance": int(stat.get("total_repayment", 0)),
+            "bet_balance": int(stat.get("daily_vote_amount", 0)),
+            "limit_vote_amount": int(stat.get("limit_vote_amount", 0)),
         }
