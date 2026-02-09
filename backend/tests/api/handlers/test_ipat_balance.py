@@ -79,3 +79,23 @@ class TestGetIpatBalanceHandler:
         assert result["statusCode"] == 500
         body = json.loads(result["body"])
         assert "IPAT通信エラー" in body["error"]["message"]
+
+    def test_予期しない例外でもCORSヘッダー付き500が返る(self) -> None:
+        cred_provider, gateway = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+        gateway.set_balance_error(RuntimeError("unexpected error"))
+
+        event = _auth_event()
+        result = get_ipat_balance_handler(event, None)
+        assert result["statusCode"] == 500
+        body = json.loads(result["body"])
+        assert "IPAT残高の取得に失敗しました" in body["error"]["message"]
+        assert "Access-Control-Allow-Origin" in result["headers"]
