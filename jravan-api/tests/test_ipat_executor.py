@@ -70,8 +70,40 @@ class TestIpatExecutor:
         assert lines[0] == "20260201,05,11,tansyo,NORMAL,,03,100"
         assert lines[1] == "20260201,05,11,umaren,NORMAL,,01-03,500"
 
+    def test_ipatgoが存在しない場合voteがエラーを返す(self) -> None:
+        """ipatgo.exeが存在しない場合、voteがエラーを返すことを確認."""
+        self.executor.ipatgo_path = "/nonexistent/ipatgo.exe"
+
+        bet_lines = [
+            {
+                "opdt": "20260201",
+                "rcoursecd": "05",
+                "rno": "11",
+                "denomination": "tansyo",
+                "method": "NORMAL",
+                "multi": "",
+                "number": "03",
+                "bet_price": "100",
+            },
+        ]
+
+        result = self.executor.vote("ABcd1234", "12345678", "1234", "5678", bet_lines)
+
+        assert result["success"] is False
+        assert "not found" in result["message"]
+
+    def test_ipatgoが存在しない場合statがエラーを返す(self) -> None:
+        """ipatgo.exeが存在しない場合、statがエラーを返すことを確認."""
+        self.executor.ipatgo_path = "/nonexistent/ipatgo.exe"
+
+        result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
+
+        assert result["success"] is False
+        assert "not found" in result["message"]
+
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
     @patch("subprocess.run")
-    def test_voteでsubprocessが呼ばれる(self, mock_run: MagicMock) -> None:
+    def test_voteでsubprocessが呼ばれる(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
         """voteメソッドでsubprocess.runが正しく呼ばれることを確認."""
         mock_run.return_value = MagicMock(returncode=0, stdout="OK")
 
@@ -93,8 +125,9 @@ class TestIpatExecutor:
         assert mock_run.called
         assert result["success"] is True
 
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
     @patch("subprocess.run")
-    def test_vote失敗時にエラーを返す(self, mock_run: MagicMock) -> None:
+    def test_vote失敗時にエラーを返す(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
         """voteメソッドでsubprocess失敗時にerrorステータスを返すことを確認."""
         mock_run.return_value = MagicMock(returncode=1, stdout="ERROR")
 
@@ -115,8 +148,9 @@ class TestIpatExecutor:
 
         assert result["success"] is False
 
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
     @patch("subprocess.run")
-    def test_statでsubprocessが呼ばれる(self, mock_run: MagicMock) -> None:
+    def test_statでsubprocessが呼ばれる(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
         """statメソッドでsubprocess.runが正しく呼ばれることを確認."""
         mock_run.return_value = MagicMock(returncode=0, stdout="OK")
 
@@ -136,8 +170,9 @@ limit_vote_amount=100000
         assert result["bet_balance"] == 15000
         assert result["limit_vote_amount"] == 100000
 
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
     @patch("subprocess.run")
-    def test_stat失敗時にエラーを返す(self, mock_run: MagicMock) -> None:
+    def test_stat失敗時にエラーを返す(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
         """statメソッドでsubprocess失敗時にerrorステータスを返すことを確認."""
         mock_run.return_value = MagicMock(returncode=1, stdout="ERROR")
 

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class JraVanIpatGateway(IpatGateway):
     """JRA-VAN jravan-api 経由の IPAT ゲートウェイ."""
 
-    DEFAULT_TIMEOUT = 30
+    DEFAULT_TIMEOUT = 10
 
     def __init__(self, base_url: str | None = None, timeout: int | None = None) -> None:
         """初期化."""
@@ -32,9 +32,9 @@ class JraVanIpatGateway(IpatGateway):
         """リトライ機能付きの HTTP セッションを作成する."""
         session = requests.Session()
         retry_strategy = Retry(
-            total=3,
+            total=2,
             backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504],
+            status_forcelist=[502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)

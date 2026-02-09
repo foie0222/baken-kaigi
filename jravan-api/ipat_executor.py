@@ -23,8 +23,21 @@ class IpatExecutor:
             "STAT_INI_PATH", r"C:\umagen\ipatgo\stat.ini"
         )
 
+    def _check_ipatgo(self) -> str | None:
+        """ipatgo.exe の存在を確認する.
+
+        Returns:
+            エラーメッセージ。問題なければ None。
+        """
+        if not Path(self.ipatgo_path).exists():
+            return f"ipatgo.exe not found at {self.ipatgo_path}"
+        return None
+
     def vote(self, inet_id: str, subscriber_number: str, pin: str, pars_number: str, bet_lines: list[dict]) -> dict:
         """投票を実行する."""
+        if err := self._check_ipatgo():
+            return {"success": False, "message": err}
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             csv_path = f.name
             self._write_csv(bet_lines, csv_path)
@@ -48,6 +61,9 @@ class IpatExecutor:
 
     def stat(self, inet_id: str, subscriber_number: str, pin: str, pars_number: str) -> dict:
         """残高照会を実行する."""
+        if err := self._check_ipatgo():
+            return {"success": False, "message": err}
+
         try:
             result = subprocess.run(
                 [self.ipatgo_path, "stat", inet_id, subscriber_number, pin, pars_number],
