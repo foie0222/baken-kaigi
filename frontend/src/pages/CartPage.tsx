@@ -11,9 +11,17 @@ export function CartPage() {
   const { items, removeItem, clearCart, getTotalAmount } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
-  const { lossLimit, totalLossThisMonth, remainingLossLimit } = useLossLimitStore();
+  const { lossLimit, totalLossThisMonth, remainingLossLimit, isLoading: isLossLimitLoading, error: lossLimitError } = useLossLimitStore();
   const totalAmount = getTotalAmount();
   const isLossLimitReached = lossLimit !== null && remainingLossLimit !== null && remainingLossLimit <= 0;
+
+  const remainingLossLimitLabel = (() => {
+    if (!isAuthenticated) return 'ログインして設定';
+    if (isLossLimitLoading) return '取得中…';
+    if (lossLimitError) return '取得に失敗しました';
+    if (remainingLossLimit !== null) return `¥${remainingLossLimit.toLocaleString()}`;
+    return '未設定';
+  })();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -116,13 +124,7 @@ export function CartPage() {
             </div>
             <div className="spending-status-row highlight">
               <span>残り許容負け額</span>
-              <span>
-                {!isAuthenticated
-                  ? 'ログインして設定'
-                  : remainingLossLimit !== null
-                    ? `¥${remainingLossLimit.toLocaleString()}`
-                    : '未設定'}
-              </span>
+              <span>{remainingLossLimitLabel}</span>
             </div>
           </div>
 
