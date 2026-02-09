@@ -214,9 +214,14 @@ export function RacesPage() {
     if (response.success && response.data) {
       setRaces(response.data.races);
       setVenues(response.data.venues);
-      // 初回のみ最初の会場を選択
-      if (!isInitialVenueSet.current && response.data.venues.length > 0) {
-        setSelectedVenue(response.data.venues[0]);
+      // 初回または選択中の会場が新しい日付に存在しない場合、最初の会場を選択
+      if (response.data.venues.length > 0) {
+        setSelectedVenue((prev) => {
+          if (!prev || !response.data!.venues.includes(prev)) {
+            return response.data!.venues[0];
+          }
+          return prev;
+        });
         isInitialVenueSet.current = true;
       }
     } else {
