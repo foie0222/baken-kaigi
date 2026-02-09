@@ -105,6 +105,14 @@ class IpatExecutor:
         with open(self.stat_ini_path) as f:
             config.read_file(f)
 
+        if not config.has_section("stat"):
+            return {
+                "bet_dedicated_balance": 0,
+                "settle_possible_balance": 0,
+                "bet_balance": 0,
+                "limit_vote_amount": 0,
+            }
+
         stat = config["stat"]
         return {
             "bet_dedicated_balance": int(stat.get("total_vote_amount", 0)),

@@ -163,11 +163,11 @@ class TestIpatExecutor:
         """statメソッドでsubprocess.runが正しく呼ばれることを確認."""
         mock_run.return_value = MagicMock(returncode=0, stdout="OK")
 
-        # stat.iniのモック
+        # stat.iniのモック（ipatgo.exeの実際の出力キー名）
         ini_content = """[stat]
-bet_dedicated_balance=10000
-settle_possible_balance=5000
-bet_balance=15000
+total_vote_amount=10000
+total_repayment=5000
+daily_vote_amount=15000
 limit_vote_amount=100000
 """
         with patch("builtins.open", mock_open(read_data=ini_content)):
@@ -192,9 +192,9 @@ limit_vote_amount=100000
     def test_parse_stat_iniで正しくパースされる(self) -> None:
         """_parse_stat_iniでstat.iniが正しくパースされることを確認."""
         ini_content = """[stat]
-bet_dedicated_balance=10000
-settle_possible_balance=5000
-bet_balance=15000
+total_vote_amount=10000
+total_repayment=5000
+daily_vote_amount=15000
 limit_vote_amount=100000
 """
         with patch("builtins.open", mock_open(read_data=ini_content)):
@@ -204,3 +204,30 @@ limit_vote_amount=100000
         assert result["settle_possible_balance"] == 5000
         assert result["bet_balance"] == 15000
         assert result["limit_vote_amount"] == 100000
+
+    def test_parse_stat_iniでstatセクションがない場合全て0を返す(self) -> None:
+        """stat.iniに[stat]セクションがない場合、全て0を返すことを確認."""
+        ini_content = """[other]
+key=value
+"""
+        with patch("builtins.open", mock_open(read_data=ini_content)):
+            result = self.executor._parse_stat_ini()
+
+        assert result["bet_dedicated_balance"] == 0
+        assert result["settle_possible_balance"] == 0
+        assert result["bet_balance"] == 0
+        assert result["limit_vote_amount"] == 0
+
+    def test_parse_stat_iniでキーが欠落している場合デフォルト0を返す(self) -> None:
+        """stat.iniの一部キーが欠落している場合、デフォルト0を返すことを確認."""
+        ini_content = """[stat]
+total_vote_amount=5000
+limit_vote_amount=200000
+"""
+        with patch("builtins.open", mock_open(read_data=ini_content)):
+            result = self.executor._parse_stat_ini()
+
+        assert result["bet_dedicated_balance"] == 5000
+        assert result["settle_possible_balance"] == 0
+        assert result["bet_balance"] == 0
+        assert result["limit_vote_amount"] == 200000
