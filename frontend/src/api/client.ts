@@ -466,8 +466,19 @@ class ApiClient {
     }
     jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
     try {
-      const data = JSON.parse(jsonStr) as BetProposalResponse;
-      return { success: true, data };
+      const parsed: unknown = JSON.parse(jsonStr);
+      if (typeof parsed !== 'object' || parsed === null) {
+        return { success: false, error: '提案データの形式が不正です' };
+      }
+      const data = parsed as { proposed_bets?: unknown; error?: unknown };
+      if (!Array.isArray(data.proposed_bets)) {
+        const errorMessage =
+          typeof data.error === 'string' && data.error.trim().length > 0
+            ? data.error
+            : '提案データの形式が不正です';
+        return { success: false, error: errorMessage };
+      }
+      return { success: true, data: parsed as BetProposalResponse };
     } catch {
       return { success: false, error: '提案データの解析に失敗しました' };
     }
