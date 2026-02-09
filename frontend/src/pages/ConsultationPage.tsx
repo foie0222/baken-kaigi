@@ -17,7 +17,7 @@ interface ChatMessage {
 
 export function ConsultationPage() {
   const navigate = useNavigate();
-  const { items, currentRunnersData, getTotalAmount, clearCart, removeItem, updateItemAmount } =
+  const { items, currentRunnersData, getTotalAmount, removeItem, updateItemAmount } =
     useCartStore();
   const showToast = useAppStore((state) => state.showToast);
   const totalAmount = getTotalAmount();
@@ -27,8 +27,6 @@ export function ConsultationPage() {
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [inputText, setInputText] = useState('');
 
-  // 購入確認モーダル
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   // 削除確認モーダル
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -175,14 +173,7 @@ export function ConsultationPage() {
   };
 
   const handlePurchase = () => {
-    setShowPurchaseModal(true);
-  };
-
-  const confirmPurchase = () => {
-    setShowPurchaseModal(false);
-    clearCart();
-    showToast('購入が完了しました');
-    navigate('/');
+    navigate('/purchase/confirm');
   };
 
   const handleDeleteItem = (itemId: string) => {
@@ -415,52 +406,6 @@ export function ConsultationPage() {
       </div>
 
       {/* 購入確認モーダル */}
-      <ConfirmModal
-        isOpen={showPurchaseModal}
-        onClose={() => setShowPurchaseModal(false)}
-        onConfirm={confirmPurchase}
-        title="購入確認"
-        confirmText="購入する"
-        cancelText="キャンセル"
-      >
-        <div className="purchase-summary">
-          <p style={{ marginBottom: 16 }}>
-            以下の内容で馬券を購入します。よろしいですか？
-          </p>
-          <div
-            style={{
-              background: '#f8f8f8',
-              padding: 16,
-              borderRadius: 8,
-              marginBottom: 16,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: 8,
-              }}
-            >
-              <span>買い目数</span>
-              <span style={{ fontWeight: 600 }}>{items.length}件</span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: 18,
-                fontWeight: 700,
-                color: '#1a5f2a',
-              }}
-            >
-              <span>合計金額</span>
-              <span>¥{totalAmount.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </ConfirmModal>
-
       {/* 削除確認モーダル */}
       <ConfirmModal
         isOpen={deleteTarget !== null}
