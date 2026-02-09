@@ -33,8 +33,8 @@ class TestBatchStack:
         template.resource_count_is("AWS::Lambda::LayerVersion", 1)
 
     def test_eventbridge_rules_created(self, template):
-        """EventBridgeルールが11個作成されること."""
-        template.resource_count_is("AWS::Events::Rule", 11)
+        """EventBridgeルールが12個作成されること."""
+        template.resource_count_is("AWS::Events::Rule", 12)
 
     def test_no_dynamodb_tables(self, template):
         """DynamoDBテーブルはバッチスタックに含まれないこと."""
@@ -76,12 +76,22 @@ class TestBatchStack:
         )
 
     def test_eventbridge_rule_for_ai_shisu(self, template):
-        """AI指数スクレイパー用EventBridgeルールが存在すること."""
+        """AI指数スクレイパー用EventBridgeルール（夜）が存在すること."""
         template.has_resource_properties(
             "AWS::Events::Rule",
             {
                 "Name": "baken-kaigi-ai-shisu-scraper-rule",
                 "ScheduleExpression": "cron(0 12 ? * * *)",
+            },
+        )
+
+    def test_eventbridge_rule_for_ai_shisu_morning(self, template):
+        """AI指数スクレイパー用EventBridgeルール（朝）が存在すること."""
+        template.has_resource_properties(
+            "AWS::Events::Rule",
+            {
+                "Name": "baken-kaigi-ai-shisu-scraper-morning-rule",
+                "ScheduleExpression": "cron(0 0 ? * * *)",
             },
         )
 

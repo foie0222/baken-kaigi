@@ -227,14 +227,18 @@ def save_predictions(
     logger.info(f"Saved predictions for {race_id}: {len(predictions)} horses")
 
 
-def scrape_races() -> dict[str, Any]:
+def scrape_races(offset_days: int = 1) -> dict[str, Any]:
     """メインのスクレイピング処理.
 
-    前日夜に翌日分のAI指数を取得する。
-    ai-shisu.com は前日にデータを配信するため、毎晩21:00 JST に翌日分を取り込む。
+    AI指数を取得してDynamoDBに保存する。
+
+    Args:
+        offset_days: 何日後のレースを取得するか。
+            0 = 当日（レース当日朝の再取得用）
+            1 = 翌日（前日夜の早期取得用、デフォルト）
 
     フロー:
-    1. /event_dates から翌日の日付ページURLを取得
+    1. /event_dates から対象日の日付ページURLを取得
     2. 日付ページから競馬場リストを取得
     3. 各競馬場ページから全レースリンクを取得
     4. 各レースページからAI指数をスクレイピング
@@ -244,9 +248,9 @@ def scrape_races() -> dict[str, Any]:
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
-    tomorrow = scraped_at + timedelta(days=1)
-    date_str = tomorrow.strftime("%Y%m%d")
-    target_date = f"{tomorrow.month}/{tomorrow.day}"  # "1/31" 形式
+    target = scraped_at + timedelta(days=offset_days)
+    date_str = target.strftime("%Y%m%d")
+    target_date = f"{target.month}/{target.day}"  # "1/31" 形式
 
     results = {
         "success": True,
@@ -360,7 +364,7 @@ def handler(event: dict, context: Any) -> dict:
     """Lambda ハンドラー.
 
     Args:
-        event: Lambda イベント
+        event: Lambda イベント（offset_days: 0=当日, 1=翌日）
         context: Lambda コンテキスト
 
     Returns:
@@ -369,7 +373,14 @@ def handler(event: dict, context: Any) -> dict:
     logger.info(f"Starting AI-Shisu scraper: event={event}")
 
     try:
-        results = scrape_races()
+        offset_days = int(event.get("offset_days", 1))
+    except (TypeError, ValueError):
+        offset_days = 1
+    if offset_days not in (0, 1):
+        offset_days = 1
+
+    try:
+        results = scrape_races(offset_days=offset_days)
         logger.info(f"Scraping completed: {results}")
 
         return {
