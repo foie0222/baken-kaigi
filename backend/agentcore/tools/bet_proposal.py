@@ -133,10 +133,10 @@ def _calculate_composite_score(
     ai_score = 0.0
     ai_rank = 99
     for pred in ai_predictions:
-        if pred.get("horse_number") == horse_number:
-            ai_rank = pred.get("rank", 99)
+        if int(pred.get("horse_number", 0)) == horse_number:
+            ai_rank = int(pred.get("rank", 99))
             # 順位ベースのスコア（1位=100, 18位=15）
-            ai_score = max(0, 100 - (ai_rank - 1) * 5)
+            ai_score = max(0.0, 100.0 - (ai_rank - 1) * 5.0)
             break
 
     # オッズ乖離スコア
@@ -368,9 +368,9 @@ def _generate_bet_candidates(
                 bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
                 axis_name = axis_runner.get("horse_name", "")
 
-                # AI順位を取得
+                # AI順位を取得（DynamoDB Decimal対策でint正規化）
                 ai_rank_map = {
-                    p.get("horse_number"): p.get("rank", 99)
+                    int(p.get("horse_number", 0)): int(p.get("rank", 99))
                     for p in ai_predictions
                 }
                 axis_ai = ai_rank_map.get(axis_hn, 99)
@@ -553,8 +553,8 @@ def _generate_bet_reasoning(
     ai_predictions: list[dict],
 ) -> str:
     """買い目の根拠テキストを生成する."""
-    # AI順位を取得
-    ai_rank_map = {p.get("horse_number"): p.get("rank", 99) for p in ai_predictions}
+    # AI順位を取得（DynamoDB Decimal対策でint正規化）
+    ai_rank_map = {int(p.get("horse_number", 0)): int(p.get("rank", 99)) for p in ai_predictions}
     axis_ai = ai_rank_map.get(axis_hn, 99)
     partner_ai = ai_rank_map.get(partner_hn, 99)
 
