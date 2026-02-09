@@ -77,10 +77,7 @@ export function SettingsPage() {
         <div style={{ fontSize: 13, color: '#666', padding: '12px 16px', background: '#f8f8f8', fontWeight: 600 }}>
           サポート
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottom: '1px solid #f0f0f0' }}>
-          <span style={{ fontSize: 15 }}>ヘルプ</span>
-          <span style={{ color: '#ccc' }}>&rsaquo;</span>
-        </div>
+        <SettingsMenuItem label="ヘルプ" onClick={() => navigate('/help')} />
         <SettingsMenuItem label="利用規約" onClick={() => navigate('/terms')} />
         <SettingsMenuItem label="プライバシーポリシー" onClick={() => navigate('/privacy')} />
         <SettingsMenuItem label="Cookie設定" onClick={() => resetConsent()} />

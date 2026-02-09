@@ -25,6 +25,7 @@ import { PurchaseHistoryPage } from './pages/PurchaseHistoryPage';
 import { TermsPage } from './pages/legal/TermsPage';
 import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
 import { CookiePolicyPage } from './pages/legal/CookiePolicyPage';
+import { HelpPage } from './pages/HelpPage';
 import { OAuthProfilePage } from './pages/auth/OAuthProfilePage';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useAuthStore } from './stores/authStore';
@@ -50,6 +51,7 @@ function App() {
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPolicyPage />} />
           <Route path="cookie-policy" element={<CookiePolicyPage />} />
+          <Route path="help" element={<HelpPage />} />
 
           {/* 認証ページ */}
           <Route path="login" element={<LoginPage />} />
