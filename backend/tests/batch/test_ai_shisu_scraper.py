@@ -263,6 +263,88 @@ class TestSavePredictions:
         assert item["ttl"] == expected_ttl
 
 
+class TestScrapeRaces:
+    """scrape_races の offset_days テスト."""
+
+    @patch("batch.ai_shisu_scraper.time.sleep")
+    @patch("batch.ai_shisu_scraper.get_dynamodb_table")
+    @patch("batch.ai_shisu_scraper.fetch_page")
+    @patch("batch.ai_shisu_scraper.datetime")
+    def test_offset_days_0で当日分を取得(self, mock_datetime, mock_fetch, mock_table, _mock_sleep):
+        """正常系: offset_days=0 の場合、当日の日付でスクレイピングする."""
+        from batch.ai_shisu_scraper import scrape_races, JST
+
+        mock_now = datetime(2026, 2, 9, 9, 0, 0, tzinfo=JST)
+        mock_datetime.now.return_value = mock_now
+        mock_datetime.side_effect = datetime
+
+        # event_dates ページ: 2/9 のリンクあり
+        dates_html = '<html><body><a href="/event_dates/2504">2/9(月)</a></body></html>'
+        # 日付ページ: 京都あり
+        venue_html = '<html><body><a href="/event_places/9922">京都</a></body></html>'
+        # 競馬場ページ: 1R あり
+        race_html = '<html><body><a href="/races/115166">1R 9:55</a></body></html>'
+        # レースページ: AI指数データ
+        pred_html = """
+        <html><body><table>
+            <tr><td>1</td><td>88</td><td>9</td><td>ガーリッシュ</td></tr>
+            <tr><td>2</td><td>67</td><td>7</td><td>アルサック</td></tr>
+        </table></body></html>
+        """
+
+        mock_fetch.side_effect = [
+            BeautifulSoup(dates_html, TEST_PARSER),  # event_dates
+            BeautifulSoup(venue_html, TEST_PARSER),   # date page
+            BeautifulSoup(race_html, TEST_PARSER),    # venue page
+            BeautifulSoup(pred_html, TEST_PARSER),    # race page
+        ]
+        mock_table.return_value = MagicMock()
+
+        results = scrape_races(offset_days=0)
+
+        assert results["races_scraped"] == 1
+        # 保存時の race_id が当日（2/9）であることを確認
+        call_args = mock_table.return_value.put_item.call_args
+        item = call_args.kwargs["Item"]
+        assert item["race_id"] == "20260209_08_01"
+
+    @patch("batch.ai_shisu_scraper.time.sleep")
+    @patch("batch.ai_shisu_scraper.get_dynamodb_table")
+    @patch("batch.ai_shisu_scraper.fetch_page")
+    @patch("batch.ai_shisu_scraper.datetime")
+    def test_offset_days_1で翌日分を取得(self, mock_datetime, mock_fetch, mock_table, _mock_sleep):
+        """正常系: offset_days=1 の場合、翌日の日付でスクレイピングする."""
+        from batch.ai_shisu_scraper import scrape_races, JST
+
+        mock_now = datetime(2026, 2, 8, 21, 0, 0, tzinfo=JST)
+        mock_datetime.now.return_value = mock_now
+        mock_datetime.side_effect = datetime
+
+        dates_html = '<html><body><a href="/event_dates/2504">2/9(月)</a></body></html>'
+        venue_html = '<html><body><a href="/event_places/9922">京都</a></body></html>'
+        race_html = '<html><body><a href="/races/115166">1R 9:55</a></body></html>'
+        pred_html = """
+        <html><body><table>
+            <tr><td>1</td><td>88</td><td>9</td><td>ガーリッシュ</td></tr>
+        </table></body></html>
+        """
+
+        mock_fetch.side_effect = [
+            BeautifulSoup(dates_html, TEST_PARSER),
+            BeautifulSoup(venue_html, TEST_PARSER),
+            BeautifulSoup(race_html, TEST_PARSER),
+            BeautifulSoup(pred_html, TEST_PARSER),
+        ]
+        mock_table.return_value = MagicMock()
+
+        results = scrape_races(offset_days=1)
+
+        assert results["races_scraped"] == 1
+        call_args = mock_table.return_value.put_item.call_args
+        item = call_args.kwargs["Item"]
+        assert item["race_id"] == "20260209_08_01"
+
+
 class TestHandler:
     """Lambdaハンドラーのテスト."""
 
@@ -328,3 +410,78 @@ class TestHandler:
         assert result["statusCode"] == 500
         assert result["body"]["success"] is False
         assert "error" in result["body"]
+
+    @patch("batch.ai_shisu_scraper.scrape_races")
+    def test_offset_days_0を渡すと当日分を取得(self, mock_scrape_races):
+        """正常系: offset_days=0 でscrape_racesに0を渡す."""
+        from batch.ai_shisu_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": 0}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=0)
+
+    @patch("batch.ai_shisu_scraper.scrape_races")
+    def test_offset_days_1を渡すと翌日分を取得(self, mock_scrape_races):
+        """正常系: offset_days=1 でscrape_racesに1を渡す."""
+        from batch.ai_shisu_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": 1}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.ai_shisu_scraper.scrape_races")
+    def test_offset_days省略時はデフォルト1(self, mock_scrape_races):
+        """正常系: offset_daysが省略された場合はデフォルト1."""
+        from batch.ai_shisu_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.ai_shisu_scraper.scrape_races")
+    def test_offset_days不正値はデフォルト1にフォールバック(self, mock_scrape_races):
+        """正常系: offset_daysが不正値の場合はデフォルト1."""
+        from batch.ai_shisu_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": 5}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.ai_shisu_scraper.scrape_races")
+    def test_offset_days文字列はデフォルト1にフォールバック(self, mock_scrape_races):
+        """正常系: offset_daysが文字列の場合はデフォルト1."""
+        from batch.ai_shisu_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": "invalid"}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)

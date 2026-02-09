@@ -273,8 +273,9 @@ class BakenKaigiBatchStack(Stack):
         # EventBridge ルール（AI予想スクレイパー）
         # ========================================
 
-        # AI指数（毎晩 21:00 JST = 12:00 UTC）
-        scraper_rule = events.Rule(
+        # AI指数・夜（毎晩 21:00 JST = 12:00 UTC、翌日分を前日取得）
+        # construct IDは既存リソースとの互換性のため "AiShisuScraperRule" を維持
+        ai_shisu_evening_rule = events.Rule(
             self,
             "AiShisuScraperRule",
             rule_name="baken-kaigi-ai-shisu-scraper-rule",
@@ -287,7 +288,33 @@ class BakenKaigiBatchStack(Stack):
                 year="*",
             ),
         )
-        scraper_rule.add_target(targets.LambdaFunction(ai_shisu_scraper_fn))
+        ai_shisu_evening_rule.add_target(
+            targets.LambdaFunction(
+                ai_shisu_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 1}),
+            )
+        )
+
+        # AI指数・朝（毎朝 9:00 JST = 0:00 UTC、当日分を再取得）
+        ai_shisu_morning_rule = events.Rule(
+            self,
+            "AiShisuScraperMorningRule",
+            rule_name="baken-kaigi-ai-shisu-scraper-morning-rule",
+            description="AI指数スクレイピングを毎朝9:00 JSTに実行（当日分を再取得）",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="0",
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        ai_shisu_morning_rule.add_target(
+            targets.LambdaFunction(
+                ai_shisu_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
 
         # 競馬AI ATHENA（毎晩 21:10 JST = 12:10 UTC）
         keiba_ai_athena_rule = events.Rule(
