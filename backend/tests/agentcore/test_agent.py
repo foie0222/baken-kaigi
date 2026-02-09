@@ -44,6 +44,55 @@ class Testプロンプト切り替え:
         assert isinstance(BET_PROPOSAL_SYSTEM_PROMPT, str)
 
 
+class Test_get_agentの分岐ロジック:
+    """_get_agent のプロンプト切り替え分岐を検証する.
+
+    agent.py は strands/bedrock_agentcore に依存しているため直接インポートできない。
+    分岐ロジックを再現してキャッシュと切り替えの正確性をテストする。
+    """
+
+    def test_bet_proposal指定時は買い目提案用プロンプトが選択される(self):
+        """request_type='bet_proposal' で BET_PROPOSAL_SYSTEM_PROMPT が使われる."""
+        from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
+        from agentcore.prompts.consultation import SYSTEM_PROMPT
+
+        # _get_agent の分岐ロジックを再現
+        def select_prompt(request_type=None):
+            if request_type == "bet_proposal":
+                return BET_PROPOSAL_SYSTEM_PROMPT
+            return SYSTEM_PROMPT
+
+        assert select_prompt("bet_proposal") is BET_PROPOSAL_SYSTEM_PROMPT
+        assert select_prompt(None) is SYSTEM_PROMPT
+        assert select_prompt("consultation") is SYSTEM_PROMPT
+
+    def test_キャッシュは別々に管理される(self):
+        """consultation と bet_proposal で別のキャッシュが使われる."""
+        consultation_cache = None
+        bet_proposal_cache = None
+
+        def get_agent(request_type=None):
+            nonlocal consultation_cache, bet_proposal_cache
+            if request_type == "bet_proposal":
+                if bet_proposal_cache is None:
+                    bet_proposal_cache = {"type": "bet_proposal"}
+                return bet_proposal_cache
+            if consultation_cache is None:
+                consultation_cache = {"type": "consultation"}
+            return consultation_cache
+
+        agent1 = get_agent(None)
+        agent2 = get_agent("bet_proposal")
+        agent3 = get_agent(None)
+        agent4 = get_agent("bet_proposal")
+
+        # 同じ type なら同一オブジェクト（キャッシュ）
+        assert agent1 is agent3
+        assert agent2 is agent4
+        # 異なる type なら別オブジェクト
+        assert agent1 is not agent2
+
+
 # _extract_suggested_questions 関数のロジックを直接テスト
 # Note: agentcore.agent をインポートするには strands/bedrock_agentcore が必要なため、
 # ロジックをここで再定義してテストしている

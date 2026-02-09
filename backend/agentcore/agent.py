@@ -37,7 +37,7 @@ _consultation_agent = None
 _bet_proposal_agent = None
 
 
-def _create_agent(system_prompt: str):
+def _create_agent(system_prompt: str) -> Any:
     """指定されたシステムプロンプトでエージェントを作成する."""
     from strands import Agent
     from strands.models import BedrockModel
@@ -77,7 +77,7 @@ def _create_agent(system_prompt: str):
     return agent
 
 
-def _get_agent(request_type=None):
+def _get_agent(request_type: str | None = None) -> Any:
     """エージェントを遅延初期化して取得する."""
     global _consultation_agent, _bet_proposal_agent
 
@@ -107,7 +107,8 @@ def invoke(payload: dict, context: Any) -> dict:
         "prompt": "ユーザーメッセージ",
         "cart_items": [...],  # オプション: カート内容
         "runners_data": [...],  # オプション: 出走馬データ
-        "session_id": "..."   # オプション: セッションID
+        "session_id": "...",  # オプション: セッションID
+        "type": "bet_proposal"  # オプション: "bet_proposal" で買い目提案専用プロンプトを使用
     }
     """
     user_message = payload.get("prompt", "")

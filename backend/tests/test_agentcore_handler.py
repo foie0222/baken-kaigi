@@ -401,3 +401,21 @@ class TestTypeフィールド中継:
             call_args = mock_client.invoke_agent_runtime.call_args
             sent_payload = json.loads(call_args.kwargs["payload"])
             assert "type" not in sent_payload
+
+    def test_不正なtype値は400エラー(self):
+        """type に無効な値が指定された場合は400エラーを返す."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            body = {
+                "prompt": "テスト",
+                "type": "invalid_type",
+            }
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 400
+            response_body = json.loads(response["body"])
+            assert "Invalid type" in response_body["error"]
