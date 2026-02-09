@@ -1124,6 +1124,26 @@ class BakenKaigiApiStack(Stack):
         )
 
         # ========================================
+        # Gateway Responses（API Gatewayが直接返すエラーにCORSヘッダーを付与）
+        # ========================================
+        cors_headers = {
+            "Access-Control-Allow-Origin": "'*'",
+            "Access-Control-Allow-Headers": "'Content-Type,Authorization,x-api-key'",
+            "Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
+        }
+        for response_type in [
+            apigw.ResponseType.UNAUTHORIZED,
+            apigw.ResponseType.ACCESS_DENIED,
+            apigw.ResponseType.DEFAULT_4_XX,
+            apigw.ResponseType.DEFAULT_5_XX,
+        ]:
+            api.add_gateway_response(
+                f"GatewayResponse{response_type.response_type.replace('_', '')}",
+                type=response_type,
+                response_headers=cors_headers,
+            )
+
+        # ========================================
         # API Key 認証
         # ========================================
 
