@@ -11,7 +11,7 @@ export function CartPage() {
   const { items, removeItem, clearCart, getTotalAmount } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
-  const { lossLimit, remainingLossLimit } = useLossLimitStore();
+  const { lossLimit, totalLossThisMonth, remainingLossLimit } = useLossLimitStore();
   const totalAmount = getTotalAmount();
   const isLossLimitReached = lossLimit !== null && remainingLossLimit !== null && remainingLossLimit <= 0;
 
@@ -101,7 +101,6 @@ export function CartPage() {
 
       {items.length > 0 ? (
         <>
-          {/* 今月の状況（モック - 将来的にはログイン時のみ表示） */}
           <div className="spending-status" role="region" aria-label="今月の使用状況">
             <div className="spending-status-title">
               <span aria-hidden="true">📊</span>
@@ -109,7 +108,7 @@ export function CartPage() {
             </div>
             <div className="spending-status-row">
               <span>使用済み</span>
-              <span>¥0</span>
+              <span>¥{totalLossThisMonth.toLocaleString()}</span>
             </div>
             <div className="spending-status-row">
               <span>今回の購入</span>
@@ -117,7 +116,13 @@ export function CartPage() {
             </div>
             <div className="spending-status-row highlight">
               <span>残り許容負け額</span>
-              <span>ログインして設定</span>
+              <span>
+                {!isAuthenticated
+                  ? 'ログインして設定'
+                  : remainingLossLimit !== null
+                    ? `¥${remainingLossLimit.toLocaleString()}`
+                    : '未設定'}
+              </span>
             </div>
           </div>
 
