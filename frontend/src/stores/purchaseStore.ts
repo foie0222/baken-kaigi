@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import type { IpatBalance, PurchaseResult, PurchaseOrder } from '../types';
 import { apiClient } from '../api/client';
 
+/** APIの英語エラーメッセージを日本語に変換する */
+function toJapaneseError(error: string | undefined, fallback: string): string {
+  if (!error) return fallback;
+  if (error === 'Failed to fetch') return '通信エラーが発生しました';
+  if (error.includes('IPAT credentials not configured')) return 'IPAT設定が完了していません。設定画面からIPAT情報を登録してください。';
+  if (error.includes('IPAT')) return 'IPAT通信エラーが発生しました';
+  // 英語のみのメッセージはフォールバックに変換
+  if (/^[a-zA-Z0-9\s.:_-]+$/.test(error)) return fallback;
+  return error;
+}
+
 interface PurchaseState {
   balance: IpatBalance | null;
   purchaseResult: PurchaseResult | null;
@@ -28,14 +39,14 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
       set({ isLoading: true, error: null, purchaseResult: null });
       const response = await apiClient.submitPurchase(cartId, raceDate, courseCode, raceNumber);
       if (!response.success || !response.data) {
-        set({ isLoading: false, error: response.error || '購入に失敗しました' });
+        set({ isLoading: false, error: toJapaneseError(response.error, '購入に失敗しました') });
         return;
       }
       set({ purchaseResult: response.data, isLoading: false });
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : '購入に失敗しました',
+        error: '購入に失敗しました',
       });
     }
   },
@@ -45,14 +56,14 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
       set({ isLoading: true, error: null });
       const response = await apiClient.getIpatBalance();
       if (!response.success || !response.data) {
-        set({ isLoading: false, error: response.error || '残高取得に失敗しました' });
+        set({ isLoading: false, error: toJapaneseError(response.error, '残高取得に失敗しました') });
         return;
       }
       set({ balance: response.data, isLoading: false });
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : '残高取得に失敗しました',
+        error: '残高取得に失敗しました',
       });
     }
   },

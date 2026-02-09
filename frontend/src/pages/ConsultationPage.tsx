@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
+import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels, BetMethodLabels, getVenueName } from '../types';
 import type { CartItem } from '../types';
@@ -21,7 +22,9 @@ export function ConsultationPage() {
   const { items, currentRunnersData, getTotalAmount, removeItem, updateItemAmount } =
     useCartStore();
   const { isAuthenticated } = useAuthStore();
+  const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
   const showToast = useAppStore((state) => state.showToast);
+  const isIpatConfigured = isAuthenticated && ipatStatus?.configured;
   const totalAmount = getTotalAmount();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -44,6 +47,13 @@ export function ConsultationPage() {
   // 初回マウント時のカートデータをキャプチャ（カート変更でAPI再呼び出しを防止）
   const initialItemsRef = useRef(items);
   const initialRunnersRef = useRef(currentRunnersData);
+
+  // ログイン時にIPAT設定を取得
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkIpatStatus();
+    }
+  }, [isAuthenticated, checkIpatStatus]);
 
   // 初回ロード時に AI からの初期分析を取得（マウント時のみ実行）
   useEffect(() => {
@@ -175,6 +185,11 @@ export function ConsultationPage() {
   };
 
   const handlePurchase = () => {
+    if (!isIpatConfigured) {
+      showToast('IPAT設定が必要です');
+      navigate('/settings/ipat');
+      return;
+    }
     navigate('/purchase/confirm');
   };
 
@@ -402,7 +417,7 @@ export function ConsultationPage() {
             onClick={handlePurchase}
             disabled={items.length === 0 || !isAuthenticated}
           >
-            {isAuthenticated ? '購入する' : 'ログインして購入'}
+            {!isAuthenticated ? 'ログインして購入' : !isIpatConfigured ? 'IPAT設定して購入' : '購入する'}
           </button>
         </div>
       </div>

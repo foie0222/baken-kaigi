@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '../test/utils'
 import { ConsultationPage } from './ConsultationPage'
 import { useCartStore } from '../stores/cartStore'
 import { useAuthStore } from '../stores/authStore'
+import { useIpatSettingsStore } from '../stores/ipatSettingsStore'
 import { apiClient } from '../api/client'
 
 // react-router-domのuseNavigateをモック
@@ -34,6 +35,7 @@ describe('ConsultationPage', () => {
     mockNavigate.mockClear()
     useCartStore.getState().clearCart()
     useAuthStore.setState({ isAuthenticated: true })
+    useIpatSettingsStore.setState({ status: { configured: true }, isLoading: false, error: null })
     // テスト用の買い目を追加（runnersData付き）
     useCartStore.getState().addItem({
       raceId: 'test-race-1',
@@ -98,6 +100,18 @@ describe('ConsultationPage', () => {
       const purchaseButton = await screen.findByRole('button', { name: /ログインして購入/i })
       expect(purchaseButton).toBeInTheDocument()
       expect(purchaseButton).toBeDisabled()
+    })
+
+    it('IPAT未設定時は「IPAT設定して購入」と表示され、クリックでIPAT設定ページへ遷移する', async () => {
+      useIpatSettingsStore.setState({ status: { configured: false }, isLoading: false, error: null })
+
+      const { user } = render(<ConsultationPage />)
+
+      const purchaseButton = await screen.findByRole('button', { name: /IPAT設定して購入/i })
+      expect(purchaseButton).toBeInTheDocument()
+
+      await user.click(purchaseButton)
+      expect(mockNavigate).toHaveBeenCalledWith('/settings/ipat')
     })
   })
 
