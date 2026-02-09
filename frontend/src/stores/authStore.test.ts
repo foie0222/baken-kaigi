@@ -56,6 +56,23 @@ describe('toJapaneseAuthError', () => {
     expect(toJapaneseAuthError('Attempt limit exceeded, please try after some time.', fallback)).toBe('試行回数の上限に達しました。しばらくしてからお試しください')
   })
 
+  it('未確認ユーザーエラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('User is not confirmed.', fallback)).toBe('メールアドレスの確認が完了していません')
+  })
+
+  it('アカウント未発見エラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Username/client id combination not found.', fallback)).toBe('アカウントが見つかりません')
+  })
+
+  it('現在のパスワード誤りエラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Incorrect current password', fallback)).toBe('現在のパスワードが正しくありません')
+    expect(toJapaneseAuthError('Incorrect password', fallback)).toBe('現在のパスワードが正しくありません')
+  })
+
+  it('パスワード試行超過エラーを日本語に変換する', () => {
+    expect(toJapaneseAuthError('Password attempts exceeded', fallback)).toBe('パスワードの試行回数を超えました。しばらくしてからお試しください')
+  })
+
   it('通信エラーを日本語に変換する', () => {
     expect(toJapaneseAuthError('Failed to fetch', fallback)).toBe('通信エラーが発生しました')
   })
