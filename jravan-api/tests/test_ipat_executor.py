@@ -70,9 +70,9 @@ class TestIpatExecutor:
         assert lines[0] == "20260201,05,11,tansyo,NORMAL,,03,100"
         assert lines[1] == "20260201,05,11,umaren,NORMAL,,01-03,500"
 
-    def test_ipatgoが存在しない場合voteがエラーを返す(self) -> None:
+    def test_ipatgoが存在しない場合voteがエラーを返す(self, tmp_path: Path) -> None:
         """ipatgo.exeが存在しない場合、voteがエラーを返すことを確認."""
-        self.executor.ipatgo_path = "/nonexistent/ipatgo.exe"
+        self.executor.ipatgo_path = str(tmp_path / "nonexistent" / "ipatgo.exe")
 
         bet_lines = [
             {
@@ -92,14 +92,23 @@ class TestIpatExecutor:
         assert result["success"] is False
         assert "not found" in result["message"]
 
-    def test_ipatgoが存在しない場合statがエラーを返す(self) -> None:
+    def test_ipatgoが存在しない場合statがエラーを返す(self, tmp_path: Path) -> None:
         """ipatgo.exeが存在しない場合、statがエラーを返すことを確認."""
-        self.executor.ipatgo_path = "/nonexistent/ipatgo.exe"
+        self.executor.ipatgo_path = str(tmp_path / "nonexistent" / "ipatgo.exe")
 
         result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
 
         assert result["success"] is False
         assert "not found" in result["message"]
+
+    def test_ipatgoパスが空文字の場合エラーを返す(self) -> None:
+        """IPATGO_PATHが空文字の場合、エラーを返すことを確認."""
+        self.executor.ipatgo_path = ""
+
+        result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
+
+        assert result["success"] is False
+        assert "empty" in result["message"].lower()
 
     @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
     @patch("subprocess.run")

@@ -7,7 +7,6 @@ import os
 
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from src.domain.ports import IpatGateway, IpatGatewayError
 from src.domain.value_objects import IpatBalance, IpatBetLine, IpatCredentials
@@ -29,14 +28,13 @@ class JraVanIpatGateway(IpatGateway):
         self._session = self._create_session()
 
     def _create_session(self) -> requests.Session:
-        """リトライ機能付きの HTTP セッションを作成する."""
+        """HTTP セッションを作成する.
+
+        IPAT操作はPOSTのみであり、投票の重複実行リスクがあるため
+        リトライは行わない。
+        """
         session = requests.Session()
-        retry_strategy = Retry(
-            total=2,
-            backoff_factor=0.5,
-            status_forcelist=[502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = HTTPAdapter(max_retries=0)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session

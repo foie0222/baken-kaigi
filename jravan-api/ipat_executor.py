@@ -29,7 +29,10 @@ class IpatExecutor:
         Returns:
             エラーメッセージ。問題なければ None。
         """
-        if not Path(self.ipatgo_path).exists():
+        if not self.ipatgo_path or not self.ipatgo_path.strip():
+            return "IPATGO_PATH is empty or invalid"
+
+        if not Path(self.ipatgo_path).is_file():
             return f"ipatgo.exe not found at {self.ipatgo_path}"
         return None
 
