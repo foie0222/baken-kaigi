@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
 import { RacesPage } from './pages/RacesPage';
@@ -71,6 +71,9 @@ function App() {
           <Route path="purchase/confirm" element={<AuthGuard><PurchaseConfirmPage /></AuthGuard>} />
           <Route path="purchase/history" element={<AuthGuard><PurchaseHistoryPage /></AuthGuard>} />
           <Route path="settings/ipat" element={<AuthGuard><IpatSettingsPage /></AuthGuard>} />
+
+          {/* 存在しないパスはホームにリダイレクト */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>
