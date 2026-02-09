@@ -1,8 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-
-const sectionStyle = { marginBottom: 24 };
-const h3Style = { fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#1a5f2a' } as const;
-const pStyle = { fontSize: 14, lineHeight: 1.8, color: '#333' } as const;
+import { sectionStyle, h3Style, pStyle } from './legal/legalStyles';
 
 export function HelpPage() {
   const navigate = useNavigate();
