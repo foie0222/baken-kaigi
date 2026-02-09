@@ -145,8 +145,7 @@ export function RacesPage() {
   const [datesLoading, setDatesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 初回会場選択のためのref（無限ループ防止）
-  const isInitialVenueSet = useRef(false);
+  // 初回日付選択のためのref（無限ループ防止）
   const isInitialDateSet = useRef(false);
 
   // 開催日一覧を取得
@@ -214,15 +213,15 @@ export function RacesPage() {
     if (response.success && response.data) {
       setRaces(response.data.races);
       setVenues(response.data.venues);
-      // 初回または選択中の会場が新しい日付に存在しない場合、最初の会場を選択
-      if (response.data.venues.length > 0) {
+      // 選択中の会場が新しい日付に存在しない場合、最初の会場を選択
+      const fetchedVenues = response.data.venues;
+      if (fetchedVenues.length > 0) {
         setSelectedVenue((prev) => {
-          if (!prev || !response.data!.venues.includes(prev)) {
-            return response.data!.venues[0];
+          if (!prev || !fetchedVenues.includes(prev)) {
+            return fetchedVenues[0];
           }
           return prev;
         });
-        isInitialVenueSet.current = true;
       }
     } else {
       setError(response.error || 'レースの取得に失敗しました');
