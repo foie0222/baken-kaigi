@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '../test/utils'
 import { ConsultationPage } from './ConsultationPage'
 import { useCartStore } from '../stores/cartStore'
+import { useAuthStore } from '../stores/authStore'
 import { apiClient } from '../api/client'
 
 // APIクライアントをモック
@@ -21,6 +22,7 @@ describe('ConsultationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useCartStore.getState().clearCart()
+    useAuthStore.setState({ isAuthenticated: true })
     // テスト用の買い目を追加（runnersData付き）
     useCartStore.getState().addItem({
       raceId: 'test-race-1',
