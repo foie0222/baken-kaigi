@@ -902,6 +902,10 @@ def _optimize_fund_allocation(
         })
         total_kelly += kelly_fraction
 
+    # 有効なオッズの馬がなかった場合は早期リターン
+    if not allocations:
+        return {"allocations": [], "strategy": "有効なオッズデータがないため配分不可"}
+
     # ケリー比率に基づいて配分
     if total_kelly > 0:
         for alloc in allocations:

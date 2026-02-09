@@ -665,3 +665,40 @@ class TestRunnersCorrection補間:
     def test_19頭以上は補正なし(self):
         correction = _get_runners_correction(19, 1)
         assert correction == 1.0  # 18頭テーブル（補正なし）
+
+
+class TestOptimizeFundAllocationZeroDivision:
+    """_optimize_fund_allocation のゼロ除算テスト."""
+
+    def test_全馬オッズ0でもゼロ除算しない(self):
+        """全馬のオッズが0の場合、allocationsが空になりZeroDivisionErrorが発生しないこと."""
+        horses = [
+            {"horse_number": 1, "horse_name": "テスト1", "odds": 0, "popularity": 1},
+            {"horse_number": 2, "horse_name": "テスト2", "odds": 0, "popularity": 2},
+        ]
+        result = _optimize_fund_allocation(horses, 1000, "win", 18)
+        assert result["allocations"] == []
+        assert "strategy" in result
+
+    def test_全馬オッズNoneでもゼロ除算しない(self):
+        """全馬のオッズがNoneの場合もZeroDivisionErrorが発生しないこと."""
+        horses = [
+            {"horse_number": 1, "horse_name": "テスト1", "odds": None, "popularity": 1},
+            {"horse_number": 2, "horse_name": "テスト2", "popularity": 2},
+        ]
+        result = _optimize_fund_allocation(horses, 1000, "win", 18)
+        assert result["allocations"] == []
+        assert "strategy" in result
+
+    def test_一部の馬のオッズが0でも正常動作(self):
+        """一部の馬のオッズが0でも残りの馬で正常に配分されること."""
+        horses = [
+            {"horse_number": 1, "horse_name": "テスト1", "odds": 0, "popularity": 1},
+            {"horse_number": 2, "horse_name": "テスト2", "odds": 5.0, "popularity": 2},
+            {"horse_number": 3, "horse_name": "テスト3", "odds": 10.0, "popularity": 5},
+        ]
+        result = _optimize_fund_allocation(horses, 2000, "win", 18)
+        assert len(result["allocations"]) == 2
+        for alloc in result["allocations"]:
+            assert "suggested_amount" in alloc
+            assert alloc["suggested_amount"] >= 100
