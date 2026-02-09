@@ -8,8 +8,8 @@ export function toJapaneseError(error: string | undefined, fallback: string): st
   if (error === 'Failed to fetch') return '通信エラーが発生しました';
   if (error.includes('IPAT credentials not configured')) return 'IPAT設定が完了していません。設定画面からIPAT情報を登録してください。';
   if (error.includes('IPAT')) return 'IPAT通信エラーが発生しました';
-  // 英語/ASCIIのみのメッセージはフォールバックに変換
-  if (/^[\x00-\x7F]+$/.test(error)) return fallback;
+  // 英語/ASCII印刷可能文字のみのメッセージはフォールバックに変換
+  if (/^[\x20-\x7E]+$/.test(error)) return fallback;
   return error;
 }
 
