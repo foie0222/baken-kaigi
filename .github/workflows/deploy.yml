@@ -296,7 +296,7 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
-          # 変数定義（__PLACEHOLDER__ はsedで置換）
+          # 変数定義（__BUCKET_NAME__ / __S3_KEY__ はsedで置換）
           $bucketName = '__BUCKET_NAME__'
           $s3Key = '__S3_KEY__'
           $deployDir = 'C:\jravan-api'
@@ -388,13 +388,7 @@ jobs:
           sed -i "s|__S3_KEY__|${S3_KEY}|g" /tmp/deploy.ps1
 
           # PowerShellスクリプトをJSON形式のSSMパラメータに変換
-          python3 -c "
-          import json
-          with open('/tmp/deploy.ps1') as f:
-              lines = f.read().splitlines()
-          with open('/tmp/ssm-params.json', 'w') as f:
-              json.dump({'commands': lines}, f)
-          "
+          python3 -c "import json; lines=open('/tmp/deploy.ps1').read().splitlines(); json.dump({'commands':lines},open('/tmp/ssm-params.json','w'))"
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
