@@ -3,7 +3,7 @@
 EC2 Windows インスタンスを作成し、JRA-VAN Data Lab. の
 JV-Link を動作させる FastAPI サーバーをホストする。
 """
-from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack, Tags
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
@@ -186,6 +186,9 @@ class JraVanServerStack(Stack):
             # UserData で初期セットアップスクリプトを実行
             user_data=self._create_user_data(),
         )
+
+        # SSM SendCommand のタグベース権限制御用
+        Tags.of(self.instance).add("app", "jravan-api")
 
         # ========================================
         # 出力

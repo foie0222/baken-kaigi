@@ -98,14 +98,35 @@ class GitHubOidcStack(Stack):
         )
 
         # SSM SendCommand（EC2デプロイ用）
+        # SSMドキュメントは無条件で許可、EC2インスタンスはタグで制限
         deploy_role.add_to_policy(
             iam.PolicyStatement(
-                sid="SsmSendCommand",
-                actions=["ssm:SendCommand", "ssm:GetCommandInvocation"],
+                sid="SsmSendCommandDocument",
+                actions=["ssm:SendCommand"],
                 resources=[
                     f"arn:aws:ssm:ap-northeast-1::document/AWS-RunPowerShellScript",
+                ],
+            )
+        )
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SsmSendCommandInstance",
+                actions=["ssm:SendCommand"],
+                resources=[
                     f"arn:aws:ec2:ap-northeast-1:{Stack.of(self).account}:instance/*",
                 ],
+                conditions={
+                    "StringEquals": {
+                        "ssm:resourceTag/app": "jravan-api",
+                    },
+                },
+            )
+        )
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SsmGetCommandInvocation",
+                actions=["ssm:GetCommandInvocation"],
+                resources=["*"],
             )
         )
 

@@ -228,7 +228,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # 変更検出用に直前コミットも取得
+          fetch-depth: 0  # github.event.before との差分取得に必要
 
       - name: Check jravan-api changes
         id: changes
@@ -236,7 +236,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Manual trigger: deploying regardless of changes"
-          elif git diff --name-only HEAD~1 HEAD -- 'jravan-api/' | grep -qE '\.(py|txt)$'; then
+          elif git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- 'jravan-api/' | grep -qE '\.(py|txt)$'; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "jravan-api changes detected"
           else
@@ -307,9 +307,9 @@ jobs:
               \"\\\$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'\",
               \"\\\$backupDir = \\\"C:\\\\jravan-api\\\\backup-\\\$timestamp\\\"\",
               \"\",
-              \"# S3からダウンロード\",
+              \"# S3からダウンロード（aws CLIはWindows AMIにプリインストール済み）\",
               \"Write-Output \\\"Downloading from s3://\\\$bucketName/\\\$s3Key\\\"\",
-              \"Read-S3Object -BucketName \\\$bucketName -Key \\\$s3Key -File \\\$tempZip\",
+              \"aws s3 cp \\\"s3://\\\$bucketName/\\\$s3Key\\\" \\\$tempZip\",
               \"\",
               \"# バックアップ作成\",
               \"Write-Output \\\"Creating backup at \\\$backupDir\\\"\",
