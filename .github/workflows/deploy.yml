@@ -291,99 +291,116 @@ jobs:
           BUCKET_NAME="${{ steps.cfn.outputs.bucket_name }}"
           INSTANCE_ID="${{ steps.cfn.outputs.instance_id }}"
 
+          # PowerShellデプロイスクリプトを生成（単一引用heredocでbash展開を防止）
+          cat > /tmp/deploy.ps1 << 'PSEOF'
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # 変数定義（__PLACEHOLDER__ はsedで置換）
+          $bucketName = '__BUCKET_NAME__'
+          $s3Key = '__S3_KEY__'
+          $deployDir = 'C:\jravan-api'
+          $tempZip = 'C:\setup\jravan-api-deploy.zip'
+          $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+          $backupDir = "C:\jravan-api\backup-$timestamp"
+
+          # S3からダウンロード
+          Write-Output "Downloading from s3://$bucketName/$s3Key"
+          aws s3 cp "s3://$bucketName/$s3Key" $tempZip
+
+          # バックアップ作成
+          Write-Output "Creating backup at $backupDir"
+          New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+          Get-ChildItem -Path $deployDir -Filter '*.py' | Copy-Item -Destination $backupDir
+          if (Test-Path "$deployDir\requirements.txt") { Copy-Item "$deployDir\requirements.txt" -Destination $backupDir }
+
+          # 古いバックアップを3世代まで保持
+          Get-ChildItem -Path $deployDir -Directory -Filter 'backup-*' | Sort-Object Name -Descending | Select-Object -Skip 3 | Remove-Item -Recurse -Force
+
+          # requirements.txt変更チェック（pip install判定用）
+          $reqChanged = $false
+          $tempExtract = 'C:\setup\jravan-api-extract'
+          if (Test-Path $tempExtract) { Remove-Item -Recurse -Force $tempExtract }
+          Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+          if (Test-Path "$deployDir\requirements.txt") {
+            $oldHash = (Get-FileHash "$deployDir\requirements.txt").Hash
+            $newHash = (Get-FileHash "$tempExtract\requirements.txt").Hash
+            if ($oldHash -ne $newHash) { $reqChanged = $true }
+          } else {
+            $reqChanged = $true
+          }
+
+          # ファイル展開（上書き）
+          Write-Output "Extracting files to $deployDir"
+          Copy-Item -Path "$tempExtract\*" -Destination $deployDir -Recurse -Force
+          Remove-Item -Recurse -Force $tempExtract
+
+          # requirements変更時のみpip install
+          if ($reqChanged) {
+            Write-Output 'requirements.txt changed, running pip install...'
+            $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
+            pip install -r "$deployDir\requirements.txt"
+          } else {
+            Write-Output 'requirements.txt unchanged, skipping pip install'
+          }
+
+          # NSSMサービス再起動
+          Write-Output 'Restarting JraVanApi service...'
+          nssm restart JraVanApi
+          Start-Sleep -Seconds 3
+
+          # ヘルスチェック（最大30秒リトライ）
+          Write-Output 'Running health check...'
+          $maxRetries = 10
+          $retryCount = 0
+          $healthy = $false
+          while ($retryCount -lt $maxRetries) {
+            try {
+              $response = Invoke-WebRequest -Uri 'http://localhost:8000/health' -TimeoutSec 5 -UseBasicParsing
+              if ($response.StatusCode -eq 200) {
+                $healthy = $true
+                Write-Output 'Health check passed'
+                break
+              }
+            } catch {
+              Write-Output "Health check attempt $($retryCount + 1)/$maxRetries failed: $($_.Exception.Message)"
+            }
+            $retryCount++
+            Start-Sleep -Seconds 3
+          }
+
+          if (-not $healthy) {
+            Write-Output 'Health check failed, rolling back...'
+            Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
+            nssm restart JraVanApi
+            Write-Output 'Rollback complete'
+            exit 1
+          }
+
+          # クリーンアップ
+          Remove-Item -Force $tempZip
+          Write-Output 'Deployment successful'
+          PSEOF
+
+          # heredocインデント除去 + プレースホルダー置換
+          sed -i 's/^          //' /tmp/deploy.ps1
+          sed -i "s|__BUCKET_NAME__|${BUCKET_NAME}|g" /tmp/deploy.ps1
+          sed -i "s|__S3_KEY__|${S3_KEY}|g" /tmp/deploy.ps1
+
+          # PowerShellスクリプトをJSON形式のSSMパラメータに変換
+          python3 -c "
+          import json
+          with open('/tmp/deploy.ps1') as f:
+              lines = f.read().splitlines()
+          with open('/tmp/ssm-params.json', 'w') as f:
+              json.dump({'commands': lines}, f)
+          "
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunPowerShellScript" \
             --timeout-seconds 300 \
-            --parameters "commands=[
-              \"Set-StrictMode -Version Latest\",
-              \"\\\$ErrorActionPreference = 'Stop'\",
-              \"\",
-              \"# 変数定義\",
-              \"\\\$bucketName = '${BUCKET_NAME}'\",
-              \"\\\$s3Key = '${S3_KEY}'\",
-              \"\\\$deployDir = 'C:\\\\jravan-api'\",
-              \"\\\$tempZip = 'C:\\\\setup\\\\jravan-api-deploy.zip'\",
-              \"\\\$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'\",
-              \"\\\$backupDir = \\\"C:\\\\jravan-api\\\\backup-\\\$timestamp\\\"\",
-              \"\",
-              \"# S3からダウンロード（aws CLIはWindows AMIにプリインストール済み）\",
-              \"Write-Output \\\"Downloading from s3://\\\$bucketName/\\\$s3Key\\\"\",
-              \"aws s3 cp \\\"s3://\\\$bucketName/\\\$s3Key\\\" \\\$tempZip\",
-              \"\",
-              \"# バックアップ作成\",
-              \"Write-Output \\\"Creating backup at \\\$backupDir\\\"\",
-              \"New-Item -ItemType Directory -Force -Path \\\$backupDir | Out-Null\",
-              \"Get-ChildItem -Path \\\$deployDir -Filter '*.py' | Copy-Item -Destination \\\$backupDir\",
-              \"if (Test-Path \\\"\\\$deployDir\\\\requirements.txt\\\") { Copy-Item \\\"\\\$deployDir\\\\requirements.txt\\\" -Destination \\\$backupDir }\",
-              \"\",
-              \"# 古いバックアップを3世代まで保持\",
-              \"Get-ChildItem -Path \\\$deployDir -Directory -Filter 'backup-*' | Sort-Object Name -Descending | Select-Object -Skip 3 | Remove-Item -Recurse -Force\",
-              \"\",
-              \"# requirements.txt変更チェック（pip install判定用）\",
-              \"\\\$reqChanged = \\\$false\",
-              \"\\\$tempExtract = 'C:\\\\setup\\\\jravan-api-extract'\",
-              \"if (Test-Path \\\$tempExtract) { Remove-Item -Recurse -Force \\\$tempExtract }\",
-              \"Expand-Archive -Path \\\$tempZip -DestinationPath \\\$tempExtract -Force\",
-              \"if (Test-Path \\\"\\\$deployDir\\\\requirements.txt\\\") {\",
-              \"  \\\$oldHash = (Get-FileHash \\\"\\\$deployDir\\\\requirements.txt\\\").Hash\",
-              \"  \\\$newHash = (Get-FileHash \\\"\\\$tempExtract\\\\requirements.txt\\\").Hash\",
-              \"  if (\\\$oldHash -ne \\\$newHash) { \\\$reqChanged = \\\$true }\",
-              \"} else {\",
-              \"  \\\$reqChanged = \\\$true\",
-              \"}\",
-              \"\",
-              \"# ファイル展開（上書き）\",
-              \"Write-Output \\\"Extracting files to \\\$deployDir\\\"\",
-              \"Copy-Item -Path \\\"\\\$tempExtract\\\\*\\\" -Destination \\\$deployDir -Recurse -Force\",
-              \"Remove-Item -Recurse -Force \\\$tempExtract\",
-              \"\",
-              \"# requirements変更時のみpip install\",
-              \"if (\\\$reqChanged) {\",
-              \"  Write-Output 'requirements.txt changed, running pip install...'\",
-              \"  \\\$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')\",
-              \"  pip install -r \\\"\\\$deployDir\\\\requirements.txt\\\"\",
-              \"} else {\",
-              \"  Write-Output 'requirements.txt unchanged, skipping pip install'\",
-              \"}\",
-              \"\",
-              \"# NSSMサービス再起動\",
-              \"Write-Output 'Restarting JraVanApi service...'\",
-              \"nssm restart JraVanApi\",
-              \"Start-Sleep -Seconds 3\",
-              \"\",
-              \"# ヘルスチェック（最大30秒リトライ）\",
-              \"Write-Output 'Running health check...'\",
-              \"\\\$maxRetries = 10\",
-              \"\\\$retryCount = 0\",
-              \"\\\$healthy = \\\$false\",
-              \"while (\\\$retryCount -lt \\\$maxRetries) {\",
-              \"  try {\",
-              \"    \\\$response = Invoke-WebRequest -Uri 'http://localhost:8000/health' -TimeoutSec 5 -UseBasicParsing\",
-              \"    if (\\\$response.StatusCode -eq 200) {\",
-              \"      \\\$healthy = \\\$true\",
-              \"      Write-Output 'Health check passed'\",
-              \"      break\",
-              \"    }\",
-              \"  } catch {\",
-              \"    Write-Output \\\"Health check attempt \\\$(\\\$retryCount + 1)/\\\$maxRetries failed: \\\$(\\\$_.Exception.Message)\\\"\",
-              \"  }\",
-              \"  \\\$retryCount++\",
-              \"  Start-Sleep -Seconds 3\",
-              \"}\",
-              \"\",
-              \"if (-not \\\$healthy) {\",
-              \"  Write-Output 'Health check failed, rolling back...'\",
-              \"  Copy-Item -Path \\\"\\\$backupDir\\\\*\\\" -Destination \\\$deployDir -Force\",
-              \"  nssm restart JraVanApi\",
-              \"  Write-Output 'Rollback complete'\",
-              \"  exit 1\",
-              \"}\",
-              \"\",
-              \"# クリーンアップ\",
-              \"Remove-Item -Force \\\$tempZip\",
-              \"Write-Output 'Deployment successful'\",
-            ]" \
+            --parameters file:///tmp/ssm-params.json \
             --query 'Command.CommandId' --output text)
 
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
