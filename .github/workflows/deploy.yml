@@ -213,3 +213,237 @@ jobs:
           echo "- Agent: baken_kaigi_cli" >> $GITHUB_STEP_SUMMARY
           echo "- Region: ap-northeast-1" >> $GITHUB_STEP_SUMMARY
           echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
+
+  # EC2 (JRA-VAN API) デプロイジョブ
+  deploy-ec2:
+    name: Deploy JRA-VAN API to EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: deploy-cdk  # CDKデプロイ後に実行（S3バケット作成が必要）
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.repository == 'foie0222/baken-kaigi' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # github.event.before との差分取得に必要
+
+      - name: Check jravan-api changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Manual trigger: deploying regardless of changes"
+          elif git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- 'jravan-api/' | grep -qE '\.(py|txt)$'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "jravan-api changes detected"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No jravan-api changes, skipping deploy"
+          fi
+
+      - name: Configure AWS credentials
+        if: steps.changes.outputs.changed == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Get deployment parameters from CloudFormation
+        if: steps.changes.outputs.changed == 'true'
+        id: cfn
+        run: |
+          EXPORTS=$(aws cloudformation list-exports --query 'Exports' --output json)
+
+          INSTANCE_ID=$(echo "$EXPORTS" | jq -r '.[] | select(.Name=="JraVanInstanceId") | .Value')
+          BUCKET_NAME=$(echo "$EXPORTS" | jq -r '.[] | select(.Name=="JraVanDeployBucketName") | .Value')
+
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "null" ]; then
+            echo "::error::JraVanInstanceId not found in CloudFormation exports"
+            exit 1
+          fi
+          if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "null" ]; then
+            echo "::error::JraVanDeployBucketName not found in CloudFormation exports"
+            exit 1
+          fi
+
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_OUTPUT"
+          echo "Instance ID: $INSTANCE_ID"
+          echo "Bucket: $BUCKET_NAME"
+
+      - name: Package and upload to S3
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          cd jravan-api
+          zip -r /tmp/jravan-api-deploy.zip *.py requirements.txt \
+            -x "tests/*" "__pycache__/*" ".env" ".env.*"
+          aws s3 cp /tmp/jravan-api-deploy.zip \
+            "s3://${{ steps.cfn.outputs.bucket_name }}/deploy/jravan-api-${GITHUB_SHA:0:8}.zip"
+
+      - name: Deploy via SSM SendCommand
+        if: steps.changes.outputs.changed == 'true'
+        id: ssm
+        run: |
+          S3_KEY="deploy/jravan-api-${GITHUB_SHA:0:8}.zip"
+          BUCKET_NAME="${{ steps.cfn.outputs.bucket_name }}"
+          INSTANCE_ID="${{ steps.cfn.outputs.instance_id }}"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunPowerShellScript" \
+            --timeout-seconds 300 \
+            --parameters "commands=[
+              \"Set-StrictMode -Version Latest\",
+              \"\\\$ErrorActionPreference = 'Stop'\",
+              \"\",
+              \"# 変数定義\",
+              \"\\\$bucketName = '${BUCKET_NAME}'\",
+              \"\\\$s3Key = '${S3_KEY}'\",
+              \"\\\$deployDir = 'C:\\\\jravan-api'\",
+              \"\\\$tempZip = 'C:\\\\setup\\\\jravan-api-deploy.zip'\",
+              \"\\\$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'\",
+              \"\\\$backupDir = \\\"C:\\\\jravan-api\\\\backup-\\\$timestamp\\\"\",
+              \"\",
+              \"# S3からダウンロード（aws CLIはWindows AMIにプリインストール済み）\",
+              \"Write-Output \\\"Downloading from s3://\\\$bucketName/\\\$s3Key\\\"\",
+              \"aws s3 cp \\\"s3://\\\$bucketName/\\\$s3Key\\\" \\\$tempZip\",
+              \"\",
+              \"# バックアップ作成\",
+              \"Write-Output \\\"Creating backup at \\\$backupDir\\\"\",
+              \"New-Item -ItemType Directory -Force -Path \\\$backupDir | Out-Null\",
+              \"Get-ChildItem -Path \\\$deployDir -Filter '*.py' | Copy-Item -Destination \\\$backupDir\",
+              \"if (Test-Path \\\"\\\$deployDir\\\\requirements.txt\\\") { Copy-Item \\\"\\\$deployDir\\\\requirements.txt\\\" -Destination \\\$backupDir }\",
+              \"\",
+              \"# 古いバックアップを3世代まで保持\",
+              \"Get-ChildItem -Path \\\$deployDir -Directory -Filter 'backup-*' | Sort-Object Name -Descending | Select-Object -Skip 3 | Remove-Item -Recurse -Force\",
+              \"\",
+              \"# requirements.txt変更チェック（pip install判定用）\",
+              \"\\\$reqChanged = \\\$false\",
+              \"\\\$tempExtract = 'C:\\\\setup\\\\jravan-api-extract'\",
+              \"if (Test-Path \\\$tempExtract) { Remove-Item -Recurse -Force \\\$tempExtract }\",
+              \"Expand-Archive -Path \\\$tempZip -DestinationPath \\\$tempExtract -Force\",
+              \"if (Test-Path \\\"\\\$deployDir\\\\requirements.txt\\\") {\",
+              \"  \\\$oldHash = (Get-FileHash \\\"\\\$deployDir\\\\requirements.txt\\\").Hash\",
+              \"  \\\$newHash = (Get-FileHash \\\"\\\$tempExtract\\\\requirements.txt\\\").Hash\",
+              \"  if (\\\$oldHash -ne \\\$newHash) { \\\$reqChanged = \\\$true }\",
+              \"} else {\",
+              \"  \\\$reqChanged = \\\$true\",
+              \"}\",
+              \"\",
+              \"# ファイル展開（上書き）\",
+              \"Write-Output \\\"Extracting files to \\\$deployDir\\\"\",
+              \"Copy-Item -Path \\\"\\\$tempExtract\\\\*\\\" -Destination \\\$deployDir -Recurse -Force\",
+              \"Remove-Item -Recurse -Force \\\$tempExtract\",
+              \"\",
+              \"# requirements変更時のみpip install\",
+              \"if (\\\$reqChanged) {\",
+              \"  Write-Output 'requirements.txt changed, running pip install...'\",
+              \"  \\\$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')\",
+              \"  pip install -r \\\"\\\$deployDir\\\\requirements.txt\\\"\",
+              \"} else {\",
+              \"  Write-Output 'requirements.txt unchanged, skipping pip install'\",
+              \"}\",
+              \"\",
+              \"# NSSMサービス再起動\",
+              \"Write-Output 'Restarting JraVanApi service...'\",
+              \"nssm restart JraVanApi\",
+              \"Start-Sleep -Seconds 3\",
+              \"\",
+              \"# ヘルスチェック（最大30秒リトライ）\",
+              \"Write-Output 'Running health check...'\",
+              \"\\\$maxRetries = 10\",
+              \"\\\$retryCount = 0\",
+              \"\\\$healthy = \\\$false\",
+              \"while (\\\$retryCount -lt \\\$maxRetries) {\",
+              \"  try {\",
+              \"    \\\$response = Invoke-WebRequest -Uri 'http://localhost:8000/health' -TimeoutSec 5 -UseBasicParsing\",
+              \"    if (\\\$response.StatusCode -eq 200) {\",
+              \"      \\\$healthy = \\\$true\",
+              \"      Write-Output 'Health check passed'\",
+              \"      break\",
+              \"    }\",
+              \"  } catch {\",
+              \"    Write-Output \\\"Health check attempt \\\$(\\\$retryCount + 1)/\\\$maxRetries failed: \\\$(\\\$_.Exception.Message)\\\"\",
+              \"  }\",
+              \"  \\\$retryCount++\",
+              \"  Start-Sleep -Seconds 3\",
+              \"}\",
+              \"\",
+              \"if (-not \\\$healthy) {\",
+              \"  Write-Output 'Health check failed, rolling back...'\",
+              \"  Copy-Item -Path \\\"\\\$backupDir\\\\*\\\" -Destination \\\$deployDir -Force\",
+              \"  nssm restart JraVanApi\",
+              \"  Write-Output 'Rollback complete'\",
+              \"  exit 1\",
+              \"}\",
+              \"\",
+              \"# クリーンアップ\",
+              \"Remove-Item -Force \\\$tempZip\",
+              \"Write-Output 'Deployment successful'\",
+            ]" \
+            --query 'Command.CommandId' --output text)
+
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+          echo "SSM Command ID: $COMMAND_ID"
+
+      - name: Wait for SSM command completion
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          COMMAND_ID="${{ steps.ssm.outputs.command_id }}"
+          INSTANCE_ID="${{ steps.cfn.outputs.instance_id }}"
+          MAX_WAIT=300  # 5分
+          ELAPSED=0
+
+          echo "Waiting for SSM command $COMMAND_ID to complete..."
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query 'Status' --output text 2>/dev/null || echo "Pending")
+
+            case "$STATUS" in
+              "Success")
+                echo "Command completed successfully"
+                # 標準出力を表示
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query 'StandardOutputContent' --output text
+                exit 0
+                ;;
+              "Failed"|"Cancelled"|"TimedOut")
+                echo "::error::SSM command $STATUS"
+                echo "--- Standard Output ---"
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query 'StandardOutputContent' --output text || true
+                echo "--- Standard Error ---"
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query 'StandardErrorContent' --output text || true
+                exit 1
+                ;;
+              *)
+                sleep 10
+                ELAPSED=$((ELAPSED + 10))
+                ;;
+            esac
+          done
+
+          echo "::error::Timed out waiting for SSM command"
+          exit 1
+
+      - name: Output EC2 deployment summary
+        if: always() && steps.changes.outputs.changed == 'true'
+        run: |
+          echo "## EC2 (JRA-VAN API) Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Instance: ${{ steps.cfn.outputs.instance_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- S3 Artifact: s3://${{ steps.cfn.outputs.bucket_name }}/deploy/jravan-api-${GITHUB_SHA:0:8}.zip" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY

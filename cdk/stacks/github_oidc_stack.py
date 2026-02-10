@@ -97,6 +97,59 @@ class GitHubOidcStack(Stack):
             )
         )
 
+        # SSM SendCommand（EC2デプロイ用）
+        # SSMドキュメントは無条件で許可、EC2インスタンスはタグで制限
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SsmSendCommandDocument",
+                actions=["ssm:SendCommand"],
+                resources=[
+                    f"arn:aws:ssm:ap-northeast-1::document/AWS-RunPowerShellScript",
+                ],
+            )
+        )
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SsmSendCommandInstance",
+                actions=["ssm:SendCommand"],
+                resources=[
+                    f"arn:aws:ec2:ap-northeast-1:{Stack.of(self).account}:instance/*",
+                ],
+                conditions={
+                    "StringEquals": {
+                        "ssm:resourceTag/app": "jravan-api",
+                    },
+                },
+            )
+        )
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SsmGetCommandInvocation",
+                actions=["ssm:GetCommandInvocation"],
+                resources=["*"],
+            )
+        )
+
+        # S3デプロイアーティファクト書き込み
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="S3DeployUpload",
+                actions=["s3:PutObject"],
+                resources=[
+                    f"arn:aws:s3:::baken-kaigi-jravan-deploy-{Stack.of(self).account}/deploy/*",
+                ],
+            )
+        )
+
+        # CloudFormation ExportsからインスタンスID・バケット名取得
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="CloudFormationListExports",
+                actions=["cloudformation:ListExports"],
+                resources=["*"],
+            )
+        )
+
         # Outputs
         CfnOutput(
             self,

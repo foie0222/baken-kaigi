@@ -3,9 +3,10 @@
 EC2 Windows インスタンスを作成し、JRA-VAN Data Lab. の
 JV-Link を動作させる FastAPI サーバーをホストする。
 """
-from aws_cdk import CfnOutput, RemovalPolicy, Stack
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack, Tags
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
 
@@ -84,6 +85,22 @@ class JraVanServerStack(Stack):
         )
 
         # ========================================
+        # デプロイ用 S3 バケット
+        # GitHub Actions → S3 → EC2 でデプロイアーティファクトを配布
+        # ========================================
+        self.deploy_bucket = s3.Bucket(
+            self,
+            "JraVanDeployBucket",
+            bucket_name=f"baken-kaigi-jravan-deploy-{Stack.of(self).account}",
+            removal_policy=RemovalPolicy.RETAIN,
+            lifecycle_rules=[
+                s3.LifecycleRule(expiration=Duration.days(7), prefix="deploy/"),
+            ],
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+        )
+
+        # ========================================
         # セキュリティグループ
         # ========================================
         self.security_group = ec2.SecurityGroup(
@@ -117,6 +134,9 @@ class JraVanServerStack(Stack):
                 ),
             ],
         )
+
+        # EC2 から S3 デプロイバケットの読み取りを許可
+        self.deploy_bucket.grant_read(role)
 
         # ========================================
         # キーペア（Fleet Manager RDP 用）
@@ -166,6 +186,9 @@ class JraVanServerStack(Stack):
             # UserData で初期セットアップスクリプトを実行
             user_data=self._create_user_data(),
         )
+
+        # SSM SendCommand のタグベース権限制御用
+        Tags.of(self.instance).add("app", "jravan-api")
 
         # ========================================
         # 出力
@@ -222,6 +245,13 @@ class JraVanServerStack(Stack):
             "KeyPairParameterName",
             value=f"/ec2/keypair/{self.key_pair.key_pair_id}",
             description="SSM Parameter for private key (use for Fleet Manager RDP)",
+        )
+
+        CfnOutput(
+            self,
+            "DeployBucketName",
+            value=self.deploy_bucket.bucket_name,
+            export_name="JraVanDeployBucketName",
         )
 
     def _create_user_data(self) -> ec2.UserData:

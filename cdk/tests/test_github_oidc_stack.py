@@ -111,42 +111,119 @@ class TestGitHubOidcStack:
 
     def test_iam_role_assume_bootstrap_roles_policy(self, template):
         """Bootstrap ロールへの AssumeRole 権限が設定されること."""
+        from aws_cdk.assertions import Match
+
         template.has_resource_properties(
             "AWS::IAM::Policy",
             {
                 "PolicyDocument": {
-                    "Statement": [
-                        {
-                            "Sid": "AssumeBootstrapRoles",
-                            "Action": "sts:AssumeRole",
-                            "Effect": "Allow",
-                            "Resource": "arn:aws:iam::123456789012:role/cdk-hnb659fds-*",
-                        },
-                        {
-                            "Sid": "BedrockAgentCore",
-                        },
-                    ],
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "AssumeBootstrapRoles",
+                                    "Action": "sts:AssumeRole",
+                                    "Effect": "Allow",
+                                    "Resource": "arn:aws:iam::123456789012:role/cdk-hnb659fds-*",
+                                }
+                            ),
+                        ]
+                    ),
                 },
             },
         )
 
     def test_iam_role_bedrock_policy(self, template):
         """Bedrock/AgentCore 権限が設定されること."""
+        from aws_cdk.assertions import Match
+
         template.has_resource_properties(
             "AWS::IAM::Policy",
             {
                 "PolicyDocument": {
-                    "Statement": [
-                        {
-                            "Sid": "AssumeBootstrapRoles",
-                        },
-                        {
-                            "Sid": "BedrockAgentCore",
-                            "Action": ["bedrock:*", "bedrock-agentcore:*"],
-                            "Effect": "Allow",
-                            "Resource": "*",
-                        },
-                    ],
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "BedrockAgentCore",
+                                    "Action": ["bedrock:*", "bedrock-agentcore:*"],
+                                    "Effect": "Allow",
+                                    "Resource": "*",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_iam_role_ssm_send_command_policy(self, template):
+        """SSM SendCommand 権限がタグベース条件付きで設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "SsmSendCommandInstance",
+                                    "Action": "ssm:SendCommand",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "ssm:resourceTag/app": "jravan-api",
+                                        },
+                                    },
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_iam_role_s3_deploy_upload_policy(self, template):
+        """S3デプロイアーティファクト書き込み権限が設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "S3DeployUpload",
+                                    "Action": "s3:PutObject",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_iam_role_cloudformation_list_exports_policy(self, template):
+        """CloudFormation ListExports 権限が設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "CloudFormationListExports",
+                                    "Action": "cloudformation:ListExports",
+                                }
+                            ),
+                        ]
+                    ),
                 },
             },
         )
