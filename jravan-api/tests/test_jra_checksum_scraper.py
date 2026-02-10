@@ -45,8 +45,8 @@ class TestBuildAccessUrl:
 
     def test_チェックサムを16進数で付加(self):
         """正常系: チェックサムが2桁16進数で付加される."""
-        url = build_access_url("pw01dde010520260101010120260207", 0xAB)
-        assert url == "https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde010520260101010120260207/AB"
+        url = build_access_url("pw01dde0105202601010120260207", 0xAB)
+        assert url == "https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0105202601010120260207/AB"
 
     def test_チェックサム0はゼロパディング(self):
         """正常系: チェックサム0は'00'."""

@@ -132,7 +132,7 @@ def parse_cname(cname: str) -> dict | None:
     """CNAMEからレース情報を解析する.
 
     CNAME形式: pw01dde{4桁venue}{4桁year}{2桁kai}{2桁nichime}{2桁race}{8桁date}
-    例: pw01dde01052026010101020260207
+    例: pw01dde0105202601010120260207
 
     Args:
         cname: CNAME文字列
