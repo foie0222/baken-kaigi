@@ -48,7 +48,7 @@
     --font-size-xl: 18px;
 
     /* レイアウト */
-    --bottom-nav-height: 60px;
+    --bottom-nav-height: 78px;
     --app-max-width: 640px;
 
     /* z-index スケール */
@@ -197,7 +197,7 @@ body {
 /* Main Content */
 main {
     padding: 16px;
-    padding-bottom: 120px; /* help-link + bottom-nav分 */
+    padding-bottom: 140px; /* help-link + bottom-nav分 */
     max-width: var(--app-max-width);
     margin: 0 auto;
 }
@@ -1480,13 +1480,12 @@ main {
 /* 依存症相談窓口リンク */
 .help-link-section {
     position: fixed;
-    bottom: var(--bottom-nav-height);
+    bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: var(--app-max-width);
     padding: var(--space-2) var(--space-4);
-    padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
     background: var(--color-neutral-50);
     text-align: center;
     border-top: 1px solid var(--color-neutral-200);
