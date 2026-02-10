@@ -24,20 +24,20 @@ class TestBuildCname:
     def test_東京1回1日目1R(self):
         """正常系: 東京1回1日目1RのCNAMEを構築."""
         cname = build_cname("05", "2026", "01", 1, 1, "20260207")
-        # pw01dde + 1005 + 2026 + 01 + 01 + 01 + 20260207
-        assert cname == "pw01dde1005202601010120260207"
+        # pw01dde + 0105 + 2026 + 01 + 01 + 01 + 20260207
+        assert cname == "pw01dde0105202601010120260207"
 
     def test_京都2回3日目11R(self):
         """正常系: 京都2回3日目11RのCNAMEを構築."""
         cname = build_cname("08", "2026", "02", 3, 11, "20260208")
-        # pw01dde + 1008 + 2026 + 02 + 03 + 11 + 20260208
-        assert cname == "pw01dde1008202602031120260208"
+        # pw01dde + 0108 + 2026 + 02 + 03 + 11 + 20260208
+        assert cname == "pw01dde0108202602031120260208"
 
     def test_小倉1回1日目1R(self):
         """正常系: 小倉1回1日目1RのCNAMEを構築."""
         cname = build_cname("10", "2026", "01", 1, 1, "20260207")
-        # pw01dde + 1010 + 2026 + 01 + 01 + 01 + 20260207
-        assert cname == "pw01dde1010202601010120260207"
+        # pw01dde + 0110 + 2026 + 01 + 01 + 01 + 20260207
+        assert cname == "pw01dde0110202601010120260207"
 
 
 class TestBuildAccessUrl:
@@ -45,8 +45,8 @@ class TestBuildAccessUrl:
 
     def test_チェックサムを16進数で付加(self):
         """正常系: チェックサムが2桁16進数で付加される."""
-        url = build_access_url("pw01dde100520260101010120260207", 0xAB)
-        assert url == "https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde100520260101010120260207/AB"
+        url = build_access_url("pw01dde0105202601010120260207", 0xAB)
+        assert url == "https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0105202601010120260207/AB"
 
     def test_チェックサム0はゼロパディング(self):
         """正常系: チェックサム0は'00'."""
@@ -84,27 +84,27 @@ class TestExtractChecksumsFromNav:
         """正常系: ナビゲーションのリンクからチェックサムを抽出."""
         html = """
         <html><body>
-        <a href="accessD.html?CNAME=pw01dde1005202601010120260207/AB">東京1R</a>
-        <a href="accessD.html?CNAME=pw01dde1008202602010120260207/CD">京都1R</a>
+        <a href="accessD.html?CNAME=pw01dde0105202601010120260207/AB">東京1R</a>
+        <a href="accessD.html?CNAME=pw01dde0108202602010120260207/CD">京都1R</a>
         </body></html>
         """
         result = extract_checksums_from_nav(html)
 
-        assert result["pw01dde1005202601010120260207"] == 0xAB
-        assert result["pw01dde1008202602010120260207"] == 0xCD
+        assert result["pw01dde0105202601010120260207"] == 0xAB
+        assert result["pw01dde0108202602010120260207"] == 0xCD
 
     def test_関連しないリンクは無視(self):
         """正常系: CNAME以外のリンクは無視される."""
         html = """
         <html><body>
         <a href="https://www.jra.go.jp/top/">JRAトップ</a>
-        <a href="accessD.html?CNAME=pw01dde1005202601010120260207/AB">東京1R</a>
+        <a href="accessD.html?CNAME=pw01dde0105202601010120260207/AB">東京1R</a>
         </body></html>
         """
         result = extract_checksums_from_nav(html)
 
         assert len(result) == 1
-        assert "pw01dde1005202601010120260207" in result
+        assert "pw01dde0105202601010120260207" in result
 
     def test_リンクがない場合は空辞書(self):
         """正常系: CNAMEリンクがない場合."""
@@ -116,8 +116,8 @@ class TestExtractChecksumsFromNav:
         """正常系: CNAME/HEX形式でないリンクは無視."""
         html = """
         <html><body>
-        <a href="accessD.html?CNAME=pw01dde1005">不正形式</a>
-        <a href="accessD.html?CNAME=pw01dde100520260101010120260207/ZZ">不正16進数</a>
+        <a href="accessD.html?CNAME=pw01dde0105">不正形式</a>
+        <a href="accessD.html?CNAME=pw01dde010520260101010120260207/ZZ">不正16進数</a>
         </body></html>
         """
         result = extract_checksums_from_nav(html)
@@ -129,7 +129,7 @@ class TestParseCname:
 
     def test_正常なCNAMEを解析(self):
         """正常系: CNAMEからレース情報を抽出."""
-        result = parse_cname("pw01dde1005202601010120260207")
+        result = parse_cname("pw01dde0105202601010120260207")
 
         assert result is not None
         assert result["venue_code"] == "05"
@@ -141,7 +141,7 @@ class TestParseCname:
 
     def test_京都2回3日目11R(self):
         """正常系: 京都2回3日目11R."""
-        result = parse_cname("pw01dde1008202602031120260208")
+        result = parse_cname("pw01dde0108202602031120260208")
 
         assert result is not None
         assert result["venue_code"] == "08"
@@ -156,7 +156,7 @@ class TestParseCname:
 
     def test_長さ不正(self):
         """異常系: 本体が22文字でない."""
-        result = parse_cname("pw01dde10052026")
+        result = parse_cname("pw01dde01052026")
         assert result is None
 
 
@@ -221,10 +221,10 @@ class TestScrapeJraChecksums:
         # ナビゲーションから取得されたチェックサム
         # 日目=3, base_value=100 → checksum_1r = (100 + 96) % 256 = 196
         # 日目=3, base_value=200 → checksum_1r = (200 + 96) % 256 = 40
-        # CNAME: pw01dde + 10XX + 2026 + KK + NN + RR + YYYYMMDD
+        # CNAME: pw01dde + 01XX + 2026 + KK + NN + RR + YYYYMMDD
         mock_extract.return_value = {
-            "pw01dde1005202601030120260207": 196,  # 東京1R: checksum=196 → base=100
-            "pw01dde1008202602030120260207": 40,   # 京都1R: checksum=40 → base=200
+            "pw01dde0105202601030120260207": 196,  # 東京1R: checksum=196 → base=100
+            "pw01dde0108202602030120260207": 40,   # 京都1R: checksum=40 → base=200
         }
 
         mock_db.save_jra_checksum.return_value = True
@@ -268,7 +268,7 @@ class TestScrapeJraChecksums:
 
         # 東京のみナビにある
         mock_extract.return_value = {
-            "pw01dde1005202601010120260207": 100,
+            "pw01dde0105202601010120260207": 100,
         }
         mock_db.save_jra_checksum.return_value = True
 
@@ -289,7 +289,7 @@ class TestScrapeJraChecksums:
 
         mock_find.return_value = ("<html>valid</html>", 0x10)
         mock_extract.return_value = {
-            "pw01dde1005202601010120260207": 100,
+            "pw01dde0105202601010120260207": 100,
         }
         mock_db.save_jra_checksum.side_effect = Exception("DB error")
 
