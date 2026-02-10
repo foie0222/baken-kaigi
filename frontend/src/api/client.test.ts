@@ -496,6 +496,62 @@ describe('ApiClient', () => {
       expect(result.data?.status).toBe('COMPLETED')
     })
 
+    it('items付きでリクエストボディにitemsが含まれる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          purchase_id: 'p-001',
+          status: 'completed',
+          total_amount: 1000,
+          created_at: '2026-02-07T10:00:00',
+        }),
+      })
+
+      const client = await getApiClient()
+      const items = [
+        {
+          id: 'item-1',
+          raceId: '202605051211',
+          raceName: '東京11R',
+          raceVenue: '05',
+          raceNumber: '11R',
+          betType: 'win' as const,
+          horseNumbers: [1],
+          amount: 100,
+        },
+      ]
+      await client.submitPurchase('cart-1', '20260207', '05', 11, items)
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(callBody.items).toEqual([
+        {
+          race_id: '202605051211',
+          race_name: '東京11R',
+          bet_type: 'win',
+          horse_numbers: [1],
+          amount: 100,
+        },
+      ])
+    })
+
+    it('items未指定時はリクエストボディにitemsが含まれない', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          purchase_id: 'p-001',
+          status: 'completed',
+          total_amount: 1000,
+          created_at: '2026-02-07T10:00:00',
+        }),
+      })
+
+      const client = await getApiClient()
+      await client.submitPurchase('cart-1', '20260207', '05', 11)
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(callBody.items).toBeUndefined()
+    })
+
     it('不正なstatusはPENDINGにフォールバックする', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

@@ -91,7 +91,7 @@ export function PurchaseConfirmPage() {
 
   const handlePurchase = async () => {
     setShowConfirmModal(false);
-    await submitPurchase(cartId, raceDate, courseCode, raceNumber);
+    await submitPurchase(cartId, raceDate, courseCode, raceNumber, items);
     // 購入完了時のみカートをクリア（エラーやnullの場合はクリアしない）
     const result = usePurchaseStore.getState().purchaseResult;
     if (result?.status === 'COMPLETED') {

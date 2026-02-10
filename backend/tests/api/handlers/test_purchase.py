@@ -319,6 +319,112 @@ class TestSubmitPurchaseHandler:
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_items付きでカートがDynamoDBに存在しない場合に自動作成して購入成功(self) -> None:
+        cart_repo, order_repo, cred_provider, _, _ = _setup_deps()
+
+        # カートをDynamoDBに保存しない（フロントエンドのlocalStorageのみにある状態を再現）
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-local-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": [
+                {
+                    "race_id": "202605051211",
+                    "race_name": "東京11R",
+                    "bet_type": "win",
+                    "horse_numbers": [1],
+                    "amount": 100,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        body = json.loads(result["body"])
+        assert body["status"] == "completed"
+
+        # カートがDynamoDBに作成されたことを確認
+        saved_cart = cart_repo.find_by_id(CartId("cart-local-001"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 1
+
+    def test_items付きでカートがDynamoDBに既に存在する場合は上書きしない(self) -> None:
+        cart_repo, order_repo, cred_provider, _, _ = _setup_deps()
+
+        # 既存のカートをDynamoDBに保存
+        cart = Cart(cart_id=CartId("cart-exist"), user_id=UserId("user-001"))
+        cart.add_item(
+            race_id=RaceId("202605051211"),
+            race_name="東京11R",
+            bet_selection=BetSelection(
+                bet_type=BetType.WIN,
+                horse_numbers=HorseNumbers.of(1),
+                amount=Money.of(100),
+            ),
+        )
+        cart_repo.save(cart)
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-exist",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": [
+                {
+                    "race_id": "202605051211",
+                    "race_name": "東京11R",
+                    "bet_type": "win",
+                    "horse_numbers": [1],
+                    "amount": 200,
+                },
+                {
+                    "race_id": "202605051211",
+                    "race_name": "東京11R",
+                    "bet_type": "place",
+                    "horse_numbers": [2],
+                    "amount": 300,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+
+        # 既存のカートが上書きされていないことを確認（アイテム数1のまま）
+        saved_cart = cart_repo.find_by_id(CartId("cart-exist"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 1
+
+    def test_items無しでカートがDynamoDBに存在しない場合は404(self) -> None:
+        _setup_deps()
+
+        event = _auth_event(body={
+            "cart_id": "cart-nonexistent",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 404
+
 
 class TestGetPurchaseHistoryHandler:
     """get_purchase_history_handler のテスト."""

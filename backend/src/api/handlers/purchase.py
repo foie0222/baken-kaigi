@@ -27,8 +27,11 @@ from src.application.use_cases.submit_purchase import (
     PurchaseValidationError,
     SubmitPurchaseUseCase,
 )
-from src.domain.identifiers import PurchaseId
+from src.domain.entities import Cart
+from src.domain.enums import BetType
+from src.domain.identifiers import CartId, PurchaseId, RaceId, UserId
 from src.domain.ports import IpatGatewayError
+from src.domain.value_objects import BetSelection, HorseNumbers, Money
 
 
 def submit_purchase_handler(event: dict, context: Any) -> dict:
@@ -82,8 +85,25 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
             event=event,
         )
 
+    # フロントエンドから送信されたカートアイテムでDynamoDBに同期
+    items = body.get("items", [])
+    cart_repository = Dependencies.get_cart_repository()
+    if items and cart_repository.find_by_id(CartId(cart_id)) is None:
+        cart = Cart(cart_id=CartId(cart_id), user_id=UserId(user_id.value))
+        for item_data in items:
+            cart.add_item(
+                race_id=RaceId(item_data["race_id"]),
+                race_name=item_data["race_name"],
+                bet_selection=BetSelection(
+                    bet_type=BetType(item_data["bet_type"]),
+                    horse_numbers=HorseNumbers.from_list(item_data["horse_numbers"]),
+                    amount=Money(item_data["amount"]),
+                ),
+            )
+        cart_repository.save(cart)
+
     use_case = SubmitPurchaseUseCase(
-        cart_repository=Dependencies.get_cart_repository(),
+        cart_repository=cart_repository,
         purchase_order_repository=Dependencies.get_purchase_order_repository(),
         ipat_gateway=Dependencies.get_ipat_gateway(),
         credentials_provider=Dependencies.get_credentials_provider(),

@@ -119,6 +119,46 @@ describe('PurchaseConfirmPage', () => {
     })
   })
 
+  describe('購入時にカートアイテムが送信される', () => {
+    it('submitPurchaseにitemsが渡される', async () => {
+      addTestCartItem()
+
+      vi.mocked(apiClient.submitPurchase).mockResolvedValue({
+        success: true,
+        data: {
+          purchaseId: 'purchase-123',
+          status: 'COMPLETED',
+          totalAmount: 1000,
+          createdAt: '2026-02-08T00:00:00Z',
+        },
+      })
+
+      const { user } = render(<PurchaseConfirmPage />)
+      await clickPurchaseAndConfirm(user)
+
+      await waitFor(() => {
+        expect(usePurchaseStore.getState().isLoading).toBe(false)
+      })
+
+      // submitPurchaseが5引数で呼ばれたことを確認
+      expect(apiClient.submitPurchase).toHaveBeenCalledWith(
+        expect.any(String), // cartId
+        '20260208',         // raceDate
+        '05',               // courseCode
+        1,                  // raceNumber
+        expect.arrayContaining([
+          expect.objectContaining({
+            raceId: '20260208050101',
+            raceName: 'テストレース',
+            betType: 'win',
+            horseNumbers: [1],
+            amount: 1000,
+          }),
+        ]),
+      )
+    })
+  })
+
   describe('購入エラー時のカートクリア防止', () => {
     it('API通信エラー時にカートがクリアされない', async () => {
       addTestCartItem()
