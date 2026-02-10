@@ -97,6 +97,38 @@ class GitHubOidcStack(Stack):
             )
         )
 
+        # SSM SendCommand（EC2デプロイ用）
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="SsmSendCommand",
+                actions=["ssm:SendCommand", "ssm:GetCommandInvocation"],
+                resources=[
+                    f"arn:aws:ssm:ap-northeast-1::document/AWS-RunPowerShellScript",
+                    f"arn:aws:ec2:ap-northeast-1:{Stack.of(self).account}:instance/*",
+                ],
+            )
+        )
+
+        # S3デプロイアーティファクト書き込み
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="S3DeployUpload",
+                actions=["s3:PutObject"],
+                resources=[
+                    f"arn:aws:s3:::baken-kaigi-jravan-deploy-{Stack.of(self).account}/deploy/*",
+                ],
+            )
+        )
+
+        # CloudFormation ExportsからインスタンスID・バケット名取得
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="CloudFormationListExports",
+                actions=["cloudformation:ListExports"],
+                resources=["*"],
+            )
+        )
+
         # Outputs
         CfnOutput(
             self,
