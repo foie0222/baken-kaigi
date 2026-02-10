@@ -425,6 +425,78 @@ class TestSubmitPurchaseHandler:
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 404
 
+    def test_itemsがリストでない場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": "not-a-list",
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_items要素がオブジェクトでない場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": ["not-an-object"],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_items要素に必須フィールドが欠落の場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": [{"race_id": "202605051211"}],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_items要素のbet_typeが不正な場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "invalid_type",
+                "horse_numbers": [1],
+                "amount": 100,
+            }],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_items要素のamountがboolの場合400(self) -> None:
+        _setup_deps()
+        event = _auth_event(body={
+            "cart_id": "cart-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "win",
+                "horse_numbers": [1],
+                "amount": True,
+            }],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
 
 class TestGetPurchaseHistoryHandler:
     """get_purchase_history_handler のテスト."""

@@ -1,6 +1,7 @@
 """購入APIハンドラー."""
 import logging
 import math
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -85,21 +86,93 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
             event=event,
         )
 
-    # フロントエンドから送信されたカートアイテムでDynamoDBに同期
-    items = body.get("items", [])
-    cart_repository = Dependencies.get_cart_repository()
-    if items and cart_repository.find_by_id(CartId(cart_id)) is None:
-        cart = Cart(cart_id=CartId(cart_id), user_id=UserId(user_id.value))
-        for item_data in items:
-            cart.add_item(
-                race_id=RaceId(item_data["race_id"]),
-                race_name=item_data["race_name"],
-                bet_selection=BetSelection(
-                    bet_type=BetType(item_data["bet_type"]),
-                    horse_numbers=HorseNumbers.from_list(item_data["horse_numbers"]),
-                    amount=Money(item_data["amount"]),
-                ),
+    # フロントエンドから送信されたカートアイテムのバリデーションとDynamoDB同期
+    items = body.get("items")
+    if items is None:
+        items = []
+    elif not isinstance(items, list):
+        return bad_request_response("items must be a list", event=event)
+
+    normalized_items: list[dict[str, Any]] = []
+    for index, item_data in enumerate(items):
+        if not isinstance(item_data, dict):
+            return bad_request_response(f"items[{index}] must be an object", event=event)
+
+        try:
+            race_id_raw = item_data["race_id"]
+            race_name_raw = item_data["race_name"]
+            bet_type_raw = item_data["bet_type"]
+            horse_numbers_raw = item_data["horse_numbers"]
+            amount_raw = item_data["amount"]
+        except KeyError as e:
+            return bad_request_response(
+                f"items[{index}] is missing required field '{e.args[0]}'",
+                event=event,
             )
+
+        if not isinstance(race_id_raw, str):
+            return bad_request_response(f"items[{index}].race_id must be a string", event=event)
+        if not isinstance(race_name_raw, str):
+            return bad_request_response(f"items[{index}].race_name must be a string", event=event)
+        if not isinstance(bet_type_raw, str):
+            return bad_request_response(f"items[{index}].bet_type must be a string", event=event)
+
+        try:
+            bet_type = BetType(bet_type_raw.lower())
+        except ValueError:
+            return bad_request_response(f"items[{index}].bet_type is invalid", event=event)
+
+        if not isinstance(horse_numbers_raw, list):
+            return bad_request_response(f"items[{index}].horse_numbers must be a list", event=event)
+        try:
+            horse_numbers_list = [int(n) for n in horse_numbers_raw]
+        except (TypeError, ValueError):
+            return bad_request_response(
+                f"items[{index}].horse_numbers must be a list of integers",
+                event=event,
+            )
+
+        if isinstance(amount_raw, bool) or not isinstance(amount_raw, (int, float)):
+            return bad_request_response(f"items[{index}].amount must be a number", event=event)
+        if isinstance(amount_raw, float):
+            if not math.isfinite(amount_raw):
+                return bad_request_response(f"items[{index}].amount must be a finite number", event=event)
+            if amount_raw != int(amount_raw):
+                return bad_request_response(f"items[{index}].amount must be a whole number", event=event)
+            amount_value = int(amount_raw)
+        else:
+            amount_value = int(amount_raw)
+
+        normalized_items.append({
+            "race_id": race_id_raw,
+            "race_name": race_name_raw,
+            "bet_type": bet_type,
+            "horse_numbers": horse_numbers_list,
+            "amount": amount_value,
+        })
+
+    cart_repository = Dependencies.get_cart_repository()
+    if normalized_items and cart_repository.find_by_id(CartId(cart_id)) is None:
+        now = datetime.now(timezone.utc)
+        cart = Cart(
+            cart_id=CartId(cart_id),
+            user_id=UserId(user_id.value),
+            created_at=now,
+            updated_at=now,
+        )
+        try:
+            for item in normalized_items:
+                cart.add_item(
+                    race_id=RaceId(item["race_id"]),
+                    race_name=item["race_name"],
+                    bet_selection=BetSelection(
+                        bet_type=item["bet_type"],
+                        horse_numbers=HorseNumbers.from_list(item["horse_numbers"]),
+                        amount=Money(item["amount"]),
+                    ),
+                )
+        except ValueError as e:
+            return bad_request_response(str(e), event=event)
         cart_repository.save(cart)
 
     use_case = SubmitPurchaseUseCase(
