@@ -164,6 +164,7 @@ describe('ApiClient', () => {
       const client = await getApiClient()
       const result = await client.addToCart('cart_001', {
         raceId: 'race_001',
+        raceName: 'テストレース',
         betType: 'quinella',
         horseNumbers: [1, 2],
         amount: 1000,
