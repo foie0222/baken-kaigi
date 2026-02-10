@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { BottomSheet } from '../common/BottomSheet';
 import { ProposalCard } from './ProposalCard';
 import { apiClient } from '../../api/client';
-import { useCartStore } from '../../stores/cartStore';
+import { useCartStore, type AddItemResult } from '../../stores/cartStore';
 import { useAppStore } from '../../stores/appStore';
 import type { RaceDetail, BetProposalResponse } from '../../types';
 import './BetProposalSheet.css';
@@ -126,6 +126,7 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
   const handleAddAll = () => {
     if (!result) return;
     let addedCount = 0;
+    let firstError: AddItemResult | null = null;
     const newIndices = new Set(addedIndices);
 
     result.proposed_bets.forEach((bet, index) => {
@@ -153,12 +154,20 @@ export function BetProposalSheet({ isOpen, onClose, race }: BetProposalSheetProp
       if (addResult === 'ok') {
         addedCount++;
         newIndices.add(index);
+      } else if (!firstError) {
+        firstError = addResult;
       }
     });
 
     if (addedCount > 0) {
       setAddedIndices(newIndices);
       showToast(`${addedCount}件をカートに追加しました`);
+    } else if (firstError) {
+      const message =
+        firstError === 'different_race'
+          ? 'カートには同じレースの買い目のみ追加できます'
+          : '金額が範囲外です';
+      showToast(message, 'error');
     }
   };
 
