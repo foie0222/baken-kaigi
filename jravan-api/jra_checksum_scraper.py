@@ -27,7 +27,7 @@ JST = timezone(timedelta(hours=9))
 def build_cname(venue_code: str, year: str, kaisai_kai: str, kaisai_nichime: int, race_number: int, date: str) -> str:
     """JRA出馬表のCNAMEパラメータを構築する.
 
-    CNAME形式: pw01dde{10+venue}{year}{kai}{nichime}{race_number}{date}
+    CNAME形式: pw01dde{01+venue}{year}{kai}{nichime}{race_number}{date}
 
     Args:
         venue_code: 競馬場コード（01-10）
@@ -40,8 +40,8 @@ def build_cname(venue_code: str, year: str, kaisai_kai: str, kaisai_nichime: int
     Returns:
         CNAME文字列
     """
-    # venue部分: 10+venue_code (例: venue_code="05" → "1005")
-    venue_part = f"10{venue_code}"
+    # venue部分: 01+venue_code (例: venue_code="05" → "0105")
+    venue_part = f"01{venue_code}"
     return f"pw01dde{venue_part}{year}{kaisai_kai}{kaisai_nichime:02d}{race_number:02d}{date}"
 
 
@@ -132,7 +132,7 @@ def parse_cname(cname: str) -> dict | None:
     """CNAMEからレース情報を解析する.
 
     CNAME形式: pw01dde{4桁venue}{4桁year}{2桁kai}{2桁nichime}{2桁race}{8桁date}
-    例: pw01dde10052026010101020260207
+    例: pw01dde01052026010101020260207
 
     Args:
         cname: CNAME文字列
@@ -150,7 +150,7 @@ def parse_cname(cname: str) -> dict | None:
         return None
 
     try:
-        venue_part = body[0:4]  # "10XX"
+        venue_part = body[0:4]  # "01XX"
         venue_code = venue_part[2:4]  # "XX"
         year = body[4:8]
         kaisai_kai = body[8:10]

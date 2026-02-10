@@ -16,7 +16,7 @@ describe('buildJraShutsubaUrl', () => {
       const url = buildJraShutsubaUrl(race);
 
       expect(url).toBe(
-        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde1006202601080120260124/F3'
+        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0106202601080120260124/F3'
       );
     });
 
@@ -33,7 +33,7 @@ describe('buildJraShutsubaUrl', () => {
       const url = buildJraShutsubaUrl(race);
 
       expect(url).toBe(
-        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde1006202602051120260124/0F'
+        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0106202602051120260124/0F'
       );
     });
 
@@ -50,11 +50,11 @@ describe('buildJraShutsubaUrl', () => {
       const url = buildJraShutsubaUrl(race);
 
       expect(url).toBe(
-        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde1005202601010320260124/00'
+        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0105202601010320260124/00'
       );
     });
 
-    it('小倉(venue=10)の場合、venue4digitが1010になる', () => {
+    it('小倉(venue=10)の場合、venue4digitが0110になる', () => {
       const race = {
         id: '20260207_10_01',
         kaisaiKai: '01',
@@ -67,7 +67,7 @@ describe('buildJraShutsubaUrl', () => {
       const url = buildJraShutsubaUrl(race);
 
       expect(url).toBe(
-        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde1010202601050120260207/E4'
+        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0110202601050120260207/E4'
       );
     });
 
@@ -84,7 +84,7 @@ describe('buildJraShutsubaUrl', () => {
       const url = buildJraShutsubaUrl(race);
 
       expect(url).toBe(
-        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde1005202603020120260124/FF'
+        'https://www.jra.go.jp/JRADB/accessD.html?CNAME=pw01dde0105202603020120260124/FF'
       );
     });
   });
