@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { IpatBalance, PurchaseResult, PurchaseOrder } from '../types';
+import type { CartItem, IpatBalance, PurchaseResult, PurchaseOrder } from '../types';
 import { apiClient } from '../api/client';
 
 /** APIの英語エラーメッセージを日本語に変換する */
@@ -20,7 +20,7 @@ interface PurchaseState {
   isLoading: boolean;
   error: string | null;
 
-  submitPurchase: (cartId: string, raceDate: string, courseCode: string, raceNumber: number) => Promise<void>;
+  submitPurchase: (cartId: string, raceDate: string, courseCode: string, raceNumber: number, items?: CartItem[]) => Promise<void>;
   fetchBalance: () => Promise<void>;
   fetchHistory: () => Promise<void>;
   clearError: () => void;
@@ -34,10 +34,10 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
   isLoading: false,
   error: null,
 
-  submitPurchase: async (cartId, raceDate, courseCode, raceNumber) => {
+  submitPurchase: async (cartId, raceDate, courseCode, raceNumber, items) => {
     try {
       set({ isLoading: true, error: null, purchaseResult: null });
-      const response = await apiClient.submitPurchase(cartId, raceDate, courseCode, raceNumber);
+      const response = await apiClient.submitPurchase(cartId, raceDate, courseCode, raceNumber, items);
       if (!response.success || !response.data) {
         set({ isLoading: false, error: toJapaneseError(response.error, '購入に失敗しました') });
         return;

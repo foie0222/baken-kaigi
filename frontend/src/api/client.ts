@@ -302,16 +302,27 @@ class ApiClient {
     cartId: string,
     raceDate: string,
     courseCode: string,
-    raceNumber: number
+    raceNumber: number,
+    items?: CartItem[]
   ): Promise<ApiResponse<PurchaseResult>> {
+    const payload: Record<string, unknown> = {
+      cart_id: cartId,
+      race_date: raceDate,
+      course_code: courseCode,
+      race_number: raceNumber,
+    };
+    if (items && items.length > 0) {
+      payload.items = items.map(item => ({
+        race_id: item.raceId,
+        race_name: item.raceName,
+        bet_type: item.betType,
+        horse_numbers: item.horseNumbers,
+        amount: item.amount,
+      }));
+    }
     const res = await this.request<Record<string, unknown>>('/purchases', {
       method: 'POST',
-      body: JSON.stringify({
-        cart_id: cartId,
-        race_date: raceDate,
-        course_code: courseCode,
-        race_number: raceNumber,
-      }),
+      body: JSON.stringify(payload),
     });
     if (res.success && res.data) {
       const d = res.data;
