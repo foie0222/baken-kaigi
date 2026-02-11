@@ -22,7 +22,7 @@ from .constants import (
     WIN_PLACE_RATIO_HIGH,
     WIN_PLACE_RATIO_LOW,
 )
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = get_tool_logger("odds_analysis")
 
@@ -57,9 +57,8 @@ def analyze_odds_movement(
     """
     try:
         # 単勝オッズ履歴を取得
-        win_response = requests.get(
+        win_response = cached_get(
             f"{get_api_url()}/races/{race_id}/odds-history",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -142,10 +141,9 @@ def _fetch_place_odds(race_id: str) -> list[dict]:
         複勝オッズリスト
     """
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/odds",
             params={"bet_type": "place"},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
