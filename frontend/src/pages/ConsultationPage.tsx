@@ -400,7 +400,7 @@ export function ConsultationPage() {
               </div>
               {msg.betActions && msg.betActions.length > 0 && index === messages.length - 1 && !isLoading && (
                 <div className="bet-action-buttons">
-                  {msg.betActions.map((action, i) => (
+                  {msg.betActions.map((action) => (
                     <button
                       key={`${action.type}-${action.label}`}
                       type="button"
