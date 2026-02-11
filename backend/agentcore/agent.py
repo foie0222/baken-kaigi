@@ -264,6 +264,7 @@ def _extract_bet_actions(text: str) -> tuple[str, list[dict]]:
         if isinstance(actions, list):
             return main_text, actions[:5]
     except json.JSONDecodeError:
+        # JSONパースに失敗した場合はアクションなしとして扱う
         pass
 
     return main_text, []

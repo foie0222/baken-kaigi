@@ -219,15 +219,19 @@ export function ConsultationPage() {
     switch (action.type) {
       case 'remove_horse': {
         const horseNum = action.params.horse_number as number;
-        const targetItem = items.find((item) =>
+        const targetItems = items.filter((item) =>
           item.horseNumbers.includes(horseNum)
         );
-        if (targetItem) {
-          removeItem(targetItem.id);
+        if (targetItems.length > 0) {
+          targetItems.forEach((targetItem) => {
+            removeItem(targetItem.id);
+          });
           showToast(`${horseNum}番を削除しました`);
-          if (items.length === 1) {
+          if (items.length === targetItems.length) {
             navigate('/cart');
           }
+        } else {
+          showToast('該当する買い目が見つかりませんでした');
         }
         break;
       }
@@ -238,7 +242,9 @@ export function ConsultationPage() {
       case 'change_amount': {
         const amount = action.params.amount as number;
         if (amount >= MIN_BET_AMOUNT && amount <= MAX_BET_AMOUNT && amount % 100 === 0) {
-          items.forEach((item) => updateItemAmount(item.id, amount));
+          useCartStore.setState((state) => ({
+            items: state.items.map((item) => ({ ...item, amount })),
+          }));
           showToast(`金額を${amount.toLocaleString()}円に変更しました`);
         } else {
           showToast('金額は100円単位で指定してください');
@@ -396,7 +402,7 @@ export function ConsultationPage() {
                 <div className="bet-action-buttons">
                   {msg.betActions.map((action, i) => (
                     <button
-                      key={i}
+                      key={`${action.type}-${action.label}`}
                       type="button"
                       className="bet-action-btn"
                       onClick={() => handleBetAction(action)}
