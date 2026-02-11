@@ -87,6 +87,16 @@ class TestEvaluateJockey:
         jockey_stats = {"place_rate": 40.0}
         assert _evaluate_jockey(jockey_stats) == "B"
 
+    def test_騎手評価_statsネスト構造でも正しく評価(self):
+        """{"stats": {"win_rate": 20.0}} 形式にも対応."""
+        jockey_stats = {"stats": {"win_rate": 20.0, "place_rate": 50.0}}
+        assert _evaluate_jockey(jockey_stats) == "A"
+
+    def test_騎手評価_statsネスト構造でwin_rateなしならB(self):
+        """{"stats": {}} 形式 → デフォルトB."""
+        jockey_stats = {"stats": {"place_rate": 40.0}}
+        assert _evaluate_jockey(jockey_stats) == "B"
+
 
 # =============================================================================
 # 調教師評価 (_evaluate_trainer) テスト
@@ -135,6 +145,16 @@ class TestEvaluateTrainer:
         trainer_stats = {"place_rate": 40.0}
         assert _evaluate_trainer(trainer_stats) == "B"
 
+    def test_調教師評価_statsネスト構造でも正しく評価(self):
+        """{"stats": {"win_rate": 18.0}} 形式にも対応."""
+        trainer_stats = {"stats": {"win_rate": 18.0, "place_rate": 50.0}}
+        assert _evaluate_trainer(trainer_stats) == "A"
+
+    def test_調教師評価_statsネスト構造でwin_rateなしならB(self):
+        """{"stats": {}} 形式 → デフォルトB."""
+        trainer_stats = {"stats": {"place_rate": 40.0}}
+        assert _evaluate_trainer(trainer_stats) == "B"
+
 
 # =============================================================================
 # 馬体重変動評価 (_evaluate_weight_change) テスト
@@ -173,7 +193,7 @@ class TestEvaluateWeightChange:
         assert _evaluate_weight_change(-6) == "B"
 
     def test_体重変動_プラス8はB(self):
-        """前走比+8kg → B（6-9kgはやや変動）."""
+        """前走比+8kg → B（5-9kgはやや変動）."""
         assert _evaluate_weight_change(8) == "B"
 
     def test_体重変動_プラス10はC(self):

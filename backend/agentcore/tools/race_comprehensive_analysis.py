@@ -173,14 +173,17 @@ def _evaluate_all_runners(
     # 脚質マップ作成
     style_map = {r.get("horse_number"): r.get("running_style", "不明") for r in running_styles}
 
+    # 騎手・調教師のstatsキャッシュ（同一IDへの重複リクエスト防止）
+    jockey_cache: dict[str, dict] = {}
+    trainer_cache: dict[str, dict] = {}
+
     evaluations = []
     for runner in runners:
         horse_number = runner.get("horse_number")
         horse_name = runner.get("horse_name", "")
-        horse_id = runner.get("horse_id", "")
 
         # 各項目の評価を取得
-        factors = _evaluate_horse_factors(runner, race_info)
+        factors = _evaluate_horse_factors(runner, race_info, jockey_cache, trainer_cache)
 
         # 強みと弱みの抽出
         strengths, weaknesses = _extract_strengths_weaknesses(
@@ -203,7 +206,12 @@ def _evaluate_all_runners(
     return evaluations
 
 
-def _evaluate_horse_factors(runner: dict, race_info: dict) -> dict:
+def _evaluate_horse_factors(
+    runner: dict,
+    race_info: dict,
+    jockey_cache: dict | None = None,
+    trainer_cache: dict | None = None,
+) -> dict:
     """馬の各要素を評価する."""
     horse_id = runner.get("horse_id", "")
     factors = {
@@ -244,35 +252,46 @@ def _evaluate_horse_factors(runner: dict, race_info: dict) -> dict:
     except requests.RequestException as e:
         logger.debug(f"Failed to get course aptitude for horse {horse_id}: {e}")
 
-    # 騎手評価
+    # 騎手評価（キャッシュ対応で同一騎手への重複リクエスト防止）
     jockey_id = runner.get("jockey_id", "")
     if jockey_id:
-        try:
-            response = requests.get(
-                f"{get_api_url()}/jockeys/{jockey_id}/stats",
-                headers=get_headers(),
-                timeout=API_TIMEOUT_SECONDS,
-            )
-            if response.status_code == 200:
-                jockey_stats = response.json()
-                factors["jockey"] = _evaluate_jockey(jockey_stats)
-        except requests.RequestException as e:
-            logger.debug(f"Failed to get jockey stats for {jockey_id}: {e}")
+        if jockey_cache is not None and jockey_id in jockey_cache:
+            factors["jockey"] = _evaluate_jockey(jockey_cache[jockey_id])
+        else:
+            try:
+                response = requests.get(
+                    f"{get_api_url()}/jockeys/{jockey_id}/stats",
+                    headers=get_headers(),
+                    timeout=API_TIMEOUT_SECONDS,
+                )
+                if response.status_code == 200:
+                    jockey_stats = response.json()
+                    if jockey_cache is not None:
+                        jockey_cache[jockey_id] = jockey_stats
+                    factors["jockey"] = _evaluate_jockey(jockey_stats)
+            except requests.RequestException as e:
+                logger.debug(f"Failed to get jockey stats for {jockey_id}: {e}")
 
-    # 調教師評価
+    # 調教師評価（キャッシュ対応で同一調教師への重複リクエスト防止）
     trainer_id = runner.get("trainer_id", "")
     if trainer_id:
-        try:
-            response = requests.get(
-                f"{get_api_url()}/trainers/{trainer_id}/stats",
-                headers=get_headers(),
-                timeout=API_TIMEOUT_SECONDS,
-            )
-            if response.status_code == 200:
-                trainer_stats = response.json()
-                factors["trainer"] = _evaluate_trainer(trainer_stats)
-        except requests.RequestException as e:
-            logger.debug(f"Failed to get trainer stats for {trainer_id}: {e}")
+        if trainer_cache is not None and trainer_id in trainer_cache:
+            factors["trainer"] = _evaluate_trainer(trainer_cache[trainer_id])
+        else:
+            try:
+                response = requests.get(
+                    f"{get_api_url()}/trainers/{trainer_id}/stats",
+                    params={"period": "recent"},
+                    headers=get_headers(),
+                    timeout=API_TIMEOUT_SECONDS,
+                )
+                if response.status_code == 200:
+                    trainer_stats = response.json()
+                    if trainer_cache is not None:
+                        trainer_cache[trainer_id] = trainer_stats
+                    factors["trainer"] = _evaluate_trainer(trainer_stats)
+            except requests.RequestException as e:
+                logger.debug(f"Failed to get trainer stats for {trainer_id}: {e}")
 
     # 馬体重変動評価
     weight_diff = runner.get("weight_diff")
@@ -336,7 +355,9 @@ WEIGHT_CHANGE_C = 14   # 10-14kg: 大幅変動
 
 def _evaluate_jockey(jockey_stats: dict) -> str:
     """騎手を勝率ベースで評価する."""
-    win_rate = jockey_stats.get("win_rate")
+    # レスポンスが {"stats": {"win_rate": ...}} 形式の場合も対応
+    stats = jockey_stats.get("stats", jockey_stats)
+    win_rate = stats.get("win_rate")
     if win_rate is None:
         return "B"
 
@@ -352,7 +373,9 @@ def _evaluate_jockey(jockey_stats: dict) -> str:
 
 def _evaluate_trainer(trainer_stats: dict) -> str:
     """調教師を勝率ベースで評価する."""
-    win_rate = trainer_stats.get("win_rate")
+    # レスポンスが {"stats": {"win_rate": ...}} 形式の場合も対応
+    stats = trainer_stats.get("stats", trainer_stats)
+    win_rate = stats.get("win_rate")
     if win_rate is None:
         return "B"
 
