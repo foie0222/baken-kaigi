@@ -1,5 +1,7 @@
 """ツールルーター - 質問カテゴリに応じたツール選択."""
 
+from typing import Any, Callable, Literal
+
 # ツールカテゴリ定義
 TOOL_CATEGORIES = {
     "full_analysis": {
@@ -42,16 +44,10 @@ def classify_question(user_message: str, has_cart: bool = False, has_runners: bo
     """
     msg = user_message
 
-    # カートがあり分析系キーワードがある場合はfull_analysis
-    if has_cart:
-        full_kw = TOOL_CATEGORIES["full_analysis"]["keywords"]
-        if any(kw in msg for kw in full_kw):
-            return "full_analysis"
-
-    # カテゴリ別キーワードマッチ（最多ヒットカテゴリを返す）
+    # 全カテゴリのキーワードマッチ（followup除く）
     scores: dict[str, int] = {}
     for category, config in TOOL_CATEGORIES.items():
-        if category in ("full_analysis", "followup"):
+        if category == "followup":
             continue
         keywords = config["keywords"]
         score = sum(1 for kw in keywords if kw in msg)
@@ -59,18 +55,39 @@ def classify_question(user_message: str, has_cart: bool = False, has_runners: bo
             scores[category] = score
 
     if scores:
-        return max(scores, key=scores.get)
+        max_score = max(scores.values())
+        top_categories = [k for k, v in scores.items() if v == max_score]
 
-    # カートも出走馬データもない場合はfollowup
-    if not has_cart and not has_runners:
-        return "followup"
+        if len(top_categories) == 1:
+            return top_categories[0]
 
-    # デフォルトはfull_analysis
-    return "full_analysis"
+        # 同点の場合:
+        # - データコンテキスト（カートまたは出走馬）がある → full_analysis優先
+        # - データコンテキストなし → 具体的カテゴリ優先
+        if "full_analysis" in top_categories:
+            if has_cart or has_runners:
+                return "full_analysis"
+            specific = [k for k in top_categories if k != "full_analysis"]
+            if specific:
+                return specific[0]
+
+        return top_categories[0]
+
+    # キーワードに一致しない場合はfollowup
+    return "followup"
 
 
-def get_tools_for_category(category: str) -> list:
+CategoryType = Literal[
+    "full_analysis", "horse_focused", "bet_focused",
+    "race_focused", "risk_focused", "followup",
+]
+
+
+def get_tools_for_category(category: CategoryType) -> list[Callable[..., Any]]:
     """カテゴリに応じたツールリストを返す.
+
+    Args:
+        category: 質問カテゴリ
 
     Returns:
         ツール関数のリスト

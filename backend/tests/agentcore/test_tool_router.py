@@ -121,6 +121,18 @@ class TestClassifyQuestion:
         result = classify_question("")
         assert result == "followup"
 
+    def test_カートありでキーワードなしはfollowup(self):
+        result = classify_question("ありがとう", has_cart=True)
+        assert result == "followup"
+
+    def test_出走馬ありでキーワードなしはfollowup(self):
+        result = classify_question("なるほど", has_runners=True)
+        assert result == "followup"
+
+    def test_カートと出走馬ありでキーワードなしはfollowup(self):
+        result = classify_question("わかりました", has_cart=True, has_runners=True)
+        assert result == "followup"
+
     # --- 複数カテゴリのキーワードを含む場合 ---
 
     def test_複数カテゴリは最多ヒットのカテゴリ(self):

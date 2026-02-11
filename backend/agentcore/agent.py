@@ -42,19 +42,14 @@ _consultation_agents: dict[str, Any] = {}
 _bet_proposal_agent = None
 
 
-def _create_agent(system_prompt: str) -> Any:
-    """指定されたシステムプロンプトでエージェントを作成する."""
+def _create_agent(system_prompt: str, tools: list | None = None) -> Any:
+    """指定されたシステムプロンプトとツールでエージェントを作成する."""
     from strands import Agent
     from strands.models import BedrockModel
-    from tools.ai_prediction import get_ai_prediction
-    from tools.bet_analysis import analyze_bet_selection
-    from tools.bet_proposal import generate_bet_proposal
-    from tools.odds_analysis import analyze_odds_movement
-    from tools.pace_analysis import analyze_race_characteristics
-    from tools.past_performance import get_past_performance
-    from tools.race_data import get_race_runners
-    from tools.risk_analysis import analyze_risk_factors
-    from tools.speed_index import get_speed_index, list_speed_indices_for_date
+
+    if tools is None:
+        from tool_router import get_tools_for_category
+        tools = get_tools_for_category("full_analysis")
 
     bedrock_model = BedrockModel(
         model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.anthropic.claude-haiku-4-5-20251001-v1:0"),
@@ -65,24 +60,17 @@ def _create_agent(system_prompt: str) -> Any:
     agent = Agent(
         model=bedrock_model,
         system_prompt=system_prompt,
-        tools=[
-            get_ai_prediction,  # AI指数取得（ai-shisu.com）
-            get_speed_index,  # スピード指数取得
-            list_speed_indices_for_date,  # 日付別スピード指数一覧
-            get_past_performance,  # 馬柱（過去成績）取得
-            get_race_runners,  # レース出走馬データ取得（JRA-VAN API）
-            analyze_bet_selection,  # JRA統計ベース買い目分析
-            analyze_odds_movement,  # オッズ変動・妙味分析
-            analyze_race_characteristics,  # 展開予想・レース特性分析
-            analyze_risk_factors,  # リスク分析・心理バイアス対策
-            generate_bet_proposal,  # 買い目提案一括生成
-        ],
+        tools=tools,
     )
-    logger.info("Agent created successfully")
+    logger.info(f"Agent created successfully with {len(tools)} tools")
     return agent
 
 
-def _get_agent(request_type: str | None = None, character_type: str | None = None) -> Any:
+def _get_agent(
+    request_type: str | None = None,
+    character_type: str | None = None,
+    category: str | None = None,
+) -> Any:
     """エージェントを遅延初期化して取得する."""
     global _consultation_agents, _bet_proposal_agent
 
@@ -94,13 +82,19 @@ def _get_agent(request_type: str | None = None, character_type: str | None = Non
         return _bet_proposal_agent
 
     from prompts.characters import CHARACTER_PROMPTS, DEFAULT_CHARACTER
+    from tool_router import get_tools_for_category
+
     char_key = character_type if character_type in CHARACTER_PROMPTS else DEFAULT_CHARACTER
-    if char_key not in _consultation_agents:
-        logger.info(f"Lazy initializing consultation agent for character: {char_key}")
+    resolved_category = category or "full_analysis"
+    cache_key = f"{char_key}:{resolved_category}"
+
+    if cache_key not in _consultation_agents:
+        logger.info(f"Lazy initializing consultation agent for character: {char_key}, category: {resolved_category}")
         from prompts.consultation import get_system_prompt
         system_prompt = get_system_prompt(char_key)
-        _consultation_agents[char_key] = _create_agent(system_prompt)
-    return _consultation_agents[char_key]
+        tools = get_tools_for_category(resolved_category)
+        _consultation_agents[cache_key] = _create_agent(system_prompt, tools=tools)
+    return _consultation_agents[cache_key]
 
 
 @app.entrypoint
@@ -138,6 +132,9 @@ def invoke(payload: dict, context: Any) -> dict:
     if not user_message and cart_items:
         user_message = "カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。"
 
+    # 質問カテゴリ分類用に生のプロンプトを保持（カート/出走馬データの装飾前）
+    raw_prompt = user_message
+
     # カート情報をコンテキストとして追加
     if cart_items:
         cart_summary = _format_cart_summary(cart_items)
@@ -148,10 +145,10 @@ def invoke(payload: dict, context: Any) -> dict:
         runners_summary = _format_runners_summary(runners_data)
         user_message = f"【出走馬データ】\n{runners_summary}\n\n{user_message}"
 
-    # 質問カテゴリを分類
+    # 質問カテゴリを分類（装飾前の生のプロンプトで分類）
     from tool_router import classify_question, CATEGORY_INSTRUCTIONS
     category = classify_question(
-        user_message, has_cart=bool(cart_items), has_runners=bool(runners_data),
+        raw_prompt, has_cart=bool(cart_items), has_runners=bool(runners_data),
     )
     logger.info(f"Question category: {category}")
 
@@ -160,8 +157,8 @@ def invoke(payload: dict, context: Any) -> dict:
     if category_instruction:
         user_message = f"{category_instruction}\n\n{user_message}"
 
-    # エージェント実行（遅延初期化）
-    agent = _get_agent(request_type, character_type)
+    # エージェント実行（カテゴリ別ツール選択で遅延初期化）
+    agent = _get_agent(request_type, character_type, category=category)
     result = agent(user_message)
 
     # レスポンスからテキストを抽出
