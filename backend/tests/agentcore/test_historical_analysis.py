@@ -23,13 +23,6 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_get_headers():
-    """全テストで get_headers をモック化してboto3呼び出しを防ぐ."""
-    with patch("tools.historical_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        yield
-
-
 class TestToTrackCode:
     """トラックコード変換のテスト."""
 
@@ -75,7 +68,7 @@ class TestAnalyzeRaceTendency:
 class TestAnalyzePastRaceTrends:
     """analyze_past_race_trends統合テスト."""
 
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_正常なAPI応答で分析結果を返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -124,7 +117,7 @@ class TestAnalyzePastRaceTrends:
         assert "popularity_trends" in result
         assert len(result["popularity_trends"]) == 2
 
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_404レスポンスで警告を返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -140,7 +133,7 @@ class TestAnalyzePastRaceTrends:
         assert "warning" in result
         assert result["race_id"] == "202601050811"
 
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_APIエラーでエラーを返す(self, mock_get):
         import requests as real_requests
         mock_get.side_effect = real_requests.RequestException("Connection error")
@@ -168,7 +161,7 @@ class TestAnalyzeJockeyCourseStats:
     """騎手コース成績分析のテスト."""
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_正常なAPI応答で成績分析結果を返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -205,7 +198,7 @@ class TestAnalyzeJockeyCourseStats:
         assert "comment" in result
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_勝率25以上は好成績と判定する(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -232,7 +225,7 @@ class TestAnalyzeJockeyCourseStats:
         assert result["assessment"] == "好成績"
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_勝率10未満は苦手と判定する(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -259,7 +252,7 @@ class TestAnalyzeJockeyCourseStats:
         assert result["assessment"] == "苦手"
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_404レスポンスで警告を返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -275,7 +268,7 @@ class TestAnalyzeJockeyCourseStats:
         assert "warning" in result
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_APIエラーでエラーを返す(self, mock_get):
         import requests as real_requests
         mock_get.side_effect = real_requests.RequestException("Connection error")
@@ -294,7 +287,7 @@ class TestAnalyzeBetRoi:
     """買い目回収率分析のテスト."""
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_正常なAPI応答で回収率分析結果を返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -322,7 +315,7 @@ class TestAnalyzeBetRoi:
         assert "recommendation" in result
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_回収率90以上はプラス期待と判定する(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -348,7 +341,7 @@ class TestAnalyzeBetRoi:
         assert "良好" in result["recommendation"] or "期待" in result["recommendation"]
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_回収率60未満は非推奨と判定する(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -373,7 +366,7 @@ class TestAnalyzeBetRoi:
         assert "低め" in result["recommendation"] or "非推奨" in result["recommendation"]
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_404レスポンスで警告を返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -388,7 +381,7 @@ class TestAnalyzeBetRoi:
         assert "warning" in result
 
     @pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
-    @patch("tools.historical_analysis.requests.get")
+    @patch("tools.historical_analysis.cached_get")
     def test_APIエラーでエラーを返す(self, mock_get):
         import requests as real_requests
         mock_get.side_effect = real_requests.RequestException("Connection error")

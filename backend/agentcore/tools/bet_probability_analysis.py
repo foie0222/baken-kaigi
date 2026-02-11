@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +83,8 @@ def analyze_bet_probability(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 404:
@@ -103,14 +102,13 @@ def _get_past_statistics(race_info: dict, bet_type: str) -> dict | None:
         track_code = {"芝": "1", "ダート": "2", "障害": "3"}.get(
             race_info.get("track_type", "芝"), "1"
         )
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/statistics/past-races",
             params={
                 "track_code": track_code,
                 "distance": race_info.get("distance", 1600),
                 "limit": 100,
             },
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:

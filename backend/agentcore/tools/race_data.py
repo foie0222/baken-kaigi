@@ -6,15 +6,13 @@ JRA-VAN API を呼び出してレース・馬データを取得する。
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 
 def _fetch_race_detail(race_id: str) -> dict:
     """JRA-VAN APIからレース詳細を取得する共通関数."""
-    response = requests.get(
+    response = cached_get(
         f"{get_api_url()}/races/{race_id}",
-        headers=get_headers(),
-        timeout=10,
     )
     response.raise_for_status()
     return response.json()

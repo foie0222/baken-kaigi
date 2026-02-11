@@ -21,15 +21,14 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 @pytest.fixture(autouse=True)
 def mock_jravan_client():
     """JRA-VANクライアントをモック化."""
-    with patch("tools.training_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.training_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+    with patch("tools.training_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 class TestAnalyzeTrainingCondition:
     """調教分析統合テスト."""
 
-    @patch("tools.training_analysis.requests.get")
+    @patch("tools.training_analysis.cached_get")
     def test_正常系_調教データを分析(self, mock_get):
         """正常系: 調教データを正しく分析できる."""
         mock_response = MagicMock()
@@ -65,7 +64,7 @@ class TestAnalyzeTrainingCondition:
         # 調教データがあればhorse_nameを持つはず
         assert result.get("horse_name") == "テスト馬"
 
-    @patch("tools.training_analysis.requests.get")
+    @patch("tools.training_analysis.cached_get")
     def test_404エラーで警告を返す(self, mock_get):
         """異常系: 404の場合は警告を返す."""
         mock_response = MagicMock()
@@ -77,7 +76,7 @@ class TestAnalyzeTrainingCondition:
         assert "warning" in result
         assert "見つかりませんでした" in result["warning"]
 
-    @patch("tools.training_analysis.requests.get")
+    @patch("tools.training_analysis.cached_get")
     def test_空データで警告を返す(self, mock_get):
         """異常系: 調教データが空の場合は警告を返す."""
         mock_response = MagicMock()
@@ -92,7 +91,7 @@ class TestAnalyzeTrainingCondition:
 
         assert "warning" in result
 
-    @patch("tools.training_analysis.requests.get")
+    @patch("tools.training_analysis.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")

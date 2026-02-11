@@ -20,15 +20,14 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 @pytest.fixture(autouse=True)
 def mock_jravan_client():
     """JRA-VANクライアントをモック化."""
-    with patch("tools.trainer_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.trainer_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+    with patch("tools.trainer_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 class TestAnalyzeTrainerTendency:
     """厩舎分析統合テスト."""
 
-    @patch("tools.trainer_analysis.requests.get")
+    @patch("tools.trainer_analysis.cached_get")
     def test_正常系_厩舎を分析(self, mock_get):
         """正常系: 厩舎データを正しく分析できる."""
         mock_response = MagicMock()
@@ -50,7 +49,7 @@ class TestAnalyzeTrainerTendency:
         # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.trainer_analysis.requests.get")
+    @patch("tools.trainer_analysis.cached_get")
     def test_404エラーで警告を返す(self, mock_get):
         """異常系: 404の場合は警告を返す."""
         mock_response = MagicMock()
@@ -61,7 +60,7 @@ class TestAnalyzeTrainerTendency:
 
         assert "warning" in result
 
-    @patch("tools.trainer_analysis.requests.get")
+    @patch("tools.trainer_analysis.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")

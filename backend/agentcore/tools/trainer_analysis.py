@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +55,8 @@ def analyze_trainer_tendency(
     """
     try:
         # 厩舎基本情報を取得
-        info_response = requests.get(
+        info_response = cached_get(
             f"{get_api_url()}/trainers/{trainer_id}/info",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -71,10 +70,9 @@ def analyze_trainer_tendency(
         info_data = info_response.json()
 
         # 厩舎成績を取得（直近）
-        stats_response = requests.get(
+        stats_response = cached_get(
             f"{get_api_url()}/trainers/{trainer_id}/stats",
             params={"period": "recent"},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         stats_response.raise_for_status()
@@ -288,9 +286,8 @@ def _analyze_jockey_compatibility(
 
     try:
         # 騎手詳細情報を取得
-        jockey_response = requests.get(
+        jockey_response = cached_get(
             f"{get_api_url()}/jockeys/{jockey_id}/stats",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 

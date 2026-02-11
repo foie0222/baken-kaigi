@@ -24,13 +24,6 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_get_headers():
-    """全テストで get_headers をモック化してboto3呼び出しを防ぐ."""
-    with patch("tools.rotation_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        yield
-
-
 class TestGetIntervalLabel:
     """間隔ラベル取得のテスト."""
 
@@ -124,7 +117,7 @@ class TestDetermineBestInterval:
 class TestAnalyzeRotation:
     """analyze_rotation統合テスト."""
 
-    @patch("tools.rotation_analysis.requests.get")
+    @patch("tools.rotation_analysis.cached_get")
     def test_正常なAPI応答で分析結果を返す(self, mock_get):
         # レース情報のモック
         race_response = MagicMock()
@@ -170,7 +163,7 @@ class TestAnalyzeRotation:
         assert "fitness_estimation" in result
         assert "overall_comment" in result
 
-    @patch("tools.rotation_analysis.requests.get")
+    @patch("tools.rotation_analysis.cached_get")
     def test_レース情報404でエラーを返す(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -184,7 +177,7 @@ class TestAnalyzeRotation:
 
         assert "error" in result
 
-    @patch("tools.rotation_analysis.requests.get")
+    @patch("tools.rotation_analysis.cached_get")
     def test_過去成績なしで警告を返す(self, mock_get):
         # レース情報のモック
         race_response = MagicMock()
@@ -211,7 +204,7 @@ class TestAnalyzeRotation:
         assert "warning" in result
         assert result["horse_name"] == "新馬"
 
-    @patch("tools.rotation_analysis.requests.get")
+    @patch("tools.rotation_analysis.cached_get")
     def test_APIエラーでエラーを返す(self, mock_get):
         import requests as real_requests
         mock_get.side_effect = real_requests.RequestException("Connection error")
@@ -225,7 +218,7 @@ class TestAnalyzeRotation:
         assert "error" in result
         assert "エラー" in result["error"]
 
-    @patch("tools.rotation_analysis.requests.get")
+    @patch("tools.rotation_analysis.cached_get")
     def test_連闘_days_0_でも正常に処理する(self, mock_get):
         """days=0（連闘）の場合もfalsyチェックで除外されないことを確認."""
         # レース情報のモック

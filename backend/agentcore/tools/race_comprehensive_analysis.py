@@ -22,7 +22,7 @@ from .constants import (
     WEIGHT_CHANGE_B,
     WEIGHT_CHANGE_C,
 )
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = get_tool_logger("race_comprehensive_analysis")
 
@@ -117,9 +117,8 @@ def analyze_race_comprehensive(race_id: str) -> dict:
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 404:
@@ -134,9 +133,8 @@ def _get_race_info(race_id: str) -> dict:
 def _get_runners(race_id: str) -> list[dict]:
     """出走馬リストを取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/runners",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -149,9 +147,8 @@ def _get_runners(race_id: str) -> list[dict]:
 def _get_running_styles(race_id: str) -> list[dict]:
     """脚質データを取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/running-styles",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -164,9 +161,8 @@ def _get_running_styles(race_id: str) -> list[dict]:
 def _get_current_odds(race_id: str) -> dict:
     """現在のオッズを取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/odds/win",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -240,10 +236,9 @@ def _evaluate_horse_factors(
 
     # 過去成績から評価
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/performances",
             params={"limit": 5},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:
@@ -256,9 +251,8 @@ def _evaluate_horse_factors(
 
     # コース適性評価
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/course-aptitude",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:
@@ -275,9 +269,8 @@ def _evaluate_horse_factors(
             factors["jockey"] = _evaluate_jockey(jockey_cache[jockey_id])
         else:
             try:
-                response = requests.get(
+                response = cached_get(
                     f"{get_api_url()}/jockeys/{jockey_id}/stats",
-                    headers=get_headers(),
                     timeout=API_TIMEOUT_SECONDS,
                 )
                 if response.status_code == 200:
@@ -295,10 +288,9 @@ def _evaluate_horse_factors(
             factors["trainer"] = _evaluate_trainer(trainer_cache[trainer_id])
         else:
             try:
-                response = requests.get(
+                response = cached_get(
                     f"{get_api_url()}/trainers/{trainer_id}/stats",
                     params={"period": "recent"},
-                    headers=get_headers(),
                     timeout=API_TIMEOUT_SECONDS,
                 )
                 if response.status_code == 200:

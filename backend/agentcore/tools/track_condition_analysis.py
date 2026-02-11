@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +95,8 @@ def analyze_track_condition_impact(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 404:
@@ -112,10 +111,9 @@ def _get_race_info(race_id: str) -> dict:
 def _get_performances(horse_id: str) -> list[dict]:
     """過去成績を取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/performances",
             params={"limit": 20},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:

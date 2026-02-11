@@ -7,16 +7,16 @@ import pytest
 from unittest.mock import patch, MagicMock
 from botocore.exceptions import ClientError
 
-# agentcore/tools をパスに追加
-sys.path.insert(0, str(Path(__file__).parent.parent / "agentcore" / "tools"))
-from jravan_client import (
+# agentcore をパスに追加
+sys.path.insert(0, str(Path(__file__).parent.parent / "agentcore"))
+from tools.jravan_client import (
     get_api_key,
     get_headers,
     get_api_url,
     JRAVAN_API_URL,
     JRAVAN_API_KEY_ID,
 )
-import jravan_client
+from tools import jravan_client
 
 
 @pytest.fixture(autouse=True)

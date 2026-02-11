@@ -27,13 +27,6 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 
 
 @pytest.fixture(autouse=True)
-def mock_get_headers():
-    """全テストで get_headers をモック化してboto3呼び出しを防ぐ."""
-    with patch("tools.horse_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        yield
-
-
-@pytest.fixture(autouse=True)
 def mock_get_api_url():
     """全テストで get_api_url をモック化."""
     with patch("tools.horse_analysis.get_api_url", return_value="https://api.example.com"):
@@ -147,7 +140,7 @@ class TestAnalyzeDistance:
 class TestAnalyzeHorsePerformance:
     """analyze_horse_performance 統合テスト."""
 
-    @patch("tools.horse_analysis.requests.get")
+    @patch("tools.horse_analysis.cached_get")
     def test_正常系_馬の成績を分析(self, mock_get):
         """正常系: APIが成功した場合、分析結果を返す."""
         mock_response = MagicMock()
@@ -178,7 +171,7 @@ class TestAnalyzeHorsePerformance:
         assert "ability_analysis" in result
         assert "comment" in result
 
-    @patch("tools.horse_analysis.requests.get")
+    @patch("tools.horse_analysis.cached_get")
     def test_404エラーで警告を返す(self, mock_get):
         """異常系: 404の場合は警告を返す."""
         mock_response = MagicMock()
@@ -190,7 +183,7 @@ class TestAnalyzeHorsePerformance:
         assert "warning" in result
         assert "見つかりませんでした" in result["warning"]
 
-    @patch("tools.horse_analysis.requests.get")
+    @patch("tools.horse_analysis.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを含む辞書を返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")
@@ -200,7 +193,7 @@ class TestAnalyzeHorsePerformance:
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
 
-    @patch("tools.horse_analysis.requests.get")
+    @patch("tools.horse_analysis.cached_get")
     def test_limit引数が適切に適用される(self, mock_get):
         """limit引数がAPIリクエストに適用されることを確認."""
         mock_response = MagicMock()

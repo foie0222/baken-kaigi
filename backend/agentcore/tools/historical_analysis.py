@@ -10,7 +10,7 @@ from typing import Any
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,9 @@ def _fetch_parallel_stats(api_calls: list[dict]) -> list[dict]:
 
     def fetch_single(index: int, call: dict) -> tuple[int, dict[str, Any]]:
         try:
-            response = requests.get(
+            response = cached_get(
                 call["url"],
                 params=call.get("params", {}),
-                headers=get_headers(),
                 timeout=call.get("timeout", API_TIMEOUT_SECONDS),
             )
             if response.status_code == 404:
@@ -90,7 +89,7 @@ def analyze_past_race_trends(
         # トラック種別をコードに変換
         track_code = _to_track_code(track_type)
 
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/statistics/past-races",
             params={
                 "track_code": track_code,
@@ -98,7 +97,6 @@ def analyze_past_race_trends(
                 "grade_code": grade_class if grade_class else None,
                 "limit": DEFAULT_PAST_RACES_LIMIT,
             },
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -239,10 +237,9 @@ def analyze_jockey_course_stats(
         if keibajo_code:
             params["keibajo_code"] = keibajo_code
 
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/statistics/jockey-course",
             params=params,
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -346,7 +343,7 @@ def analyze_bet_roi(
         # トラック種別をコードに変換
         track_code = _to_track_code(track_type)
 
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/statistics/popularity-payout",
             params={
                 "track_code": track_code,
@@ -354,7 +351,6 @@ def analyze_bet_roi(
                 "popularity": popularity,
                 "limit": DEFAULT_PAST_RACES_LIMIT,
             },
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 

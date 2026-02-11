@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,9 @@ def analyze_training_condition(
         分析結果（調教サマリー、状態評価、勝負気配など）
     """
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/training",
             params={"limit": DEFAULT_TRAINING_LIMIT, "days": DEFAULT_DAYS},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 

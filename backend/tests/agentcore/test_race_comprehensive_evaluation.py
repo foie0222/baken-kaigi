@@ -25,9 +25,8 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 @pytest.fixture(autouse=True)
 def mock_jravan_client():
     """JRA-VANクライアントをモック化."""
-    with patch("tools.race_comprehensive_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.race_comprehensive_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+    with patch("tools.race_comprehensive_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 # =============================================================================
@@ -229,7 +228,7 @@ class TestEvaluateWeightChange:
 class TestEvaluateHorseFactorsWithNewFields:
     """_evaluate_horse_factorsの騎手/調教師/馬体重評価統合テスト."""
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
+    @patch("tools.race_comprehensive_analysis.cached_get")
     def test_騎手と調教師のstatsがAPIから取得される(self, mock_get):
         """rider情報がrunnerデータから引き継がれ、APIで詳細を取得する."""
         from unittest.mock import MagicMock
@@ -264,7 +263,7 @@ class TestEvaluateHorseFactorsWithNewFields:
         assert factors["trainer"] == "A"  # 勝率16% → A
         assert factors["weight"] == "A"  # +2kg → A
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
+    @patch("tools.race_comprehensive_analysis.cached_get")
     def test_騎手APIが404の場合デフォルトB(self, mock_get):
         """騎手APIが404を返す場合、デフォルトのBになる."""
         from unittest.mock import MagicMock
@@ -299,7 +298,7 @@ class TestEvaluateHorseFactorsWithNewFields:
         assert factors["trainer"] == "B"
         assert factors["weight"] == "B"
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
+    @patch("tools.race_comprehensive_analysis.cached_get")
     def test_runner情報にjockey_idがない場合デフォルトB(self, mock_get):
         """runnerにjockey_idがない場合、騎手評価はデフォルトB."""
         from unittest.mock import MagicMock

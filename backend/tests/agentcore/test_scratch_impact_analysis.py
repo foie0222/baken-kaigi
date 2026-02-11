@@ -20,15 +20,14 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 @pytest.fixture(autouse=True)
 def mock_jravan_client():
     """JRA-VANクライアントをモック化."""
-    with patch("tools.scratch_impact_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.scratch_impact_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+    with patch("tools.scratch_impact_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 class TestAnalyzeScratchImpact:
     """出走取消影響分析統合テスト."""
 
-    @patch("tools.scratch_impact_analysis.requests.get")
+    @patch("tools.scratch_impact_analysis.cached_get")
     def test_正常系_取消影響を分析(self, mock_get):
         """正常系: 出走取消の影響を正しく分析できる."""
         # 1回目: レース情報取得
@@ -61,7 +60,7 @@ class TestAnalyzeScratchImpact:
         # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.scratch_impact_analysis.requests.get")
+    @patch("tools.scratch_impact_analysis.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")

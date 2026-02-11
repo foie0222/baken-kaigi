@@ -9,7 +9,7 @@ from itertools import combinations, permutations
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -166,9 +166,8 @@ def suggest_bet_combinations(
 def _get_runners(race_id: str) -> list[dict]:
     """出走馬リストを取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/runners",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -181,9 +180,8 @@ def _get_runners(race_id: str) -> list[dict]:
 def _get_current_odds(race_id: str) -> dict:
     """現在のオッズを取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/odds/win",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -197,9 +195,8 @@ def _get_current_odds(race_id: str) -> dict:
 def _get_running_styles(race_id: str) -> list[dict]:
     """脚質データを取得する."""
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/races/{race_id}/running-styles",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -264,10 +261,9 @@ def _evaluate_form(horse_id: str) -> tuple[int, list[str], list[str]]:
     risk_reasons = []
 
     try:
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/performances",
             params={"limit": PERFORMANCE_LIMIT},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:

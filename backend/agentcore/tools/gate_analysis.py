@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -138,10 +138,9 @@ def _analyze_course_gate_tendency(
     """
     try:
         # 枠順別成績統計を取得
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/statistics/gate-position",
             params={"venue": venue, "track_type": track_type, "distance": distance},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -234,9 +233,8 @@ def _analyze_horse_gate_aptitude(horse_id: str, position_type: str) -> dict[str,
 
     try:
         # コース適性データを取得
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/course-aptitude",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 

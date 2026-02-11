@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +106,8 @@ def analyze_pedigree_aptitude(
     """
     try:
         # 血統情報を取得
-        pedigree_response = requests.get(
+        pedigree_response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/pedigree/extended",
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
@@ -127,9 +126,8 @@ def analyze_pedigree_aptitude(
         if sire_name:
             try:
                 # 種牡馬IDは馬IDと同じ想定
-                stallion_response = requests.get(
+                stallion_response = cached_get(
                     f"{get_api_url()}/stallions/{horse_id[:8]}00/offspring-stats",
-                    headers=get_headers(),
                     timeout=API_TIMEOUT_SECONDS,
                 )
                 if stallion_response.status_code == 200:

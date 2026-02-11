@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +54,9 @@ def analyze_horse_performance(
         # limit のバリデーション
         limit = min(max(1, limit), MAX_PERFORMANCE_LIMIT)
 
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/performances",
             params={"limit": limit},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 

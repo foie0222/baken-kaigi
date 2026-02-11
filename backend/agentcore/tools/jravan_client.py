@@ -1,13 +1,17 @@
 """JRA-VAN API クライアント共通モジュール.
 
 API Key取得とヘッダー生成のロジックを共通化。
+セッション内キャッシュにより同一リクエストの重複呼び出しを排除。
 """
 
 import logging
 import os
 
 import boto3
+import requests
 from botocore.exceptions import ClientError
+
+from .api_cache import get_session_cache
 
 logger = logging.getLogger(__name__)
 
@@ -76,3 +80,43 @@ def get_api_url() -> str:
         API ベースURL
     """
     return JRAVAN_API_URL
+
+
+def cached_get(url: str, *, params: dict | None = None, timeout: int = 10) -> requests.Response:
+    """キャッシュ付きGETリクエスト.
+
+    キャッシュヒット時はAPI呼び出しをスキップしてキャッシュ済みレスポンスを返す。
+    GETリクエストのみキャッシュ対象。エラーレスポンスはキャッシュしない。
+
+    Args:
+        url: リクエストURL
+        params: クエリパラメータ
+        timeout: タイムアウト秒数
+
+    Returns:
+        requests.Response
+    """
+    cache = get_session_cache()
+    cached = cache.get(url, params)
+    if cached is not None:
+        return cached
+
+    response = requests.get(
+        url,
+        params=params,
+        headers=get_headers(),
+        timeout=timeout,
+    )
+
+    if response.ok:
+        cache.set(url, response, params)
+        stats = cache.stats
+        logger.debug(
+            "Cache stats: hits=%d misses=%d hit_rate=%.1f%% size=%d",
+            stats["hits"],
+            stats["misses"],
+            stats["hit_rate"] * 100,
+            stats["cache_size"],
+        )
+
+    return response

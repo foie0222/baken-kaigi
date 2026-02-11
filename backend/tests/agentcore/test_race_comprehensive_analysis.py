@@ -77,9 +77,8 @@ def _make_runner_evaluation(
 @pytest.fixture(autouse=True)
 def mock_jravan_client():
     """JRA-VANクライアントをモック化."""
-    with patch("tools.race_comprehensive_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.race_comprehensive_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+    with patch("tools.race_comprehensive_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 # =============================================================================
@@ -90,7 +89,7 @@ def mock_jravan_client():
 class TestAnalyzeRaceComprehensive:
     """総合レース分析統合テスト."""
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
+    @patch("tools.race_comprehensive_analysis.cached_get")
     def test_正常系_レースを総合分析(self, mock_get):
         """正常系: レースデータを総合的に分析できる."""
         mock_response = MagicMock()
@@ -113,7 +112,7 @@ class TestAnalyzeRaceComprehensive:
         # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
+    @patch("tools.race_comprehensive_analysis.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")

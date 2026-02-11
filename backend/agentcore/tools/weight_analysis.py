@@ -8,7 +8,7 @@ import logging
 import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from .jravan_client import cached_get, get_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +43,9 @@ def analyze_weight_trend(
     """
     try:
         # 過去成績を取得（体重データ含む）
-        response = requests.get(
+        response = cached_get(
             f"{get_api_url()}/horses/{horse_id}/performances",
             params={"limit": 10},
-            headers=get_headers(),
             timeout=API_TIMEOUT_SECONDS,
         )
 
