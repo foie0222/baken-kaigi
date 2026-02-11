@@ -7,12 +7,92 @@ import { useAuthStore } from '../stores/authStore';
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels, BetMethodLabels, getVenueName } from '../types';
-import type { CartItem } from '../types';
+import type { CartItem, RunnerData } from '../types';
 import { apiClient, type BetAction } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../constants/characters';
+
+// レース難易度・人気集中度の算出閾値
+// オッズの絶対値で人気集中度を判定（2倍未満=集中、4倍未満=普通、それ以上=混戦）
+const ODDS_CONCENTRATION_HIGH = 2.0;
+const ODDS_CONCENTRATION_MEDIUM = 4.0;
+// 上位3頭のオッズ差で難易度を判定（差が小さいほど難しい＝予想が困難）
+const ODDS_SPREAD_TIGHT = 3;
+const ODDS_SPREAD_MEDIUM = 6;
+const ODDS_SPREAD_WIDE = 10;
+const MAX_DIFFICULTY_STARS = 4;
+
+function RaceSummaryCard({ runnersData }: { runnersData: RunnerData[] }) {
+  if (!runnersData || runnersData.length === 0) return null;
+
+  const topOdds = runnersData
+    .filter((r) => r.odds)
+    .sort((a, b) => (a.odds ?? 99) - (b.odds ?? 99))
+    .slice(0, 3);
+
+  const hasOddsData = topOdds.length > 0;
+
+  const favoriteOdds = topOdds[0]?.odds ?? 0;
+  const concentrationLevel =
+    favoriteOdds < ODDS_CONCENTRATION_HIGH ? 'high' : favoriteOdds < ODDS_CONCENTRATION_MEDIUM ? 'medium' : 'low';
+
+  const oddsSpread =
+    topOdds.length >= 3
+      ? (topOdds[2]?.odds ?? 0) - (topOdds[0]?.odds ?? 0)
+      : 0;
+  const difficultyStars =
+    oddsSpread < ODDS_SPREAD_TIGHT ? MAX_DIFFICULTY_STARS :
+    oddsSpread < ODDS_SPREAD_MEDIUM ? 3 :
+    oddsSpread < ODDS_SPREAD_WIDE ? 2 : 1;
+
+  return (
+    <div className="race-summary-card">
+      <div className="race-summary-header">
+        <h3>レース概要</h3>
+      </div>
+      <div className="race-summary-metrics">
+        <div className="metric">
+          <span className="metric-label">難易度</span>
+          <span className="metric-value">
+            {hasOddsData
+              ? '★'.repeat(difficultyStars) + '☆'.repeat(MAX_DIFFICULTY_STARS - difficultyStars)
+              : '—'}
+          </span>
+        </div>
+        <div className="metric">
+          <span className="metric-label">人気集中</span>
+          <span className={`metric-value${hasOddsData ? ` concentration-${concentrationLevel}` : ''}`}>
+            {hasOddsData
+              ? concentrationLevel === 'high'
+                ? '集中'
+                : concentrationLevel === 'medium'
+                  ? '普通'
+                  : '混戦'
+              : '—'}
+          </span>
+        </div>
+        <div className="metric">
+          <span className="metric-label">出走頭数</span>
+          <span className="metric-value">{runnersData.length}頭</span>
+        </div>
+      </div>
+      {topOdds.length > 0 && (
+        <div className="race-summary-favorites">
+          <span className="favorites-label">上位人気</span>
+          <div className="favorites-list">
+            {topOdds.map((r) => (
+              <span key={r.horse_number} className="favorite-chip">
+                {r.horse_number}番 {r.horse_name} ({r.odds}倍)
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -42,6 +122,8 @@ export function ConsultationPage() {
   });
   const selectedCharacter = AI_CHARACTERS.find((c) => c.id === characterId) || AI_CHARACTERS[0];
 
+
+  const [isBetListExpanded, setIsBetListExpanded] = useState(false);
 
   // 削除確認モーダル
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -392,6 +474,8 @@ export function ConsultationPage() {
           ))}
         </div>
 
+        <RaceSummaryCard runnersData={initialRunnersRef.current} />
+
         <div className="chat-messages">
           {messages.map((msg, index) => (
             <div key={index} className={`chat-message ${msg.type}`}>
@@ -469,49 +553,66 @@ export function ConsultationPage() {
           </button>
         </div>
 
-        {/* 買い目リスト（レースごとにグループ化） */}
-        {Object.entries(groupedItems).map(([key, raceItems]) => (
-          <div className="bet-list" key={key}>
-            <div className="bet-list-header">
-              <span className="bet-list-title">買い目一覧</span>
-              <span className="bet-list-race">
-                {getVenueName(raceItems[0].raceVenue)} {raceItems[0].raceNumber}
-              </span>
-            </div>
-            <div className="bet-table">
-              {raceItems.map((item) => (
-                <div className="bet-row" key={item.id}>
-                  <span className="bet-card-type">{BetTypeLabels[item.betType]}</span>
-                  <div className="bet-numbers-wrap">
-                    <span className="bet-numbers">
-                      {item.betDisplay || item.horseNumbers.join('-')}
+        {/* 買い目リスト（折りたたみ式） */}
+        <div className="bet-list-section">
+          <button
+            type="button"
+            className="bet-list-toggle"
+            onClick={() => setIsBetListExpanded((prev) => !prev)}
+            aria-expanded={isBetListExpanded}
+            aria-controls="bet-list-content"
+          >
+            <span>買い目一覧（{items.length}点）</span>
+            <span className="toggle-amount">¥{totalAmount.toLocaleString()}</span>
+            <span className={`toggle-icon ${isBetListExpanded ? 'expanded' : ''}`} aria-hidden="true">▼</span>
+          </button>
+          {isBetListExpanded && (
+            <div className="bet-list-content" id="bet-list-content">
+              {Object.entries(groupedItems).map(([key, raceItems]) => (
+                <div className="bet-list" key={key}>
+                  <div className="bet-list-header">
+                    <span className="bet-list-title">買い目一覧</span>
+                    <span className="bet-list-race">
+                      {getVenueName(raceItems[0].raceVenue)} {raceItems[0].raceNumber}
                     </span>
-                    {item.betMethod && item.betMethod !== 'normal' && (
-                      <span className="bet-style">{BetMethodLabels[item.betMethod]}</span>
-                    )}
                   </div>
-                  <div className="bet-price-c">
-                    <span className="bet-amount">¥{item.amount.toLocaleString()}</span>
-                    {item.betCount && item.betCount > 1 && (
-                      <span className="bet-detail">{item.betCount}点 @¥{Math.floor(item.amount / item.betCount).toLocaleString()}</span>
-                    )}
-                  </div>
-                  <div className="bet-actions">
-                    <button className="btn-edit" onClick={() => handleEditAmount(item)}>変更</button>
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleDeleteItem(item.id)}
-                      aria-label="買い目を削除"
-                      title="買い目を削除"
-                    >
-                      ×
-                    </button>
+                  <div className="bet-table">
+                    {raceItems.map((item) => (
+                      <div className="bet-row" key={item.id}>
+                        <span className="bet-card-type">{BetTypeLabels[item.betType]}</span>
+                        <div className="bet-numbers-wrap">
+                          <span className="bet-numbers">
+                            {item.betDisplay || item.horseNumbers.join('-')}
+                          </span>
+                          {item.betMethod && item.betMethod !== 'normal' && (
+                            <span className="bet-style">{BetMethodLabels[item.betMethod]}</span>
+                          )}
+                        </div>
+                        <div className="bet-price-c">
+                          <span className="bet-amount">¥{item.amount.toLocaleString()}</span>
+                          {item.betCount && item.betCount > 1 && (
+                            <span className="bet-detail">{item.betCount}点 @¥{Math.floor(item.amount / item.betCount).toLocaleString()}</span>
+                          )}
+                        </div>
+                        <div className="bet-actions">
+                          <button className="btn-edit" onClick={() => handleEditAmount(item)}>変更</button>
+                          <button
+                            className="btn-delete"
+                            onClick={() => handleDeleteItem(item.id)}
+                            aria-label="買い目を削除"
+                            title="買い目を削除"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        ))}
+          )}
+        </div>
 
         {/* 合計金額 */}
         <div className="data-feedback">

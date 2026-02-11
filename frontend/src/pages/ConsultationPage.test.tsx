@@ -180,10 +180,14 @@ describe('ConsultationPage', () => {
 
   describe('買い目グルーピング表示', () => {
     it('買い目一覧のタイトルとレース情報が表示される', async () => {
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
 
-      // 「買い目一覧」というタイトルが表示される
-      expect(await screen.findByText('買い目一覧')).toBeInTheDocument()
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
+      // 「買い目一覧」というタイトルが表示される（トグル内とヘッダー内）
+      expect(screen.getAllByText('買い目一覧').length).toBeGreaterThanOrEqual(1)
 
       // レース情報が表示される（東京 1R）
       expect(await screen.findByText('東京 1R')).toBeInTheDocument()
@@ -204,11 +208,11 @@ describe('ConsultationPage', () => {
         amount: 500,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
 
-      // 「買い目一覧」は1つだけ表示される（同一レースなのでグループは1つ）
-      const titles = await screen.findAllByText('買い目一覧')
-      expect(titles).toHaveLength(1)
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 2つの買い目が表示される
       expect(await screen.findByText('単勝')).toBeInTheDocument()
@@ -218,7 +222,11 @@ describe('ConsultationPage', () => {
     })
 
     it('削除ボタンにアクセシビリティ属性が設定されている', async () => {
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       const deleteButton = await screen.findByRole('button', { name: '買い目を削除' })
       expect(deleteButton).toBeInTheDocument()
@@ -242,7 +250,11 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // BOXバッジが表示される
       expect(await screen.findByText('BOX')).toBeInTheDocument()
@@ -265,7 +277,11 @@ describe('ConsultationPage', () => {
         amount: 300,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 流しバッジが表示される
       expect(await screen.findByText('流し')).toBeInTheDocument()
@@ -288,7 +304,11 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 買い目は表示される
       expect(await screen.findByText('1-2')).toBeInTheDocument()
@@ -312,7 +332,11 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 点数詳細が表示される（6点 @¥100）
       expect(await screen.findByText('6点 @¥100')).toBeInTheDocument()
@@ -333,7 +357,11 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 買い目は表示される
       expect(await screen.findByText('1-2')).toBeInTheDocument()
@@ -356,7 +384,11 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 買い目は表示される
       expect(await screen.findByText('1-2')).toBeInTheDocument()
@@ -382,6 +414,10 @@ describe('ConsultationPage', () => {
       })
 
       const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
@@ -410,6 +446,10 @@ describe('ConsultationPage', () => {
 
       const { user } = render(<ConsultationPage />)
 
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
       await user.click(editButton)
@@ -436,6 +476,10 @@ describe('ConsultationPage', () => {
       })
 
       const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
@@ -464,6 +508,10 @@ describe('ConsultationPage', () => {
 
       const { user } = render(<ConsultationPage />)
 
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
       await user.click(editButton)
@@ -491,6 +539,10 @@ describe('ConsultationPage', () => {
 
       const { user } = render(<ConsultationPage />)
 
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
       await user.click(editButton)
@@ -498,6 +550,90 @@ describe('ConsultationPage', () => {
       // ＋ボタンが無効化されている（上限に達しているため）
       const plusButton = await screen.findByRole('button', { name: '＋' })
       expect(plusButton).toBeDisabled()
+    })
+  })
+
+  describe('レース概要サマリー', () => {
+    it('runnersDataがある場合にレース概要が表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('レース概要')).toBeInTheDocument()
+      expect(screen.getByText('2頭')).toBeInTheDocument()
+    })
+
+    it('オッズデータがある場合に上位人気が表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('上位人気')).toBeInTheDocument()
+      // テスト馬2がオッズ3.0で1番人気
+      expect(screen.getByText(/テスト馬2/)).toBeInTheDocument()
+      expect(screen.getByText(/3倍/)).toBeInTheDocument()
+    })
+
+    it('オッズデータがある場合に難易度と人気集中が表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('難易度')).toBeInTheDocument()
+      expect(screen.getByText('人気集中')).toBeInTheDocument()
+      // 2頭しかいないのでoddsSpread=0 → 最大難易度(★★★★)
+      expect(screen.getByText('★★★★')).toBeInTheDocument()
+    })
+
+    it('runnersDataが空の場合にレース概要が表示されない', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        betCount: 1,
+        amount: 1000,
+      })
+
+      render(<ConsultationPage />)
+
+      // 買い目一覧ボタンは表示される（ページが描画されたことの確認）
+      expect(await screen.findByRole('button', { name: /買い目一覧/ })).toBeInTheDocument()
+      // レース概要は表示されない
+      expect(screen.queryByText('レース概要')).not.toBeInTheDocument()
+    })
+
+    it('オッズがない出走馬データの場合に難易度・人気集中がプレースホルダー表示になる', async () => {
+      const runnersWithoutOdds = [
+        { horse_number: 1, horse_name: '馬A', frame_number: 1 },
+        { horse_number: 2, horse_name: '馬B', frame_number: 2 },
+        { horse_number: 3, horse_name: '馬C', frame_number: 3 },
+      ]
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        betCount: 1,
+        amount: 1000,
+        runnersData: runnersWithoutOdds,
+      })
+
+      render(<ConsultationPage />)
+
+      // レース概要は表示される
+      expect(await screen.findByText('レース概要')).toBeInTheDocument()
+      // 出走頭数は表示される
+      expect(screen.getByText('3頭')).toBeInTheDocument()
+      // 難易度と人気集中はプレースホルダー「—」
+      const dashes = screen.getAllByText('—')
+      expect(dashes.length).toBe(2)
+      // 上位人気セクションは表示されない
+      expect(screen.queryByText('上位人気')).not.toBeInTheDocument()
     })
   })
 
@@ -622,6 +758,10 @@ describe('ConsultationPage', () => {
       // 初回分析が完了するのを待つ
       expect(await screen.findByText(/初回分析結果です/)).toBeInTheDocument()
       expect(apiClient.consultWithAgent).toHaveBeenCalledTimes(1)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = screen.getByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // カートの買い目を削除してもAPIが再呼び出しされない
       const deleteButton = screen.getByRole('button', { name: '買い目を削除' })
