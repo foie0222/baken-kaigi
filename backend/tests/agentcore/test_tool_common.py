@@ -3,10 +3,16 @@
 import logging
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
-from tools.common import get_tool_logger, handle_tool_errors, log_tool_execution
+from tools.common import (
+    _emit_metrics,
+    get_tool_logger,
+    handle_tool_errors,
+    log_tool_execution,
+)
 
 
 class TestGetToolLogger:
@@ -148,3 +154,117 @@ class TestDecoratorsComposition:
         result = failing_combined()
         assert "error" in result
         assert "RuntimeError" in result["error"]
+
+
+class TestEmitMetrics:
+    """_emit_metrics のテスト."""
+
+    @patch("tools.common.METRICS_ENABLED", False)
+    def test_METRICS_ENABLED_falseの場合はメトリクス送信しない(self):
+        with patch("tools.common._get_cloudwatch_client") as mock_get_client:
+            _emit_metrics("test_tool", 100.0, success=True)
+            mock_get_client.assert_not_called()
+
+    @patch("tools.common.METRICS_ENABLED", True)
+    def test_METRICS_ENABLED_trueの場合はCloudWatchクライアントが呼ばれる(self):
+        mock_client = MagicMock()
+        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
+            _emit_metrics("test_tool", 150.5, success=True)
+
+        mock_client.put_metric_data.assert_called_once()
+        call_kwargs = mock_client.put_metric_data.call_args[1]
+        assert call_kwargs["Namespace"] == "BakenKaigi/AgentTools"
+        metric_data = call_kwargs["MetricData"]
+        assert len(metric_data) == 3
+
+        # ExecutionTime
+        assert metric_data[0]["MetricName"] == "ExecutionTime"
+        assert metric_data[0]["Value"] == 150.5
+        assert metric_data[0]["Dimensions"] == [{"Name": "ToolName", "Value": "test_tool"}]
+
+        # Invocations
+        assert metric_data[1]["MetricName"] == "Invocations"
+        assert metric_data[1]["Value"] == 1
+
+        # Errors（成功時は0）
+        assert metric_data[2]["MetricName"] == "Errors"
+        assert metric_data[2]["Value"] == 0
+
+    @patch("tools.common.METRICS_ENABLED", True)
+    def test_エラー時はErrors_1が送信される(self):
+        mock_client = MagicMock()
+        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
+            _emit_metrics("test_tool", 50.0, success=False)
+
+        metric_data = mock_client.put_metric_data.call_args[1]["MetricData"]
+        errors_metric = metric_data[2]
+        assert errors_metric["MetricName"] == "Errors"
+        assert errors_metric["Value"] == 1
+
+    @patch("tools.common.METRICS_ENABLED", True)
+    def test_メトリクス送信失敗時も例外が発生しない(self):
+        mock_client = MagicMock()
+        mock_client.put_metric_data.side_effect = Exception("CloudWatch error")
+        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
+            # 例外が発生しないことを確認
+            _emit_metrics("test_tool", 100.0, success=True)
+
+
+class TestMetricsIntegration:
+    """デコレータとメトリクス送信の統合テスト."""
+
+    @patch("tools.common.METRICS_ENABLED", True)
+    def test_log_tool_execution成功時にメトリクスが送信される(self):
+        mock_client = MagicMock()
+        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
+            @log_tool_execution
+            def my_tool():
+                return {"result": "ok"}
+
+            result = my_tool()
+
+        assert result == {"result": "ok"}
+        mock_client.put_metric_data.assert_called_once()
+        metric_data = mock_client.put_metric_data.call_args[1]["MetricData"]
+        assert metric_data[2]["Value"] == 0  # Errors = 0
+
+    @patch("tools.common.METRICS_ENABLED", True)
+    def test_log_tool_executionでerror結果時にErrors_1が送信される(self):
+        mock_client = MagicMock()
+        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
+            @log_tool_execution
+            def my_tool():
+                return {"error": "something went wrong"}
+
+            result = my_tool()
+
+        assert result == {"error": "something went wrong"}
+        metric_data = mock_client.put_metric_data.call_args[1]["MetricData"]
+        assert metric_data[2]["Value"] == 1  # Errors = 1
+
+    @patch("tools.common.METRICS_ENABLED", True)
+    def test_handle_tool_errors例外時にメトリクスが送信される(self):
+        mock_client = MagicMock()
+        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
+            @handle_tool_errors
+            def my_tool():
+                raise ValueError("test")
+
+            result = my_tool()
+
+        assert "error" in result
+        mock_client.put_metric_data.assert_called_once()
+        metric_data = mock_client.put_metric_data.call_args[1]["MetricData"]
+        assert metric_data[2]["Value"] == 1  # Errors = 1
+
+    @patch("tools.common.METRICS_ENABLED", False)
+    def test_METRICS_ENABLED_falseではデコレータからメトリクス送信されない(self):
+        with patch("tools.common._get_cloudwatch_client") as mock_get_client:
+            @log_tool_execution
+            def my_tool():
+                return {"result": "ok"}
+
+            result = my_tool()
+
+        assert result == {"result": "ok"}
+        mock_get_client.assert_not_called()

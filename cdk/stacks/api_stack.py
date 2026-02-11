@@ -413,6 +413,19 @@ class BakenKaigiApiStack(Stack):
             )
         )
 
+        # CloudWatch Metrics 送信権限
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["cloudwatch:PutMetricData"],
+                resources=["*"],
+                conditions={
+                    "StringEquals": {
+                        "cloudwatch:namespace": "BakenKaigi/AgentTools",
+                    },
+                },
+            )
+        )
+
         # X-Ray トレーシング権限
         agentcore_runtime_role.add_to_policy(
             iam.PolicyStatement(
