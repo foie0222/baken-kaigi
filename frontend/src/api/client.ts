@@ -197,16 +197,18 @@ class ApiClient {
     cartId: string,
     item: {
       raceId: string;
+      raceName: string;
       betType: BetType;
       horseNumbers: number[];
       amount: number;
     }
-  ): Promise<ApiResponse<CartItem>> {
-    return this.request<CartItem>('/cart/items', {
+  ): Promise<ApiResponse<{ cart_id: string; item_id: string; item_count: number; total_amount: number }>> {
+    return this.request<{ cart_id: string; item_id: string; item_count: number; total_amount: number }>('/cart/items', {
       method: 'POST',
       body: JSON.stringify({
-        cart_id: cartId,
+        cart_id: cartId || undefined,
         race_id: item.raceId,
+        race_name: item.raceName,
         bet_type: item.betType,
         horse_numbers: item.horseNumbers,
         amount: item.amount,

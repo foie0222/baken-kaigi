@@ -13,6 +13,39 @@ export function toJapaneseError(error: string | undefined, fallback: string): st
   return error;
 }
 
+/**
+ * localStorageのカートアイテムをDynamoDBに同期し、サーバー側のcartIdを返す。
+ * 最初のアイテムはcart_idなしで送信（新規カート作成）、
+ * 2つ目以降は取得したcart_idに追加する。
+ */
+export async function syncCartToDynamo(
+  items: CartItem[]
+): Promise<{ success: true; cartId: string } | { success: false; error?: string }> {
+  if (items.length === 0) {
+    return { success: false, error: 'カートに商品がありません。' };
+  }
+
+  let serverCartId = '';
+  for (const item of items) {
+    const res = await apiClient.addToCart(serverCartId, {
+      raceId: item.raceId,
+      raceName: item.raceName,
+      betType: item.betType,
+      horseNumbers: item.horseNumbers,
+      amount: item.amount,
+    });
+    if (!res.success || !res.data) {
+      // 作成済みサーバーカートをbest-effortでクリーンアップ
+      if (serverCartId) {
+        apiClient.clearCart(serverCartId).catch(() => {});
+      }
+      return { success: false, error: res.error };
+    }
+    serverCartId = res.data.cart_id;
+  }
+  return { success: true, cartId: serverCartId };
+}
+
 interface PurchaseState {
   balance: IpatBalance | null;
   purchaseResult: PurchaseResult | null;
@@ -37,7 +70,19 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
   submitPurchase: async (cartId, raceDate, courseCode, raceNumber, items) => {
     try {
       set({ isLoading: true, error: null, purchaseResult: null });
-      const response = await apiClient.submitPurchase(cartId, raceDate, courseCode, raceNumber, items);
+
+      // カートアイテムをDynamoDBに同期してサーバー側cartIdを取得
+      let serverCartId = cartId;
+      if (items && items.length > 0) {
+        const syncResult = await syncCartToDynamo(items);
+        if (!syncResult.success) {
+          set({ isLoading: false, error: toJapaneseError(syncResult.error, 'カートの同期に失敗しました') });
+          return;
+        }
+        serverCartId = syncResult.cartId;
+      }
+
+      const response = await apiClient.submitPurchase(serverCartId, raceDate, courseCode, raceNumber, items);
       if (!response.success || !response.data) {
         set({ isLoading: false, error: toJapaneseError(response.error, '購入に失敗しました') });
         return;

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { toJapaneseError } from './purchaseStore'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { toJapaneseError, syncCartToDynamo } from './purchaseStore'
+import type { CartItem } from '../types'
 
 describe('toJapaneseError', () => {
   const fallback = 'デフォルトエラー'
@@ -31,5 +32,128 @@ describe('toJapaneseError', () => {
   it('日本語を含むメッセージはそのまま返す', () => {
     expect(toJapaneseError('残高が不足しています', fallback)).toBe('残高が不足しています')
     expect(toJapaneseError('購入上限を超えています', fallback)).toBe('購入上限を超えています')
+  })
+})
+
+// apiClient をモック
+vi.mock('../api/client', () => ({
+  apiClient: {
+    addToCart: vi.fn(),
+    clearCart: vi.fn(() => Promise.resolve({ success: true })),
+  },
+}))
+
+import { apiClient } from '../api/client'
+const mockAddToCart = vi.mocked(apiClient.addToCart)
+const mockClearCart = vi.mocked(apiClient.clearCart)
+
+function makeItem(overrides: Partial<CartItem> = {}): CartItem {
+  return {
+    id: 'item_1',
+    raceId: '2026021105',
+    raceName: 'テストレース',
+    raceVenue: '05',
+    raceNumber: '11R',
+    betType: 'win',
+    horseNumbers: [1],
+    amount: 100,
+    ...overrides,
+  }
+}
+
+describe('syncCartToDynamo', () => {
+  beforeEach(() => {
+    mockAddToCart.mockReset()
+    mockClearCart.mockReset()
+    mockClearCart.mockResolvedValue({ success: true })
+  })
+
+  it('空配列の場合はエラーを返す', async () => {
+    const result = await syncCartToDynamo([])
+    expect(result).toEqual({ success: false, error: 'カートに商品がありません。' })
+    expect(mockAddToCart).not.toHaveBeenCalled()
+  })
+
+  it('単一アイテムの場合、cart_id空で送信してサーバーcartIdを返す', async () => {
+    mockAddToCart.mockResolvedValueOnce({
+      success: true,
+      data: { cart_id: 'server-cart-1', item_id: 'i1', item_count: 1, total_amount: 100 },
+    })
+
+    const result = await syncCartToDynamo([makeItem()])
+
+    expect(result).toEqual({ success: true, cartId: 'server-cart-1' })
+    expect(mockAddToCart).toHaveBeenCalledTimes(1)
+    expect(mockAddToCart).toHaveBeenCalledWith('', {
+      raceId: '2026021105',
+      raceName: 'テストレース',
+      betType: 'win',
+      horseNumbers: [1],
+      amount: 100,
+    })
+  })
+
+  it('複数アイテムの場合、2つ目以降はサーバーcartIdを使って送信する', async () => {
+    mockAddToCart
+      .mockResolvedValueOnce({
+        success: true,
+        data: { cart_id: 'server-cart-1', item_id: 'i1', item_count: 1, total_amount: 100 },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: { cart_id: 'server-cart-1', item_id: 'i2', item_count: 2, total_amount: 300 },
+      })
+
+    const items = [makeItem(), makeItem({ id: 'item_2', horseNumbers: [3], amount: 200 })]
+    const result = await syncCartToDynamo(items)
+
+    expect(result).toEqual({ success: true, cartId: 'server-cart-1' })
+    expect(mockAddToCart).toHaveBeenCalledTimes(2)
+    // 1つ目: cart_id空
+    expect(mockAddToCart.mock.calls[0][0]).toBe('')
+    // 2つ目: サーバーcartId
+    expect(mockAddToCart.mock.calls[1][0]).toBe('server-cart-1')
+  })
+
+  it('API失敗時はエラーを返す', async () => {
+    mockAddToCart.mockResolvedValueOnce({
+      success: false,
+      error: 'Internal Server Error',
+    })
+
+    const result = await syncCartToDynamo([makeItem()])
+
+    expect(result).toEqual({ success: false, error: 'Internal Server Error' })
+  })
+
+  it('2つ目のアイテムで失敗した場合はエラーを返しサーバーカートをクリーンアップする', async () => {
+    mockAddToCart
+      .mockResolvedValueOnce({
+        success: true,
+        data: { cart_id: 'server-cart-1', item_id: 'i1', item_count: 1, total_amount: 100 },
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        error: 'Cart item limit exceeded',
+      })
+
+    const items = [makeItem(), makeItem({ id: 'item_2' })]
+    const result = await syncCartToDynamo(items)
+
+    expect(result).toEqual({ success: false, error: 'Cart item limit exceeded' })
+    // 作成済みサーバーカートのクリーンアップが呼ばれる
+    expect(mockClearCart).toHaveBeenCalledWith('server-cart-1')
+  })
+
+  it('1つ目のアイテムで失敗した場合はクリーンアップしない', async () => {
+    mockAddToCart.mockResolvedValueOnce({
+      success: false,
+      error: 'Internal Server Error',
+    })
+
+    await syncCartToDynamo([makeItem()])
+
+    // serverCartIdがまだ空なのでクリーンアップは呼ばれない
+    expect(mockClearCart).not.toHaveBeenCalled()
   })
 })

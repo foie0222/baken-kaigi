@@ -9,6 +9,10 @@ import { apiClient } from '../api/client'
 vi.mock('../api/client', () => ({
   apiClient: {
     submitPurchase: vi.fn(),
+    addToCart: vi.fn(() => Promise.resolve({
+      success: true,
+      data: { cart_id: 'server-cart-1', item_id: 'i1', item_count: 1, total_amount: 1000 },
+    })),
     getIpatBalance: vi.fn(() => Promise.resolve({
       success: true,
       data: { betBalance: 100000, limitVoteAmount: 200000, betDedicatedBalance: 100000, settlePossibleBalance: 100000 },
@@ -140,9 +144,9 @@ describe('PurchaseConfirmPage', () => {
         expect(usePurchaseStore.getState().isLoading).toBe(false)
       })
 
-      // submitPurchaseが5引数で呼ばれたことを確認
+      // submitPurchaseがサーバー側cartIdで呼ばれたことを確認
       expect(apiClient.submitPurchase).toHaveBeenCalledWith(
-        expect.any(String), // cartId
+        'server-cart-1',    // DynamoDB同期で取得したcartId
         '20260208',         // raceDate
         '05',               // courseCode
         1,                  // raceNumber
