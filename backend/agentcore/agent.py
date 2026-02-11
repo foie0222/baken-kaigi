@@ -227,7 +227,11 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
 
 
 def _format_cart_summary(cart_items: list) -> str:
-    """カート内容をフォーマットする."""
+    """カート内容をフォーマットする.
+
+    各買い目を明確に表示し、馬番の出現頻度を事前計算して
+    LLMの数え間違いを防止する。
+    """
     bet_type_names = {
         "win": "単勝",
         "place": "複勝",
@@ -238,8 +242,14 @@ def _format_cart_summary(cart_items: list) -> str:
         "trifecta": "三連単",
     }
 
+    if not cart_items:
+        return "カートは空です"
+
     lines = []
-    for item in cart_items:
+    horse_count: dict[int, int] = {}
+    total_amount = 0
+
+    for i, item in enumerate(cart_items, 1):
         race_id = item.get("raceId", "")
         bet_type = item.get("betType", "")
         bet_type_display = bet_type_names.get(bet_type, bet_type)
@@ -247,10 +257,30 @@ def _format_cart_summary(cart_items: list) -> str:
         amount = item.get("amount", 0)
         race_name = item.get("raceName", "")
 
-        line = f"- レースID:{race_id} {race_name} {bet_type_display} {horse_numbers} ¥{amount:,}"
+        display = "-".join(str(n) for n in horse_numbers)
+        line = f"{i}. {race_name} {bet_type_display} {display} ¥{amount:,}"
         lines.append(line)
+        total_amount += amount
 
-    return "\n".join(lines) if lines else "カートは空です"
+        for hn in horse_numbers:
+            horse_count[hn] = horse_count.get(hn, 0) + 1
+
+    total_bets = len(cart_items)
+    header = f"買い目一覧（全{total_bets}点、合計¥{total_amount:,}）"
+
+    # 馬番出現頻度サマリー（LLMの数え間違い防止）
+    freq_lines = []
+    for hn in sorted(horse_count.keys()):
+        count = horse_count[hn]
+        freq_lines.append(f"  {hn}番: {total_bets}点中{count}点に出現")
+
+    parts = [header] + lines
+    if freq_lines:
+        parts.append("")
+        parts.append("馬番の出現頻度:")
+        parts.extend(freq_lines)
+
+    return "\n".join(parts)
 
 
 def _format_runners_summary(runners_data: list) -> str:
