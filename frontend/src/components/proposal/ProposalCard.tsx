@@ -19,8 +19,11 @@ const confidenceLabels: Record<string, string> = {
   low: '低',
 };
 
+const MIN_CONFIRMED_ODDS = 1.0;
+
 export function ProposalCard({ bet, onAddToCart, isAdded }: ProposalCardProps) {
   const borderColor = confidenceColors[bet.confidence] || '#9ca3af';
+  const isOddsConfirmed = bet.composite_odds >= MIN_CONFIRMED_ODDS;
 
   return (
     <div className="proposal-card" style={{ borderLeftColor: borderColor }}>
@@ -40,10 +43,10 @@ export function ProposalCard({ bet, onAddToCart, isAdded }: ProposalCardProps) {
             {bet.bet_count}点 / {(bet.amount ?? 0).toLocaleString()}円
           </span>
           <span className="proposal-detail-item">
-            推定オッズ: {bet.composite_odds ? `${bet.composite_odds.toFixed(1)}倍` : '未確定'}
+            推定オッズ: {isOddsConfirmed ? `${bet.composite_odds.toFixed(1)}倍` : '未確定'}
           </span>
           <span className="proposal-detail-item">
-            期待値: {bet.composite_odds ? (bet.expected_value ?? 0).toFixed(2) : '未確定'}
+            期待値: {isOddsConfirmed ? bet.expected_value.toFixed(2) : '未確定'}
           </span>
         </div>
         <p className="proposal-reasoning">{bet.reasoning}</p>

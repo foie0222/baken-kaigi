@@ -64,6 +64,16 @@ describe('ProposalCard', () => {
     expect(screen.getByText(/期待値:.*未確定/)).toBeInTheDocument()
   })
 
+  it('オッズが1.0未満の小さな正の値の場合は未確定と表示される', () => {
+    const betWithTinyOdds: ProposedBet = { ...mockBet, composite_odds: 0.01, expected_value: 0.005 }
+    render(
+      <ProposalCard bet={betWithTinyOdds} onAddToCart={vi.fn()} isAdded={false} />
+    )
+
+    expect(screen.getByText(/推定オッズ:.*未確定/)).toBeInTheDocument()
+    expect(screen.getByText(/期待値:.*未確定/)).toBeInTheDocument()
+  })
+
   it('オッズがある場合は数値が表示される', () => {
     render(
       <ProposalCard bet={mockBet} onAddToCart={vi.fn()} isAdded={false} />
