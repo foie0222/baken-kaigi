@@ -349,10 +349,10 @@ jobs:
             Write-Output 'requirements.txt unchanged, skipping pip install'
           }
 
-          # NSSMサービス再起動
+          # サービス再起動（Restart-ServiceはPowerShell組み込み）
           Write-Output 'Restarting JraVanApi service...'
-          nssm restart JraVanApi
-          Start-Sleep -Seconds 3
+          Restart-Service -Name JraVanApi -Force
+          Start-Sleep -Seconds 5
 
           # ヘルスチェック（最大30秒リトライ）
           Write-Output 'Running health check...'
@@ -377,7 +377,7 @@ jobs:
           if (-not $healthy) {
             Write-Output 'Health check failed, rolling back...'
             Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
-            nssm restart JraVanApi
+            Restart-Service -Name JraVanApi -Force
             Write-Output 'Rollback complete'
             exit 1
           }
