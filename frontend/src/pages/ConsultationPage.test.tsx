@@ -553,6 +553,90 @@ describe('ConsultationPage', () => {
     })
   })
 
+  describe('レース概要サマリー', () => {
+    it('runnersDataがある場合にレース概要が表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('レース概要')).toBeInTheDocument()
+      expect(screen.getByText('2頭')).toBeInTheDocument()
+    })
+
+    it('オッズデータがある場合に上位人気が表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('上位人気')).toBeInTheDocument()
+      // テスト馬2がオッズ3.0で1番人気
+      expect(screen.getByText(/テスト馬2/)).toBeInTheDocument()
+      expect(screen.getByText(/3倍/)).toBeInTheDocument()
+    })
+
+    it('オッズデータがある場合に難易度と人気集中が表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('難易度')).toBeInTheDocument()
+      expect(screen.getByText('人気集中')).toBeInTheDocument()
+      // 2頭しかいないのでoddsSpread=0 → 最大難易度(★★★★)
+      expect(screen.getByText('★★★★')).toBeInTheDocument()
+    })
+
+    it('runnersDataが空の場合にレース概要が表示されない', async () => {
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        betCount: 1,
+        amount: 1000,
+      })
+
+      render(<ConsultationPage />)
+
+      // 買い目一覧ボタンは表示される（ページが描画されたことの確認）
+      expect(await screen.findByRole('button', { name: /買い目一覧/ })).toBeInTheDocument()
+      // レース概要は表示されない
+      expect(screen.queryByText('レース概要')).not.toBeInTheDocument()
+    })
+
+    it('オッズがない出走馬データの場合に難易度・人気集中がプレースホルダー表示になる', async () => {
+      const runnersWithoutOdds = [
+        { horse_number: 1, horse_name: '馬A', frame_number: 1 },
+        { horse_number: 2, horse_name: '馬B', frame_number: 2 },
+        { horse_number: 3, horse_name: '馬C', frame_number: 3 },
+      ]
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        betCount: 1,
+        amount: 1000,
+        runnersData: runnersWithoutOdds,
+      })
+
+      render(<ConsultationPage />)
+
+      // レース概要は表示される
+      expect(await screen.findByText('レース概要')).toBeInTheDocument()
+      // 出走頭数は表示される
+      expect(screen.getByText('3頭')).toBeInTheDocument()
+      // 難易度と人気集中はプレースホルダー「—」
+      const dashes = screen.getAllByText('—')
+      expect(dashes.length).toBe(2)
+      // 上位人気セクションは表示されない
+      expect(screen.queryByText('上位人気')).not.toBeInTheDocument()
+    })
+  })
+
   describe('AgentCore初回分析', () => {
     it('AgentCore利用可能時にrunners_data付きでconsultWithAgentが呼び出される', async () => {
       // AgentCoreを利用可能に設定

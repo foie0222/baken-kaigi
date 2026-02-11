@@ -14,6 +14,16 @@ import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../constants/characters';
 
+// レース難易度・人気集中度の算出閾値
+// オッズの絶対値で人気集中度を判定（2倍未満=集中、4倍未満=普通、それ以上=混戦）
+const ODDS_CONCENTRATION_HIGH = 2.0;
+const ODDS_CONCENTRATION_MEDIUM = 4.0;
+// 上位3頭のオッズ差で難易度を判定（差が小さいほど難しい＝予想が困難）
+const ODDS_SPREAD_TIGHT = 3;
+const ODDS_SPREAD_MEDIUM = 6;
+const ODDS_SPREAD_WIDE = 10;
+const MAX_DIFFICULTY_STARS = 4;
+
 function RaceSummaryCard({ runnersData }: { runnersData: RunnerData[] }) {
   if (!runnersData || runnersData.length === 0) return null;
 
@@ -22,16 +32,20 @@ function RaceSummaryCard({ runnersData }: { runnersData: RunnerData[] }) {
     .sort((a, b) => (a.odds ?? 99) - (b.odds ?? 99))
     .slice(0, 3);
 
+  const hasOddsData = topOdds.length > 0;
+
   const favoriteOdds = topOdds[0]?.odds ?? 0;
   const concentrationLevel =
-    favoriteOdds < 2.0 ? 'high' : favoriteOdds < 4.0 ? 'medium' : 'low';
+    favoriteOdds < ODDS_CONCENTRATION_HIGH ? 'high' : favoriteOdds < ODDS_CONCENTRATION_MEDIUM ? 'medium' : 'low';
 
   const oddsSpread =
     topOdds.length >= 3
       ? (topOdds[2]?.odds ?? 0) - (topOdds[0]?.odds ?? 0)
       : 0;
   const difficultyStars =
-    oddsSpread < 3 ? 4 : oddsSpread < 6 ? 3 : oddsSpread < 10 ? 2 : 1;
+    oddsSpread < ODDS_SPREAD_TIGHT ? MAX_DIFFICULTY_STARS :
+    oddsSpread < ODDS_SPREAD_MEDIUM ? 3 :
+    oddsSpread < ODDS_SPREAD_WIDE ? 2 : 1;
 
   return (
     <div className="race-summary-card">
@@ -42,18 +56,21 @@ function RaceSummaryCard({ runnersData }: { runnersData: RunnerData[] }) {
         <div className="metric">
           <span className="metric-label">難易度</span>
           <span className="metric-value">
-            {'★'.repeat(difficultyStars)}
-            {'☆'.repeat(4 - difficultyStars)}
+            {hasOddsData
+              ? '★'.repeat(difficultyStars) + '☆'.repeat(MAX_DIFFICULTY_STARS - difficultyStars)
+              : '—'}
           </span>
         </div>
         <div className="metric">
           <span className="metric-label">人気集中</span>
-          <span className={`metric-value concentration-${concentrationLevel}`}>
-            {concentrationLevel === 'high'
-              ? '集中'
-              : concentrationLevel === 'medium'
-                ? '普通'
-                : '混戦'}
+          <span className={`metric-value${hasOddsData ? ` concentration-${concentrationLevel}` : ''}`}>
+            {hasOddsData
+              ? concentrationLevel === 'high'
+                ? '集中'
+                : concentrationLevel === 'medium'
+                  ? '普通'
+                  : '混戦'
+              : '—'}
           </span>
         </div>
         <div className="metric">
@@ -541,14 +558,16 @@ export function ConsultationPage() {
           <button
             type="button"
             className="bet-list-toggle"
-            onClick={() => setIsBetListExpanded(!isBetListExpanded)}
+            onClick={() => setIsBetListExpanded((prev) => !prev)}
+            aria-expanded={isBetListExpanded}
+            aria-controls="bet-list-content"
           >
             <span>買い目一覧（{items.length}点）</span>
             <span className="toggle-amount">¥{totalAmount.toLocaleString()}</span>
-            <span className={`toggle-icon ${isBetListExpanded ? 'expanded' : ''}`}>▼</span>
+            <span className={`toggle-icon ${isBetListExpanded ? 'expanded' : ''}`} aria-hidden="true">▼</span>
           </button>
           {isBetListExpanded && (
-            <div className="bet-list-content">
+            <div className="bet-list-content" id="bet-list-content">
               {Object.entries(groupedItems).map(([key, raceItems]) => (
                 <div className="bet-list" key={key}>
                   <div className="bet-list-header">
