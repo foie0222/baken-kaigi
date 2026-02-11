@@ -34,7 +34,7 @@ logger.info("BedrockAgentCoreApp created")
 # NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
 # 並行リクエストによる競合状態（race condition）は発生しない。
 # スレッドロックは不要。
-_consultation_agent = None
+_consultation_agents: dict[str, Any] = {}
 _bet_proposal_agent = None
 
 
@@ -78,9 +78,9 @@ def _create_agent(system_prompt: str) -> Any:
     return agent
 
 
-def _get_agent(request_type: str | None = None) -> Any:
+def _get_agent(request_type: str | None = None, character_type: str | None = None) -> Any:
     """エージェントを遅延初期化して取得する."""
-    global _consultation_agent, _bet_proposal_agent
+    global _consultation_agents, _bet_proposal_agent
 
     if request_type == "bet_proposal":
         if _bet_proposal_agent is None:
@@ -89,11 +89,14 @@ def _get_agent(request_type: str | None = None) -> Any:
             _bet_proposal_agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT)
         return _bet_proposal_agent
 
-    if _consultation_agent is None:
-        logger.info("Lazy initializing consultation agent...")
-        from prompts.consultation import SYSTEM_PROMPT
-        _consultation_agent = _create_agent(SYSTEM_PROMPT)
-    return _consultation_agent
+    from prompts.characters import CHARACTER_PROMPTS, DEFAULT_CHARACTER
+    char_key = character_type if character_type in CHARACTER_PROMPTS else DEFAULT_CHARACTER
+    if char_key not in _consultation_agents:
+        logger.info(f"Lazy initializing consultation agent for character: {char_key}")
+        from prompts.consultation import get_system_prompt
+        system_prompt = get_system_prompt(char_key)
+        _consultation_agents[char_key] = _create_agent(system_prompt)
+    return _consultation_agents[char_key]
 
 
 @app.entrypoint
@@ -109,13 +112,15 @@ def invoke(payload: dict, context: Any) -> dict:
         "cart_items": [...],  # オプション: カート内容
         "runners_data": [...],  # オプション: 出走馬データ
         "session_id": "...",  # オプション: セッションID
-        "type": "bet_proposal"  # オプション: "bet_proposal" で買い目提案専用プロンプトを使用
+        "type": "bet_proposal",  # オプション: "bet_proposal" で買い目提案専用プロンプトを使用
+        "character_type": "analyst"  # オプション: AIキャラクター（analyst/intuition/conservative/aggressive）
     }
     """
     user_message = payload.get("prompt", "")
     cart_items = payload.get("cart_items", [])
     runners_data = payload.get("runners_data", [])
     request_type = payload.get("type")
+    character_type = payload.get("character_type")
 
     # 入力バリデーション
     if not user_message and not cart_items:
@@ -140,7 +145,7 @@ def invoke(payload: dict, context: Any) -> dict:
         user_message = f"【出走馬データ】\n{runners_summary}\n\n{user_message}"
 
     # エージェント実行（遅延初期化）
-    agent = _get_agent(request_type)
+    agent = _get_agent(request_type, character_type)
     result = agent(user_message)
 
     # レスポンスからテキストを抽出

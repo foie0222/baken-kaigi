@@ -892,6 +892,43 @@ main {
     opacity: 0.9;
 }
 
+.character-selector {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #f4f7f5;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.character-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 1px solid #d0d7d2;
+    border-radius: 16px;
+    background: white;
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.character-chip.active {
+    background: #1a5f2a;
+    color: white;
+    border-color: #1a5f2a;
+}
+
+.character-chip-icon {
+    font-size: 14px;
+}
+
+.character-chip-name {
+    font-weight: 500;
+}
+
 .chat-messages {
     padding: 16px;
     max-height: 400px;

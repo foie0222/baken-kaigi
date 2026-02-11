@@ -12,6 +12,7 @@ import { apiClient } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
+import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../constants/characters';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -34,6 +35,11 @@ export function ConsultationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [inputText, setInputText] = useState('');
+  const [characterId, setCharacterId] = useState<CharacterId>(() => {
+    const stored = localStorage.getItem(STORAGE_KEY_CHARACTER);
+    return stored && AI_CHARACTERS.some((c) => c.id === stored) ? (stored as CharacterId) : DEFAULT_CHARACTER_ID;
+  });
+  const selectedCharacter = AI_CHARACTERS.find((c) => c.id === characterId) || AI_CHARACTERS[0];
 
 
   // 削除確認モーダル
@@ -50,6 +56,11 @@ export function ConsultationPage() {
   // 初回マウント時のカートデータをキャプチャ（カート変更でAPI再呼び出しを防止）
   const initialItemsRef = useRef(items);
   const initialRunnersRef = useRef(currentRunnersData);
+
+  const handleCharacterChange = (newCharacterId: CharacterId) => {
+    setCharacterId(newCharacterId);
+    localStorage.setItem(STORAGE_KEY_CHARACTER, newCharacterId);
+  };
 
   // ログイン時にIPAT設定を取得
   useEffect(() => {
@@ -89,6 +100,7 @@ export function ConsultationPage() {
             amount: item.amount,
           })),
           runners_data: runnersData,
+          character_type: characterId,
         });
 
         if (!isMounted) return;
@@ -163,6 +175,7 @@ export function ConsultationPage() {
         })),
         runners_data: runnersData,
         session_id: sessionId,
+        character_type: characterId,
       });
 
       if (response.success && response.data) {
@@ -310,11 +323,27 @@ export function ConsultationPage() {
 
       <div className="ai-chat-container">
         <div className="ai-chat-header">
-          <div className="ai-avatar">🤖</div>
+          <div className="ai-avatar">{selectedCharacter.icon}</div>
           <div className="ai-chat-header-text">
             <h3>馬券会議 AI</h3>
-            <p>立ち止まって、考えましょう</p>
+            <p>{selectedCharacter.description}</p>
           </div>
+        </div>
+
+        <div className="character-selector">
+          {AI_CHARACTERS.map((char) => (
+            <button
+              key={char.id}
+              type="button"
+              className={`character-chip${char.id === characterId ? ' active' : ''}`}
+              aria-pressed={char.id === characterId}
+              aria-label={`キャラクター選択: ${char.name}`}
+              onClick={() => handleCharacterChange(char.id)}
+            >
+              <span className="character-chip-icon">{char.icon}</span>
+              <span className="character-chip-name">{char.name}</span>
+            </button>
+          ))}
         </div>
 
         <div className="chat-messages">

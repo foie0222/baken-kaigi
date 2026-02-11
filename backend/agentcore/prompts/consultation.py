@@ -1,5 +1,14 @@
 """相談機能用システムプロンプト."""
 
+from .characters import DEFAULT_CHARACTER, get_character_prompt
+
+
+def get_system_prompt(character_type: str = DEFAULT_CHARACTER) -> str:
+    """キャラクター別のシステムプロンプトを生成する."""
+    character_addition = get_character_prompt(character_type)
+    return SYSTEM_PROMPT + character_addition
+
+
 SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタント「馬券会議AI」です。
 ギークな競馬ファン向けに、データに基づいた玄人的な分析を提供します。
 
