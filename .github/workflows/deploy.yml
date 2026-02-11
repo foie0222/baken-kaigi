@@ -359,10 +359,13 @@ jobs:
           }
           Start-Sleep -Seconds 2
           # ポート8000を使用しているプロセスのみを停止（LISTENに限定）
-          $portPids = (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
-          foreach ($procId in $portPids) {
-            Write-Output "Stopping process $procId (using port 8000)"
-            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+          $connections = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+          if ($connections) {
+            $portPids = $connections.OwningProcess | Sort-Object -Unique
+            foreach ($procId in $portPids) {
+              Write-Output "Stopping process $procId (using port 8000)"
+              Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            }
           }
           Start-Sleep -Seconds 2
           Start-ScheduledTask -TaskName 'JraVanApi'
@@ -392,10 +395,13 @@ jobs:
             Write-Output 'Health check failed, rolling back...'
             Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
             Stop-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
-            $portPids = (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
-            foreach ($procId in $portPids) {
-              Write-Output "Stopping process $procId (using port 8000)"
-              Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            $connections = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+            if ($connections) {
+              $portPids = $connections.OwningProcess | Sort-Object -Unique
+              foreach ($procId in $portPids) {
+                Write-Output "Stopping process $procId (using port 8000)"
+                Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+              }
             }
             Start-Sleep -Seconds 2
             Start-ScheduledTask -TaskName 'JraVanApi'
