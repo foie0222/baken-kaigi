@@ -349,9 +349,25 @@ jobs:
             Write-Output 'requirements.txt unchanged, skipping pip install'
           }
 
-          # サービス再起動（Restart-ServiceはPowerShell組み込み）
-          Write-Output 'Restarting JraVanApi service...'
-          Restart-Service -Name JraVanApi -Force
+          # スケジュールタスク再起動（JraVanApiはTask Schedulerで管理）
+          Write-Output 'Restarting JraVanApi task...'
+          $task = Get-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
+          if (-not $task) {
+            Write-Output 'ERROR: Scheduled task JraVanApi not found'
+            exit 1
+          }
+          if ($task.State -ne 'Disabled') {
+            Stop-ScheduledTask -TaskName 'JraVanApi'
+          }
+          Start-Sleep -Seconds 2
+          # ポート8000を使用しているプロセスのみを停止
+          $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
+          foreach ($pid in $portPids) {
+            Write-Output "Stopping process $pid (listening on port 8000)"
+            Stop-Process -Id $pid -Force
+          }
+          Start-Sleep -Seconds 2
+          Start-ScheduledTask -TaskName 'JraVanApi'
           Start-Sleep -Seconds 5
 
           # ヘルスチェック（最大30秒リトライ）
@@ -377,7 +393,16 @@ jobs:
           if (-not $healthy) {
             Write-Output 'Health check failed, rolling back...'
             Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
-            Restart-Service -Name JraVanApi -Force
+            if ($task.State -ne 'Disabled') {
+              Stop-ScheduledTask -TaskName 'JraVanApi'
+            }
+            $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
+            foreach ($pid in $portPids) {
+              Write-Output "Stopping process $pid (listening on port 8000)"
+              Stop-Process -Id $pid -Force
+            }
+            Start-Sleep -Seconds 2
+            Start-ScheduledTask -TaskName 'JraVanApi'
             Write-Output 'Rollback complete'
             exit 1
           }
