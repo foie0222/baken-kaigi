@@ -3,40 +3,16 @@ import { render, screen } from '../../test/utils'
 import { Layout } from './Layout'
 
 describe('Layout', () => {
-  describe('HelpLink', () => {
-    it('ギャンブル依存症相談窓口リンクが表示される', () => {
-      render(<Layout />)
+  it('ヘッダーとボトムナビが表示される', () => {
+    render(<Layout />)
 
-      const helpLink = screen.getByRole('link', { name: /ギャンブル依存症の相談窓口へ/i })
-      expect(helpLink).toBeInTheDocument()
-    })
+    expect(screen.getByText('馬券会議')).toBeInTheDocument()
+    expect(screen.getByText('レース')).toBeInTheDocument()
+  })
 
-    it('リンクがギャンブル等依存症対策推進関係者会議のページに設定されている', () => {
-      render(<Layout />)
+  it('ギャンブル依存症相談窓口リンクが表示されない', () => {
+    render(<Layout />)
 
-      const helpLink = screen.getByRole('link', { name: /ギャンブル依存症の相談窓口へ/i })
-      expect(helpLink).toHaveAttribute(
-        'href',
-        'https://www.gaprsc.or.jp/index.html'
-      )
-    })
-
-    it('リンクが新しいタブで開く設定になっている', () => {
-      render(<Layout />)
-
-      const helpLink = screen.getByRole('link', { name: /ギャンブル依存症の相談窓口へ/i })
-      expect(helpLink).toHaveAttribute('target', '_blank')
-      expect(helpLink).toHaveAttribute('rel', 'noopener noreferrer')
-    })
-
-    it('aria-label属性で新しいタブで開くことが明示されている', () => {
-      render(<Layout />)
-
-      const helpLink = screen.getByRole('link', { name: /ギャンブル依存症の相談窓口へ/i })
-      expect(helpLink).toHaveAttribute(
-        'aria-label',
-        'ギャンブル依存症の相談窓口へ（新しいタブで開く）'
-      )
-    })
+    expect(screen.queryByText(/ギャンブル依存症相談窓口/)).not.toBeInTheDocument()
   })
 })
