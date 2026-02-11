@@ -53,4 +53,23 @@ describe('ProposalCard', () => {
 
     expect(screen.getByText(/0円/)).toBeInTheDocument()
   })
+
+  it('オッズが0の場合は未確定と表示される', () => {
+    const betWithZeroOdds: ProposedBet = { ...mockBet, composite_odds: 0, expected_value: 0 }
+    render(
+      <ProposalCard bet={betWithZeroOdds} onAddToCart={vi.fn()} isAdded={false} />
+    )
+
+    expect(screen.getByText(/推定オッズ:.*未確定/)).toBeInTheDocument()
+    expect(screen.getByText(/期待値:.*未確定/)).toBeInTheDocument()
+  })
+
+  it('オッズがある場合は数値が表示される', () => {
+    render(
+      <ProposalCard bet={mockBet} onAddToCart={vi.fn()} isAdded={false} />
+    )
+
+    expect(screen.getByText(/5\.0倍/)).toBeInTheDocument()
+    expect(screen.getByText(/1\.20/)).toBeInTheDocument()
+  })
 })
