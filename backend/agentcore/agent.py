@@ -5,6 +5,7 @@ AgentCore Runtime にデプロイされるメインエージェント。
 
 import logging
 import os
+import re
 import sys
 from typing import Any
 
@@ -178,30 +179,45 @@ def _extract_message_text(message) -> str:
 def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     """応答テキストからクイックリプライ提案を抽出する.
 
+    AIが ``---SUGGESTED_QUESTIONS---`` をマークダウン太字で出力する
+    バリエーション（``**SUGGESTED_QUESTIONS---**`` 等）にも対応する。
+
     Args:
         text: AIの応答テキスト
 
     Returns:
         (本文, 提案リスト) のタプル
     """
-    separator = "---SUGGESTED_QUESTIONS---"
+    # 正規表現でセパレーターのバリエーションを検出（行全体がセパレーターである場合のみ）
+    pattern = r"^\s*\*{0,2}-{0,3}\s*SUGGESTED_QUESTIONS\s*-{0,3}\*{0,2}\s*$"
+    match = re.search(pattern, text, flags=re.MULTILINE)
 
-    if separator not in text:
+    if not match:
         return text.strip(), []
 
-    parts = text.split(separator, 1)
-    main_text = parts[0].strip()
+    main_text = text[: match.start()].strip()
+    questions_text = text[match.end() :].strip()
 
-    if len(parts) < 2:
+    if not questions_text:
         return main_text, []
-
-    questions_text = parts[1].strip()
 
     # すべての行を取得し、空行を除外
     raw_questions = [q.strip() for q in questions_text.split("\n") if q.strip()]
 
+    # 1行に複数の質問が「？」区切りで並んでいる場合を展開
+    expanded: list[str] = []
+    for line in raw_questions:
+        parts = re.split(r"？\s+", line)
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:
+                continue
+            if i < len(parts) - 1:
+                part += "？"
+            expanded.append(part)
+
     # 先頭の「-」「- 」を除去（箇条書き形式の場合）
-    questions = [q.lstrip("-").strip() for q in raw_questions]
+    questions = [q.lstrip("-").strip() for q in expanded]
 
     # 空の質問を除外し、5個までに制限
     questions = [q for q in questions if q][:5]
