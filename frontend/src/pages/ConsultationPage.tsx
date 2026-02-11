@@ -16,6 +16,7 @@ import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 interface ChatMessage {
   type: 'ai' | 'user';
   text: string;
+  suggestedQuestions?: string[];
 }
 
 export function ConsultationPage() {
@@ -93,7 +94,11 @@ export function ConsultationPage() {
         if (!isMounted) return;
 
         if (response.success && response.data) {
-          setMessages([{ type: 'ai', text: response.data.message }]);
+          setMessages([{
+            type: 'ai',
+            text: response.data.message,
+            suggestedQuestions: response.data.suggested_questions,
+          }]);
           setSessionId(response.data.session_id);
         } else {
           setMessages([
@@ -162,7 +167,11 @@ export function ConsultationPage() {
 
       if (response.success && response.data) {
         const data = response.data;
-        setMessages((prev) => [...prev, { type: 'ai', text: data.message }]);
+        setMessages((prev) => [...prev, {
+          type: 'ai',
+          text: data.message,
+          suggestedQuestions: data.suggested_questions,
+        }]);
         setSessionId(data.session_id);
       } else {
         setMessages((prev) => [
@@ -184,6 +193,10 @@ export function ConsultationPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSuggestedQuestion = (question: string) => {
+    setInputText(question);
   };
 
   const handlePurchase = () => {
@@ -310,6 +323,19 @@ export function ConsultationPage() {
               <div className="message-bubble markdown-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
               </div>
+              {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && index === messages.length - 1 && !isLoading && (
+                <div className="suggested-questions">
+                  {msg.suggestedQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      className="suggested-question-btn"
+                      onClick={() => handleSuggestedQuestion(q)}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {isLoading && (

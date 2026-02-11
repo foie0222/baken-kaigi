@@ -1789,6 +1789,32 @@ main {
     cursor: not-allowed;
 }
 
+.suggested-questions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-right: 40px;
+}
+
+.suggested-question-btn {
+    padding: 8px 14px;
+    border: 1px solid #1a5f2a;
+    border-radius: 18px;
+    background: white;
+    color: #1a5f2a;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    text-align: left;
+    line-height: 1.4;
+}
+
+.suggested-question-btn:hover {
+    background: #1a5f2a;
+    color: white;
+}
+
 /* ========================================
    買い目リスト（ConsultationPage用）
    ======================================== */

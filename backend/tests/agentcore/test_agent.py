@@ -105,24 +105,41 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     Returns:
         (本文, 提案リスト) のタプル
     """
-    separator = "---SUGGESTED_QUESTIONS---"
+    import re
 
-    if separator not in text:
+    # 正規表現でセパレーターのバリエーションを検出
+    # ---SUGGESTED_QUESTIONS---, **SUGGESTED_QUESTIONS---**, **SUGGESTED_QUESTIONS** 等
+    pattern = r"\*{0,2}-{0,3}\s*SUGGESTED_QUESTIONS\s*-{0,3}\*{0,2}"
+    match = re.search(pattern, text)
+
+    if not match:
         return text.strip(), []
 
-    parts = text.split(separator, 1)
-    main_text = parts[0].strip()
+    main_text = text[: match.start()].strip()
+    questions_text = text[match.end() :].strip()
 
-    if len(parts) < 2:
+    if not questions_text:
         return main_text, []
-
-    questions_text = parts[1].strip()
 
     # すべての行を取得し、空行を除外
     raw_questions = [q.strip() for q in questions_text.split("\n") if q.strip()]
 
+    # 1行に複数の質問が「？」区切りで並んでいる場合を展開
+    expanded: list[str] = []
+    for line in raw_questions:
+        # 「？ 」で区切られた複数質問を分割（末尾の？は保持）
+        parts = re.split(r"？\s+", line)
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:
+                continue
+            # 最後のパート以外は「？」を付け直す
+            if i < len(parts) - 1:
+                part += "？"
+            expanded.append(part)
+
     # 先頭の「-」「- 」を除去（箇条書き形式の場合）
-    questions = [q.lstrip("-").strip() for q in raw_questions]
+    questions = [q.lstrip("-").strip() for q in expanded]
 
     # 空の質問を除外し、5個までに制限
     questions = [q for q in questions if q][:5]
@@ -251,6 +268,43 @@ class TestExtractSuggestedQuestions:
         assert len(questions) == 2
         assert questions[0] == "質問1"
         assert questions[1] == "質問2"
+
+    def test_マークダウン太字セパレーターを処理できる(self):
+        """AIがマークダウン太字でセパレーターを出力した場合も処理できる."""
+        text = """分析結果です。
+
+**SUGGESTED_QUESTIONS---**
+穴馬を探して
+展開予想は？"""
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert main_text == "分析結果です。"
+        assert len(questions) == 2
+        assert questions[0] == "穴馬を探して"
+        assert questions[1] == "展開予想は？"
+
+    def test_マークダウン太字セパレーター_質問が同一行(self):
+        """太字セパレーターの後に質問が改行なしで続く場合も処理できる."""
+        text = "分析結果。\n\n**SUGGESTED_QUESTIONS---**\n2番が外れた場合の保険は？ 4-6追加すべき？ AI指数の差は？"
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert main_text == "分析結果。"
+        assert len(questions) >= 2
+
+    def test_ダッシュなし太字セパレーター(self):
+        """**SUGGESTED_QUESTIONS** のみの場合も処理できる."""
+        text = """分析結果。
+
+**SUGGESTED_QUESTIONS**
+穴馬を探して
+展開予想は？"""
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert main_text == "分析結果。"
+        assert len(questions) == 2
 
 
 # =============================================================================
