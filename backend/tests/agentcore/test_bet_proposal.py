@@ -302,7 +302,7 @@ class TestAllocateBudget:
         assert len(set(amounts)) == 1
 
     def test_余剰予算が期待値の高い買い目に追加配分される(self):
-        """丸めで余った予算は期待値の高い買い目に追加される."""
+        """丸めで余った予算は期待値の高い買い目に優先的に追加される."""
         bets = [
             {"confidence": "high", "bet_type": "quinella", "expected_value": 1.5},
             {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
@@ -312,6 +312,9 @@ class TestAllocateBudget:
         total = sum(b["amount"] for b in result)
         # 予算の90%以上を使い切る
         assert total >= 3000 * 0.9
+        # 最高EVの買い目が最も多い金額を持つ
+        assert result[0]["amount"] >= result[1]["amount"]
+        assert result[0]["amount"] >= result[2]["amount"]
 
     def test_予算の大部分が使い切られる(self):
         """8点買いでも予算のほとんどが配分される."""

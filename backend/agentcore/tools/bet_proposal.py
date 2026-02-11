@@ -645,6 +645,8 @@ def _allocate_budget(
     total_ratio = sum(g[2] for g in groups)
     normalized = [(g[0], g[1], g[2] / total_ratio) for g in groups]
 
+    unit = MIN_BET_AMOUNT  # 丸め単位（100円）
+
     total_amount = 0
     for _, group_bets, ratio in normalized:
         group_budget = int(budget * ratio)
@@ -652,14 +654,14 @@ def _allocate_budget(
         evs = [max(0, b.get("expected_value", 0)) for b in group_bets]
         total_ev = sum(evs)
         if total_ev > 0:
-            # 期待値に比例して配分（100円単位に丸め、最低100円保証）
+            # 期待値に比例して配分（unit単位に丸め、最低unit保証）
             for i, bet in enumerate(group_bets):
                 raw = group_budget * evs[i] / total_ev
-                bet["amount"] = max(MIN_BET_AMOUNT, int(math.floor(raw / 100) * 100))
+                bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
                 total_amount += bet["amount"]
         else:
             # 期待値が全て0の場合は均等配分
-            per_bet = max(MIN_BET_AMOUNT, int(math.floor(group_budget / len(group_bets) / 100) * 100))
+            per_bet = max(unit, int(math.floor(group_budget / len(group_bets) / unit) * unit))
             for bet in group_bets:
                 bet["amount"] = per_bet
                 total_amount += per_bet
@@ -671,38 +673,52 @@ def _allocate_budget(
         for b in reversed(bets):
             if overage <= 0:
                 break
-            reducible = b["amount"] - MIN_BET_AMOUNT
+            reducible = b["amount"] - unit
             if reducible > 0:
                 reduction = min(reducible, overage)
-                reduction = (reduction // 100) * 100
+                reduction = (reduction // unit) * unit
                 if reduction > 0:
                     b["amount"] -= reduction
                     overage -= reduction
 
-    # 余剰予算を期待値の高い買い目に追加配分
+    # 余剰予算を期待値比率で追加配分
     remaining = budget - sum(b.get("amount", 0) for b in bets if "amount" in b)
-    if remaining >= 100:
-        # 期待値降順でソートした順に100円ずつ追加
-        sorted_by_ev = sorted(
-            [b for b in bets if "amount" in b],
-            key=lambda b: b.get("expected_value", 0),
-            reverse=True,
-        )
-        for bet in sorted_by_ev:
-            if remaining < 100:
-                break
-            add = (remaining // 100) * 100
-            # 1回で全額追加せず、100円ずつ配分してバランスを保つ
-            add = min(add, 100)
-            bet["amount"] += add
-            remaining -= add
-        # まだ残っていれば繰り返し
-        while remaining >= 100:
+    if remaining >= unit:
+        positive_ev_bets = [
+            b for b in bets
+            if "amount" in b and b.get("expected_value", 0) > 0
+        ]
+
+        if positive_ev_bets:
+            # EV比率に応じて余剰を配分（unit単位に丸め）
+            sorted_by_ev = sorted(
+                positive_ev_bets,
+                key=lambda b: b.get("expected_value", 0),
+                reverse=True,
+            )
+            total_positive_ev = sum(b.get("expected_value", 0) for b in positive_ev_bets)
+            initial_remaining = remaining
             for bet in sorted_by_ev:
-                if remaining < 100:
-                    break
-                bet["amount"] += 100
-                remaining -= 100
+                ev = bet.get("expected_value", 0)
+                add = int(math.floor(initial_remaining * ev / total_positive_ev / unit) * unit)
+                add = min(add, remaining)
+                if add >= unit:
+                    bet["amount"] += add
+                    remaining -= add
+            # 丸め残りはEV最大の買い目に追加
+            if remaining >= unit:
+                top_add = int(remaining // unit) * unit
+                sorted_by_ev[0]["amount"] += top_add
+                remaining -= top_add
+        else:
+            # 全EV=0: 均等に追加配分
+            all_bets = [b for b in bets if "amount" in b]
+            while remaining >= unit:
+                for bet in all_bets:
+                    if remaining < unit:
+                        break
+                    bet["amount"] += unit
+                    remaining -= unit
 
     return bets
 
