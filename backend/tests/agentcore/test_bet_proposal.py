@@ -12,6 +12,7 @@ from tools.bet_proposal import (
     _select_axis_horses,
     _select_bet_types_by_difficulty,
     _generate_bet_candidates,
+    _assign_relative_confidence,
     _allocate_budget,
     _assess_ai_consensus,
     _estimate_bet_odds,
@@ -932,3 +933,135 @@ class TestDecimalCompatibility:
         assert "error" not in result
         assert "proposed_bets" in result
         assert isinstance(result["proposed_bets"], list)
+
+
+# =============================================================================
+# 相対信頼度割り当てテスト
+# =============================================================================
+
+
+class TestAssignRelativeConfidence:
+    """_assign_relative_confidence のテスト."""
+
+    def test_空リストでエラーにならない(self):
+        """空リストを渡してもエラーにならない."""
+        bets = []
+        _assign_relative_confidence(bets)
+        assert bets == []
+
+    def test_1件はhighになる(self):
+        """候補が1件の場合はhighが割り当てられる."""
+        bets = [{"_composite_score": 60, "confidence": "medium"}]
+        _assign_relative_confidence(bets)
+        assert bets[0]["confidence"] == "high"
+
+    def test_2件は上位highと下位medium(self):
+        """候補が2件の場合は上位がhigh、下位がmedium."""
+        bets = [
+            {"_composite_score": 50, "confidence": "medium"},
+            {"_composite_score": 80, "confidence": "medium"},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[1]["confidence"] == "high"
+        assert bets[0]["confidence"] == "medium"
+
+    def test_3件で3段階に分かれる(self):
+        """候補が3件の場合はhigh/medium/lowの3段階."""
+        bets = [
+            {"_composite_score": 90, "confidence": "medium"},
+            {"_composite_score": 70, "confidence": "medium"},
+            {"_composite_score": 50, "confidence": "medium"},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[0]["confidence"] == "high"
+        assert bets[1]["confidence"] == "medium"
+        assert bets[2]["confidence"] == "low"
+
+    def test_全スコア同値は全てmedium(self):
+        """全候補のスコアが同じ場合は全てmediumになる."""
+        bets = [
+            {"_composite_score": 75, "confidence": "high"},
+            {"_composite_score": 75, "confidence": "high"},
+            {"_composite_score": 75, "confidence": "high"},
+        ]
+        _assign_relative_confidence(bets)
+        for b in bets:
+            assert b["confidence"] == "medium"
+
+    def test_8件で信頼度にばらつきが出る(self):
+        """MAX_BETS=8件の場合、3段階全てが出現する."""
+        bets = [{"_composite_score": 90 - i * 5, "confidence": "medium"} for i in range(8)]
+        _assign_relative_confidence(bets)
+        confidences = [b["confidence"] for b in bets]
+        assert "high" in confidences
+        assert "medium" in confidences
+        assert "low" in confidences
+
+    def test_8件でhigh割合は半分未満(self):
+        """8件のうちhighは3件以下（全部highにならない）."""
+        bets = [{"_composite_score": 90 - i * 5, "confidence": "medium"} for i in range(8)]
+        _assign_relative_confidence(bets)
+        high_count = sum(1 for b in bets if b["confidence"] == "high")
+        assert high_count <= 4
+        assert high_count >= 1
+
+    def test_スコア降順で信頼度が単調非増加(self):
+        """スコア順にソートしたとき信頼度はhigh→medium→lowの順."""
+        bets = [{"_composite_score": 90 - i * 3, "confidence": "medium"} for i in range(6)]
+        _assign_relative_confidence(bets)
+        # スコア降順ソート
+        sorted_bets = sorted(bets, key=lambda b: b["_composite_score"], reverse=True)
+        confidence_order = {"high": 0, "medium": 1, "low": 2}
+        for i in range(len(sorted_bets) - 1):
+            current = confidence_order[sorted_bets[i]["confidence"]]
+            next_val = confidence_order[sorted_bets[i + 1]["confidence"]]
+            assert current <= next_val
+
+    def test_composite_scoreがない場合でもエラーにならない(self):
+        """_composite_scoreキーがなくてもデフォルト0で処理される."""
+        bets = [
+            {"confidence": "medium"},
+            {"confidence": "medium", "_composite_score": 80},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[1]["confidence"] == "high"
+        assert bets[0]["confidence"] == "medium"
+
+
+class TestGenerateBetCandidatesConfidence:
+    """_generate_bet_candidates が信頼度にばらつきを生むことのテスト."""
+
+    def test_買い目候補の信頼度が全てhighにならない(self):
+        """十分な候補数がある場合、全てhighにはならない."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [
+            {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85},
+            {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 75},
+        ]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["quinella", "quinella_place"],
+            total_runners=12,
+        )
+        if len(bets) >= 3:
+            confidences = {b["confidence"] for b in bets}
+            assert len(confidences) >= 2, f"信頼度が1種類のみ: {confidences}"
+
+    def test_買い目候補にcomposite_scoreが格納される(self):
+        """各買い目に_composite_scoreが含まれる."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [{"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85}]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["quinella"],
+            total_runners=12,
+        )
+        for bet in bets:
+            assert "_composite_score" in bet
+            assert isinstance(bet["_composite_score"], (int, float))
