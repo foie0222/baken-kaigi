@@ -140,22 +140,25 @@ def _calculate_composite_score(
             break
 
     # オッズ乖離スコア
-    odds_gap_score = 50.0  # デフォルト
+    odds_gap_score = 50.0  # デフォルト（データ不足時）
     runner = next((r for r in runners_data if r.get("horse_number") == horse_number), None)
     if runner:
-        popularity = runner.get("popularity") or 99
-        # AI上位なのにオッズが高い = 市場の見落とし = ボーナス
-        if ai_rank <= ODDS_GAP_BONUS_THRESHOLD and popularity > ODDS_GAP_BONUS_THRESHOLD:
-            odds_gap_score = 80.0 + (popularity - ai_rank) * 2
-        elif ai_rank <= 3 and popularity <= 3:
-            odds_gap_score = 60.0  # 順当
-        elif ai_rank > ODDS_GAP_BONUS_THRESHOLD and popularity <= 3:
-            odds_gap_score = 20.0  # 過剰人気
-        else:
-            odds_gap_score = 50.0
+        popularity = runner.get("popularity")
+        if popularity and popularity > 0:
+            # 人気データがある場合のみ乖離スコアを計算
+            if ai_rank <= ODDS_GAP_BONUS_THRESHOLD and popularity > ODDS_GAP_BONUS_THRESHOLD:
+                odds_gap_score = min(100.0, 80.0 + (popularity - ai_rank) * 2)
+            elif ai_rank <= 3 and popularity <= 3:
+                odds_gap_score = 60.0  # 順当
+            elif ai_rank > ODDS_GAP_BONUS_THRESHOLD and popularity <= 3:
+                odds_gap_score = 20.0  # 過剰人気
+            else:
+                odds_gap_score = 50.0
+        # 人気データがない場合はデフォルト50.0のまま（不確実性を反映）
 
     # 展開相性スコア
-    pace_score = 50.0  # デフォルト
+    # 脚質データがない場合は不確実性ペナルティを適用
+    pace_score = 40.0 if (not predicted_pace or not running_styles) else 50.0
     if predicted_pace and running_styles:
         style_map = {r.get("horse_number"): r.get("running_style", "不明") for r in running_styles}
         style = style_map.get(horse_number, "不明")
@@ -351,7 +354,7 @@ def _generate_bet_candidates(
             for axis in axis_horses:
                 axis_hn = axis["horse_number"]
                 axis_runner = runners_map.get(axis_hn, {})
-                axis_pop = axis_runner.get("popularity") or 99
+                axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
                 ev = _calculate_expected_value(
@@ -392,6 +395,7 @@ def _generate_bet_candidates(
                     "confidence": confidence,
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": axis_odds,
+                    "composite_score": axis["composite_score"],
                     "reasoning": reasoning,
                     "bet_count": 1,
                 })
@@ -401,13 +405,13 @@ def _generate_bet_candidates(
         for axis in axis_horses:
             axis_hn = axis["horse_number"]
             axis_runner = runners_map.get(axis_hn, {})
-            axis_pop = axis_runner.get("popularity") or 99
+            axis_pop = axis_runner.get("popularity") or 0
             axis_odds = axis_runner.get("odds") or 0
 
             for partner in partners:
                 partner_hn = partner["horse_number"]
                 partner_runner = runners_map.get(partner_hn, {})
-                partner_pop = partner_runner.get("popularity") or 99
+                partner_pop = partner_runner.get("popularity") or 0
                 partner_odds = partner_runner.get("odds") or 0
 
                 # 馬番表示
@@ -466,6 +470,7 @@ def _generate_bet_candidates(
                     "confidence": confidence,
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": estimated_odds,
+                    "composite_score": avg_score,
                     "reasoning": reasoning,
                     "bet_count": 1,
                 })
@@ -477,7 +482,7 @@ def _generate_bet_candidates(
             for axis in axis_horses:
                 axis_hn = axis["horse_number"]
                 axis_runner = runners_map.get(axis_hn, {})
-                axis_pop = axis_runner.get("popularity") or 99
+                axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
                 for p1, p2 in combs(partners[:MAX_PARTNERS], 2):
@@ -495,8 +500,8 @@ def _generate_bet_candidates(
                         horse_numbers = [axis_hn, p1_hn, p2_hn]
                         bet_display = f"{axis_hn}-{p1_hn}-{p2_hn}"
 
-                    p1_pop = p1_runner.get("popularity") or 99
-                    p2_pop = p2_runner.get("popularity") or 99
+                    p1_pop = p1_runner.get("popularity") or 0
+                    p2_pop = p2_runner.get("popularity") or 0
 
                     # 推定オッズ（券種別補正係数を適用）
                     estimated_odds = _estimate_bet_odds(
@@ -531,6 +536,7 @@ def _generate_bet_candidates(
                         "confidence": confidence,
                         "expected_value": ev.get("expected_return", 0),
                         "composite_odds": estimated_odds,
+                        "composite_score": avg_score,
                         "reasoning": reasoning,
                         "bet_count": 1,
                     })
@@ -648,10 +654,33 @@ def _allocate_budget(
     total_amount = 0
     for _, group_bets, ratio in normalized:
         group_budget = int(budget * ratio)
-        per_bet = max(MIN_BET_AMOUNT, int(math.floor(group_budget / len(group_bets) / 100) * 100))
-        for bet in group_bets:
-            bet["amount"] = per_bet
-            total_amount += per_bet
+        if len(group_bets) == 1:
+            group_bets[0]["amount"] = max(
+                MIN_BET_AMOUNT, int(math.floor(group_budget / 100) * 100)
+            )
+            total_amount += group_bets[0]["amount"]
+        else:
+            # composite_scoreベースの傾斜配分（スコアが高い買い目に多く配分）
+            scores = [b.get("composite_score", 50) for b in group_bets]
+            total_score = sum(scores)
+            if total_score > 0 and max(scores) != min(scores):
+                for bet, score in zip(group_bets, scores):
+                    weight = score / total_score
+                    amount = max(
+                        MIN_BET_AMOUNT,
+                        int(math.floor(group_budget * weight / 100) * 100),
+                    )
+                    bet["amount"] = amount
+                    total_amount += amount
+            else:
+                # スコアが同一の場合は均等配分
+                per_bet = max(
+                    MIN_BET_AMOUNT,
+                    int(math.floor(group_budget / len(group_bets) / 100) * 100),
+                )
+                for bet in group_bets:
+                    bet["amount"] = per_bet
+                    total_amount += per_bet
 
     # 予算超過時は低信頼度から金額削減
     if total_amount > budget:
