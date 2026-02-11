@@ -12,7 +12,7 @@ import { apiClient } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
-import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER } from '../constants/characters';
+import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../constants/characters';
 
 interface ChatMessage {
   type: 'ai' | 'user';
@@ -35,9 +35,9 @@ export function ConsultationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [inputText, setInputText] = useState('');
-  const [characterId, setCharacterId] = useState(() => {
+  const [characterId, setCharacterId] = useState<CharacterId>(() => {
     const stored = localStorage.getItem(STORAGE_KEY_CHARACTER);
-    return stored && AI_CHARACTERS.some((c) => c.id === stored) ? stored : DEFAULT_CHARACTER_ID;
+    return stored && AI_CHARACTERS.some((c) => c.id === stored) ? (stored as CharacterId) : DEFAULT_CHARACTER_ID;
   });
   const selectedCharacter = AI_CHARACTERS.find((c) => c.id === characterId) || AI_CHARACTERS[0];
 
@@ -57,7 +57,7 @@ export function ConsultationPage() {
   const initialItemsRef = useRef(items);
   const initialRunnersRef = useRef(currentRunnersData);
 
-  const handleCharacterChange = (newCharacterId: string) => {
+  const handleCharacterChange = (newCharacterId: CharacterId) => {
     setCharacterId(newCharacterId);
     localStorage.setItem(STORAGE_KEY_CHARACTER, newCharacterId);
   };
