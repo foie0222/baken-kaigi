@@ -40,10 +40,10 @@ export function ProposalCard({ bet, onAddToCart, isAdded }: ProposalCardProps) {
             {bet.bet_count}点 / {(bet.amount ?? 0).toLocaleString()}円
           </span>
           <span className="proposal-detail-item">
-            推定オッズ: {bet.composite_odds ? `${bet.composite_odds.toFixed(1)}倍` : '未確定'}
+            推定オッズ: {bet.composite_odds != null && bet.composite_odds >= 1.0 ? `${bet.composite_odds.toFixed(1)}倍` : '未確定'}
           </span>
           <span className="proposal-detail-item">
-            期待値: {bet.composite_odds ? (bet.expected_value ?? 0).toFixed(2) : '未確定'}
+            期待値: {bet.composite_odds != null && bet.composite_odds >= 1.0 ? (bet.expected_value ?? 0).toFixed(2) : '未確定'}
           </span>
         </div>
         <p className="proposal-reasoning">{bet.reasoning}</p>
