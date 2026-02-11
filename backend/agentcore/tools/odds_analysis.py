@@ -15,7 +15,6 @@ from .constants import (
     AI_VALUE_HIGH,
     AI_VALUE_LOW,
     API_TIMEOUT_SECONDS,
-    FINAL_HOUR_WEIGHT,
     ODDS_DROP,
     ODDS_RISE,
     ODDS_SHARP_DROP,

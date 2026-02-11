@@ -3,7 +3,6 @@
 import logging
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
@@ -21,13 +20,12 @@ class TestGetToolLogger:
         logger = get_tool_logger("test_level")
         assert logger.level == logging.INFO
 
-    def test_ハンドラーが1つだけ追加される(self):
-        # 既存のハンドラーをクリアするためユニークな名前を使用
-        logger = get_tool_logger("test_handler_unique")
-        handler_count = len(logger.handlers)
-        # 2回呼んでもハンドラーは増えない
-        get_tool_logger("test_handler_unique")
-        assert len(logger.handlers) == handler_count
+    def test_ハンドラーを直接追加しない(self):
+        logger = get_tool_logger("test_no_handler")
+        # ライブラリ側でハンドラーを追加しない（ルートロガーに委譲）
+        initial_count = len(logger.handlers)
+        get_tool_logger("test_no_handler")
+        assert len(logger.handlers) == initial_count
 
     def test_異なる名前のロガーは別インスタンス(self):
         logger1 = get_tool_logger("module_a")
