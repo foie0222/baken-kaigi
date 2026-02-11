@@ -1,9 +1,11 @@
 """AI予想データ取得ツール.
 
-外部AI予想サービス（ai-shisu.com等）からスクレイピングしたデータをDynamoDBから取得する。
+外部AI予想サービスからスクレイピングしたデータをDynamoDBから取得する。
+ソース名はLLMへの応答前に匿名ラベル（AI-A, AI-B等）に変換される。
 """
 
 import os
+import string
 
 import boto3
 from botocore.exceptions import ClientError
@@ -20,18 +22,72 @@ def get_dynamodb_table():
     return dynamodb.Table(table_name)
 
 
+def _build_source_label_map(source_names: list[str]) -> dict[str, str]:
+    """ソース名のリストから匿名ラベルへのマッピングを構築する.
+
+    ソース名をアルファベット順でソートし、AI-A, AI-B, AI-C... を割り当てる。
+
+    Args:
+        source_names: ソース名のリスト（重複可）
+
+    Returns:
+        dict: {"ai-shisu": "AI-A", "muryou-keiba-ai": "AI-B", ...}
+    """
+    unique_sorted = sorted(set(source_names))
+    return {
+        name: f"AI-{string.ascii_uppercase[i]}"
+        for i, name in enumerate(unique_sorted)
+    }
+
+
+def _anonymize_sources(result: dict) -> dict:
+    """レスポンスのソース名を匿名ラベルに変換する.
+
+    Args:
+        result: _get_all_sources() の戻り値（sources, consensus を含む）
+
+    Returns:
+        dict: ソース名が匿名化されたレスポンス
+    """
+    sources = result.get("sources", [])
+    if not sources:
+        return result
+
+    # ソース名→匿名ラベルのマッピングを構築
+    source_names = [s["source"] for s in sources if s.get("source")]
+    label_map = _build_source_label_map(source_names)
+
+    # sources[].source を匿名化
+    for s in sources:
+        original = s.get("source")
+        if original in label_map:
+            s["source"] = label_map[original]
+
+    # consensus.divergence_horses[].ranks のキーを匿名化
+    consensus = result.get("consensus")
+    if consensus:
+        for horse in consensus.get("divergence_horses", []):
+            original_ranks = horse.get("ranks", {})
+            horse["ranks"] = {
+                label_map.get(k, k): v
+                for k, v in original_ranks.items()
+            }
+
+    return result
+
+
 def _analyze_consensus(sources: list[dict]) -> dict:
     """複数ソースのコンセンサスを分析する.
 
     Args:
-        sources: [{"source": "ai-shisu", "predictions": [...]}, ...]
+        sources: [{"source": "AI-A", "predictions": [...]}, ...]
 
     Returns:
         dict: {
             "agreed_top3": [8, 3],  # 両方のtop3に含まれる馬番
             "consensus_level": "部分合意",
             "divergence_horses": [
-                {"horse_number": 5, "ranks": {"ai-shisu": 2, "muryou-keiba-ai": 8}, "gap": 6}
+                {"horse_number": 5, "ranks": {"AI-A": 2, "AI-B": 8}, "gap": 6}
             ]
         }
     """
@@ -116,8 +172,8 @@ def _get_single_source(table, race_id: str, source: str) -> dict:
     if not item:
         return {
             "race_id": race_id,
-            "source": source,
-            "error": f"AI予想データが見つかりません。このレースの{source}データはまだ取得されていないか、対象外のレースです。",
+            "source": "AI-A",
+            "error": "AI予想データが見つかりません。このレースのデータはまだ取得されていないか、対象外のレースです。",
             "predictions": [],
         }
 
@@ -126,7 +182,7 @@ def _get_single_source(table, race_id: str, source: str) -> dict:
 
     return {
         "race_id": item.get("race_id"),
-        "source": item.get("source"),
+        "source": "AI-A",
         "venue": item.get("venue"),
         "race_number": item.get("race_number"),
         "predictions": item.get("predictions", []),
@@ -170,15 +226,16 @@ def _get_all_sources(table, race_id: str) -> dict:
     if len(sources) >= 2:
         result["consensus"] = _analyze_consensus(sources)
 
-    return result
+    return _anonymize_sources(result)
 
 
 @tool
 def get_ai_prediction(race_id: str, source: str | None = None) -> dict:
     """外部AIサービスの予想指数を取得する.
 
-    ai-shisu.com等の外部AI予想サービスから取得したデータを返す。
+    外部AI予想サービスから取得したデータを返す。
     このデータは毎朝自動でスクレイピングされ、DynamoDBに保存されている。
+    ソース名は匿名ラベル（AI-A, AI-B等）に変換されて返される。
 
     Args:
         race_id: レースID (例: "20260131_05_11")
@@ -213,7 +270,7 @@ def get_ai_prediction(race_id: str, source: str | None = None) -> dict:
         if source is not None:
             return {
                 "race_id": race_id,
-                "source": source,
+                "source": "AI-A",
                 "error": f"DynamoDBエラー: {error_code}",
                 "predictions": [],
             }
@@ -227,7 +284,7 @@ def get_ai_prediction(race_id: str, source: str | None = None) -> dict:
         if source is not None:
             return {
                 "race_id": race_id,
-                "source": source,
+                "source": "AI-A",
                 "error": f"予期しないエラー: {str(e)}",
                 "predictions": [],
             }
@@ -292,7 +349,7 @@ def list_ai_predictions_for_date(date: str, source: str = "ai-shisu") -> dict:
 
         return {
             "date": date,
-            "source": source,
+            "source": "AI-A",
             "races": races,
             "total_count": len(races),
         }
@@ -301,14 +358,14 @@ def list_ai_predictions_for_date(date: str, source: str = "ai-shisu") -> dict:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
         return {
             "date": date,
-            "source": source,
+            "source": "AI-A",
             "error": f"DynamoDBエラー: {error_code}",
             "races": [],
         }
     except Exception as e:
         return {
             "date": date,
-            "source": source,
+            "source": "AI-A",
             "error": f"予期しないエラー: {str(e)}",
             "races": [],
         }
