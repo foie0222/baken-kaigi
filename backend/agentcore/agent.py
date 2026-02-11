@@ -9,6 +9,9 @@ import re
 import sys
 from typing import Any
 
+# AgentCore Runtime ではCloudWatchメトリクス送信を有効化
+os.environ.setdefault("EMIT_CLOUDWATCH_METRICS", "true")
+
 # ロギング設定
 logging.basicConfig(
     level=logging.INFO,
