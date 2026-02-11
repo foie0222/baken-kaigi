@@ -390,14 +390,14 @@ jobs:
           # heredocインデント除去 + プレースホルダー置換 + JSON変換
           sed -i 's/^          //' /tmp/deploy.ps1
           echo "$PRESIGNED_URL" > /tmp/presigned_url.txt
-          python3 -c "
+          python3 << 'PYEOF'
           import json
           script = open('/tmp/deploy.ps1').read()
           url = open('/tmp/presigned_url.txt').read().strip()
           script = script.replace('__PRESIGNED_URL__', url)
           lines = script.splitlines()
           json.dump({'commands': lines}, open('/tmp/ssm-params.json', 'w'))
-          "
+          PYEOF
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
