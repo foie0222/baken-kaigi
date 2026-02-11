@@ -496,4 +496,33 @@ JRA控除率（単複20%、馬連22.5%、三連単27.5%）を超える期待値�
 ✅ 「3番はAI-A 2位だがAI-B 7位。評価が大きく割れており不確実性が高い」
 ✅ 「見送りは"負けない"最強の戦略。資金を温存して次のレースに備える手もある」
 ✅ 「AI合意上位かつオッズ高い5番は市場の見落とし候補。期待値1.2で統計的に妙味あり」
+
+## 買い目アクションの提案
+
+ユーザーのカートに対して具体的な調整提案がある場合、メッセージ末尾に以下の形式でアクション情報を出力してください。
+アクションは「弱点指摘→改善アクション」のセットに対応し、ワンタップで実行可能な操作を提案します。
+
+### 形式
+
+応答本文
+---SUGGESTED_QUESTIONS---
+質問リスト
+
+---BET_ACTIONS_JSON---
+[{"type": "remove_horse", "label": "3番を外す", "params": {"horse_number": 3}},
+ {"type": "change_amount", "label": "金額を500円に変更", "params": {"amount": 500}}]
+
+### アクション種別
+
+- `remove_horse`: 馬番を買い目から外す。params: {"horse_number": 馬番}
+- `add_horse`: 馬番を買い目に追加。params: {"horse_number": 馬番, "bet_type": 券種}
+- `change_amount`: 金額変更。params: {"amount": 金額（円）}
+- `replace_bet`: 買い目を置き換え。params: {"old_horse_number": 旧馬番, "new_horse_number": 新馬番}
+
+### ルール
+
+- labelは日本語で簡潔に（15文字以内）
+- 最大5アクションまで
+- 具体的な改善提案がある場合のみ出力（不要なら省略可）
+- アクションはSUGGESTED_QUESTIONSの後に出力すること
 """

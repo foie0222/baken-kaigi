@@ -3,6 +3,7 @@
 AgentCore Runtime にデプロイされるメインエージェント。
 """
 
+import json
 import logging
 import os
 import re
@@ -157,6 +158,9 @@ def invoke(payload: dict, context: Any) -> dict:
     # 買い目提案セパレータが欠落している場合、ツール結果から復元
     message_text = _ensure_bet_proposal_separator(message_text)
 
+    # 買い目アクションを抽出（SUGGESTED_QUESTIONSより後に出力されるため先に抽出）
+    message_text, bet_actions = _extract_bet_actions(message_text)
+
     # クイックリプライ提案を抽出
     message_text, suggested_questions = _extract_suggested_questions(message_text)
 
@@ -164,6 +168,7 @@ def invoke(payload: dict, context: Any) -> dict:
         "message": message_text,
         "session_id": getattr(context, "session_id", None),
         "suggested_questions": suggested_questions,
+        "bet_actions": bet_actions,
     }
 
 
@@ -231,6 +236,38 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     questions = [q for q in questions if q][:5]
 
     return main_text, questions
+
+
+def _extract_bet_actions(text: str) -> tuple[str, list[dict]]:
+    """応答テキストから買い目アクション情報を抽出する.
+
+    Args:
+        text: AIの応答テキスト
+
+    Returns:
+        (本文, アクションリスト) のタプル
+    """
+    from response_utils import BET_ACTIONS_SEPARATOR
+
+    idx = text.find(BET_ACTIONS_SEPARATOR)
+    if idx == -1:
+        return text, []
+
+    main_text = text[:idx].strip()
+    json_text = text[idx + len(BET_ACTIONS_SEPARATOR) :].strip()
+
+    if not json_text:
+        return main_text, []
+
+    try:
+        actions = json.loads(json_text)
+        if isinstance(actions, list):
+            return main_text, actions[:5]
+    except json.JSONDecodeError:
+        # JSONパースに失敗した場合はアクションなしとして扱う
+        pass
+
+    return main_text, []
 
 
 def _ensure_bet_proposal_separator(message_text: str) -> str:
