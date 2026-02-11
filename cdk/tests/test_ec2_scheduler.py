@@ -10,10 +10,18 @@ import pytest
 # プロジェクトルート（cdk/）をパスに追加
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# boto3 はCDKテスト環境にはインストールされていない場合がある
+boto3_available = True
+try:
+    import boto3
+except ImportError:
+    boto3_available = False
+
 
 # ========================================
 # Lambda ハンドラーのユニットテスト
 # ========================================
+@pytest.mark.skipif(not boto3_available, reason="boto3 not available in CDK test environment")
 class TestEc2SchedulerHandler:
     """EC2 スケジューラー Lambda ハンドラーのテスト."""
 
