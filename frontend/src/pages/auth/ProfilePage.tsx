@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useAppStore } from '../../stores/appStore';
 
@@ -9,7 +9,13 @@ export function ProfilePage() {
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [isSaving, setIsSaving] = useState(false);
 
-  const hasChanges = displayName !== initialDisplayName;
+  // user ロード後に displayName を同期
+  useEffect(() => {
+    setDisplayName(initialDisplayName);
+  }, [initialDisplayName]);
+
+  const trimmedName = displayName.trim();
+  const hasChanges = trimmedName !== initialDisplayName && trimmedName.length > 0;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -18,7 +24,7 @@ export function ProfilePage() {
     clearError();
     setIsSaving(true);
     try {
-      await updateProfile(displayName);
+      await updateProfile(trimmedName);
       showToast('プロフィールを更新しました');
     } catch {
       showToast('プロフィールの更新に失敗しました', 'error');

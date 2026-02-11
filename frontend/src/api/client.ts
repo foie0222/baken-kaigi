@@ -675,7 +675,7 @@ class ApiClient {
 
   // プロフィール更新API
   async updateUserProfile(data: {
-    displayName?: string;
+    displayName: string;
   }): Promise<ApiResponse<{ user_id: string; email: string; display_name: string }>> {
     return this.request<{ user_id: string; email: string; display_name: string }>('/users/profile', {
       method: 'PUT',

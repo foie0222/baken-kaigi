@@ -299,9 +299,13 @@ export const useAuthStore = create<AuthState>()((set) => ({
         isLoading: false,
       }));
     } catch (error) {
+      const errorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : 'プロフィール更新に失敗しました';
       set({
         isLoading: false,
-        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'プロフィール更新に失敗しました'),
+        error: errorMessage,
       });
       throw error;
     }

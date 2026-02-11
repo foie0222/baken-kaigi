@@ -58,9 +58,10 @@ describe('PrivacyPolicyPage', () => {
     expect(screen.getByText(/Amazon Cognito/)).toBeInTheDocument()
   })
 
-  it('DynamoDBデータの保持期間が記載されている', () => {
+  it('データの保持期間が記載されている', () => {
     render(<PrivacyPolicyPage />)
     expect(screen.getByText(/Amazon DynamoDB/)).toBeInTheDocument()
     expect(screen.getByText(/アカウント削除後30日以内に完全削除/)).toBeInTheDocument()
+    expect(screen.getAllByText(/速やかに削除/).length).toBeGreaterThanOrEqual(1)
   })
 })
