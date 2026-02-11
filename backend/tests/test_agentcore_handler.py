@@ -485,6 +485,40 @@ class TestTypeフィールド中継:
             response_body = json.loads(response["body"])
             assert "suggested_questions" not in response_body
 
+    def test_ネストされたJSON内のsuggested_questionsがレスポンスに含まれる(self):
+        """messageがネストされたJSONで、内側にsuggested_questionsがある場合もレスポンスに含まれる."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            body = {"prompt": "分析して", "type": "consultation"}
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            # AgentCoreがネストされたJSONを返すケースをシミュレート
+            inner = json.dumps({
+                "message": "ネストされた分析結果",
+                "session_id": "nested-sq",
+                "suggested_questions": ["ネスト質問1？", "ネスト質問2？"],
+            })
+            mock_client = MagicMock()
+            mock_streaming_body = MagicMock()
+            mock_streaming_body.read.return_value = json.dumps({
+                "message": inner,
+            }).encode("utf-8")
+            mock_client.invoke_agent_runtime.return_value = {
+                "contentType": "application/json",
+                "response": mock_streaming_body,
+            }
+
+            with patch("agentcore_handler.boto3") as mock_boto3:
+                mock_boto3.client.return_value = mock_client
+                response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 200
+            response_body = json.loads(response["body"])
+            assert response_body["message"] == "ネストされた分析結果"
+            assert response_body["suggested_questions"] == ["ネスト質問1？", "ネスト質問2？"]
+
     def test_不正なtype値は400エラー(self):
         """type に無効な値が指定された場合は400エラーを返す."""
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
