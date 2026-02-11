@@ -328,6 +328,7 @@ export function ConsultationPage() {
                   {msg.suggestedQuestions.map((q, i) => (
                     <button
                       key={i}
+                      type="button"
                       className="suggested-question-btn"
                       onClick={() => handleSuggestedQuestion(q)}
                     >

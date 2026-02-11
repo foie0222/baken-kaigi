@@ -188,9 +188,9 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     Returns:
         (本文, 提案リスト) のタプル
     """
-    # 正規表現でセパレーターのバリエーションを検出
-    pattern = r"\*{0,2}-{0,3}\s*SUGGESTED_QUESTIONS\s*-{0,3}\*{0,2}"
-    match = re.search(pattern, text)
+    # 正規表現でセパレーターのバリエーションを検出（行全体がセパレーターである場合のみ）
+    pattern = r"^\s*\*{0,2}-{0,3}\s*SUGGESTED_QUESTIONS\s*-{0,3}\*{0,2}\s*$"
+    match = re.search(pattern, text, flags=re.MULTILINE)
 
     if not match:
         return text.strip(), []
