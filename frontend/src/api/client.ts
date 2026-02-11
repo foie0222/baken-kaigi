@@ -43,6 +43,7 @@ export interface AgentCoreConsultationRequest {
   runners_data?: RunnerData[];
   session_id?: string;
   type?: 'consultation' | 'bet_proposal';
+  character_type?: string;
 }
 
 export interface AgentCoreConsultationResponse {

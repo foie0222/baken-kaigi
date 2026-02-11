@@ -130,10 +130,37 @@ describe('ConsultationPage', () => {
   })
 
   describe('AIヘッダー', () => {
-    it('AIのタグラインが表示される', async () => {
+    it('デフォルトキャラクターの説明が表示される', async () => {
       render(<ConsultationPage />)
 
-      expect(await screen.findByText('立ち止まって、考えましょう')).toBeInTheDocument()
+      expect(await screen.findByText('統計データに基づく冷静な分析')).toBeInTheDocument()
+    })
+  })
+
+  describe('キャラクター選択', () => {
+    it('4種類のキャラクターチップが表示される', async () => {
+      render(<ConsultationPage />)
+
+      expect(await screen.findByText('データ分析官')).toBeInTheDocument()
+      expect(await screen.findByText('直感の達人')).toBeInTheDocument()
+      expect(await screen.findByText('堅実派')).toBeInTheDocument()
+      expect(await screen.findByText('勝負師')).toBeInTheDocument()
+    })
+
+    it('デフォルトでデータ分析官が選択されている', async () => {
+      render(<ConsultationPage />)
+
+      const analystChip = (await screen.findByText('データ分析官')).closest('button')
+      expect(analystChip).toHaveClass('active')
+    })
+
+    it('キャラクター選択でヘッダーの説明が変わる', async () => {
+      const { user } = render(<ConsultationPage />)
+
+      const aggressiveChip = await screen.findByText('勝負師')
+      await user.click(aggressiveChip)
+
+      expect(await screen.findByText('高配当・穴馬を積極的に分析')).toBeInTheDocument()
     })
   })
 
