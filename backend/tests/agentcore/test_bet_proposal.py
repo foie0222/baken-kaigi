@@ -977,16 +977,40 @@ class TestAssignRelativeConfidence:
         assert bets[1]["confidence"] == "medium"
         assert bets[2]["confidence"] == "low"
 
-    def test_全スコア同値は全てmedium(self):
-        """全候補のスコアが同じ場合は全てmediumになる."""
+    def test_全スコア同値で期待値も同値は全てmedium(self):
+        """全候補のスコアも期待値も同じ場合は全てmediumになる."""
         bets = [
-            {"_composite_score": 75, "confidence": "high"},
-            {"_composite_score": 75, "confidence": "high"},
-            {"_composite_score": 75, "confidence": "high"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "high"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "high"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "high"},
         ]
         _assign_relative_confidence(bets)
         for b in bets:
             assert b["confidence"] == "medium"
+
+    def test_全スコア同値でも期待値が異なれば信頼度が分布する(self):
+        """スコアが同値でも期待値にばらつきがあれば高中低に分かれる."""
+        bets = [
+            {"_composite_score": 75, "expected_value": 1.5, "confidence": "medium"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "medium"},
+            {"_composite_score": 75, "expected_value": 0.5, "confidence": "medium"},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[0]["confidence"] == "high"
+        assert bets[1]["confidence"] == "medium"
+        assert bets[2]["confidence"] == "low"
+
+    def test_全スコア同値で期待値フォールバック_8件(self):
+        """8件でスコア同値・期待値異なる場合に3段階全てが出現する."""
+        bets = [
+            {"_composite_score": 75, "expected_value": 2.0 - i * 0.2, "confidence": "medium"}
+            for i in range(8)
+        ]
+        _assign_relative_confidence(bets)
+        confidences = [b["confidence"] for b in bets]
+        assert "high" in confidences
+        assert "medium" in confidences
+        assert "low" in confidences
 
     def test_8件で信頼度にばらつきが出る(self):
         """MAX_BETS=8件の場合、3段階全てが出現する."""
