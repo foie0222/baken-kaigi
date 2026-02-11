@@ -24,10 +24,11 @@ describe('TermsPage', () => {
     expect(screen.getByText('第6条（禁止事項）')).toBeInTheDocument()
     expect(screen.getByText('第7条（知的財産権）')).toBeInTheDocument()
     expect(screen.getByText('第8条（免責事項）')).toBeInTheDocument()
-    expect(screen.getByText('第9条（利用制限・登録抹消）')).toBeInTheDocument()
-    expect(screen.getByText('第10条（規約の変更）')).toBeInTheDocument()
-    expect(screen.getByText('第11条（個人情報の取扱い）')).toBeInTheDocument()
-    expect(screen.getByText('第12条（準拠法・裁判管轄）')).toBeInTheDocument()
+    expect(screen.getByText('第9条（ギャンブル依存症に関する注意事項）')).toBeInTheDocument()
+    expect(screen.getByText('第10条（利用制限・登録抹消）')).toBeInTheDocument()
+    expect(screen.getByText('第11条（規約の変更）')).toBeInTheDocument()
+    expect(screen.getByText('第12条（個人情報の取扱い）')).toBeInTheDocument()
+    expect(screen.getByText('第13条（準拠法・裁判管轄）')).toBeInTheDocument()
   })
 
   it('戻るボタンが表示される', () => {
@@ -49,5 +50,19 @@ describe('TermsPage', () => {
   it('Google・Apple認証に関する記載がある', () => {
     render(<TermsPage />)
     expect(screen.getByText(/Googleアカウントまたは Appleアカウントによる認証/)).toBeInTheDocument()
+  })
+
+  it('ギャンブル依存症に関する注意事項が記載されている', () => {
+    render(<TermsPage />)
+    expect(screen.getByText(/余裕資金の範囲内で/)).toBeInTheDocument()
+    expect(screen.getByText(/負け額制限機能/)).toBeInTheDocument()
+  })
+
+  it('相談窓口の案内が記載されている', () => {
+    render(<TermsPage />)
+    expect(screen.getByText(/リカバリーサポート・ネットワーク/)).toBeInTheDocument()
+    expect(screen.getByText(/0120-683-705/)).toBeInTheDocument()
+    expect(screen.getByText(/依存症対策全国センター/)).toBeInTheDocument()
+    expect(screen.getByText(/消費者ホットライン/)).toBeInTheDocument()
   })
 })

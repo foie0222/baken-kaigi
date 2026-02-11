@@ -14,6 +14,7 @@ import {
   updateUserAttributes,
 } from 'aws-amplify/auth';
 import { isAuthConfigured } from '../config/amplify';
+import { apiClient } from '../api/client';
 
 /** Cognitoの英語エラーメッセージを日本語に変換する */
 export function toJapaneseAuthError(error: string | undefined, fallback: string): string {
@@ -57,6 +58,7 @@ interface AuthState {
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   completeOAuthRegistration: (displayName: string, birthdate: string) => Promise<void>;
+  updateProfile: (displayName: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -265,6 +267,31 @@ export const useAuthStore = create<AuthState>()((set) => ({
           'custom:display_name': displayName,
           'custom:terms_accepted_at': now,
           'custom:privacy_accepted_at': now,
+        },
+      });
+      set((state) => ({
+        user: state.user ? { ...state.user, displayName } : null,
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: toJapaneseAuthError(error instanceof Error ? error.message : undefined, 'プロフィール更新に失敗しました'),
+      });
+      throw error;
+    }
+  },
+
+  updateProfile: async (displayName) => {
+    try {
+      set({ isLoading: true, error: null });
+      const result = await apiClient.updateUserProfile({ displayName });
+      if (!result.success) {
+        throw new Error(result.error || 'プロフィール更新に失敗しました');
+      }
+      await updateUserAttributes({
+        userAttributes: {
+          'custom:display_name': displayName,
         },
       });
       set((state) => ({

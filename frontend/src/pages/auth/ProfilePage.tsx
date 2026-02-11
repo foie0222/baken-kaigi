@@ -1,26 +1,39 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { useAuthStore } from '../../stores/authStore';
+import { useAppStore } from '../../stores/appStore';
 
 export function ProfilePage() {
-  const { user, isLoading } = useAuthStore();
+  const { user, isLoading, updateProfile, error, clearError } = useAuthStore();
+  const showToast = useAppStore((state) => state.showToast);
   const initialDisplayName = useMemo(() => user?.displayName || '', [user]);
   const [displayName, setDisplayName] = useState(initialDisplayName);
-  const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const hasChanges = displayName !== initialDisplayName;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // TODO: API call to update profile (未実装)
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (!hasChanges || isSaving) return;
+
+    clearError();
+    setIsSaving(true);
+    try {
+      await updateProfile(displayName);
+      showToast('プロフィールを更新しました');
+    } catch {
+      showToast('プロフィールの更新に失敗しました', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="fade-in" style={{ padding: 16 }}>
       <h2 style={{ textAlign: 'center', marginBottom: 24 }}>プロフィール</h2>
 
-      {saved && (
-        <div style={{ background: '#fff3e0', color: '#e65100', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
-          プロフィール更新機能は現在準備中です
+      {error && (
+        <div style={{ background: '#ffebee', color: '#c62828', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
+          {error}
         </div>
       )}
 
@@ -44,9 +57,14 @@ export function ProfilePage() {
             style={{ width: '100%', padding: 12, border: '1px solid #eee', borderRadius: 8, fontSize: 16, background: '#f5f5f5', color: '#999', boxSizing: 'border-box' }} />
         </div>
 
-        <button type="submit" disabled={isLoading}
-          style={{ padding: 14, background: '#1a73e8', color: 'white', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: 'pointer' }}>
-          保存
+        <button type="submit" disabled={isLoading || isSaving || !hasChanges}
+          style={{
+            padding: 14,
+            background: hasChanges && !isSaving ? '#1a73e8' : '#ccc',
+            color: 'white', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600,
+            cursor: hasChanges && !isSaving ? 'pointer' : 'default',
+          }}>
+          {isSaving ? '保存中...' : '保存'}
         </button>
       </form>
     </div>

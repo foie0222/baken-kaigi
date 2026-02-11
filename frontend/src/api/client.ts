@@ -673,6 +673,18 @@ class ApiClient {
     };
   }
 
+  // プロフィール更新API
+  async updateUserProfile(data: {
+    displayName?: string;
+  }): Promise<ApiResponse<{ user_id: string; email: string; display_name: string }>> {
+    return this.request<{ user_id: string; email: string; display_name: string }>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify({
+        display_name: data.displayName,
+      }),
+    });
+  }
+
   // AgentCore が利用可能かどうか
   isAgentCoreAvailable(): boolean {
     return !!this.agentCoreEndpoint;
