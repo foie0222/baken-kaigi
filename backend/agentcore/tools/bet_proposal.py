@@ -337,13 +337,11 @@ def _assign_relative_confidence(bets: list[dict]) -> None:
 
     # 3件以上: 上位1/3, 中位, 下位1/3
     high_count = max(1, round(n / 3))
-    low_count = max(1, round(n / 3))
-    # medium は残り（最低0）
-    medium_count = n - high_count - low_count
+    # medium は残り（最低0）、low は残りの要素数
+    medium_count = n - high_count - max(1, round(n / 3))
     if medium_count < 0:
-        # n=3で high_count=1, low_count=1 → medium=1 なので通常到達しない
+        # n=3で high_count=1 → lowも1、medium=1 となるため通常は到達しない
         high_count = 1
-        low_count = 1
         medium_count = n - 2
 
     for rank, idx in enumerate(indexed):
@@ -581,6 +579,10 @@ def _generate_bet_candidates(
 
     # 信頼度を候補リスト内のスコア分布に基づいて相対的に再割り当て
     _assign_relative_confidence(selected)
+
+    # 内部スコアはソート専用のため、ユーザー向けレスポンスからは削除する
+    for bet in selected:
+        bet.pop("_composite_score", None)
 
     return selected
 

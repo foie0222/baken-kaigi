@@ -1050,8 +1050,8 @@ class TestGenerateBetCandidatesConfidence:
             confidences = {b["confidence"] for b in bets}
             assert len(confidences) >= 2, f"信頼度が1種類のみ: {confidences}"
 
-    def test_買い目候補にcomposite_scoreが格納される(self):
-        """各買い目に_composite_scoreが含まれる."""
+    def test_内部スコアがレスポンスから削除される(self):
+        """_composite_scoreは信頼度割り当て後にレスポンスから除去される."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         axis = [{"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85}]
@@ -1063,5 +1063,4 @@ class TestGenerateBetCandidatesConfidence:
             total_runners=12,
         )
         for bet in bets:
-            assert "_composite_score" in bet
-            assert isinstance(bet["_composite_score"], (int, float))
+            assert "_composite_score" not in bet
