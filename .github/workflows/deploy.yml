@@ -351,21 +351,10 @@ jobs:
 
           # スケジュールタスク再起動（JraVanApiはTask Schedulerで管理）
           Write-Output 'Restarting JraVanApi task...'
-          $task = Get-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
-          if (-not $task) {
-            Write-Output 'ERROR: Scheduled task JraVanApi not found'
-            exit 1
-          }
-          if ($task.State -ne 'Disabled') {
-            Stop-ScheduledTask -TaskName 'JraVanApi'
-          }
+          Stop-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 2
-          # ポート8000を使用しているプロセスのみを停止
-          $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
-          foreach ($pid in $portPids) {
-            Write-Output "Stopping process $pid (listening on port 8000)"
-            Stop-Process -Id $pid -Force
-          }
+          # 既存のpythonプロセスを停止（ポート8000を解放）
+          Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*Python311*' } | Stop-Process -Force
           Start-Sleep -Seconds 2
           Start-ScheduledTask -TaskName 'JraVanApi'
           Start-Sleep -Seconds 5
@@ -393,14 +382,8 @@ jobs:
           if (-not $healthy) {
             Write-Output 'Health check failed, rolling back...'
             Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
-            if ($task.State -ne 'Disabled') {
-              Stop-ScheduledTask -TaskName 'JraVanApi'
-            }
-            $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
-            foreach ($pid in $portPids) {
-              Write-Output "Stopping process $pid (listening on port 8000)"
-              Stop-Process -Id $pid -Force
-            }
+            Stop-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
+            Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*Python311*' } | Stop-Process -Force
             Start-Sleep -Seconds 2
             Start-ScheduledTask -TaskName 'JraVanApi'
             Write-Output 'Rollback complete'
