@@ -26,11 +26,12 @@ VALUE_ODDS_THRESHOLD = 15.0
 # 騎手評価の勝率閾値（%）
 JOCKEY_WIN_RATE_EXCELLENT = 18.0
 JOCKEY_WIN_RATE_GOOD = 12.0
-JOCKEY_WIN_RATE_AVERAGE = 8.0
 
-# 斤量評価の閾値（kg）
-IMPOST_HEAVY_THRESHOLD = 58.0
-IMPOST_LIGHT_THRESHOLD = 54.0
+# 馬体重評価の閾値（kg）
+BODY_WEIGHT_IDEAL_MIN = 460.0
+BODY_WEIGHT_IDEAL_MAX = 500.0
+BODY_WEIGHT_ACCEPTABLE_MIN = 440.0
+BODY_WEIGHT_ACCEPTABLE_MAX = 520.0
 
 
 @tool
@@ -219,7 +220,8 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict, runner: dict | None 
         "form": "B",
         "course_aptitude": "B",
         "jockey": "B",
-        # trainer は JRA-VAN API にエンドポイントがないためデフォルト "B" 固定
+        # trainer: JRA-VAN API に調教師成績エンドポイント（/trainers/{id}/stats 等）が
+        # 存在しないため、現時点では評価不可。API 追加時に勝率ベース評価を実装予定。
         "trainer": "B",
         "weight": "B",
     }
@@ -259,10 +261,10 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict, runner: dict | None 
     if jockey_id:
         factors["jockey"] = _evaluate_jockey(jockey_id)
 
-    # 斤量評価（runner の weight = 斤量）
-    impost = runner.get("weight", 0)
-    if impost and impost > 0:
-        factors["weight"] = _evaluate_impost(float(impost))
+    # 馬体重評価（runner の weight = 馬体重 kg）
+    body_weight = runner.get("weight", 0)
+    if body_weight and body_weight > 0:
+        factors["weight"] = _evaluate_body_weight(float(body_weight))
 
     return factors
 
@@ -319,8 +321,6 @@ def _evaluate_jockey(jockey_id: str) -> str:
                 return "A"
             elif win_rate >= JOCKEY_WIN_RATE_GOOD:
                 return "B"
-            elif win_rate >= JOCKEY_WIN_RATE_AVERAGE:
-                return "C"
             else:
                 return "C"
     except requests.RequestException as e:
@@ -328,14 +328,18 @@ def _evaluate_jockey(jockey_id: str) -> str:
     return "B"
 
 
-def _evaluate_impost(impost: float) -> str:
-    """斤量（負担重量）から有利不利を評価する."""
-    if impost >= IMPOST_HEAVY_THRESHOLD:
-        return "C"
-    elif impost <= IMPOST_LIGHT_THRESHOLD:
+def _evaluate_body_weight(weight_kg: float) -> str:
+    """馬体重から状態を評価する.
+
+    理想体重帯（460-500kg）を A、許容範囲（440-520kg）を B、
+    それ以外を C と判定する。
+    """
+    if BODY_WEIGHT_IDEAL_MIN <= weight_kg <= BODY_WEIGHT_IDEAL_MAX:
         return "A"
-    else:
+    elif BODY_WEIGHT_ACCEPTABLE_MIN <= weight_kg <= BODY_WEIGHT_ACCEPTABLE_MAX:
         return "B"
+    else:
+        return "C"
 
 
 def _extract_strengths_weaknesses(
@@ -378,7 +382,7 @@ def _get_factor_label(key: str) -> str:
         "course_aptitude": "コース実績",
         "jockey": "騎手◎",
         "trainer": "厩舎力",
-        "weight": "斤量有利",
+        "weight": "馬体重良好",
     }
     return labels.get(key, key)
 

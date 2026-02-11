@@ -14,7 +14,7 @@ try:
         _evaluate_form_from_performances,
         _evaluate_course_aptitude,
         _evaluate_jockey,
-        _evaluate_impost,
+        _evaluate_body_weight,
         _calculate_overall_score,
         _predict_race_scenario,
         _identify_notable_horses,
@@ -354,64 +354,68 @@ class TestEvaluateJockey:
         assert _evaluate_jockey("J001") == "B"
 
     @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_statsキーなしでB評価(self, mock_get):
-        """stats キーがない → win_rate=0.0 → C. ではなく、statsなし → {} → win_rate=0."""
+    def test_statsキーなしでC評価(self, mock_get):
+        """stats キーがない → {} → win_rate=0.0 → C."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {}
         mock_get.return_value = mock_response
 
-        # win_rate=0.0 < 8.0 → C
+        # win_rate=0.0 < 12.0 → C
         assert _evaluate_jockey("J001") == "C"
 
 
 # =============================================================================
-# _evaluate_impost テスト
+# _evaluate_body_weight テスト
 # =============================================================================
 
 
-class TestEvaluateImpost:
-    """斤量評価テスト."""
+class TestEvaluateBodyWeight:
+    """馬体重評価テスト."""
 
-    def test_斤量58以上でC評価(self):
-        """impost >= 58.0 → C（重ハンデ）."""
-        assert _evaluate_impost(58.0) == "C"
+    def test_理想体重帯でA評価(self):
+        """460 <= weight <= 500 → A."""
+        assert _evaluate_body_weight(480.0) == "A"
 
-    def test_斤量59でC評価(self):
-        """impost = 59.0 → C."""
-        assert _evaluate_impost(59.0) == "C"
+    def test_理想体重帯の下限460でA評価(self):
+        """weight == 460.0 → A."""
+        assert _evaluate_body_weight(460.0) == "A"
 
-    def test_斤量54以下でA評価(self):
-        """impost <= 54.0 → A（軽ハンデ有利）."""
-        assert _evaluate_impost(54.0) == "A"
+    def test_理想体重帯の上限500でA評価(self):
+        """weight == 500.0 → A."""
+        assert _evaluate_body_weight(500.0) == "A"
 
-    def test_斤量52でA評価(self):
-        """impost = 52.0 → A."""
-        assert _evaluate_impost(52.0) == "A"
+    def test_許容範囲内でB評価_軽め(self):
+        """440 <= weight < 460 → B."""
+        assert _evaluate_body_weight(450.0) == "B"
 
-    def test_斤量55でB評価(self):
-        """54.0 < impost < 58.0 → B."""
-        assert _evaluate_impost(55.0) == "B"
+    def test_許容範囲内でB評価_重め(self):
+        """500 < weight <= 520 → B."""
+        assert _evaluate_body_weight(510.0) == "B"
 
-    def test_斤量57でB評価(self):
-        """impost = 57.0 → B."""
-        assert _evaluate_impost(57.0) == "B"
+    def test_許容範囲の下限440でB評価(self):
+        """weight == 440.0 → B."""
+        assert _evaluate_body_weight(440.0) == "B"
 
-    def test_境界値_斤量54ちょうどでA(self):
-        """impost == 54.0 → A."""
-        assert _evaluate_impost(54.0) == "A"
+    def test_許容範囲の上限520でB評価(self):
+        """weight == 520.0 → B."""
+        assert _evaluate_body_weight(520.0) == "B"
 
-    def test_境界値_斤量58ちょうどでC(self):
-        """impost == 58.0 → C."""
-        assert _evaluate_impost(58.0) == "C"
+    def test_許容範囲外の軽量でC評価(self):
+        """weight < 440 → C."""
+        assert _evaluate_body_weight(430.0) == "C"
 
-    def test_境界値_斤量54point5でB(self):
-        """impost = 54.5 → B（54超、58未満）."""
-        assert _evaluate_impost(54.5) == "B"
+    def test_許容範囲外の重量でC評価(self):
+        """weight > 520 → C."""
+        assert _evaluate_body_weight(530.0) == "C"
 
-    def test_境界値_斤量57point5でB(self):
-        """impost = 57.5 → B."""
-        assert _evaluate_impost(57.5) == "B"
+    def test_極端な軽量でC評価(self):
+        """weight = 380 → C."""
+        assert _evaluate_body_weight(380.0) == "C"
+
+    def test_極端な重量でC評価(self):
+        """weight = 560 → C."""
+        assert _evaluate_body_weight(560.0) == "C"
 
 
 # =============================================================================
