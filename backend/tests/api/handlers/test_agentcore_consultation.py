@@ -68,6 +68,58 @@ class TestInvokeAgentcoreBodyValidation:
         assert result["statusCode"] == 400
 
 
+class TestInvokeAgentcoreSuggestedQuestions:
+    """invoke_agentcore の suggested_questions レスポンステスト."""
+
+    @patch("src.api.handlers.agentcore_consultation.boto3")
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_非空のsuggested_questionsがレスポンスに含まれる(self, mock_boto3) -> None:
+        """AgentCoreが非空のsuggested_questionsを返した場合、レスポンスに含まれる."""
+        mock_client = MagicMock()
+        mock_client.invoke_agent_runtime.return_value = {
+            "contentType": "application/json",
+            "response": [
+                {
+                    "message": "分析結果です",
+                    "session_id": "test-sq",
+                    "suggested_questions": ["質問1？", "質問2？"],
+                }
+            ],
+        }
+        mock_boto3.client.return_value = mock_client
+
+        event = {"body": json.dumps({"prompt": "分析して", "type": "consultation"})}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["suggested_questions"] == ["質問1？", "質問2？"]
+
+    @patch("src.api.handlers.agentcore_consultation.boto3")
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_空のsuggested_questionsはレスポンスに含まれない(self, mock_boto3) -> None:
+        """AgentCoreが空のsuggested_questionsを返した場合、レスポンスに含まれない."""
+        mock_client = MagicMock()
+        mock_client.invoke_agent_runtime.return_value = {
+            "contentType": "application/json",
+            "response": [
+                {
+                    "message": "結果",
+                    "session_id": "test-empty",
+                    "suggested_questions": [],
+                }
+            ],
+        }
+        mock_boto3.client.return_value = mock_client
+
+        event = {"body": json.dumps({"prompt": "テスト", "type": "consultation"})}
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert "suggested_questions" not in body
+
+
 class TestInvokeAgentcoreTypeValidation:
     """invoke_agentcore の型バリデーションテスト."""
 

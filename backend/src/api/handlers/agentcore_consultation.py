@@ -162,10 +162,15 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         # レスポンスを処理
         result = _handle_response(response)
 
-        return _make_response({
+        response_body = {
             "message": result.get("message", "応答を取得できませんでした"),
             "session_id": result.get("session_id", session_id),
-        }, event=event)
+        }
+        suggested = result.get("suggested_questions")
+        if suggested:
+            response_body["suggested_questions"] = suggested
+
+        return _make_response(response_body, event=event)
 
     except (BotoCoreError, ClientError):
         logger.exception("AgentCore invocation error")
