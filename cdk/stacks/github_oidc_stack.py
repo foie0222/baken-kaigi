@@ -97,6 +97,31 @@ class GitHubOidcStack(Stack):
             )
         )
 
+        # AgentCore デプロイパッケージのS3アップロード
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="AgentCoreS3Upload",
+                effect=iam.Effect.ALLOW,
+                actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+                resources=[
+                    f"arn:aws:s3:::bedrock-agentcore-codebuild-sources-{Stack.of(self).account}-ap-northeast-1",
+                    f"arn:aws:s3:::bedrock-agentcore-codebuild-sources-{Stack.of(self).account}-ap-northeast-1/*",
+                ],
+            )
+        )
+
+        # AgentCore IAMロールのPassRole権限
+        deploy_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="AgentCorePassRole",
+                effect=iam.Effect.ALLOW,
+                actions=["iam:PassRole"],
+                resources=[
+                    f"arn:aws:iam::{Stack.of(self).account}:role/AmazonBedrockAgentCoreSDKRuntime-*",
+                ],
+            )
+        )
+
         # SSM SendCommand（EC2デプロイ用）
         # SSMドキュメントは無条件で許可、EC2インスタンスはタグで制限
         deploy_role.add_to_policy(
