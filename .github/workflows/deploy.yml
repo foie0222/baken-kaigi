@@ -304,7 +304,14 @@ jobs:
           $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
           $backupDir = "C:\jravan-api\backup-$timestamp"
 
-          # S3からダウンロード（AWS Tools for PowerShellはWindows AMIに標準搭載）
+          # AWS Tools for PowerShellモジュール確認（Windows AMIに標準搭載）
+          if (-not (Get-Module -ListAvailable -Name 'AWS.Tools.S3')) {
+            throw 'AWS.Tools.S3 module not found. Ensure AWS Tools for PowerShell is installed on the EC2 instance.'
+          }
+          Import-Module AWS.Tools.S3
+          Set-DefaultAWSRegion -Region 'ap-northeast-1'
+
+          # S3からダウンロード
           Write-Output "Downloading from s3://$bucketName/$s3Key"
           Read-S3Object -BucketName $bucketName -Key $s3Key -File $tempZip
 
