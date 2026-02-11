@@ -148,6 +148,18 @@ def invoke(payload: dict, context: Any) -> dict:
         runners_summary = _format_runners_summary(runners_data)
         user_message = f"【出走馬データ】\n{runners_summary}\n\n{user_message}"
 
+    # 質問カテゴリを分類
+    from tool_router import classify_question, CATEGORY_INSTRUCTIONS
+    category = classify_question(
+        user_message, has_cart=bool(cart_items), has_runners=bool(runners_data),
+    )
+    logger.info(f"Question category: {category}")
+
+    # カテゴリ別のプロンプト補助指示を前置き
+    category_instruction = CATEGORY_INSTRUCTIONS.get(category)
+    if category_instruction:
+        user_message = f"{category_instruction}\n\n{user_message}"
+
     # エージェント実行（遅延初期化）
     agent = _get_agent(request_type, character_type)
     result = agent(user_message)
@@ -169,6 +181,7 @@ def invoke(payload: dict, context: Any) -> dict:
         "session_id": getattr(context, "session_id", None),
         "suggested_questions": suggested_questions,
         "bet_actions": bet_actions,
+        "question_category": category,
     }
 
 
