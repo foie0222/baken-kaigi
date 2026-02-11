@@ -304,9 +304,9 @@ jobs:
           $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
           $backupDir = "C:\jravan-api\backup-$timestamp"
 
-          # S3からダウンロード
+          # S3からダウンロード（AWS Tools for PowerShellはWindows AMIに標準搭載）
           Write-Output "Downloading from s3://$bucketName/$s3Key"
-          aws s3 cp "s3://$bucketName/$s3Key" $tempZip
+          Read-S3Object -BucketName $bucketName -Key $s3Key -File $tempZip
 
           # バックアップ作成
           Write-Output "Creating backup at $backupDir"
