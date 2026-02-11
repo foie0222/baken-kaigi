@@ -362,9 +362,9 @@ jobs:
           Start-Sleep -Seconds 2
           # ポート8000を使用しているプロセスのみを停止
           $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
-          foreach ($pid in $portPids) {
-            Write-Output "Stopping process $pid (listening on port 8000)"
-            Stop-Process -Id $pid -Force
+          foreach ($procId in $portPids) {
+            Write-Output "Stopping process $procId (listening on port 8000)"
+            Stop-Process -Id $procId -Force
           }
           Start-Sleep -Seconds 2
           Start-ScheduledTask -TaskName 'JraVanApi'
@@ -397,9 +397,9 @@ jobs:
               Stop-ScheduledTask -TaskName 'JraVanApi'
             }
             $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
-            foreach ($pid in $portPids) {
-              Write-Output "Stopping process $pid (listening on port 8000)"
-              Stop-Process -Id $pid -Force
+            foreach ($procId in $portPids) {
+              Write-Output "Stopping process $procId (listening on port 8000)"
+              Stop-Process -Id $procId -Force
             }
             Start-Sleep -Seconds 2
             Start-ScheduledTask -TaskName 'JraVanApi'
