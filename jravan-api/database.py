@@ -1133,7 +1133,11 @@ def get_runners_with_running_style(race_id: str) -> list[dict]:
                 horse_number = 0
 
             # 脚質判定コードをマッピング
+            # kyakushitsu_hantei はレース後に確定するため、未開催レースでは空。
+            # その場合、馬マスタの kyakushitsu_keiko（脚質傾向）にフォールバックする。
             style_code = (row.get("kyakushitsu_hantei") or "").strip()
+            if not style_code:
+                style_code = (row.get("kyakushitsu_keiko") or "").strip()
             running_style = RUNNING_STYLE_MAP.get(style_code, "不明")
 
             # 馬マスタの脚質傾向（1:逃げ 2:先行 3:差し 4:追込 5:自在）

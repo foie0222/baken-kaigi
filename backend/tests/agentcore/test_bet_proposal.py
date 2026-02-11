@@ -935,6 +935,67 @@ class TestDecimalCompatibility:
         assert isinstance(result["proposed_bets"], list)
 
 
+class TestPopularityNoneHandling:
+    """人気データ未取得時のハンドリングテスト."""
+
+    def test_popularityがNoneの場合にスコアが異常に膨張しない(self):
+        """popularityがNoneの場合、オッズ乖離ボーナスが誤って付与されない."""
+        runners = _make_runners(12, with_odds=False)
+        # popularity を None にする（オッズ未発売の状態）
+        for r in runners:
+            r["popularity"] = None
+        ai_preds = _make_ai_predictions(12)
+        score = _calculate_composite_score(1, runners, ai_preds)
+        # popularity不明でもスコアが100にならないこと（以前は276→100に膨張していた）
+        assert score < 100
+
+    def test_popularityが0の場合にスコアが異常に膨張しない(self):
+        """popularityが0の場合、オッズ乖離ボーナスが誤って付与されない."""
+        runners = _make_runners(12, with_odds=False)
+        for r in runners:
+            r["popularity"] = 0
+        ai_preds = _make_ai_predictions(12)
+        score = _calculate_composite_score(1, runners, ai_preds)
+        assert score < 100
+
+    def test_oddsもpopularityもないケースで買い目生成できる(self):
+        """オッズ・人気データなしでも買い目提案がエラーなく完了する."""
+        runners = _make_runners(12, with_odds=False)
+        for r in runners:
+            r["popularity"] = None
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260208_05_01",
+            budget=3000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            race_name="テスト未勝利",
+            total_runners=12,
+        )
+        assert "error" not in result
+        assert "proposed_bets" in result
+
+    def test_オッズ未発売時に信頼度が全てhighにならない(self):
+        """オッズ・人気データなしの場合、信頼度が分散される."""
+        runners = _make_runners(12, with_odds=False)
+        for r in runners:
+            r["popularity"] = None
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260208_05_01",
+            budget=3000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            race_name="テスト未勝利",
+            total_runners=12,
+        )
+        bets = result.get("proposed_bets", [])
+        confidences = {b["confidence"] for b in bets}
+        # 全てhighではなく、少なくとも2種類の信頼度があること
+        assert len(confidences) >= 2, f"信頼度が{confidences}のみ。分散されていない"
+
+
+
 # =============================================================================
 # 相対信頼度割り当てテスト
 # =============================================================================

@@ -140,22 +140,25 @@ def _calculate_composite_score(
             break
 
     # オッズ乖離スコア
-    odds_gap_score = 50.0  # デフォルト
+    odds_gap_score = 50.0  # デフォルト（データ不足時）
     runner = next((r for r in runners_data if r.get("horse_number") == horse_number), None)
     if runner:
-        popularity = runner.get("popularity") or 99
-        # AI上位なのにオッズが高い = 市場の見落とし = ボーナス
-        if ai_rank <= ODDS_GAP_BONUS_THRESHOLD and popularity > ODDS_GAP_BONUS_THRESHOLD:
-            odds_gap_score = 80.0 + (popularity - ai_rank) * 2
-        elif ai_rank <= 3 and popularity <= 3:
-            odds_gap_score = 60.0  # 順当
-        elif ai_rank > ODDS_GAP_BONUS_THRESHOLD and popularity <= 3:
-            odds_gap_score = 20.0  # 過剰人気
-        else:
-            odds_gap_score = 50.0
+        popularity = runner.get("popularity")
+        if popularity and popularity > 0:
+            # 人気データがある場合のみ乖離スコアを計算
+            if ai_rank <= ODDS_GAP_BONUS_THRESHOLD and popularity > ODDS_GAP_BONUS_THRESHOLD:
+                odds_gap_score = min(100.0, 80.0 + (popularity - ai_rank) * 2)
+            elif ai_rank <= 3 and popularity <= 3:
+                odds_gap_score = 60.0  # 順当
+            elif ai_rank > ODDS_GAP_BONUS_THRESHOLD and popularity <= 3:
+                odds_gap_score = 20.0  # 過剰人気
+            else:
+                odds_gap_score = 50.0
+        # 人気データがない場合はデフォルト50.0のまま（不確実性を反映）
 
     # 展開相性スコア
-    pace_score = 50.0  # デフォルト
+    # 脚質データがない場合は不確実性ペナルティを適用
+    pace_score = 40.0 if (not predicted_pace or not running_styles) else 50.0
     if predicted_pace and running_styles:
         style_map = {r.get("horse_number"): r.get("running_style", "不明") for r in running_styles}
         style = style_map.get(horse_number, "不明")
@@ -413,7 +416,7 @@ def _generate_bet_candidates(
             for axis in axis_horses:
                 axis_hn = axis["horse_number"]
                 axis_runner = runners_map.get(axis_hn, {})
-                axis_pop = axis_runner.get("popularity") or 99
+                axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
                 ev = _calculate_expected_value(
@@ -448,6 +451,7 @@ def _generate_bet_candidates(
                     "_composite_score": axis["composite_score"],
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": axis_odds,
+                    "composite_score": axis["composite_score"],
                     "reasoning": reasoning,
                     "bet_count": 1,
                 })
@@ -457,13 +461,13 @@ def _generate_bet_candidates(
         for axis in axis_horses:
             axis_hn = axis["horse_number"]
             axis_runner = runners_map.get(axis_hn, {})
-            axis_pop = axis_runner.get("popularity") or 99
+            axis_pop = axis_runner.get("popularity") or 0
             axis_odds = axis_runner.get("odds") or 0
 
             for partner in partners:
                 partner_hn = partner["horse_number"]
                 partner_runner = runners_map.get(partner_hn, {})
-                partner_pop = partner_runner.get("popularity") or 99
+                partner_pop = partner_runner.get("popularity") or 0
                 partner_odds = partner_runner.get("odds") or 0
 
                 # 馬番表示
@@ -486,8 +490,9 @@ def _generate_bet_candidates(
                 )
 
                 # 期待値計算（推定オッズと代表人気で計算）
-                # 人気は2頭の平均を使用
-                avg_pop = max(1, (axis_pop + partner_pop) // 2)
+                # 人気は既知の馬のみで平均（未取得を人気上位扱いしない）
+                known_pops = [p for p in [axis_pop, partner_pop] if p > 0]
+                avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
                 ev = _calculate_expected_value(
                     estimated_odds, avg_pop, bet_type, total_runners, race_conditions
                 )
@@ -497,7 +502,7 @@ def _generate_bet_candidates(
                     continue  # トリガミ除外
 
                 # reasoning生成
-                avg_score = (axis["composite_score"] + partner["composite_score"]) / 2
+                avg_score = round((axis["composite_score"] + partner["composite_score"]) / 2, 1)
                 axis_name = axis_runner.get("horse_name", "")
                 partner_name = partner_runner.get("horse_name", "")
                 reasoning = _generate_bet_reasoning(
@@ -515,6 +520,7 @@ def _generate_bet_candidates(
                     "_composite_score": avg_score,
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": estimated_odds,
+                    "composite_score": avg_score,
                     "reasoning": reasoning,
                     "bet_count": 1,
                 })
@@ -526,7 +532,7 @@ def _generate_bet_candidates(
             for axis in axis_horses:
                 axis_hn = axis["horse_number"]
                 axis_runner = runners_map.get(axis_hn, {})
-                axis_pop = axis_runner.get("popularity") or 99
+                axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
                 for p1, p2 in combs(partners[:MAX_PARTNERS], 2):
@@ -544,16 +550,17 @@ def _generate_bet_candidates(
                         horse_numbers = [axis_hn, p1_hn, p2_hn]
                         bet_display = f"{axis_hn}-{p1_hn}-{p2_hn}"
 
-                    p1_pop = p1_runner.get("popularity") or 99
-                    p2_pop = p2_runner.get("popularity") or 99
+                    p1_pop = p1_runner.get("popularity") or 0
+                    p2_pop = p2_runner.get("popularity") or 0
 
                     # 推定オッズ（券種別補正係数を適用）
                     estimated_odds = _estimate_bet_odds(
                         [axis_odds, p1_odds, p2_odds], bet_type
                     )
 
-                    # 期待値（3頭の平均人気で計算）
-                    avg_pop = max(1, (axis_pop + p1_pop + p2_pop) // 3)
+                    # 期待値（既知人気のみで平均、未取得を人気上位扱いしない）
+                    known_pops = [p for p in [axis_pop, p1_pop, p2_pop] if p > 0]
+                    avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
                     ev = _calculate_expected_value(
                         estimated_odds, avg_pop, bet_type, total_runners, race_conditions
                     )
@@ -562,7 +569,7 @@ def _generate_bet_candidates(
                     if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
                         continue
 
-                    avg_score = (axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3
+                    avg_score = round((axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3, 1)
 
                     reasoning = f"{axis_hn}番軸-{p1_hn}番-{p2_hn}番の{BET_TYPE_NAMES.get(bet_type, bet_type)}"
 
@@ -575,6 +582,7 @@ def _generate_bet_candidates(
                         "_composite_score": avg_score,
                         "expected_value": ev.get("expected_return", 0),
                         "composite_odds": estimated_odds,
+                        "composite_score": avg_score,
                         "reasoning": reasoning,
                         "bet_count": 1,
                     })
