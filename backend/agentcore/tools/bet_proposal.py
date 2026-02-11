@@ -308,10 +308,12 @@ def _assign_relative_confidence(bets: list[dict]) -> None:
         - 1件: "high"
         - 2件: 上位 "high", 下位 "medium"
         - 3件以上: 上位1/3 "high", 中位 "medium", 下位1/3 "low"
-        - 全スコア同値: 全て "medium"
+        - 全スコア同値: expected_valueで代替ランク付け
+        - 全スコア・期待値ともに同値: 全て "medium"
 
     Args:
         bets: 買い目候補リスト（_composite_scoreキーを持つ）。
+              スコア同値時はexpected_valueキーをフォールバックに使用。
               リストをin-placeで変更する。
     """
     n = len(bets)
