@@ -5,7 +5,10 @@ JV-Link を動作させる FastAPI サーバーをホストする。
 """
 from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack, Tags
 from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
@@ -191,6 +194,12 @@ class JraVanServerStack(Stack):
         Tags.of(self.instance).add("app", "jravan-api")
 
         # ========================================
+        # EC2 スケジューラー（コスト最適化）
+        # 土曜 AM6:00 JST に起動、日曜 PM23:00 JST に停止
+        # ========================================
+        self._create_ec2_scheduler()
+
+        # ========================================
         # 出力
         # ========================================
         CfnOutput(
@@ -252,6 +261,83 @@ class JraVanServerStack(Stack):
             "DeployBucketName",
             value=self.deploy_bucket.bucket_name,
             export_name="JraVanDeployBucketName",
+        )
+
+    def _create_ec2_scheduler(self) -> None:
+        """EC2 インスタンスのスケジュール起動/停止を設定する.
+
+        EventBridge Rule + Lambda で土日の競馬開催時間帯のみ起動する。
+        - 起動: 土曜 AM6:00 JST = UTC 金曜 21:00
+        - 停止: 日曜 PM23:00 JST = UTC 日曜 14:00
+        """
+        # Lambda 用 IAM ロール
+        scheduler_role = iam.Role(
+            self,
+            "Ec2SchedulerRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AWSLambdaBasicExecutionRole"
+                ),
+            ],
+        )
+
+        # EC2 起動/停止の権限（対象インスタンスに限定）
+        scheduler_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["ec2:StartInstances", "ec2:StopInstances"],
+                resources=[
+                    f"arn:aws:ec2:{Stack.of(self).region}:{Stack.of(self).account}"
+                    f":instance/{self.instance.instance_id}",
+                ],
+            )
+        )
+
+        # Lambda 関数
+        scheduler_fn = lambda_.Function(
+            self,
+            "Ec2SchedulerFunction",
+            function_name="jravan-ec2-scheduler",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset("lambda/ec2_scheduler"),
+            timeout=Duration.seconds(30),
+            environment={
+                "INSTANCE_ID": self.instance.instance_id,
+            },
+            role=scheduler_role,
+        )
+
+        # EventBridge Rule: 土曜 AM6:00 JST に起動（UTC 金曜 21:00）
+        start_rule = events.Rule(
+            self,
+            "Ec2StartRule",
+            rule_name="jravan-ec2-start",
+            schedule=events.Schedule.cron(
+                minute="0", hour="21", week_day="FRI",
+            ),
+        )
+        start_rule.add_target(
+            targets.LambdaFunction(
+                scheduler_fn,
+                event=events.RuleTargetInput.from_object({"action": "start"}),
+            )
+        )
+
+        # EventBridge Rule: 日曜 PM23:00 JST に停止（UTC 日曜 14:00）
+        stop_rule = events.Rule(
+            self,
+            "Ec2StopRule",
+            rule_name="jravan-ec2-stop",
+            schedule=events.Schedule.cron(
+                minute="0", hour="14", week_day="SUN",
+            ),
+        )
+        stop_rule.add_target(
+            targets.LambdaFunction(
+                scheduler_fn,
+                event=events.RuleTargetInput.from_object({"action": "stop"}),
+            )
         )
 
     def _create_user_data(self) -> ec2.UserData:
