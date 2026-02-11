@@ -23,6 +23,16 @@ SCORE_GOOD = 65
 FAVORITE_ODDS_THRESHOLD = 5.0
 VALUE_ODDS_THRESHOLD = 15.0
 
+# 騎手評価の勝率閾値（%）
+JOCKEY_WIN_RATE_EXCELLENT = 18.0
+JOCKEY_WIN_RATE_GOOD = 12.0
+
+# 馬体重評価の閾値（kg）
+BODY_WEIGHT_IDEAL_MIN = 460.0
+BODY_WEIGHT_IDEAL_MAX = 500.0
+BODY_WEIGHT_ACCEPTABLE_MIN = 440.0
+BODY_WEIGHT_ACCEPTABLE_MAX = 520.0
+
 
 @tool
 def analyze_race_comprehensive(race_id: str) -> dict:
@@ -218,6 +228,8 @@ def _evaluate_horse_factors(
         "form": "B",
         "course_aptitude": "B",
         "jockey": "B",
+        # trainer: JRA-VAN API に調教師成績エンドポイント（/trainers/{id}/stats 等）が
+        # 存在しないため、現時点では評価不可。API 追加時に勝率ベース評価を実装予定。
         "trainer": "B",
         "weight": "B",
     }
@@ -443,7 +455,7 @@ def _get_factor_label(key: str) -> str:
         "course_aptitude": "コース実績",
         "jockey": "騎手◎",
         "trainer": "厩舎力",
-        "weight": "適性体重",
+        "weight": "馬体重良好",
     }
     return labels.get(key, key)
 

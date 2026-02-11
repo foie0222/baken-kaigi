@@ -13,6 +13,9 @@ try:
         analyze_race_comprehensive,
         _evaluate_form_from_performances,
         _evaluate_course_aptitude,
+        _evaluate_jockey,
+        _evaluate_trainer,
+        _evaluate_weight_change,
         _calculate_overall_score,
         _predict_race_scenario,
         _identify_notable_horses,
@@ -258,6 +261,108 @@ class TestEvaluateCourseAptitude:
 
 
 # =============================================================================
+# _evaluate_jockey テスト
+# =============================================================================
+
+
+class TestEvaluateJockey:
+    """騎手評価テスト."""
+
+    def test_勝率18以上でA評価(self):
+        """win_rate >= 18.0 → A."""
+        assert _evaluate_jockey({"stats": {"win_rate": 20.0}}) == "A"
+
+    def test_勝率12以上18未満でB評価(self):
+        """12.0 <= win_rate < 18.0 → B."""
+        assert _evaluate_jockey({"stats": {"win_rate": 15.0}}) == "B"
+
+    def test_勝率8以上12未満でC評価(self):
+        """8.0 <= win_rate < 12.0 → C."""
+        assert _evaluate_jockey({"stats": {"win_rate": 10.0}}) == "C"
+
+    def test_勝率8未満でD評価(self):
+        """win_rate < 8.0 → D."""
+        assert _evaluate_jockey({"stats": {"win_rate": 5.0}}) == "D"
+
+    def test_境界値_勝率ちょうど18でA(self):
+        """win_rate == 18.0 → A."""
+        assert _evaluate_jockey({"stats": {"win_rate": 18.0}}) == "A"
+
+    def test_境界値_勝率ちょうど12でB(self):
+        """win_rate == 12.0 → B."""
+        assert _evaluate_jockey({"stats": {"win_rate": 12.0}}) == "B"
+
+    def test_境界値_勝率ちょうど8でC(self):
+        """win_rate == 8.0 → C."""
+        assert _evaluate_jockey({"stats": {"win_rate": 8.0}}) == "C"
+
+    def test_win_rateなしでB評価(self):
+        """win_rate キーなし → None → B."""
+        assert _evaluate_jockey({"stats": {}}) == "B"
+
+    def test_statsキーなしでフラット辞書(self):
+        """stats キーなし → 辞書自体を stats として扱い win_rate 取得."""
+        assert _evaluate_jockey({"win_rate": 20.0}) == "A"
+
+    def test_statsキーなしでC評価(self):
+        """空辞書 → win_rate=None → B."""
+        assert _evaluate_jockey({}) == "B"
+
+
+# =============================================================================
+# _evaluate_weight_change テスト
+# =============================================================================
+
+
+class TestEvaluateWeightChange:
+    """馬体重変動評価テスト."""
+
+    def test_変動なしでA評価(self):
+        """weight_diff=0 → abs=0 <= 4 → A."""
+        assert _evaluate_weight_change(0) == "A"
+
+    def test_変動4kg以内でA評価(self):
+        """weight_diff=4 → abs=4 <= 4 → A."""
+        assert _evaluate_weight_change(4) == "A"
+
+    def test_変動マイナス4kg以内でA評価(self):
+        """weight_diff=-4 → abs=4 <= 4 → A."""
+        assert _evaluate_weight_change(-4) == "A"
+
+    def test_変動5kgでB評価(self):
+        """weight_diff=5 → abs=5 <= 9 → B."""
+        assert _evaluate_weight_change(5) == "B"
+
+    def test_変動9kgでB評価(self):
+        """weight_diff=9 → abs=9 <= 9 → B."""
+        assert _evaluate_weight_change(9) == "B"
+
+    def test_変動マイナス9kgでB評価(self):
+        """weight_diff=-9 → abs=9 <= 9 → B."""
+        assert _evaluate_weight_change(-9) == "B"
+
+    def test_変動10kgでC評価(self):
+        """weight_diff=10 → abs=10 <= 14 → C."""
+        assert _evaluate_weight_change(10) == "C"
+
+    def test_変動14kgでC評価(self):
+        """weight_diff=14 → abs=14 <= 14 → C."""
+        assert _evaluate_weight_change(14) == "C"
+
+    def test_変動15kgでD評価(self):
+        """weight_diff=15 → abs=15 > 14 → D."""
+        assert _evaluate_weight_change(15) == "D"
+
+    def test_変動マイナス20kgでD評価(self):
+        """weight_diff=-20 → abs=20 > 14 → D."""
+        assert _evaluate_weight_change(-20) == "D"
+
+    def test_NoneでB評価(self):
+        """weight_diff=None → B."""
+        assert _evaluate_weight_change(None) == "B"
+
+
+# =============================================================================
 # _calculate_overall_score テスト
 # =============================================================================
 
@@ -265,7 +370,7 @@ class TestEvaluateCourseAptitude:
 class TestCalculateOverallScore:
     """総合スコア計算テスト."""
 
-    def test_全A評価でスコア100(self):
+    def test_全A評価でスコア上限100(self):
         """全てA → 50 + 25 + 20 + 15 + 10 + 10 = 130 → 上限100."""
         factors = {
             "form": "A",
