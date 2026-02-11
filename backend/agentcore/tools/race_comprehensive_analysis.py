@@ -23,6 +23,15 @@ SCORE_GOOD = 65
 FAVORITE_ODDS_THRESHOLD = 5.0
 VALUE_ODDS_THRESHOLD = 15.0
 
+# 騎手評価の勝率閾値（%）
+JOCKEY_WIN_RATE_EXCELLENT = 18.0
+JOCKEY_WIN_RATE_GOOD = 12.0
+JOCKEY_WIN_RATE_AVERAGE = 8.0
+
+# 斤量評価の閾値（kg）
+IMPOST_HEAVY_THRESHOLD = 58.0
+IMPOST_LIGHT_THRESHOLD = 54.0
+
 
 @tool
 def analyze_race_comprehensive(race_id: str) -> dict:
@@ -180,7 +189,7 @@ def _evaluate_all_runners(
         horse_id = runner.get("horse_id", "")
 
         # 各項目の評価を取得
-        factors = _evaluate_horse_factors(horse_id, race_info)
+        factors = _evaluate_horse_factors(horse_id, race_info, runner)
 
         # 強みと弱みの抽出
         strengths, weaknesses = _extract_strengths_weaknesses(
@@ -203,14 +212,14 @@ def _evaluate_all_runners(
     return evaluations
 
 
-def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
+def _evaluate_horse_factors(horse_id: str, race_info: dict, runner: dict | None = None) -> dict:
     """馬の各要素を評価する."""
+    runner = runner or {}
     factors = {
         "form": "B",
         "course_aptitude": "B",
-        # 以下3項目は評価ロジック未実装のためデフォルト"B"固定 (issue #258)
-        # 実装時は _calculate_overall_score の weights にも追加すること
         "jockey": "B",
+        # trainer は JRA-VAN API にエンドポイントがないためデフォルト "B" 固定
         "trainer": "B",
         "weight": "B",
     }
@@ -244,6 +253,16 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict) -> dict:
             factors["course_aptitude"] = _evaluate_course_aptitude(data, venue)
     except requests.RequestException as e:
         logger.debug(f"Failed to get course aptitude for horse {horse_id}: {e}")
+
+    # 騎手評価（JRA-VAN API から勝率を取得）
+    jockey_id = runner.get("jockey_id", "")
+    if jockey_id:
+        factors["jockey"] = _evaluate_jockey(jockey_id)
+
+    # 斤量評価（runner の weight = 斤量）
+    impost = runner.get("weight", 0)
+    if impost and impost > 0:
+        factors["weight"] = _evaluate_impost(float(impost))
 
     return factors
 
@@ -283,6 +302,40 @@ def _evaluate_course_aptitude(data: dict, venue: str) -> str:
         return "B"
     else:
         return "C"
+
+
+def _evaluate_jockey(jockey_id: str) -> str:
+    """騎手を勝率ベースで評価する."""
+    try:
+        response = requests.get(
+            f"{get_api_url()}/jockeys/{jockey_id}/stats",
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 200:
+            stats = response.json().get("stats", {})
+            win_rate = stats.get("win_rate", 0.0)
+            if win_rate >= JOCKEY_WIN_RATE_EXCELLENT:
+                return "A"
+            elif win_rate >= JOCKEY_WIN_RATE_GOOD:
+                return "B"
+            elif win_rate >= JOCKEY_WIN_RATE_AVERAGE:
+                return "C"
+            else:
+                return "C"
+    except requests.RequestException as e:
+        logger.debug(f"Failed to get jockey stats for {jockey_id}: {e}")
+    return "B"
+
+
+def _evaluate_impost(impost: float) -> str:
+    """斤量（負担重量）から有利不利を評価する."""
+    if impost >= IMPOST_HEAVY_THRESHOLD:
+        return "C"
+    elif impost <= IMPOST_LIGHT_THRESHOLD:
+        return "A"
+    else:
+        return "B"
 
 
 def _extract_strengths_weaknesses(
@@ -325,7 +378,7 @@ def _get_factor_label(key: str) -> str:
         "course_aptitude": "コース実績",
         "jockey": "騎手◎",
         "trainer": "厩舎力",
-        "weight": "適性体重",
+        "weight": "斤量有利",
     }
     return labels.get(key, key)
 
@@ -334,11 +387,12 @@ def _calculate_overall_score(factors: dict) -> int:
     """総合スコアを計算する."""
     score = 50  # ベーススコア
 
-    # 実際に評価ロジックが実装されている要素のみスコアに反映
-    # jockey, trainer, weight は現状デフォルト "B" 固定のため除外
+    # trainer は API 未対応のため除外
     weights = {
         "form": 25,
         "course_aptitude": 20,
+        "jockey": 15,
+        "weight": 10,
     }
 
     for key, weight in weights.items():

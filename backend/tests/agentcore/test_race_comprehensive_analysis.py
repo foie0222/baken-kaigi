@@ -13,6 +13,8 @@ try:
         analyze_race_comprehensive,
         _evaluate_form_from_performances,
         _evaluate_course_aptitude,
+        _evaluate_jockey,
+        _evaluate_impost,
         _calculate_overall_score,
         _predict_race_scenario,
         _identify_notable_horses,
@@ -258,6 +260,161 @@ class TestEvaluateCourseAptitude:
 
 
 # =============================================================================
+# _evaluate_jockey テスト
+# =============================================================================
+
+
+class TestEvaluateJockey:
+    """騎手評価テスト."""
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_勝率18以上でA評価(self, mock_get):
+        """win_rate >= 18.0 → A."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 20.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "A"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_勝率12以上18未満でB評価(self, mock_get):
+        """12.0 <= win_rate < 18.0 → B."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 15.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "B"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_勝率8以上12未満でC評価(self, mock_get):
+        """8.0 <= win_rate < 12.0 → C."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 10.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "C"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_勝率8未満でC評価(self, mock_get):
+        """win_rate < 8.0 → C."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 5.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "C"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_境界値_勝率ちょうど18でA(self, mock_get):
+        """win_rate == 18.0 → A."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 18.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "A"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_境界値_勝率ちょうど12でB(self, mock_get):
+        """win_rate == 12.0 → B."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 12.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "B"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_境界値_勝率ちょうど8でC(self, mock_get):
+        """win_rate == 8.0 → C."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"stats": {"win_rate": 8.0}}
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "C"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_API404でB評価(self, mock_get):
+        """API 404 → status_code != 200 → デフォルト B."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
+
+        assert _evaluate_jockey("J001") == "B"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_API例外でB評価(self, mock_get):
+        """RequestException → デフォルト B."""
+        mock_get.side_effect = requests.RequestException("Connection failed")
+
+        assert _evaluate_jockey("J001") == "B"
+
+    @patch("tools.race_comprehensive_analysis.requests.get")
+    def test_statsキーなしでB評価(self, mock_get):
+        """stats キーがない → win_rate=0.0 → C. ではなく、statsなし → {} → win_rate=0."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}
+        mock_get.return_value = mock_response
+
+        # win_rate=0.0 < 8.0 → C
+        assert _evaluate_jockey("J001") == "C"
+
+
+# =============================================================================
+# _evaluate_impost テスト
+# =============================================================================
+
+
+class TestEvaluateImpost:
+    """斤量評価テスト."""
+
+    def test_斤量58以上でC評価(self):
+        """impost >= 58.0 → C（重ハンデ）."""
+        assert _evaluate_impost(58.0) == "C"
+
+    def test_斤量59でC評価(self):
+        """impost = 59.0 → C."""
+        assert _evaluate_impost(59.0) == "C"
+
+    def test_斤量54以下でA評価(self):
+        """impost <= 54.0 → A（軽ハンデ有利）."""
+        assert _evaluate_impost(54.0) == "A"
+
+    def test_斤量52でA評価(self):
+        """impost = 52.0 → A."""
+        assert _evaluate_impost(52.0) == "A"
+
+    def test_斤量55でB評価(self):
+        """54.0 < impost < 58.0 → B."""
+        assert _evaluate_impost(55.0) == "B"
+
+    def test_斤量57でB評価(self):
+        """impost = 57.0 → B."""
+        assert _evaluate_impost(57.0) == "B"
+
+    def test_境界値_斤量54ちょうどでA(self):
+        """impost == 54.0 → A."""
+        assert _evaluate_impost(54.0) == "A"
+
+    def test_境界値_斤量58ちょうどでC(self):
+        """impost == 58.0 → C."""
+        assert _evaluate_impost(58.0) == "C"
+
+    def test_境界値_斤量54point5でB(self):
+        """impost = 54.5 → B（54超、58未満）."""
+        assert _evaluate_impost(54.5) == "B"
+
+    def test_境界値_斤量57point5でB(self):
+        """impost = 57.5 → B."""
+        assert _evaluate_impost(57.5) == "B"
+
+
+# =============================================================================
 # _calculate_overall_score テスト
 # =============================================================================
 
@@ -265,8 +422,8 @@ class TestEvaluateCourseAptitude:
 class TestCalculateOverallScore:
     """総合スコア計算テスト."""
 
-    def test_全A評価でスコア95(self):
-        """全てA → 50 + 25 + 20 = 95（jockey/trainer/weightは未実装で除外）."""
+    def test_全A評価でスコア上限100(self):
+        """全てA → 50 + 25 + 20 + 15 + 10 = 120 → 上限100."""
         factors = {
             "form": "A",
             "course_aptitude": "A",
@@ -274,10 +431,10 @@ class TestCalculateOverallScore:
             "trainer": "A",
             "weight": "A",
         }
-        assert _calculate_overall_score(factors) == 95
+        assert _calculate_overall_score(factors) == 100
 
-    def test_全C評価でスコア28(self):
-        """全てC → 50 - 12 - 10 = 28（C評価で減点）."""
+    def test_全C評価でスコア16(self):
+        """全てC → 50 - 12 - 10 - 7 - 5 = 16（trainerはweightsに含まれず影響なし）."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -285,7 +442,7 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 28
+        assert _calculate_overall_score(factors) == 16
 
     def test_全B評価でスコアが50になる(self):
         """全てB → ベースの50のまま（B=平均的なので加減点なし）."""
@@ -299,7 +456,7 @@ class TestCalculateOverallScore:
         assert _calculate_overall_score(factors) == 50
 
     def test_formだけA他はC(self):
-        """form=A, 他C → 50 + 25 - 10 = 65."""
+        """form=A, 他C → 50 + 25 - 10 - 7 - 5 = 53."""
         factors = {
             "form": "A",
             "course_aptitude": "C",
@@ -307,10 +464,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 65
+        assert _calculate_overall_score(factors) == 53
 
     def test_course_aptitudeだけA他はC(self):
-        """course_aptitude=A, 他C → 50 - 12 + 20 = 58."""
+        """course_aptitude=A, 他C → 50 - 12 + 20 - 7 - 5 = 46."""
         factors = {
             "form": "C",
             "course_aptitude": "A",
@@ -318,10 +475,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 58
+        assert _calculate_overall_score(factors) == 46
 
     def test_jockeyだけA他はC(self):
-        """jockey=A, 他C → 50 - 12 - 10 = 28（jockeyは未実装で除外）."""
+        """jockey=A, 他C → 50 - 12 - 10 + 15 - 5 = 38."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -329,10 +486,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 28
+        assert _calculate_overall_score(factors) == 38
 
     def test_trainerだけA他はC(self):
-        """trainer=A, 他C → 50 - 12 - 10 = 28（trainerは未実装で除外）."""
+        """trainer=A, 他C → trainerはweightsに含まれないため無影響 → 50 - 12 - 10 - 7 - 5 = 16."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -340,10 +497,10 @@ class TestCalculateOverallScore:
             "trainer": "A",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 28
+        assert _calculate_overall_score(factors) == 16
 
     def test_weightだけA他はC(self):
-        """weight=A, 他C → 50 - 12 - 10 = 28（weightは未実装で除外）."""
+        """weight=A, 他C → 50 - 12 - 10 - 7 + 10 = 31."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -351,10 +508,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "A",
         }
-        assert _calculate_overall_score(factors) == 28
+        assert _calculate_overall_score(factors) == 31
 
     def test_AとBの混在(self):
-        """form=A, course_aptitude=B → 50 + 25 = 75（jockey/trainer/weightは除外）."""
+        """form=A, course_aptitude=B, jockey=A, trainer=C, weight=B → 50 + 25 + 0 + 15 + 0 = 90."""
         factors = {
             "form": "A",
             "course_aptitude": "B",
@@ -362,12 +519,12 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "B",
         }
-        assert _calculate_overall_score(factors) == 75
+        assert _calculate_overall_score(factors) == 90
 
     def test_未知のグレードはC扱い(self):
-        """factorsに存在しないキーはget(key, 'C')でC扱い → 50 - 12 - 10 = 28."""
+        """factorsに存在しないキーはget(key, 'C')でC扱い → 50 - 12 - 10 - 7 - 5 = 16."""
         factors = {}
-        assert _calculate_overall_score(factors) == 28
+        assert _calculate_overall_score(factors) == 16
 
     def test_不明なグレード文字列はC扱い(self):
         """A/B/C以外の値 → 加算も減点もなし → ベース50のまま."""
