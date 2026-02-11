@@ -297,6 +297,62 @@ def _estimate_bet_odds(odds_list: list, bet_type: str) -> float:
         return round(valid[0] * multiplier, 1)
 
 
+def _assign_relative_confidence(bets: list[dict]) -> None:
+    """候補リスト内のスコア分布に基づいて信頼度を相対的に割り当てる.
+
+    絶対閾値（>=70で「高」等）ではなく、
+    選ばれた候補内での相対順位で信頼度を決める。
+    これにより候補間で信頼度にばらつきが出る。
+
+    割り当て規則:
+        - 1件: "high"
+        - 2件: 上位 "high", 下位 "medium"
+        - 3件以上: 上位1/3 "high", 中位 "medium", 下位1/3 "low"
+        - 全スコア同値: 全て "medium"
+
+    Args:
+        bets: 買い目候補リスト（_composite_scoreキーを持つ）。
+              リストをin-placeで変更する。
+    """
+    n = len(bets)
+    if n == 0:
+        return
+    if n == 1:
+        bets[0]["confidence"] = "high"
+        return
+
+    scores = [b.get("_composite_score", 0) for b in bets]
+    if max(scores) == min(scores):
+        for b in bets:
+            b["confidence"] = "medium"
+        return
+
+    # スコア降順でランク付け
+    indexed = sorted(range(n), key=lambda i: scores[i], reverse=True)
+
+    if n == 2:
+        bets[indexed[0]]["confidence"] = "high"
+        bets[indexed[1]]["confidence"] = "medium"
+        return
+
+    # 3件以上: 上位1/3, 中位, 下位1/3
+    high_count = max(1, round(n / 3))
+    # medium は残り（最低0）、low は残りの要素数
+    medium_count = n - high_count - max(1, round(n / 3))
+    if medium_count < 0:
+        # n=3で high_count=1 → lowも1、medium=1 となるため通常は到達しない
+        high_count = 1
+        medium_count = n - 2
+
+    for rank, idx in enumerate(indexed):
+        if rank < high_count:
+            bets[idx]["confidence"] = "high"
+        elif rank < high_count + medium_count:
+            bets[idx]["confidence"] = "medium"
+        else:
+            bets[idx]["confidence"] = "low"
+
+
 def _generate_bet_candidates(
     axis_horses: list[dict],
     runners_data: list[dict],
@@ -358,13 +414,6 @@ def _generate_bet_candidates(
                     axis_odds, axis_pop, bet_type, total_runners, race_conditions
                 )
 
-                if axis["composite_score"] >= 70:
-                    confidence = "high"
-                elif axis["composite_score"] >= 50:
-                    confidence = "medium"
-                else:
-                    confidence = "low"
-
                 bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
                 axis_name = axis_runner.get("horse_name", "")
 
@@ -389,7 +438,8 @@ def _generate_bet_candidates(
                     "bet_type_name": bet_type_name,
                     "horse_numbers": [axis_hn],
                     "bet_display": str(axis_hn),
-                    "confidence": confidence,
+                    "confidence": "medium",
+                    "_composite_score": axis["composite_score"],
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": axis_odds,
                     "reasoning": reasoning,
@@ -440,16 +490,8 @@ def _generate_bet_candidates(
                 if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
                     continue  # トリガミ除外
 
-                # 信頼度判定
-                avg_score = (axis["composite_score"] + partner["composite_score"]) / 2
-                if avg_score >= 70:
-                    confidence = "high"
-                elif avg_score >= 50:
-                    confidence = "medium"
-                else:
-                    confidence = "low"
-
                 # reasoning生成
+                avg_score = (axis["composite_score"] + partner["composite_score"]) / 2
                 axis_name = axis_runner.get("horse_name", "")
                 partner_name = partner_runner.get("horse_name", "")
                 reasoning = _generate_bet_reasoning(
@@ -463,7 +505,8 @@ def _generate_bet_candidates(
                     "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
                     "horse_numbers": horse_numbers,
                     "bet_display": bet_display,
-                    "confidence": confidence,
+                    "confidence": "medium",
+                    "_composite_score": avg_score,
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": estimated_odds,
                     "reasoning": reasoning,
@@ -514,12 +557,6 @@ def _generate_bet_candidates(
                         continue
 
                     avg_score = (axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3
-                    if avg_score >= 70:
-                        confidence = "high"
-                    elif avg_score >= 50:
-                        confidence = "medium"
-                    else:
-                        confidence = "low"
 
                     reasoning = f"{axis_hn}番軸-{p1_hn}番-{p2_hn}番の{BET_TYPE_NAMES.get(bet_type, bet_type)}"
 
@@ -528,7 +565,8 @@ def _generate_bet_candidates(
                         "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
                         "horse_numbers": horse_numbers,
                         "bet_display": bet_display,
-                        "confidence": confidence,
+                        "confidence": "medium",
+                        "_composite_score": avg_score,
                         "expected_value": ev.get("expected_return", 0),
                         "composite_odds": estimated_odds,
                         "reasoning": reasoning,
@@ -537,7 +575,16 @@ def _generate_bet_candidates(
 
     # 期待値降順ソート
     bets.sort(key=lambda x: x["expected_value"], reverse=True)
-    return bets[:MAX_BETS]
+    selected = bets[:MAX_BETS]
+
+    # 信頼度を候補リスト内のスコア分布に基づいて相対的に再割り当て
+    _assign_relative_confidence(selected)
+
+    # 内部スコアはソート専用のため、ユーザー向けレスポンスからは削除する
+    for bet in selected:
+        bet.pop("_composite_score", None)
+
+    return selected
 
 
 def _generate_bet_reasoning(
