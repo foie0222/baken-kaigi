@@ -106,8 +106,8 @@ class TestGetRaceData:
         assert "API呼び出しに失敗しました" in result["error"]
 
     @patch("tools.race_data.cached_get")
-    def test_正しいURLとヘッダーでAPIを呼び出す(self, mock_get):
-        """APIが正しいURL、ヘッダー、タイムアウトで呼び出されることを確認."""
+    def test_正しいURLでAPIを呼び出す(self, mock_get):
+        """cached_getが正しいURLで呼び出されることを確認."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"race": {}, "runners": []}

@@ -42,6 +42,8 @@ class SessionCache:
         "default": 1800,
     }
 
+    MAX_ENTRIES = 1000
+
     def __init__(self):
         self._cache: dict[str, tuple[float, object]] = {}
         self._hits = 0
@@ -52,7 +54,7 @@ class SessionCache:
         key_data = url
         if params:
             key_data += json.dumps(params, sort_keys=True)
-        return hashlib.md5(key_data.encode()).hexdigest()
+        return hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()
 
     def get(self, url: str, params: dict | None = None) -> object | None:
         """キャッシュからデータを取得. ヒット時はデータ、ミス時はNone."""
@@ -67,6 +69,13 @@ class SessionCache:
         self._misses += 1
         return None
 
+    def _evict_expired(self) -> None:
+        """期限切れエントリを削除."""
+        now = time.time()
+        expired = [k for k, (expiry, _) in self._cache.items() if expiry <= now]
+        for k in expired:
+            del self._cache[k]
+
     def set(
         self,
         url: str,
@@ -80,6 +89,8 @@ class SessionCache:
         key = self._make_key(url, params)
         ttl = self.DEFAULT_TTL.get(data_type, self.DEFAULT_TTL["default"])
         self._cache[key] = (time.time() + ttl, data)
+        if len(self._cache) > self.MAX_ENTRIES:
+            self._evict_expired()
 
     @property
     def stats(self) -> dict:
