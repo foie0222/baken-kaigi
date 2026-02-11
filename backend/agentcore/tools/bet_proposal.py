@@ -502,7 +502,7 @@ def _generate_bet_candidates(
                     continue  # トリガミ除外
 
                 # reasoning生成
-                avg_score = (axis["composite_score"] + partner["composite_score"]) / 2
+                avg_score = round((axis["composite_score"] + partner["composite_score"]) / 2, 1)
                 axis_name = axis_runner.get("horse_name", "")
                 partner_name = partner_runner.get("horse_name", "")
                 reasoning = _generate_bet_reasoning(
@@ -569,7 +569,7 @@ def _generate_bet_candidates(
                     if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
                         continue
 
-                    avg_score = (axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3
+                    avg_score = round((axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3, 1)
 
                     reasoning = f"{axis_hn}番軸-{p1_hn}番-{p2_hn}番の{BET_TYPE_NAMES.get(bet_type, bet_type)}"
 
