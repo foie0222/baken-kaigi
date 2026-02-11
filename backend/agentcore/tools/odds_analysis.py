@@ -4,39 +4,32 @@
 AI指数ベースの妙味分析、時間帯別変動分析、単複比分析を含む。
 """
 
-import logging
 import math
 from datetime import datetime, timedelta
 
 import requests
 from strands import tool
 
+from .common import get_tool_logger, log_tool_execution
+from .constants import (
+    AI_VALUE_HIGH,
+    AI_VALUE_LOW,
+    API_TIMEOUT_SECONDS,
+    FINAL_HOUR_WEIGHT,
+    ODDS_DROP,
+    ODDS_RISE,
+    ODDS_SHARP_DROP,
+    ODDS_SHARP_RISE,
+    WIN_PLACE_RATIO_HIGH,
+    WIN_PLACE_RATIO_LOW,
+)
 from .jravan_client import get_api_url, get_headers
 
-logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
-
-# オッズ変動判定閾値
-ODDS_SHARP_DROP = -30.0  # 30%以上下落: 急落
-ODDS_DROP = -15.0  # 15%以上下落: 下落
-ODDS_RISE = 15.0  # 15%以上上昇: 上昇
-ODDS_SHARP_RISE = 30.0  # 30%以上上昇: 急騰
-
-# 締切前変動の重要度
-FINAL_HOUR_WEIGHT = 2.0  # 締切前1時間の変動は重要度2倍
-
-# 妙味判定閾値（AI指数ベース）
-AI_VALUE_HIGH = 1.3  # AI推定オッズの1.3倍以上: 妙味あり
-AI_VALUE_LOW = 0.7  # AI推定オッズの0.7倍以下: 過剰人気
-
-# 単複比の閾値
-WIN_PLACE_RATIO_HIGH = 6.0  # 単複比6以上: 頭は厳しいが複勝圏内
-WIN_PLACE_RATIO_LOW = 2.5  # 単複比2.5以下: 勝ち切り期待
+logger = get_tool_logger("odds_analysis")
 
 
 @tool
+@log_tool_execution
 def analyze_odds_movement(
     race_id: str,
     horse_numbers: list[int] | None = None,
