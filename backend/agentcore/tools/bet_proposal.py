@@ -648,10 +648,21 @@ def _allocate_budget(
     total_amount = 0
     for _, group_bets, ratio in normalized:
         group_budget = int(budget * ratio)
-        per_bet = max(MIN_BET_AMOUNT, int(math.floor(group_budget / len(group_bets) / 100) * 100))
-        for bet in group_bets:
-            bet["amount"] = per_bet
-            total_amount += per_bet
+        # 期待値ベースの傾斜配分
+        evs = [max(0, b.get("expected_value", 0)) for b in group_bets]
+        total_ev = sum(evs)
+        if total_ev > 0:
+            # 期待値に比例して配分（100円単位に丸め、最低100円保証）
+            for i, bet in enumerate(group_bets):
+                raw = group_budget * evs[i] / total_ev
+                bet["amount"] = max(MIN_BET_AMOUNT, int(math.floor(raw / 100) * 100))
+                total_amount += bet["amount"]
+        else:
+            # 期待値が全て0の場合は均等配分
+            per_bet = max(MIN_BET_AMOUNT, int(math.floor(group_budget / len(group_bets) / 100) * 100))
+            for bet in group_bets:
+                bet["amount"] = per_bet
+                total_amount += per_bet
 
     # 予算超過時は低信頼度から金額削減
     if total_amount > budget:
@@ -667,6 +678,31 @@ def _allocate_budget(
                 if reduction > 0:
                     b["amount"] -= reduction
                     overage -= reduction
+
+    # 余剰予算を期待値の高い買い目に追加配分
+    remaining = budget - sum(b.get("amount", 0) for b in bets if "amount" in b)
+    if remaining >= 100:
+        # 期待値降順でソートした順に100円ずつ追加
+        sorted_by_ev = sorted(
+            [b for b in bets if "amount" in b],
+            key=lambda b: b.get("expected_value", 0),
+            reverse=True,
+        )
+        for bet in sorted_by_ev:
+            if remaining < 100:
+                break
+            add = (remaining // 100) * 100
+            # 1回で全額追加せず、100円ずつ配分してバランスを保つ
+            add = min(add, 100)
+            bet["amount"] += add
+            remaining -= add
+        # まだ残っていれば繰り返し
+        while remaining >= 100:
+            for bet in sorted_by_ev:
+                if remaining < 100:
+                    break
+                bet["amount"] += 100
+                remaining -= 100
 
     return bets
 

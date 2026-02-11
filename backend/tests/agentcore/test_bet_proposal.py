@@ -275,6 +275,63 @@ class TestAllocateBudget:
         confidences = {b["confidence"] for b in bets_with_amount}
         assert "high" in confidences
 
+    def test_同一信頼度内で期待値が高い買い目により多く配分される(self):
+        """同一グループ内でも期待値に応じた傾斜配分がされる."""
+        bets = [
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 2.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.5},
+        ]
+        result = _allocate_budget(bets, 3000)
+        # 期待値2.0 > 期待値1.5 > 期待値0.5 の順に金額が大きい（または同額）
+        assert result[0]["amount"] >= result[1]["amount"]
+        assert result[1]["amount"] >= result[2]["amount"]
+        # 最高と最低が異なる（一律ではない）
+        assert result[0]["amount"] > result[2]["amount"]
+
+    def test_同一信頼度で全て期待値0の場合は均等配分(self):
+        """全買い目の期待値が0の場合は均等配分にフォールバック."""
+        bets = [
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0},
+        ]
+        result = _allocate_budget(bets, 3000)
+        amounts = [b["amount"] for b in result]
+        # 全て同額
+        assert len(set(amounts)) == 1
+
+    def test_余剰予算が期待値の高い買い目に追加配分される(self):
+        """丸めで余った予算は期待値の高い買い目に追加される."""
+        bets = [
+            {"confidence": "high", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+            {"confidence": "low", "bet_type": "quinella", "expected_value": 0.5},
+        ]
+        result = _allocate_budget(bets, 3000)
+        total = sum(b["amount"] for b in result)
+        # 予算の90%以上を使い切る
+        assert total >= 3000 * 0.9
+
+    def test_予算の大部分が使い切られる(self):
+        """8点買いでも予算のほとんどが配分される."""
+        bets = [
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 2.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.8},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.2},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.8},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.3},
+        ]
+        result = _allocate_budget(bets, 3000)
+        total = sum(b["amount"] for b in result)
+        # 予算の90%以上を使い切る（3000円のうち2700円以上）
+        assert total >= 2700
+        # 予算を超えない
+        assert total <= 3000
+
 
 # =============================================================================
 # 推定オッズテスト
