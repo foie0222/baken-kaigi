@@ -349,9 +349,14 @@ jobs:
             Write-Output 'requirements.txt unchanged, skipping pip install'
           }
 
-          # サービス再起動（Restart-ServiceはPowerShell組み込み）
-          Write-Output 'Restarting JraVanApi service...'
-          Restart-Service -Name JraVanApi -Force
+          # スケジュールタスク再起動（JraVanApiはTask Schedulerで管理）
+          Write-Output 'Restarting JraVanApi task...'
+          Stop-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+          # 既存のpythonプロセスを停止（ポート8000を解放）
+          Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*Python311*' } | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          Start-ScheduledTask -TaskName 'JraVanApi'
           Start-Sleep -Seconds 5
 
           # ヘルスチェック（最大30秒リトライ）
@@ -377,7 +382,10 @@ jobs:
           if (-not $healthy) {
             Write-Output 'Health check failed, rolling back...'
             Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
-            Restart-Service -Name JraVanApi -Force
+            Stop-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
+            Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*Python311*' } | Stop-Process -Force
+            Start-Sleep -Seconds 2
+            Start-ScheduledTask -TaskName 'JraVanApi'
             Write-Output 'Rollback complete'
             exit 1
           }
