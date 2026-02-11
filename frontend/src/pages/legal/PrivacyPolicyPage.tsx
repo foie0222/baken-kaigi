@@ -72,7 +72,12 @@ export function PrivacyPolicyPage() {
           <ul style={listStyle}>
             <li>Google認証（ユーザー認証のため）</li>
             <li>Appleでサインイン（ユーザー認証のため）</li>
-            <li>Amazon Web Services（サービス基盤として利用）</li>
+            <li>Amazon Web Services（サービス基盤として利用）
+              <ul style={{ paddingLeft: 20, marginTop: 4 }}>
+                <li>Amazon Cognito（認証情報の管理。メールアドレス、表示名、生年月日、認証プロバイダー情報を保持します）</li>
+                <li>Amazon DynamoDB（利用履歴・設定データの保存）</li>
+              </ul>
+            </li>
           </ul>
         </section>
 
@@ -100,15 +105,28 @@ export function PrivacyPolicyPage() {
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={h3Style}>7. 開示・訂正・削除</h3>
+          <h3 style={h3Style}>7. データの保持期間</h3>
+          <p style={pStyle}>
+            当社は、個人情報を以下の期間保持します。
+          </p>
+          <ul style={listStyle}>
+            <li>認証情報（Cognito）: アカウント存続期間中。アカウント削除後30日以内に完全削除します。</li>
+            <li>利用履歴・設定データ（DynamoDB）: アカウント存続期間中。アカウント削除後速やかに削除します。</li>
+            <li>賭け記録・購入履歴: 法令に基づく保管義務がある場合を除き、アカウント削除時に削除します。</li>
+          </ul>
+        </section>
+
+        <section style={sectionStyle}>
+          <h3 style={h3Style}>8. 開示・訂正・削除</h3>
           <ol style={listStyle}>
             <li>ユーザーは、当社が保有する自己の個人情報について、開示・訂正・削除を求めることができます。</li>
+            <li>ユーザーは、プロフィール設定画面から表示名の変更を行うことができます。</li>
             <li>アカウントを削除した場合、当社はユーザーの個人情報を速やかに削除します。ただし、法令に基づき保管が必要な情報を除きます。</li>
           </ol>
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={h3Style}>8. プライバシーポリシーの変更</h3>
+          <h3 style={h3Style}>9. プライバシーポリシーの変更</h3>
           <p style={pStyle}>
             当社は、必要に応じて本プライバシーポリシーを変更することがあります。
             変更した場合は、本サービス上で通知いたします。
@@ -116,7 +134,7 @@ export function PrivacyPolicyPage() {
         </section>
 
         <section>
-          <h3 style={h3Style}>9. お問い合わせ</h3>
+          <h3 style={h3Style}>10. お問い合わせ</h3>
           <p style={pStyle}>
             個人情報の取扱いに関するお問い合わせは、本サービス内のお問い合わせ窓口までご連絡ください。
           </p>

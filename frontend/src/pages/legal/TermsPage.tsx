@@ -111,7 +111,36 @@ export function TermsPage() {
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={h3Style}>第9条（利用制限・登録抹消）</h3>
+          <h3 style={h3Style}>第9条（ギャンブル依存症に関する注意事項）</h3>
+          <p style={pStyle}>
+            競馬を含む公営競技は、適切に楽しむことが大切です。以下の点にご注意ください。
+          </p>
+          <ul style={listStyle}>
+            <li>馬券の購入は、生活に支障のない余裕資金の範囲内で行ってください。</li>
+            <li>負けを取り返そうとして、予算以上の金額を賭けることはお控えください。</li>
+            <li>本サービスの負け額制限機能を活用し、計画的な利用を心がけてください。</li>
+          </ul>
+          <p style={pStyle}>
+            ギャンブル依存症が疑われる場合は、以下の相談窓口にご相談ください。
+          </p>
+          <ul style={{ ...listStyle, listStyleType: 'none', paddingLeft: 0 }}>
+            <li style={{ marginBottom: 8 }}>
+              <strong>リカバリーサポート・ネットワーク</strong><br />
+              電話: 0120-683-705（24時間対応）
+            </li>
+            <li style={{ marginBottom: 8 }}>
+              <strong>依存症対策全国センター</strong><br />
+              各都道府県・政令指定都市の精神保健福祉センター
+            </li>
+            <li style={{ marginBottom: 8 }}>
+              <strong>消費者ホットライン</strong><br />
+              電話: 188
+            </li>
+          </ul>
+        </section>
+
+        <section style={sectionStyle}>
+          <h3 style={h3Style}>第10条（利用制限・登録抹消）</h3>
           <ol style={listStyle}>
             <li>当社は、ユーザーが本規約に違反した場合、事前の通知なく、本サービスの利用を制限し、またはユーザーの登録を抹消することができるものとします。</li>
             <li>ユーザーは、所定の手続きにより、いつでもアカウントを削除し、退会することができます。</li>
@@ -119,7 +148,7 @@ export function TermsPage() {
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={h3Style}>第10条（規約の変更）</h3>
+          <h3 style={h3Style}>第11条（規約の変更）</h3>
           <ol style={listStyle}>
             <li>当社は、必要と判断した場合には、ユーザーに事前に通知した上で本規約を変更することができるものとします。</li>
             <li>変更後の規約は、本サービス上に掲示した時点から効力を生じるものとします。</li>
@@ -128,14 +157,14 @@ export function TermsPage() {
         </section>
 
         <section style={sectionStyle}>
-          <h3 style={h3Style}>第11条（個人情報の取扱い）</h3>
+          <h3 style={h3Style}>第12条（個人情報の取扱い）</h3>
           <p style={pStyle}>
             本サービスにおける個人情報の取扱いについては、別途定めるプライバシーポリシーによるものとします。
           </p>
         </section>
 
         <section>
-          <h3 style={h3Style}>第12条（準拠法・裁判管轄）</h3>
+          <h3 style={h3Style}>第13条（準拠法・裁判管轄）</h3>
           <ol style={listStyle}>
             <li>本規約の解釈にあたっては、日本法を準拠法とします。</li>
             <li>本サービスに関して紛争が生じた場合、東京地方裁判所を第一審の専属的合意管轄裁判所とします。</li>

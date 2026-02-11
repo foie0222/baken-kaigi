@@ -426,8 +426,8 @@ class TestEvaluateBodyWeight:
 class TestCalculateOverallScore:
     """総合スコア計算テスト."""
 
-    def test_全A評価でスコア上限100(self):
-        """全てA → 50 + 25 + 20 + 15 + 10 = 120 → 上限100."""
+    def test_全A評価でスコア100(self):
+        """全てA → 50 + 25 + 20 + 15 + 10 + 10 = 130 → 上限100."""
         factors = {
             "form": "A",
             "course_aptitude": "A",
@@ -437,8 +437,8 @@ class TestCalculateOverallScore:
         }
         assert _calculate_overall_score(factors) == 100
 
-    def test_全C評価でスコア16(self):
-        """全てC → 50 - 12 - 10 - 7 - 5 = 16（trainerはweightsに含まれず影響なし）."""
+    def test_全C評価でスコア11(self):
+        """全てC → 50 - 12 - 10 - 7 - 5 - 5 = 11."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -446,7 +446,7 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 16
+        assert _calculate_overall_score(factors) == 11
 
     def test_全B評価でスコアが50になる(self):
         """全てB → ベースの50のまま（B=平均的なので加減点なし）."""
@@ -460,7 +460,7 @@ class TestCalculateOverallScore:
         assert _calculate_overall_score(factors) == 50
 
     def test_formだけA他はC(self):
-        """form=A, 他C → 50 + 25 - 10 - 7 - 5 = 53."""
+        """form=A, 他C → 50 + 25 - 10 - 7 - 5 - 5 = 48."""
         factors = {
             "form": "A",
             "course_aptitude": "C",
@@ -468,10 +468,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 53
+        assert _calculate_overall_score(factors) == 48
 
     def test_course_aptitudeだけA他はC(self):
-        """course_aptitude=A, 他C → 50 - 12 + 20 - 7 - 5 = 46."""
+        """course_aptitude=A, 他C → 50 - 12 + 20 - 7 - 5 - 5 = 41."""
         factors = {
             "form": "C",
             "course_aptitude": "A",
@@ -479,10 +479,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 46
+        assert _calculate_overall_score(factors) == 41
 
     def test_jockeyだけA他はC(self):
-        """jockey=A, 他C → 50 - 12 - 10 + 15 - 5 = 38."""
+        """jockey=A, 他C → 50 - 12 - 10 + 15 - 5 - 5 = 33."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -490,10 +490,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 38
+        assert _calculate_overall_score(factors) == 33
 
     def test_trainerだけA他はC(self):
-        """trainer=A, 他C → trainerはweightsに含まれないため無影響 → 50 - 12 - 10 - 7 - 5 = 16."""
+        """trainer=A, 他C → 50 - 12 - 10 - 7 + 10 - 5 = 26."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -501,10 +501,10 @@ class TestCalculateOverallScore:
             "trainer": "A",
             "weight": "C",
         }
-        assert _calculate_overall_score(factors) == 16
+        assert _calculate_overall_score(factors) == 26
 
     def test_weightだけA他はC(self):
-        """weight=A, 他C → 50 - 12 - 10 - 7 + 10 = 31."""
+        """weight=A, 他C → 50 - 12 - 10 - 7 - 5 + 10 = 26."""
         factors = {
             "form": "C",
             "course_aptitude": "C",
@@ -512,10 +512,10 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "A",
         }
-        assert _calculate_overall_score(factors) == 31
+        assert _calculate_overall_score(factors) == 26
 
     def test_AとBの混在(self):
-        """form=A, course_aptitude=B, jockey=A, trainer=C, weight=B → 50 + 25 + 0 + 15 + 0 = 90."""
+        """form=A, course_aptitude=B, jockey=A, trainer=C, weight=B → 50 + 25 + 0 + 15 - 5 + 0 = 85."""
         factors = {
             "form": "A",
             "course_aptitude": "B",
@@ -523,12 +523,12 @@ class TestCalculateOverallScore:
             "trainer": "C",
             "weight": "B",
         }
-        assert _calculate_overall_score(factors) == 90
+        assert _calculate_overall_score(factors) == 85
 
     def test_未知のグレードはC扱い(self):
-        """factorsに存在しないキーはget(key, 'C')でC扱い → 50 - 12 - 10 - 7 - 5 = 16."""
+        """factorsに存在しないキーはget(key, 'C')でC扱い → 50 - 12 - 10 - 7 - 5 - 5 = 11."""
         factors = {}
-        assert _calculate_overall_score(factors) == 16
+        assert _calculate_overall_score(factors) == 11
 
     def test_不明なグレード文字列はC扱い(self):
         """A/B/C以外の値 → 加算も減点もなし → ベース50のまま."""

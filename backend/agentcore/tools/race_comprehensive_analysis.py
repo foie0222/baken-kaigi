@@ -183,14 +183,17 @@ def _evaluate_all_runners(
     # 脚質マップ作成
     style_map = {r.get("horse_number"): r.get("running_style", "不明") for r in running_styles}
 
+    # 騎手・調教師のstatsキャッシュ（同一IDへの重複リクエスト防止）
+    jockey_cache: dict[str, dict] = {}
+    trainer_cache: dict[str, dict] = {}
+
     evaluations = []
     for runner in runners:
         horse_number = runner.get("horse_number")
         horse_name = runner.get("horse_name", "")
-        horse_id = runner.get("horse_id", "")
 
         # 各項目の評価を取得
-        factors = _evaluate_horse_factors(horse_id, race_info, runner)
+        factors = _evaluate_horse_factors(runner, race_info, jockey_cache, trainer_cache)
 
         # 強みと弱みの抽出
         strengths, weaknesses = _extract_strengths_weaknesses(
@@ -213,9 +216,14 @@ def _evaluate_all_runners(
     return evaluations
 
 
-def _evaluate_horse_factors(horse_id: str, race_info: dict, runner: dict | None = None) -> dict:
+def _evaluate_horse_factors(
+    runner: dict,
+    race_info: dict,
+    jockey_cache: dict | None = None,
+    trainer_cache: dict | None = None,
+) -> dict:
     """馬の各要素を評価する."""
-    runner = runner or {}
+    horse_id = runner.get("horse_id", "")
     factors = {
         "form": "B",
         "course_aptitude": "B",
@@ -256,15 +264,50 @@ def _evaluate_horse_factors(horse_id: str, race_info: dict, runner: dict | None 
     except requests.RequestException as e:
         logger.debug(f"Failed to get course aptitude for horse {horse_id}: {e}")
 
-    # 騎手評価（JRA-VAN API から勝率を取得）
+    # 騎手評価（キャッシュ対応で同一騎手への重複リクエスト防止）
     jockey_id = runner.get("jockey_id", "")
     if jockey_id:
-        factors["jockey"] = _evaluate_jockey(jockey_id)
+        if jockey_cache is not None and jockey_id in jockey_cache:
+            factors["jockey"] = _evaluate_jockey(jockey_cache[jockey_id])
+        else:
+            try:
+                response = requests.get(
+                    f"{get_api_url()}/jockeys/{jockey_id}/stats",
+                    headers=get_headers(),
+                    timeout=API_TIMEOUT_SECONDS,
+                )
+                if response.status_code == 200:
+                    jockey_stats = response.json()
+                    if jockey_cache is not None:
+                        jockey_cache[jockey_id] = jockey_stats
+                    factors["jockey"] = _evaluate_jockey(jockey_stats)
+            except requests.RequestException as e:
+                logger.debug(f"Failed to get jockey stats for {jockey_id}: {e}")
 
-    # 馬体重評価（runner の weight = 馬体重 kg）
-    body_weight = runner.get("weight", 0)
-    if body_weight and body_weight > 0:
-        factors["weight"] = _evaluate_body_weight(float(body_weight))
+    # 調教師評価（キャッシュ対応で同一調教師への重複リクエスト防止）
+    trainer_id = runner.get("trainer_id", "")
+    if trainer_id:
+        if trainer_cache is not None and trainer_id in trainer_cache:
+            factors["trainer"] = _evaluate_trainer(trainer_cache[trainer_id])
+        else:
+            try:
+                response = requests.get(
+                    f"{get_api_url()}/trainers/{trainer_id}/stats",
+                    params={"period": "recent"},
+                    headers=get_headers(),
+                    timeout=API_TIMEOUT_SECONDS,
+                )
+                if response.status_code == 200:
+                    trainer_stats = response.json()
+                    if trainer_cache is not None:
+                        trainer_cache[trainer_id] = trainer_stats
+                    factors["trainer"] = _evaluate_trainer(trainer_stats)
+            except requests.RequestException as e:
+                logger.debug(f"Failed to get trainer stats for {trainer_id}: {e}")
+
+    # 馬体重変動評価
+    weight_diff = runner.get("weight_diff")
+    factors["weight"] = _evaluate_weight_change(weight_diff)
 
     return factors
 
@@ -306,40 +349,70 @@ def _evaluate_course_aptitude(data: dict, venue: str) -> str:
         return "C"
 
 
-def _evaluate_jockey(jockey_id: str) -> str:
+# 騎手評価の閾値
+JOCKEY_WIN_RATE_A = 18.0
+JOCKEY_WIN_RATE_B = 12.0
+JOCKEY_WIN_RATE_C = 8.0
+
+# 調教師評価の閾値
+TRAINER_WIN_RATE_A = 15.0
+TRAINER_WIN_RATE_B = 10.0
+
+# 馬体重変動の閾値 (kg)
+WEIGHT_CHANGE_A = 4    # 4kg以内: 適正
+WEIGHT_CHANGE_B = 9    # 5-9kg: やや変動
+WEIGHT_CHANGE_C = 14   # 10-14kg: 大幅変動
+# 15kg以上: D（異常な変動）
+
+
+def _evaluate_jockey(jockey_stats: dict) -> str:
     """騎手を勝率ベースで評価する."""
-    try:
-        response = requests.get(
-            f"{get_api_url()}/jockeys/{jockey_id}/stats",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            stats = response.json().get("stats", {})
-            win_rate = stats.get("win_rate", 0.0)
-            if win_rate >= JOCKEY_WIN_RATE_EXCELLENT:
-                return "A"
-            elif win_rate >= JOCKEY_WIN_RATE_GOOD:
-                return "B"
-            else:
-                return "C"
-    except requests.RequestException as e:
-        logger.debug(f"Failed to get jockey stats for {jockey_id}: {e}")
-    return "B"
+    # レスポンスが {"stats": {"win_rate": ...}} 形式の場合も対応
+    stats = jockey_stats.get("stats", jockey_stats)
+    win_rate = stats.get("win_rate")
+    if win_rate is None:
+        return "B"
 
-
-def _evaluate_body_weight(weight_kg: float) -> str:
-    """馬体重から状態を評価する.
-
-    理想体重帯（460-500kg）を A、許容範囲（440-520kg）を B、
-    それ以外を C と判定する。
-    """
-    if BODY_WEIGHT_IDEAL_MIN <= weight_kg <= BODY_WEIGHT_IDEAL_MAX:
+    if win_rate >= JOCKEY_WIN_RATE_A:
         return "A"
-    elif BODY_WEIGHT_ACCEPTABLE_MIN <= weight_kg <= BODY_WEIGHT_ACCEPTABLE_MAX:
+    elif win_rate >= JOCKEY_WIN_RATE_B:
+        return "B"
+    elif win_rate >= JOCKEY_WIN_RATE_C:
+        return "C"
+    else:
+        return "D"
+
+
+def _evaluate_trainer(trainer_stats: dict) -> str:
+    """調教師を勝率ベースで評価する."""
+    # レスポンスが {"stats": {"win_rate": ...}} 形式の場合も対応
+    stats = trainer_stats.get("stats", trainer_stats)
+    win_rate = stats.get("win_rate")
+    if win_rate is None:
+        return "B"
+
+    if win_rate >= TRAINER_WIN_RATE_A:
+        return "A"
+    elif win_rate >= TRAINER_WIN_RATE_B:
         return "B"
     else:
         return "C"
+
+
+def _evaluate_weight_change(weight_diff: int | None) -> str:
+    """馬体重の前走比変動を評価する."""
+    if weight_diff is None:
+        return "B"
+
+    abs_diff = abs(weight_diff)
+    if abs_diff <= WEIGHT_CHANGE_A:
+        return "A"
+    elif abs_diff <= WEIGHT_CHANGE_B:
+        return "B"
+    elif abs_diff <= WEIGHT_CHANGE_C:
+        return "C"
+    else:
+        return "D"
 
 
 def _extract_strengths_weaknesses(
@@ -356,7 +429,7 @@ def _extract_strengths_weaknesses(
         label = _get_factor_label(key)
         if value == "A":
             strengths.append(label)
-        elif value == "C":
+        elif value in ("C", "D"):
             weaknesses.append(label)
 
     # 枠順評価
@@ -391,11 +464,11 @@ def _calculate_overall_score(factors: dict) -> int:
     """総合スコアを計算する."""
     score = 50  # ベーススコア
 
-    # trainer は API 未対応のため除外
     weights = {
         "form": 25,
         "course_aptitude": 20,
         "jockey": 15,
+        "trainer": 10,
         "weight": 10,
     }
 
@@ -403,7 +476,7 @@ def _calculate_overall_score(factors: dict) -> int:
         grade = factors.get(key, "C")
         if grade == "A":
             score += weight
-        elif grade == "C":
+        elif grade in ("C", "D"):
             score -= weight // 2
         # Bの場合は加算なし（平均的）
 

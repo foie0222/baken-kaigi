@@ -22,9 +22,10 @@ describe('PrivacyPolicyPage', () => {
     expect(screen.getByText('4. 外部サービスの利用')).toBeInTheDocument()
     expect(screen.getByText('5. Cookieの利用')).toBeInTheDocument()
     expect(screen.getByText('6. 保管と安全管理')).toBeInTheDocument()
-    expect(screen.getByText('7. 開示・訂正・削除')).toBeInTheDocument()
-    expect(screen.getByText('8. プライバシーポリシーの変更')).toBeInTheDocument()
-    expect(screen.getByText('9. お問い合わせ')).toBeInTheDocument()
+    expect(screen.getByText('7. データの保持期間')).toBeInTheDocument()
+    expect(screen.getByText('8. 開示・訂正・削除')).toBeInTheDocument()
+    expect(screen.getByText('9. プライバシーポリシーの変更')).toBeInTheDocument()
+    expect(screen.getByText('10. お問い合わせ')).toBeInTheDocument()
   })
 
   it('Cookieポリシーへのリンクが表示される', () => {
@@ -41,8 +42,8 @@ describe('PrivacyPolicyPage', () => {
 
   it('収集する個人情報の具体的な項目が記載されている', () => {
     render(<PrivacyPolicyPage />)
-    expect(screen.getByText(/メールアドレス/)).toBeInTheDocument()
-    expect(screen.getByText(/生年月日/)).toBeInTheDocument()
+    expect(screen.getAllByText(/メールアドレス/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/生年月日/).length).toBeGreaterThanOrEqual(1)
   })
 
   it('外部サービスの記載がある', () => {
@@ -50,5 +51,17 @@ describe('PrivacyPolicyPage', () => {
     expect(screen.getByText(/Google認証/)).toBeInTheDocument()
     expect(screen.getByText(/Appleでサインイン/)).toBeInTheDocument()
     expect(screen.getByText(/Amazon Web Services/)).toBeInTheDocument()
+  })
+
+  it('Cognito認証情報の取り扱いが記載されている', () => {
+    render(<PrivacyPolicyPage />)
+    expect(screen.getByText(/Amazon Cognito/)).toBeInTheDocument()
+  })
+
+  it('データの保持期間が記載されている', () => {
+    render(<PrivacyPolicyPage />)
+    expect(screen.getByText(/Amazon DynamoDB/)).toBeInTheDocument()
+    expect(screen.getByText(/アカウント削除後30日以内に完全削除/)).toBeInTheDocument()
+    expect(screen.getAllByText(/速やかに削除/).length).toBeGreaterThanOrEqual(1)
   })
 })
