@@ -247,6 +247,7 @@ def _format_cart_summary(cart_items: list) -> str:
 
     lines = []
     horse_count: dict[int, int] = {}
+    race_ids: dict[str, str] = {}  # race_id -> race_name
     total_amount = 0
 
     for i, item in enumerate(cart_items, 1):
@@ -256,6 +257,9 @@ def _format_cart_summary(cart_items: list) -> str:
         horse_numbers = item.get("horseNumbers", [])
         amount = item.get("amount", 0)
         race_name = item.get("raceName", "")
+
+        if race_id:
+            race_ids[race_id] = race_name
 
         display = "-".join(str(n) for n in horse_numbers)
         line = f"{i}. {race_name} {bet_type_display} {display} ¥{amount:,}"
@@ -268,13 +272,24 @@ def _format_cart_summary(cart_items: list) -> str:
     total_bets = len(cart_items)
     header = f"買い目一覧（全{total_bets}点、合計¥{total_amount:,}）"
 
+    # 対象レースID一覧（ツール呼び出し用）
+    race_id_lines = []
+    for rid, rname in race_ids.items():
+        race_id_lines.append(f"  {rname}: race_id={rid}")
+
     # 馬番出現頻度サマリー（LLMの数え間違い防止）
     freq_lines = []
     for hn in sorted(horse_count.keys()):
         count = horse_count[hn]
         freq_lines.append(f"  {hn}番: {total_bets}点中{count}点に出現")
 
-    parts = [header] + lines
+    parts = [header]
+    if race_id_lines:
+        parts.append("")
+        parts.append("対象レース:")
+        parts.extend(race_id_lines)
+    parts.append("")
+    parts.extend(lines)
     if freq_lines:
         parts.append("")
         parts.append("馬番の出現頻度:")
