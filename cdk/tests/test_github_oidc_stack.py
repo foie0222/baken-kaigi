@@ -197,7 +197,9 @@ class TestGitHubOidcStack:
                             Match.object_like(
                                 {
                                     "Sid": "S3DeployUpload",
-                                    "Action": "s3:PutObject",
+                                    "Action": Match.array_with(
+                                        ["s3:PutObject", "s3:GetObject"]
+                                    ),
                                 }
                             ),
                         ]
