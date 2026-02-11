@@ -554,3 +554,131 @@ class TestFormatCartSummary:
 
         assert "三連単" in result
         assert "1-2-3" in result
+
+
+# =============================================================================
+# _extract_bet_actions のテスト
+# =============================================================================
+
+from response_utils import BET_ACTIONS_SEPARATOR
+
+
+def _extract_bet_actions(text: str) -> tuple[str, list[dict]]:
+    """応答テキストから買い目アクション情報を抽出する（agent.py からロジックを再定義）."""
+    idx = text.find(BET_ACTIONS_SEPARATOR)
+    if idx == -1:
+        return text, []
+
+    main_text = text[:idx].strip()
+    json_text = text[idx + len(BET_ACTIONS_SEPARATOR) :].strip()
+
+    if not json_text:
+        return main_text, []
+
+    try:
+        actions = json.loads(json_text)
+        if isinstance(actions, list):
+            return main_text, actions[:5]
+    except json.JSONDecodeError:
+        pass
+
+    return main_text, []
+
+
+class TestExtractBetActions:
+    """_extract_bet_actions 関数のテスト."""
+
+    def test_アクションリストを抽出できる(self):
+        """セパレーターの後のアクションJSONを抽出できる."""
+        actions_json = json.dumps([
+            {"type": "remove_horse", "label": "3番を外す", "params": {"horse_number": 3}},
+            {"type": "change_amount", "label": "金額を500円に", "params": {"amount": 500}},
+        ], ensure_ascii=False)
+        text = f"分析結果です。\n\n{BET_ACTIONS_SEPARATOR}\n{actions_json}"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert main_text == "分析結果です。"
+        assert len(actions) == 2
+        assert actions[0]["type"] == "remove_horse"
+        assert actions[0]["params"]["horse_number"] == 3
+        assert actions[1]["type"] == "change_amount"
+        assert actions[1]["params"]["amount"] == 500
+
+    def test_セパレーターがない場合は空リストを返す(self):
+        """セパレーターがない場合は本文のみを返す."""
+        text = "分析結果のみ。アクションなし。"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert main_text == text
+        assert actions == []
+
+    def test_不正JSONの場合は空リストを返す(self):
+        """JSONパースに失敗した場合は空リストを返す."""
+        text = f"分析結果。\n\n{BET_ACTIONS_SEPARATOR}\n{{invalid json}}"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert main_text == "分析結果。"
+        assert actions == []
+
+    def test_5つまでに制限される(self):
+        """アクションは5つまでに制限される."""
+        many_actions = [{"type": "remove_horse", "label": f"{i}番を外す", "params": {"horse_number": i}} for i in range(1, 8)]
+        text = f"分析です。\n\n{BET_ACTIONS_SEPARATOR}\n{json.dumps(many_actions, ensure_ascii=False)}"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert len(actions) == 5
+
+    def test_空のJSON配列の場合は空リストを返す(self):
+        """空のJSON配列の場合."""
+        text = f"分析結果。\n\n{BET_ACTIONS_SEPARATOR}\n[]"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert main_text == "分析結果。"
+        assert actions == []
+
+    def test_セパレーター後にテキストがない場合(self):
+        """セパレーター後に何もない場合は空リストを返す."""
+        text = f"分析結果。\n\n{BET_ACTIONS_SEPARATOR}\n"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert main_text == "分析結果。"
+        assert actions == []
+
+    def test_JSONがオブジェクトの場合は空リストを返す(self):
+        """JSONが配列でなくオブジェクトの場合は空リストを返す."""
+        text = f"分析結果。\n\n{BET_ACTIONS_SEPARATOR}\n{{\"type\": \"remove_horse\"}}"
+
+        main_text, actions = _extract_bet_actions(text)
+
+        assert main_text == "分析結果。"
+        assert actions == []
+
+    def test_SUGGESTED_QUESTIONSとBET_ACTIONSの両方がある場合(self):
+        """SUGGESTED_QUESTIONSとBET_ACTIONSが両方ある場合、両方抽出できる."""
+        actions_json = json.dumps([
+            {"type": "remove_horse", "label": "3番を外す", "params": {"horse_number": 3}},
+        ], ensure_ascii=False)
+        text = (
+            "分析結果です。\n\n"
+            "---SUGGESTED_QUESTIONS---\n"
+            "穴馬を探して\n"
+            "展開予想は？\n\n"
+            f"{BET_ACTIONS_SEPARATOR}\n"
+            f"{actions_json}"
+        )
+
+        # agent.py と同じ順序: 先に bet_actions、次に suggested_questions
+        main_text_ba, actions = _extract_bet_actions(text)
+        main_text_sq, questions = _extract_suggested_questions(main_text_ba)
+
+        assert len(actions) == 1
+        assert actions[0]["type"] == "remove_horse"
+        assert len(questions) == 2
+        assert questions[0] == "穴馬を探して"
+        assert questions[1] == "展開予想は？"

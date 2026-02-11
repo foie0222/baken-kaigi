@@ -8,7 +8,7 @@ import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { useAppStore } from '../stores/appStore';
 import { BetTypeLabels, BetMethodLabels, getVenueName } from '../types';
 import type { CartItem } from '../types';
-import { apiClient } from '../api/client';
+import { apiClient, type BetAction } from '../api/client';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
@@ -18,6 +18,7 @@ interface ChatMessage {
   type: 'ai' | 'user';
   text: string;
   suggestedQuestions?: string[];
+  betActions?: BetAction[];
 }
 
 export function ConsultationPage() {
@@ -110,6 +111,7 @@ export function ConsultationPage() {
             type: 'ai',
             text: response.data.message,
             suggestedQuestions: response.data.suggested_questions,
+            betActions: response.data.bet_actions,
           }]);
           setSessionId(response.data.session_id);
         } else {
@@ -184,6 +186,7 @@ export function ConsultationPage() {
           type: 'ai',
           text: data.message,
           suggestedQuestions: data.suggested_questions,
+          betActions: data.bet_actions,
         }]);
         setSessionId(data.session_id);
       } else {
@@ -210,6 +213,43 @@ export function ConsultationPage() {
 
   const handleSuggestedQuestion = (question: string) => {
     setInputText(question);
+  };
+
+  const handleBetAction = (action: BetAction) => {
+    switch (action.type) {
+      case 'remove_horse': {
+        const horseNum = action.params.horse_number as number;
+        const targetItem = items.find((item) =>
+          item.horseNumbers.includes(horseNum)
+        );
+        if (targetItem) {
+          removeItem(targetItem.id);
+          showToast(`${horseNum}番を削除しました`);
+          if (items.length === 1) {
+            navigate('/cart');
+          }
+        }
+        break;
+      }
+      case 'add_horse': {
+        showToast('馬の追加はレース詳細画面から行ってください');
+        break;
+      }
+      case 'change_amount': {
+        const amount = action.params.amount as number;
+        if (amount >= MIN_BET_AMOUNT && amount <= MAX_BET_AMOUNT && amount % 100 === 0) {
+          items.forEach((item) => updateItemAmount(item.id, amount));
+          showToast(`金額を${amount.toLocaleString()}円に変更しました`);
+        } else {
+          showToast('金額は100円単位で指定してください');
+        }
+        break;
+      }
+      case 'replace_bet': {
+        showToast('買い目の置き換えはレース詳細画面から行ってください');
+        break;
+      }
+    }
   };
 
   const handlePurchase = () => {
@@ -352,6 +392,20 @@ export function ConsultationPage() {
               <div className="message-bubble markdown-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
               </div>
+              {msg.betActions && msg.betActions.length > 0 && index === messages.length - 1 && !isLoading && (
+                <div className="bet-action-buttons">
+                  {msg.betActions.map((action, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="bet-action-btn"
+                      onClick={() => handleBetAction(action)}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && index === messages.length - 1 && !isLoading && (
                 <div className="suggested-questions">
                   {msg.suggestedQuestions.map((q, i) => (

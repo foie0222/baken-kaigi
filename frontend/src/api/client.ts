@@ -46,10 +46,17 @@ export interface AgentCoreConsultationRequest {
   character_type?: 'analyst' | 'intuition' | 'conservative' | 'aggressive';
 }
 
+export interface BetAction {
+  type: 'remove_horse' | 'add_horse' | 'change_amount' | 'replace_bet';
+  label: string;
+  params: Record<string, unknown>;
+}
+
 export interface AgentCoreConsultationResponse {
   message: string;
   session_id: string;
   suggested_questions?: string[];
+  bet_actions?: BetAction[];
   confidence?: number;
 }
 

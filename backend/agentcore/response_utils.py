@@ -7,6 +7,7 @@ bedrock_agentcore / strands に依存しないピュア関数を配置し、
 import json
 
 BET_PROPOSALS_SEPARATOR = "---BET_PROPOSALS_JSON---"
+BET_ACTIONS_SEPARATOR = "---BET_ACTIONS_JSON---"
 
 
 def inject_bet_proposal_separator(
