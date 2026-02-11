@@ -9,7 +9,13 @@ import pytest
 # agentcoreモジュールをインポートできるようにパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
-from tools.ai_prediction import get_ai_prediction, list_ai_predictions_for_date, _analyze_consensus
+from tools.ai_prediction import (
+    get_ai_prediction,
+    list_ai_predictions_for_date,
+    _analyze_consensus,
+    _anonymize_sources,
+    _build_source_label_map,
+)
 
 
 @pytest.fixture
@@ -44,7 +50,7 @@ class TestGetAiPrediction:
         result = get_ai_prediction(race_id="20260131_05_11", source="ai-shisu")
 
         assert result["race_id"] == "20260131_05_11"
-        assert result["source"] == "ai-shisu"
+        assert result["source"] == "AI-A"  # 匿名化される
         assert result["venue"] == "東京"
         assert result["race_number"] == 11
         assert len(result["predictions"]) == 2
@@ -60,7 +66,7 @@ class TestGetAiPrediction:
         result = get_ai_prediction(race_id="20260131_05_99", source="ai-shisu")
 
         assert result["race_id"] == "20260131_05_99"
-        assert result["source"] == "ai-shisu"
+        assert result["source"] == "AI-A"  # 匿名化される
         assert "error" in result
         assert "AI予想データが見つかりません" in result["error"]
         assert result["predictions"] == []
@@ -97,7 +103,7 @@ class TestGetAiPrediction:
         mock_dynamodb_table.get_item.assert_called_once_with(
             Key={"race_id": "20260131_05_11", "source": "custom-source"}
         )
-        assert result["source"] == "custom-source"
+        assert result["source"] == "AI-A"  # 匿名化される
 
 
 class TestListAiPredictionsForDate:
@@ -136,7 +142,7 @@ class TestListAiPredictionsForDate:
         result = list_ai_predictions_for_date(date="20260131")
 
         assert result["date"] == "20260131"
-        assert result["source"] == "ai-shisu"
+        assert result["source"] == "AI-A"  # 匿名化される
         assert result["total_count"] == 2
         assert len(result["races"]) == 2
 
@@ -218,8 +224,9 @@ class TestGetAiPredictionMultiSource:
 
         assert result["race_id"] == "20260131_05_11"
         assert len(result["sources"]) == 2
-        assert result["sources"][0]["source"] in ("ai-shisu", "muryou-keiba-ai")
-        assert result["sources"][1]["source"] in ("ai-shisu", "muryou-keiba-ai")
+        # ソース名は匿名化される（ai-shisu→AI-A, muryou-keiba-ai→AI-B）
+        source_names = {s["source"] for s in result["sources"]}
+        assert source_names == {"AI-A", "AI-B"}
         assert "consensus" in result
         assert "error" not in result
         # queryが呼ばれること
@@ -237,7 +244,7 @@ class TestGetAiPredictionMultiSource:
 
         assert result["race_id"] == "20260131_05_11"
         assert len(result["sources"]) == 1
-        assert result["sources"][0]["source"] == "ai-shisu"
+        assert result["sources"][0]["source"] == "AI-A"  # 匿名化される
         assert "consensus" not in result
         assert "error" not in result
 
@@ -251,7 +258,7 @@ class TestGetAiPredictionMultiSource:
 
         # 従来形式: source, predictions がトップレベル
         assert result["race_id"] == "20260131_05_11"
-        assert result["source"] == "ai-shisu"
+        assert result["source"] == "AI-A"  # 匿名化される
         assert "predictions" in result
         assert "sources" not in result
         assert "consensus" not in result
@@ -381,3 +388,119 @@ class TestAnalyzeConsensus:
         assert divergence_map[8]["ranks"]["ai-shisu"] == 1
         assert divergence_map[8]["ranks"]["muryou-keiba-ai"] == 4
         assert divergence_map[8]["gap"] == 3
+
+
+class TestBuildSourceLabelMap:
+    """_build_source_label_map のテスト."""
+
+    def test_2ソースのマッピング(self):
+        """アルファベット順でAI-A, AI-Bが割り当てられる."""
+        result = _build_source_label_map(["muryou-keiba-ai", "ai-shisu"])
+
+        assert result == {"ai-shisu": "AI-A", "muryou-keiba-ai": "AI-B"}
+
+    def test_1ソースのマッピング(self):
+        """1ソースの場合はAI-A固定."""
+        result = _build_source_label_map(["ai-shisu"])
+
+        assert result == {"ai-shisu": "AI-A"}
+
+    def test_3ソースのマッピング(self):
+        """3ソースの場合はAI-A, AI-B, AI-C."""
+        result = _build_source_label_map(["z-source", "a-source", "m-source"])
+
+        assert result == {"a-source": "AI-A", "m-source": "AI-B", "z-source": "AI-C"}
+
+    def test_重複ソース名は1つにまとめる(self):
+        """重複するソース名がある場合は1つにまとめる."""
+        result = _build_source_label_map(["ai-shisu", "ai-shisu", "muryou-keiba-ai"])
+
+        assert result == {"ai-shisu": "AI-A", "muryou-keiba-ai": "AI-B"}
+
+    def test_空リスト(self):
+        """空リストの場合は空の辞書を返す."""
+        result = _build_source_label_map([])
+
+        assert result == {}
+
+
+class TestAnonymizeSources:
+    """_anonymize_sources のテスト."""
+
+    def test_全ソース結果の匿名化(self):
+        """sources[].sourceとconsensus.divergence_horses[].ranksが匿名化される."""
+        result = {
+            "race_id": "20260131_05_11",
+            "sources": [
+                {"source": "ai-shisu", "predictions": []},
+                {"source": "muryou-keiba-ai", "predictions": []},
+            ],
+            "consensus": {
+                "agreed_top3": [8, 3, 5],
+                "consensus_level": "完全合意",
+                "divergence_horses": [
+                    {"horse_number": 1, "ranks": {"ai-shisu": 4, "muryou-keiba-ai": 1}, "gap": 3},
+                ],
+            },
+        }
+
+        anonymized = _anonymize_sources(result)
+
+        assert anonymized["sources"][0]["source"] == "AI-A"
+        assert anonymized["sources"][1]["source"] == "AI-B"
+        assert anonymized["consensus"]["divergence_horses"][0]["ranks"] == {"AI-A": 4, "AI-B": 1}
+
+    def test_consensusなしの場合(self):
+        """1ソースでconsensusがない場合もsourceは匿名化される."""
+        result = {
+            "race_id": "20260131_05_11",
+            "sources": [
+                {"source": "ai-shisu", "predictions": []},
+            ],
+        }
+
+        anonymized = _anonymize_sources(result)
+
+        assert anonymized["sources"][0]["source"] == "AI-A"
+        assert "consensus" not in anonymized
+
+    def test_空sourcesの場合(self):
+        """sourcesが空の場合はそのまま返す."""
+        result = {
+            "race_id": "20260131_05_11",
+            "sources": [],
+            "error": "データなし",
+        }
+
+        anonymized = _anonymize_sources(result)
+
+        assert anonymized["sources"] == []
+        assert anonymized["error"] == "データなし"
+
+    def test_ソート順でラベルが安定する(self):
+        """DynamoDBの返却順が変わってもラベルの割り当ては安定する."""
+        # muryou-keiba-aiが先に来るケース
+        result1 = {
+            "race_id": "20260131_05_11",
+            "sources": [
+                {"source": "muryou-keiba-ai", "predictions": []},
+                {"source": "ai-shisu", "predictions": []},
+            ],
+        }
+        # ai-shisuが先に来るケース
+        result2 = {
+            "race_id": "20260131_05_11",
+            "sources": [
+                {"source": "ai-shisu", "predictions": []},
+                {"source": "muryou-keiba-ai", "predictions": []},
+            ],
+        }
+
+        anon1 = _anonymize_sources(result1)
+        anon2 = _anonymize_sources(result2)
+
+        # どちらの順でも ai-shisu→AI-A, muryou-keiba-ai→AI-B
+        for anon in [anon1, anon2]:
+            source_map = {s["source"]: True for s in anon["sources"]}
+            assert "AI-A" in source_map
+            assert "AI-B" in source_map
