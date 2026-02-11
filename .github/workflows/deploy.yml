@@ -356,15 +356,15 @@ jobs:
             Write-Output 'ERROR: Scheduled task JraVanApi not found'
             exit 1
           }
-          if ($task.State -ne 'Disabled') {
+          if ($task.State -eq 'Running') {
             Stop-ScheduledTask -TaskName 'JraVanApi'
           }
           Start-Sleep -Seconds 2
-          # ポート8000を使用しているプロセスのみを停止
-          $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
+          # ポート8000を使用しているプロセスのみを停止（LISTENに限定）
+          $portPids = (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
           foreach ($procId in $portPids) {
-            Write-Output "Stopping process $procId (listening on port 8000)"
-            Stop-Process -Id $procId -Force
+            Write-Output "Stopping process $procId (using port 8000)"
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
           }
           Start-Sleep -Seconds 2
           Start-ScheduledTask -TaskName 'JraVanApi'
@@ -393,13 +393,11 @@ jobs:
           if (-not $healthy) {
             Write-Output 'Health check failed, rolling back...'
             Copy-Item -Path "$backupDir\*" -Destination $deployDir -Force
-            if ($task.State -ne 'Disabled') {
-              Stop-ScheduledTask -TaskName 'JraVanApi'
-            }
-            $portPids = (Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
+            Stop-ScheduledTask -TaskName 'JraVanApi' -ErrorAction SilentlyContinue
+            $portPids = (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique
             foreach ($procId in $portPids) {
-              Write-Output "Stopping process $procId (listening on port 8000)"
-              Stop-Process -Id $procId -Force
+              Write-Output "Stopping process $procId (using port 8000)"
+              Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
             }
             Start-Sleep -Seconds 2
             Start-ScheduledTask -TaskName 'JraVanApi'
