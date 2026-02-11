@@ -342,7 +342,6 @@ jobs:
           # requirements変更時のみpip install
           if ($reqChanged) {
             Write-Output 'requirements.txt changed, running pip install...'
-            $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
             pip install -r "$deployDir\requirements.txt"
           } else {
             Write-Output 'requirements.txt unchanged, skipping pip install'
