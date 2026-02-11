@@ -1,5 +1,4 @@
 """EC2 スケジューラー テスト."""
-import json
 import os
 import sys
 from pathlib import Path
@@ -80,6 +79,39 @@ class TestEc2SchedulerHandler:
         assert result["status"] == "error"
         assert "Unknown action: " in result["message"]
 
+    def test_INSTANCE_ID未設定でエラーを返す(self):
+        os.environ.pop("INSTANCE_ID", None)
+        event = {"action": "start"}
+        result = self.handler(event, None)
+
+        assert result["status"] == "error"
+        assert "INSTANCE_ID" in result["message"]
+        self.mock_ec2.start_instances.assert_not_called()
+
+    def test_start時にClientErrorが発生した場合エラーを返す(self):
+        from botocore.exceptions import ClientError
+        self.mock_ec2.start_instances.side_effect = ClientError(
+            {"Error": {"Code": "InvalidInstanceID.NotFound", "Message": "Instance not found"}},
+            "StartInstances",
+        )
+        event = {"action": "start"}
+        result = self.handler(event, None)
+
+        assert result["status"] == "error"
+        assert "InvalidInstanceID.NotFound" in result["message"]
+
+    def test_stop時にClientErrorが発生した場合エラーを返す(self):
+        from botocore.exceptions import ClientError
+        self.mock_ec2.stop_instances.side_effect = ClientError(
+            {"Error": {"Code": "IncorrectInstanceState", "Message": "Instance is not running"}},
+            "StopInstances",
+        )
+        event = {"action": "stop"}
+        result = self.handler(event, None)
+
+        assert result["status"] == "error"
+        assert "IncorrectInstanceState" in result["message"]
+
 
 # ========================================
 # CDK スタックのテスト
@@ -87,7 +119,7 @@ class TestEc2SchedulerHandler:
 class TestEc2SchedulerStack:
     """EC2 スケジューラーの CDK リソーステスト."""
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="module")
     def template(self):
         """JraVanServerStack の CloudFormation テンプレートを生成する."""
         import aws_cdk as cdk
