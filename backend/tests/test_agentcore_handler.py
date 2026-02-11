@@ -83,6 +83,31 @@ class TestUnwrapNestedJson:
         # 5レベル展開後もまだJSONが残っている
         assert unwrapped["message"].startswith("{")
 
+    def test_suggested_questionsを展開できる(self):
+        """ネストされたJSONからsuggested_questionsを展開できる."""
+        from agentcore_handler import _unwrap_nested_json
+
+        inner = json.dumps({
+            "message": "分析結果",
+            "session_id": "abc123",
+            "suggested_questions": ["質問1？", "質問2？"],
+        })
+        result = {"message": inner}
+        unwrapped = _unwrap_nested_json(result)
+
+        assert unwrapped["message"] == "分析結果"
+        assert unwrapped["suggested_questions"] == ["質問1？", "質問2？"]
+
+    def test_suggested_questionsがない場合は追加されない(self):
+        """ネストされたJSONにsuggested_questionsがない場合は追加されない."""
+        from agentcore_handler import _unwrap_nested_json
+
+        inner = json.dumps({"message": "応答", "session_id": "xyz"})
+        result = {"message": inner}
+        unwrapped = _unwrap_nested_json(result)
+
+        assert "suggested_questions" not in unwrapped
+
 
 class TestHandleResponse:
     """_handle_response 関数のテスト."""
@@ -401,6 +426,64 @@ class TestTypeフィールド中継:
             call_args = mock_client.invoke_agent_runtime.call_args
             sent_payload = json.loads(call_args.kwargs["payload"])
             assert "type" not in sent_payload
+
+    def test_suggested_questionsがレスポンスに含まれる(self):
+        """AgentCoreがsuggested_questionsを返した場合、レスポンスに含まれる."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            body = {"prompt": "分析して", "type": "consultation"}
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            mock_client = MagicMock()
+            mock_streaming_body = MagicMock()
+            mock_streaming_body.read.return_value = json.dumps({
+                "message": "分析結果です",
+                "session_id": "test-sq",
+                "suggested_questions": ["追加質問1？", "追加質問2？"],
+            }).encode("utf-8")
+            mock_client.invoke_agent_runtime.return_value = {
+                "contentType": "application/json",
+                "response": mock_streaming_body,
+            }
+
+            with patch("agentcore_handler.boto3") as mock_boto3:
+                mock_boto3.client.return_value = mock_client
+                response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 200
+            response_body = json.loads(response["body"])
+            assert response_body["suggested_questions"] == ["追加質問1？", "追加質問2？"]
+
+    def test_suggested_questionsが空の場合はレスポンスに含まれない(self):
+        """AgentCoreがsuggested_questionsを空リストで返した場合、レスポンスに含まれない."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            body = {"prompt": "テスト", "type": "consultation"}
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            mock_client = MagicMock()
+            mock_streaming_body = MagicMock()
+            mock_streaming_body.read.return_value = json.dumps({
+                "message": "結果",
+                "session_id": "test-empty",
+                "suggested_questions": [],
+            }).encode("utf-8")
+            mock_client.invoke_agent_runtime.return_value = {
+                "contentType": "application/json",
+                "response": mock_streaming_body,
+            }
+
+            with patch("agentcore_handler.boto3") as mock_boto3:
+                mock_boto3.client.return_value = mock_client
+                response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 200
+            response_body = json.loads(response["body"])
+            assert "suggested_questions" not in response_body
 
     def test_不正なtype値は400エラー(self):
         """type に無効な値が指定された場合は400エラーを返す."""

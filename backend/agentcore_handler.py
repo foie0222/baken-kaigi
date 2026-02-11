@@ -180,10 +180,15 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
             else:
                 message = str(message)
 
-        return _make_response({
+        response_body = {
             "message": message,
             "session_id": result.get("session_id", session_id),
-        }, event=event)
+        }
+        suggested = result.get("suggested_questions")
+        if suggested:
+            response_body["suggested_questions"] = suggested
+
+        return _make_response(response_body, event=event)
 
     except (BotoCoreError, ClientError):
         logger.exception("AgentCore invocation error")
@@ -276,6 +281,8 @@ def _unwrap_nested_json(result: dict) -> dict:
                 result["message"] = inner["message"]
                 if "session_id" in inner:
                     result["session_id"] = inner["session_id"]
+                if "suggested_questions" in inner:
+                    result["suggested_questions"] = inner["suggested_questions"]
             else:
                 break
         except json.JSONDecodeError:
