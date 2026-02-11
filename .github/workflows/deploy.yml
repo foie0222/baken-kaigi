@@ -291,14 +291,16 @@ jobs:
           BUCKET_NAME="${{ steps.cfn.outputs.bucket_name }}"
           INSTANCE_ID="${{ steps.cfn.outputs.instance_id }}"
 
+          # EC2にはAWS CLIもAWS.Tools.S3も入っていないため、プリサインドURLで渡す
+          PRESIGNED_URL=$(aws s3 presign "s3://${BUCKET_NAME}/${S3_KEY}" --expires-in 600)
+
           # PowerShellデプロイスクリプトを生成（単一引用heredocでbash展開を防止）
           cat > /tmp/deploy.ps1 << 'PSEOF'
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
-          # 変数定義（__BUCKET_NAME__ / __S3_KEY__ はsedで置換）
-          $bucketName = '__BUCKET_NAME__'
-          $s3Key = '__S3_KEY__'
+          # 変数定義（プレースホルダーはsedで置換）
+          $presignedUrl = '__PRESIGNED_URL__'
           $deployDir = 'C:\jravan-api'
           $tempZip = 'C:\setup\jravan-api-deploy.zip'
           $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -307,10 +309,10 @@ jobs:
           # SSMセッションではPATHが不完全なため、マシン環境変数から再構築
           $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
 
-          # S3からダウンロード
-          Write-Output "Downloading from s3://$bucketName/$s3Key"
-          & aws s3 cp "s3://$bucketName/$s3Key" $tempZip
-          if ($LASTEXITCODE -ne 0) { throw "aws s3 cp failed with exit code $LASTEXITCODE" }
+          # プリサインドURLでS3からダウンロード（外部依存なし）
+          Write-Output "Downloading deploy artifact..."
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Invoke-WebRequest -Uri $presignedUrl -OutFile $tempZip -UseBasicParsing
 
           # バックアップ作成
           Write-Output "Creating backup at $backupDir"
@@ -385,13 +387,17 @@ jobs:
           Write-Output 'Deployment successful'
           PSEOF
 
-          # heredocインデント除去 + プレースホルダー置換
+          # heredocインデント除去 + プレースホルダー置換 + JSON変換
           sed -i 's/^          //' /tmp/deploy.ps1
-          sed -i "s|__BUCKET_NAME__|${BUCKET_NAME}|g" /tmp/deploy.ps1
-          sed -i "s|__S3_KEY__|${S3_KEY}|g" /tmp/deploy.ps1
-
-          # PowerShellスクリプトをJSON形式のSSMパラメータに変換
-          python3 -c "import json; lines=open('/tmp/deploy.ps1').read().splitlines(); json.dump({'commands':lines},open('/tmp/ssm-params.json','w'))"
+          echo "$PRESIGNED_URL" > /tmp/presigned_url.txt
+          python3 -c "
+          import json
+          script = open('/tmp/deploy.ps1').read()
+          url = open('/tmp/presigned_url.txt').read().strip()
+          script = script.replace('__PRESIGNED_URL__', url)
+          lines = script.splitlines()
+          json.dump({'commands': lines}, open('/tmp/ssm-params.json', 'w'))
+          "
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
