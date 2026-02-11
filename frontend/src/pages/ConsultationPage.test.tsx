@@ -180,10 +180,14 @@ describe('ConsultationPage', () => {
 
   describe('買い目グルーピング表示', () => {
     it('買い目一覧のタイトルとレース情報が表示される', async () => {
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
 
-      // 「買い目一覧」というタイトルが表示される
-      expect(await screen.findByText('買い目一覧')).toBeInTheDocument()
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
+      // 「買い目一覧」というタイトルが表示される（トグル内とヘッダー内）
+      expect(screen.getAllByText('買い目一覧').length).toBeGreaterThanOrEqual(1)
 
       // レース情報が表示される（東京 1R）
       expect(await screen.findByText('東京 1R')).toBeInTheDocument()
@@ -204,11 +208,11 @@ describe('ConsultationPage', () => {
         amount: 500,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
 
-      // 「買い目一覧」は1つだけ表示される（同一レースなのでグループは1つ）
-      const titles = await screen.findAllByText('買い目一覧')
-      expect(titles).toHaveLength(1)
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 2つの買い目が表示される
       expect(await screen.findByText('単勝')).toBeInTheDocument()
@@ -218,7 +222,11 @@ describe('ConsultationPage', () => {
     })
 
     it('削除ボタンにアクセシビリティ属性が設定されている', async () => {
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       const deleteButton = await screen.findByRole('button', { name: '買い目を削除' })
       expect(deleteButton).toBeInTheDocument()
@@ -242,7 +250,11 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // BOXバッジが表示される
       expect(await screen.findByText('BOX')).toBeInTheDocument()
@@ -265,7 +277,11 @@ describe('ConsultationPage', () => {
         amount: 300,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 流しバッジが表示される
       expect(await screen.findByText('流し')).toBeInTheDocument()
@@ -288,7 +304,11 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 買い目は表示される
       expect(await screen.findByText('1-2')).toBeInTheDocument()
@@ -312,7 +332,11 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 点数詳細が表示される（6点 @¥100）
       expect(await screen.findByText('6点 @¥100')).toBeInTheDocument()
@@ -333,7 +357,11 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 買い目は表示される
       expect(await screen.findByText('1-2')).toBeInTheDocument()
@@ -356,7 +384,11 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      render(<ConsultationPage />)
+      const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 買い目は表示される
       expect(await screen.findByText('1-2')).toBeInTheDocument()
@@ -382,6 +414,10 @@ describe('ConsultationPage', () => {
       })
 
       const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
@@ -410,6 +446,10 @@ describe('ConsultationPage', () => {
 
       const { user } = render(<ConsultationPage />)
 
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
       await user.click(editButton)
@@ -436,6 +476,10 @@ describe('ConsultationPage', () => {
       })
 
       const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
@@ -464,6 +508,10 @@ describe('ConsultationPage', () => {
 
       const { user } = render(<ConsultationPage />)
 
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
+
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
       await user.click(editButton)
@@ -490,6 +538,10 @@ describe('ConsultationPage', () => {
       })
 
       const { user } = render(<ConsultationPage />)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // 変更ボタンをクリック
       const editButton = await screen.findByRole('button', { name: '変更' })
@@ -622,6 +674,10 @@ describe('ConsultationPage', () => {
       // 初回分析が完了するのを待つ
       expect(await screen.findByText(/初回分析結果です/)).toBeInTheDocument()
       expect(apiClient.consultWithAgent).toHaveBeenCalledTimes(1)
+
+      // 折りたたみトグルをクリックして買い目リストを展開
+      const toggle = screen.getByRole('button', { name: /買い目一覧/ })
+      await user.click(toggle)
 
       // カートの買い目を削除してもAPIが再呼び出しされない
       const deleteButton = screen.getByRole('button', { name: '買い目を削除' })

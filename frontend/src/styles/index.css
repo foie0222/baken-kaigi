@@ -2237,3 +2237,130 @@ main {
 .cookie-toggle.disabled .cookie-toggle-slider::before {
     transform: translateX(20px);
 }
+
+/* レース概要サマリーカード */
+.race-summary-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.race-summary-header h3 {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-2) 0;
+}
+
+.race-summary-metrics {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-2);
+}
+
+.metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.metric-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.metric-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.concentration-high {
+    color: #dc2626;
+}
+
+.concentration-medium {
+    color: #d97706;
+}
+
+.concentration-low {
+    color: #2563eb;
+}
+
+.race-summary-favorites {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-color);
+}
+
+.favorites-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.favorites-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.favorite-chip {
+    font-size: 12px;
+    padding: 2px 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+/* 買い目リスト折りたたみ */
+.bet-list-section {
+    margin-bottom: var(--space-3);
+}
+
+.bet-list-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.bet-list-toggle:hover {
+    background: var(--bg-hover);
+}
+
+.toggle-amount {
+    color: #1a5f2a;
+    font-weight: 600;
+}
+
+.toggle-icon {
+    transition: transform 0.2s ease;
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+.toggle-icon.expanded {
+    transform: rotate(180deg);
+}
+
+.bet-list-content {
+    margin-top: var(--space-2);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 1000px; }
+}
