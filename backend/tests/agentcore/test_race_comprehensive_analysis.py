@@ -14,7 +14,8 @@ try:
         _evaluate_form_from_performances,
         _evaluate_course_aptitude,
         _evaluate_jockey,
-        _evaluate_body_weight,
+        _evaluate_trainer,
+        _evaluate_weight_change,
         _calculate_overall_score,
         _predict_race_scenario,
         _identify_notable_horses,
@@ -267,155 +268,98 @@ class TestEvaluateCourseAptitude:
 class TestEvaluateJockey:
     """騎手評価テスト."""
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_勝率18以上でA評価(self, mock_get):
+    def test_勝率18以上でA評価(self):
         """win_rate >= 18.0 → A."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 20.0}}
-        mock_get.return_value = mock_response
+        assert _evaluate_jockey({"stats": {"win_rate": 20.0}}) == "A"
 
-        assert _evaluate_jockey("J001") == "A"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_勝率12以上18未満でB評価(self, mock_get):
+    def test_勝率12以上18未満でB評価(self):
         """12.0 <= win_rate < 18.0 → B."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 15.0}}
-        mock_get.return_value = mock_response
+        assert _evaluate_jockey({"stats": {"win_rate": 15.0}}) == "B"
 
-        assert _evaluate_jockey("J001") == "B"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_勝率8以上12未満でC評価(self, mock_get):
+    def test_勝率8以上12未満でC評価(self):
         """8.0 <= win_rate < 12.0 → C."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 10.0}}
-        mock_get.return_value = mock_response
+        assert _evaluate_jockey({"stats": {"win_rate": 10.0}}) == "C"
 
-        assert _evaluate_jockey("J001") == "C"
+    def test_勝率8未満でD評価(self):
+        """win_rate < 8.0 → D."""
+        assert _evaluate_jockey({"stats": {"win_rate": 5.0}}) == "D"
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_勝率8未満でC評価(self, mock_get):
-        """win_rate < 8.0 → C."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 5.0}}
-        mock_get.return_value = mock_response
-
-        assert _evaluate_jockey("J001") == "C"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_境界値_勝率ちょうど18でA(self, mock_get):
+    def test_境界値_勝率ちょうど18でA(self):
         """win_rate == 18.0 → A."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 18.0}}
-        mock_get.return_value = mock_response
+        assert _evaluate_jockey({"stats": {"win_rate": 18.0}}) == "A"
 
-        assert _evaluate_jockey("J001") == "A"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_境界値_勝率ちょうど12でB(self, mock_get):
+    def test_境界値_勝率ちょうど12でB(self):
         """win_rate == 12.0 → B."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 12.0}}
-        mock_get.return_value = mock_response
+        assert _evaluate_jockey({"stats": {"win_rate": 12.0}}) == "B"
 
-        assert _evaluate_jockey("J001") == "B"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_境界値_勝率ちょうど8でC(self, mock_get):
+    def test_境界値_勝率ちょうど8でC(self):
         """win_rate == 8.0 → C."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"stats": {"win_rate": 8.0}}
-        mock_get.return_value = mock_response
+        assert _evaluate_jockey({"stats": {"win_rate": 8.0}}) == "C"
 
-        assert _evaluate_jockey("J001") == "C"
+    def test_win_rateなしでB評価(self):
+        """win_rate キーなし → None → B."""
+        assert _evaluate_jockey({"stats": {}}) == "B"
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_API404でB評価(self, mock_get):
-        """API 404 → status_code != 200 → デフォルト B."""
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_get.return_value = mock_response
+    def test_statsキーなしでフラット辞書(self):
+        """stats キーなし → 辞書自体を stats として扱い win_rate 取得."""
+        assert _evaluate_jockey({"win_rate": 20.0}) == "A"
 
-        assert _evaluate_jockey("J001") == "B"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_API例外でB評価(self, mock_get):
-        """RequestException → デフォルト B."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
-
-        assert _evaluate_jockey("J001") == "B"
-
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_statsキーなしでC評価(self, mock_get):
-        """stats キーがない → {} → win_rate=0.0 → C."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {}
-        mock_get.return_value = mock_response
-
-        # win_rate=0.0 < 12.0 → C
-        assert _evaluate_jockey("J001") == "C"
+    def test_statsキーなしでC評価(self):
+        """空辞書 → win_rate=None → B."""
+        assert _evaluate_jockey({}) == "B"
 
 
 # =============================================================================
-# _evaluate_body_weight テスト
+# _evaluate_weight_change テスト
 # =============================================================================
 
 
-class TestEvaluateBodyWeight:
-    """馬体重評価テスト."""
+class TestEvaluateWeightChange:
+    """馬体重変動評価テスト."""
 
-    def test_理想体重帯でA評価(self):
-        """460 <= weight <= 500 → A."""
-        assert _evaluate_body_weight(480.0) == "A"
+    def test_変動なしでA評価(self):
+        """weight_diff=0 → abs=0 <= 4 → A."""
+        assert _evaluate_weight_change(0) == "A"
 
-    def test_理想体重帯の下限460でA評価(self):
-        """weight == 460.0 → A."""
-        assert _evaluate_body_weight(460.0) == "A"
+    def test_変動4kg以内でA評価(self):
+        """weight_diff=4 → abs=4 <= 4 → A."""
+        assert _evaluate_weight_change(4) == "A"
 
-    def test_理想体重帯の上限500でA評価(self):
-        """weight == 500.0 → A."""
-        assert _evaluate_body_weight(500.0) == "A"
+    def test_変動マイナス4kg以内でA評価(self):
+        """weight_diff=-4 → abs=4 <= 4 → A."""
+        assert _evaluate_weight_change(-4) == "A"
 
-    def test_許容範囲内でB評価_軽め(self):
-        """440 <= weight < 460 → B."""
-        assert _evaluate_body_weight(450.0) == "B"
+    def test_変動5kgでB評価(self):
+        """weight_diff=5 → abs=5 <= 9 → B."""
+        assert _evaluate_weight_change(5) == "B"
 
-    def test_許容範囲内でB評価_重め(self):
-        """500 < weight <= 520 → B."""
-        assert _evaluate_body_weight(510.0) == "B"
+    def test_変動9kgでB評価(self):
+        """weight_diff=9 → abs=9 <= 9 → B."""
+        assert _evaluate_weight_change(9) == "B"
 
-    def test_許容範囲の下限440でB評価(self):
-        """weight == 440.0 → B."""
-        assert _evaluate_body_weight(440.0) == "B"
+    def test_変動マイナス9kgでB評価(self):
+        """weight_diff=-9 → abs=9 <= 9 → B."""
+        assert _evaluate_weight_change(-9) == "B"
 
-    def test_許容範囲の上限520でB評価(self):
-        """weight == 520.0 → B."""
-        assert _evaluate_body_weight(520.0) == "B"
+    def test_変動10kgでC評価(self):
+        """weight_diff=10 → abs=10 <= 14 → C."""
+        assert _evaluate_weight_change(10) == "C"
 
-    def test_許容範囲外の軽量でC評価(self):
-        """weight < 440 → C."""
-        assert _evaluate_body_weight(430.0) == "C"
+    def test_変動14kgでC評価(self):
+        """weight_diff=14 → abs=14 <= 14 → C."""
+        assert _evaluate_weight_change(14) == "C"
 
-    def test_許容範囲外の重量でC評価(self):
-        """weight > 520 → C."""
-        assert _evaluate_body_weight(530.0) == "C"
+    def test_変動15kgでD評価(self):
+        """weight_diff=15 → abs=15 > 14 → D."""
+        assert _evaluate_weight_change(15) == "D"
 
-    def test_極端な軽量でC評価(self):
-        """weight = 380 → C."""
-        assert _evaluate_body_weight(380.0) == "C"
+    def test_変動マイナス20kgでD評価(self):
+        """weight_diff=-20 → abs=20 > 14 → D."""
+        assert _evaluate_weight_change(-20) == "D"
 
-    def test_極端な重量でC評価(self):
-        """weight = 560 → C."""
-        assert _evaluate_body_weight(560.0) == "C"
+    def test_NoneでB評価(self):
+        """weight_diff=None → B."""
+        assert _evaluate_weight_change(None) == "B"
 
 
 # =============================================================================
@@ -426,7 +370,7 @@ class TestEvaluateBodyWeight:
 class TestCalculateOverallScore:
     """総合スコア計算テスト."""
 
-    def test_全A評価でスコア100(self):
+    def test_全A評価でスコア上限100(self):
         """全てA → 50 + 25 + 20 + 15 + 10 + 10 = 130 → 上限100."""
         factors = {
             "form": "A",
