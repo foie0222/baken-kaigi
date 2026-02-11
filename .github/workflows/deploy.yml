@@ -184,14 +184,13 @@ jobs:
 
           echo "Deploying AgentCore Runtime..."
           if ! agentcore launch --auto-update-on-conflict; then
-            exit_code=$?
-            echo "::error::agentcore launch failed with exit code ${exit_code}"
+            echo "::error::agentcore launch failed"
 
             # デバッグ情報を収集
             echo "Collecting debug information..."
             agentcore status --verbose || true
 
-            exit "${exit_code}"
+            exit 1
           fi
 
       - name: Verify deployment
@@ -201,9 +200,8 @@ jobs:
 
           echo "Verifying AgentCore deployment..."
           if ! agentcore status; then
-            exit_code=$?
-            echo "::error::agentcore status failed with exit code ${exit_code}"
-            exit "${exit_code}"
+            echo "::error::agentcore status failed"
+            exit 1
           fi
 
       - name: Output AgentCore deployment summary
