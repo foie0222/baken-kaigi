@@ -39,11 +39,13 @@ describe('toJapaneseError', () => {
 vi.mock('../api/client', () => ({
   apiClient: {
     addToCart: vi.fn(),
+    clearCart: vi.fn(() => Promise.resolve({ success: true })),
   },
 }))
 
 import { apiClient } from '../api/client'
 const mockAddToCart = vi.mocked(apiClient.addToCart)
+const mockClearCart = vi.mocked(apiClient.clearCart)
 
 function makeItem(overrides: Partial<CartItem> = {}): CartItem {
   return {
@@ -62,6 +64,14 @@ function makeItem(overrides: Partial<CartItem> = {}): CartItem {
 describe('syncCartToDynamo', () => {
   beforeEach(() => {
     mockAddToCart.mockReset()
+    mockClearCart.mockReset()
+    mockClearCart.mockResolvedValue({ success: true })
+  })
+
+  it('空配列の場合はエラーを返す', async () => {
+    const result = await syncCartToDynamo([])
+    expect(result).toEqual({ success: false, error: 'カートに商品がありません。' })
+    expect(mockAddToCart).not.toHaveBeenCalled()
   })
 
   it('単一アイテムの場合、cart_id空で送信してサーバーcartIdを返す', async () => {
@@ -116,7 +126,7 @@ describe('syncCartToDynamo', () => {
     expect(result).toEqual({ success: false, error: 'Internal Server Error' })
   })
 
-  it('2つ目のアイテムで失敗した場合もエラーを返す', async () => {
+  it('2つ目のアイテムで失敗した場合はエラーを返しサーバーカートをクリーンアップする', async () => {
     mockAddToCart
       .mockResolvedValueOnce({
         success: true,
@@ -131,5 +141,19 @@ describe('syncCartToDynamo', () => {
     const result = await syncCartToDynamo(items)
 
     expect(result).toEqual({ success: false, error: 'Cart item limit exceeded' })
+    // 作成済みサーバーカートのクリーンアップが呼ばれる
+    expect(mockClearCart).toHaveBeenCalledWith('server-cart-1')
+  })
+
+  it('1つ目のアイテムで失敗した場合はクリーンアップしない', async () => {
+    mockAddToCart.mockResolvedValueOnce({
+      success: false,
+      error: 'Internal Server Error',
+    })
+
+    await syncCartToDynamo([makeItem()])
+
+    // serverCartIdがまだ空なのでクリーンアップは呼ばれない
+    expect(mockClearCart).not.toHaveBeenCalled()
   })
 })

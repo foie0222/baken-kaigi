@@ -21,6 +21,10 @@ export function toJapaneseError(error: string | undefined, fallback: string): st
 export async function syncCartToDynamo(
   items: CartItem[]
 ): Promise<{ success: true; cartId: string } | { success: false; error?: string }> {
+  if (items.length === 0) {
+    return { success: false, error: 'カートに商品がありません。' };
+  }
+
   let serverCartId = '';
   for (const item of items) {
     const res = await apiClient.addToCart(serverCartId, {
@@ -31,6 +35,10 @@ export async function syncCartToDynamo(
       amount: item.amount,
     });
     if (!res.success || !res.data) {
+      // 作成済みサーバーカートをbest-effortでクリーンアップ
+      if (serverCartId) {
+        apiClient.clearCart(serverCartId).catch(() => {});
+      }
       return { success: false, error: res.error };
     }
     serverCartId = res.data.cart_id;

@@ -148,17 +148,16 @@ describe('ApiClient', () => {
 
   describe('カート操作', () => {
     it('カートにアイテムを追加できる', async () => {
-      const mockCartItem = {
-        id: 'item_001',
-        raceId: 'race_001',
-        betType: 'quinella',
-        horseNumbers: [1, 2],
-        amount: 1000,
+      const mockResponse = {
+        cart_id: 'server-cart-001',
+        item_id: 'item-001',
+        item_count: 1,
+        total_amount: 1000,
       }
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockCartItem,
+        json: async () => mockResponse,
       })
 
       const client = await getApiClient()
@@ -171,12 +170,31 @@ describe('ApiClient', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/cart/items',
-        expect.objectContaining({
-          method: 'POST',
-        })
-      )
+      expect(result.data).toEqual(mockResponse)
+
+      // リクエストボディにrace_nameが含まれることを確認
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(callBody.race_name).toBe('テストレース')
+      expect(callBody.cart_id).toBe('cart_001')
+    })
+
+    it('cartIdが空文字列の場合cart_idがundefinedで送信される', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ cart_id: 'new-cart', item_id: 'i1', item_count: 1, total_amount: 100 }),
+      })
+
+      const client = await getApiClient()
+      await client.addToCart('', {
+        raceId: 'race_001',
+        raceName: 'テストレース',
+        betType: 'win',
+        horseNumbers: [1],
+        amount: 100,
+      })
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(callBody.cart_id).toBeUndefined()
     })
 
     it('カートからアイテムを削除できる', async () => {
