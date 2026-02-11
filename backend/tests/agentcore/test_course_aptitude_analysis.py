@@ -20,15 +20,14 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 @pytest.fixture(autouse=True)
 def mock_jravan_client():
     """JRA-VANクライアントをモック化."""
-    with patch("tools.course_aptitude_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.course_aptitude_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+    with patch("tools.course_aptitude_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 class TestAnalyzeCourseAptitude:
     """コース適性分析統合テスト."""
 
-    @patch("tools.course_aptitude_analysis.requests.get")
+    @patch("tools.course_aptitude_analysis.cached_get")
     def test_正常系_コース適性を分析(self, mock_get):
         """正常系: コース適性データを正しく分析できる."""
         mock_response = MagicMock()
@@ -62,7 +61,7 @@ class TestAnalyzeCourseAptitude:
         # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.course_aptitude_analysis.requests.get")
+    @patch("tools.course_aptitude_analysis.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")

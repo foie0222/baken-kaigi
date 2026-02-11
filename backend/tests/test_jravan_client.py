@@ -4,19 +4,13 @@ import sys
 from pathlib import Path
 
 import pytest
+import requests
 from unittest.mock import patch, MagicMock
 from botocore.exceptions import ClientError
 
-# agentcore/tools をパスに追加
-sys.path.insert(0, str(Path(__file__).parent.parent / "agentcore" / "tools"))
-from jravan_client import (
-    get_api_key,
-    get_headers,
-    get_api_url,
-    JRAVAN_API_URL,
-    JRAVAN_API_KEY_ID,
-)
-import jravan_client
+# agentcore をパスに追加
+sys.path.insert(0, str(Path(__file__).parent.parent / "agentcore"))
+from tools import jravan_client
 
 
 @pytest.fixture(autouse=True)
@@ -111,3 +105,99 @@ class TestGetApiUrl:
         url = jravan_client.get_api_url()
 
         assert url == jravan_client.JRAVAN_API_URL
+
+
+class TestCachedGet:
+    """cached_get 関数のテスト."""
+
+    @pytest.fixture(autouse=True)
+    def reset_session_cache(self):
+        """テストごとにセッションキャッシュをリセット."""
+        from tools.api_cache import get_session_cache
+        cache = get_session_cache()
+        cache._cache.clear()
+        cache._hits = 0
+        cache._misses = 0
+        yield
+
+    @patch("tools.jravan_client.requests.get")
+    @patch.object(jravan_client, "get_headers", return_value={"x-api-key": "test"})
+    def test_キャッシュミス時はrequests_getが呼ばれる(self, mock_headers, mock_get):
+        """初回呼び出し時はAPIリクエストが実行される."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_get.return_value = mock_response
+
+        result = jravan_client.cached_get("https://api.example.com/races/1")
+
+        mock_get.assert_called_once()
+        assert result is mock_response
+
+    @patch("tools.jravan_client.requests.get")
+    @patch.object(jravan_client, "get_headers", return_value={"x-api-key": "test"})
+    def test_キャッシュヒット時はrequests_getが呼ばれない(self, mock_headers, mock_get):
+        """2回目の同一URLではAPIリクエストが省略される."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_get.return_value = mock_response
+
+        jravan_client.cached_get("https://api.example.com/races/1")
+        mock_get.reset_mock()
+
+        result = jravan_client.cached_get("https://api.example.com/races/1")
+
+        mock_get.assert_not_called()
+        assert result is mock_response
+
+    @patch("tools.jravan_client.requests.get")
+    @patch.object(jravan_client, "get_headers", return_value={"x-api-key": "test"})
+    def test_異なるURLはキャッシュされない(self, mock_headers, mock_get):
+        """異なるURLでは再度APIリクエストが実行される."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_get.return_value = mock_response
+
+        jravan_client.cached_get("https://api.example.com/races/1")
+        jravan_client.cached_get("https://api.example.com/races/2")
+
+        assert mock_get.call_count == 2
+
+    @patch("tools.jravan_client.requests.get")
+    @patch.object(jravan_client, "get_headers", return_value={"x-api-key": "test"})
+    def test_エラーレスポンスはキャッシュされない(self, mock_headers, mock_get):
+        """APIエラー時はレスポンスをキャッシュしない."""
+        mock_response = MagicMock()
+        mock_response.ok = False
+        mock_response.status_code = 500
+        mock_get.return_value = mock_response
+
+        jravan_client.cached_get("https://api.example.com/races/1")
+        jravan_client.cached_get("https://api.example.com/races/1")
+
+        assert mock_get.call_count == 2
+
+    @patch("tools.jravan_client.requests.get")
+    @patch.object(jravan_client, "get_headers", return_value={"x-api-key": "test"})
+    def test_パラメータがキャッシュキーに含まれる(self, mock_headers, mock_get):
+        """同じURLでもパラメータが違えば別キャッシュ."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_get.return_value = mock_response
+
+        jravan_client.cached_get("https://api.example.com/races", params={"id": "1"})
+        jravan_client.cached_get("https://api.example.com/races", params={"id": "2"})
+
+        assert mock_get.call_count == 2
+
+    @patch("tools.jravan_client.requests.get")
+    @patch.object(jravan_client, "get_headers", return_value={"x-api-key": "test"})
+    def test_ヘッダーが正しく付与される(self, mock_headers, mock_get):
+        """cached_getがget_headersのヘッダーを使用する."""
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_get.return_value = mock_response
+
+        jravan_client.cached_get("https://api.example.com/races/1")
+
+        call_kwargs = mock_get.call_args
+        assert call_kwargs.kwargs["headers"] == {"x-api-key": "test"}

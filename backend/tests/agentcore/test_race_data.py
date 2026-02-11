@@ -21,13 +21,6 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 
 
 @pytest.fixture(autouse=True)
-def mock_get_headers():
-    """全テストで get_headers をモック化してboto3呼び出しを防ぐ."""
-    with patch("tools.race_data.get_headers", return_value={"x-api-key": "test-key"}):
-        yield
-
-
-@pytest.fixture(autouse=True)
 def mock_get_api_url():
     """全テストで get_api_url をモック化."""
     with patch("tools.race_data.get_api_url", return_value="https://api.example.com"):
@@ -37,7 +30,7 @@ def mock_get_api_url():
 class TestGetRaceData:
     """get_race_data統合テスト."""
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_正常なAPI応答でraceとrunnersを返す(self, mock_get):
         """正常系: APIが成功した場合、raceとrunnersを含む辞書を返す."""
         mock_response = MagicMock()
@@ -65,7 +58,7 @@ class TestGetRaceData:
         assert len(result["runners"]) == 2
         assert result["runners"][0]["horse_name"] == "テスト馬1"
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_空のデータでも空の辞書を返す(self, mock_get):
         """空のレスポンスの場合、空のrace/runnersを返す."""
         mock_response = MagicMock()
@@ -78,7 +71,7 @@ class TestGetRaceData:
         assert result["race"] == {}
         assert result["runners"] == []
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを含む辞書を返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")
@@ -89,7 +82,7 @@ class TestGetRaceData:
         assert "API呼び出しに失敗しました" in result["error"]
         assert "Connection failed" in result["error"]
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_タイムアウト時にエラーを返す(self, mock_get):
         """異常系: タイムアウト時はerrorを含む辞書を返す."""
         mock_get.side_effect = requests.Timeout("Request timed out")
@@ -99,7 +92,7 @@ class TestGetRaceData:
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_HTTPエラー時にエラーを返す(self, mock_get):
         """異常系: HTTPステータスエラー時はerrorを含む辞書を返す."""
         mock_response = MagicMock()
@@ -112,9 +105,9 @@ class TestGetRaceData:
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
 
-    @patch("tools.race_data.requests.get")
-    def test_正しいURLとヘッダーでAPIを呼び出す(self, mock_get):
-        """APIが正しいURL、ヘッダー、タイムアウトで呼び出されることを確認."""
+    @patch("tools.race_data.cached_get")
+    def test_正しいURLでAPIを呼び出す(self, mock_get):
+        """cached_getが正しいURLで呼び出されることを確認."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"race": {}, "runners": []}
@@ -124,8 +117,6 @@ class TestGetRaceData:
 
         mock_get.assert_called_once_with(
             "https://api.example.com/races/20260125_06_11",
-            headers={"x-api-key": "test-key"},
-            timeout=10,
         )
 
 
@@ -206,7 +197,7 @@ class TestExtractRaceConditions:
 class TestGetRaceRunners:
     """get_race_runners のテスト."""
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_正常なAPI応答で分析用データを返す(self, mock_get):
         """正常系: runners_data, race_conditions, venue, surface等を返す."""
         mock_response = MagicMock()
@@ -225,7 +216,7 @@ class TestGetRaceRunners:
         assert "race_name" in result
         assert "error" not in result
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_runners_dataに出走馬情報を含む(self, mock_get):
         """runners_dataにhorse_number, horse_name, odds, popularityが含まれる."""
         mock_response = MagicMock()
@@ -242,7 +233,7 @@ class TestGetRaceRunners:
         assert runner["odds"] == 2.5
         assert runner["popularity"] == 1
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_レース情報を正しく返す(self, mock_get):
         """venue, surface, distance, total_runnersを正しく返す."""
         mock_response = MagicMock()
@@ -258,7 +249,7 @@ class TestGetRaceRunners:
         assert result["total_runners"] == 16
         assert result["race_name"] == "テストレース"
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_G1レースのrace_conditionsを抽出する(self, mock_get):
         """G1レースの場合、race_conditionsに'g1'が含まれる."""
         mock_response = MagicMock()
@@ -272,7 +263,7 @@ class TestGetRaceRunners:
 
         assert "g1" in result["race_conditions"]
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_ハンデ新馬戦のrace_conditionsを抽出する(self, mock_get):
         """ハンデ新馬戦の場合、handicapとmaiden_newが含まれる."""
         mock_response = MagicMock()
@@ -290,7 +281,7 @@ class TestGetRaceRunners:
         assert "handicap" in result["race_conditions"]
         assert "maiden_new" in result["race_conditions"]
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_空のデータでもエラーなく返す(self, mock_get):
         """空のAPIレスポンスでもクラッシュしない."""
         mock_response = MagicMock()
@@ -306,7 +297,7 @@ class TestGetRaceRunners:
         assert result["surface"] == ""
         assert result["total_runners"] == 0
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_RequestException時にエラーを返す(self, mock_get):
         """異常系: RequestException発生時はerrorを含む辞書を返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")
@@ -316,7 +307,7 @@ class TestGetRaceRunners:
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_HTTPエラー時にエラーを返す(self, mock_get):
         """異常系: HTTPステータスエラー時はerrorを含む辞書を返す."""
         mock_response = MagicMock()
@@ -329,7 +320,7 @@ class TestGetRaceRunners:
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
 
-    @patch("tools.race_data.requests.get")
+    @patch("tools.race_data.cached_get")
     def test_horse_countがない場合runnersの長さをtotal_runnersにする(self, mock_get):
         """horse_countが未設定の場合、runnersリストの長さをtotal_runnersにする."""
         api_response = _make_api_response()
