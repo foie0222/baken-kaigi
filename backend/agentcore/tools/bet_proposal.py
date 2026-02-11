@@ -323,9 +323,13 @@ def _assign_relative_confidence(bets: list[dict]) -> None:
 
     scores = [b.get("_composite_score", 0) for b in bets]
     if max(scores) == min(scores):
-        for b in bets:
-            b["confidence"] = "medium"
-        return
+        # スコア同値の場合、期待値でフォールバック
+        ev_scores = [b.get("expected_value", 0) for b in bets]
+        if max(ev_scores) == min(ev_scores):
+            for b in bets:
+                b["confidence"] = "medium"
+            return
+        scores = ev_scores
 
     # スコア降順でランク付け
     indexed = sorted(range(n), key=lambda i: scores[i], reverse=True)
