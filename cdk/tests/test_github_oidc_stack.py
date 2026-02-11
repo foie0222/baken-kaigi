@@ -230,6 +230,52 @@ class TestGitHubOidcStack:
             },
         )
 
+    def test_iam_role_agentcore_s3_upload_policy(self, template):
+        """AgentCore S3アップロード権限が設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "AgentCoreS3Upload",
+                                    "Action": Match.array_with(
+                                        ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+                                    ),
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_iam_role_agentcore_pass_role_policy(self, template):
+        """AgentCore PassRole権限が設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Sid": "AgentCorePassRole",
+                                    "Action": "iam:PassRole",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
     def test_deploy_role_arn_output(self, template):
         """DeployRoleArn出力が存在すること."""
         template.has_output(

@@ -101,6 +101,7 @@ class GitHubOidcStack(Stack):
         deploy_role.add_to_policy(
             iam.PolicyStatement(
                 sid="AgentCoreS3Upload",
+                effect=iam.Effect.ALLOW,
                 actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
                 resources=[
                     f"arn:aws:s3:::bedrock-agentcore-codebuild-sources-{Stack.of(self).account}-ap-northeast-1",
@@ -113,6 +114,7 @@ class GitHubOidcStack(Stack):
         deploy_role.add_to_policy(
             iam.PolicyStatement(
                 sid="AgentCorePassRole",
+                effect=iam.Effect.ALLOW,
                 actions=["iam:PassRole"],
                 resources=[
                     f"arn:aws:iam::{Stack.of(self).account}:role/AmazonBedrockAgentCoreSDKRuntime-*",
