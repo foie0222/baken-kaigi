@@ -98,9 +98,7 @@ jobs:
           cache-dependency-path: backend/agentcore/requirements.txt
 
       - name: Install AgentCore CLI and uv
-        run: |
-          pip install bedrock-agentcore-starter-toolkit
-          pip install uv
+        run: pip install bedrock-agentcore-starter-toolkit uv
 
       - name: Generate AgentCore config for CI
         working-directory: backend/agentcore
