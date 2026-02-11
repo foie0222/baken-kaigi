@@ -34,8 +34,9 @@ def _build_source_label_map(source_names: list[str]) -> dict[str, str]:
         dict: {"ai-shisu": "AI-A", "muryou-keiba-ai": "AI-B", ...}
     """
     unique_sorted = sorted(set(source_names))
+    labels = string.ascii_uppercase
     return {
-        name: f"AI-{string.ascii_uppercase[i]}"
+        name: f"AI-{labels[i]}" if i < len(labels) else f"AI-{i + 1}"
         for i, name in enumerate(unique_sorted)
     }
 
@@ -79,15 +80,17 @@ def _anonymize_sources(result: dict) -> dict:
 def _analyze_consensus(sources: list[dict]) -> dict:
     """複数ソースのコンセンサスを分析する.
 
+    この関数は匿名化前の生データで呼ばれる。匿名化は呼び出し元で適用される。
+
     Args:
-        sources: [{"source": "AI-A", "predictions": [...]}, ...]
+        sources: [{"source": "ai-shisu", "predictions": [...]}, ...]
 
     Returns:
         dict: {
             "agreed_top3": [8, 3],  # 両方のtop3に含まれる馬番
             "consensus_level": "部分合意",
             "divergence_horses": [
-                {"horse_number": 5, "ranks": {"AI-A": 2, "AI-B": 8}, "gap": 6}
+                {"horse_number": 5, "ranks": {"ai-shisu": 2, "muryou-keiba-ai": 8}, "gap": 6}
             ]
         }
     """
