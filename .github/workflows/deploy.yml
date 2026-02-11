@@ -304,16 +304,13 @@ jobs:
           $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
           $backupDir = "C:\jravan-api\backup-$timestamp"
 
-          # AWS Tools for PowerShellモジュール確認（Windows AMIに標準搭載）
-          if (-not (Get-Module -ListAvailable -Name 'AWS.Tools.S3')) {
-            throw 'AWS.Tools.S3 module not found. Ensure AWS Tools for PowerShell is installed on the EC2 instance.'
-          }
-          Import-Module AWS.Tools.S3
-          Set-DefaultAWSRegion -Region 'ap-northeast-1'
+          # SSMセッションではPATHが不完全なため、マシン環境変数から再構築
+          $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
 
           # S3からダウンロード
           Write-Output "Downloading from s3://$bucketName/$s3Key"
-          Read-S3Object -BucketName $bucketName -Key $s3Key -File $tempZip
+          & aws s3 cp "s3://$bucketName/$s3Key" $tempZip
+          if ($LASTEXITCODE -ne 0) { throw "aws s3 cp failed with exit code $LASTEXITCODE" }
 
           # バックアップ作成
           Write-Output "Creating backup at $backupDir"
