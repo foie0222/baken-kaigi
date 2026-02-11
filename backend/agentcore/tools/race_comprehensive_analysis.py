@@ -3,25 +3,28 @@
 レースの出走メンバーを総合的に分析し、各馬の評価と有力馬を特定する。
 """
 
-import logging
-
 import requests
 from strands import tool
 
+from .common import get_tool_logger, log_tool_execution
+from .constants import (
+    API_TIMEOUT_SECONDS,
+    FAVORITE_ODDS_THRESHOLD,
+    JOCKEY_WIN_RATE_A,
+    JOCKEY_WIN_RATE_B,
+    JOCKEY_WIN_RATE_C,
+    SCORE_EXCELLENT,
+    SCORE_GOOD,
+    TRAINER_WIN_RATE_A,
+    TRAINER_WIN_RATE_B,
+    VALUE_ODDS_THRESHOLD,
+    WEIGHT_CHANGE_A,
+    WEIGHT_CHANGE_B,
+    WEIGHT_CHANGE_C,
+)
 from .jravan_client import get_api_url, get_headers
 
-logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
-
-# 能力評価の閾値
-SCORE_EXCELLENT = 80
-SCORE_GOOD = 65
-
-# オッズ評価の閾値
-FAVORITE_ODDS_THRESHOLD = 5.0
-VALUE_ODDS_THRESHOLD = 15.0
+logger = get_tool_logger("race_comprehensive_analysis")
 
 # 騎手評価の勝率閾値（%）
 JOCKEY_WIN_RATE_EXCELLENT = 18.0
@@ -35,6 +38,7 @@ BODY_WEIGHT_ACCEPTABLE_MAX = 520.0
 
 
 @tool
+@log_tool_execution
 def analyze_race_comprehensive(race_id: str) -> dict:
     """レースの出走メンバーを総合的に分析し、各馬の評価と有力馬を特定する。
 
@@ -349,20 +353,6 @@ def _evaluate_course_aptitude(data: dict, venue: str) -> str:
         return "C"
 
 
-# 騎手評価の閾値
-JOCKEY_WIN_RATE_A = 18.0
-JOCKEY_WIN_RATE_B = 12.0
-JOCKEY_WIN_RATE_C = 8.0
-
-# 調教師評価の閾値
-TRAINER_WIN_RATE_A = 15.0
-TRAINER_WIN_RATE_B = 10.0
-
-# 馬体重変動の閾値 (kg)
-WEIGHT_CHANGE_A = 4    # 4kg以内: 適正
-WEIGHT_CHANGE_B = 9    # 5-9kg: やや変動
-WEIGHT_CHANGE_C = 14   # 10-14kg: 大幅変動
-# 15kg以上: D（異常な変動）
 
 
 def _evaluate_jockey(jockey_stats: dict) -> str:

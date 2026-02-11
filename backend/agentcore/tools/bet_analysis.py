@@ -9,6 +9,8 @@ import math
 
 from strands import tool
 
+from .common import log_tool_execution
+
 # 券種の日本語表示名
 BET_TYPE_NAMES = {
     "win": "単勝",
@@ -1060,6 +1062,7 @@ def _analyze_bet_selection_impl(
 
 
 @tool
+@log_tool_execution
 def analyze_bet_selection(
     race_id: str,
     bet_type: str,

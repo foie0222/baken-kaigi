@@ -9,28 +9,19 @@ from .bet_analysis import (
     WIN_RATE_BY_POPULARITY,
     _estimate_probability,
 )
+from .common import log_tool_execution
+from .constants import (
+    AI_SCORE_CLOSE_GAP,
+    AI_SCORE_MODERATE_GAP,
+    FAVORITE_BIAS_RATIO,
+    HIGH_PAYOUT_TYPE_RATIO,
+    LONGSHOT_BIAS_RATIO,
+    OVER_INVESTMENT_THRESHOLD,
+)
 from .pace_analysis import (
     _assess_race_difficulty,
     _analyze_odds_gap,
 )
-
-# =============================================================================
-# 閾値定数
-# =============================================================================
-
-# 見送り推奨: AI上位5頭のスコア差が混戦と判定する閾値
-AI_SCORE_CLOSE_GAP = 30
-# 見送り推奨: AI上位5頭のスコア差がやや接戦と判定する閾値
-AI_SCORE_MODERATE_GAP = 60
-
-# バイアス診断: 穴馬偏重と判定する比率（10番人気以下の割合）
-LONGSHOT_BIAS_RATIO = 0.6
-# バイアス診断: 本命偏重と判定する比率（3番人気以内の割合）
-FAVORITE_BIAS_RATIO = 0.8
-# バイアス診断: 高配当券種偏重と判定する比率（三連単/三連複の割合）
-HIGH_PAYOUT_TYPE_RATIO = 0.7
-# バイアス診断: 過大投資と判定する閾値（円）
-OVER_INVESTMENT_THRESHOLD = 20000
 
 
 # =============================================================================
@@ -554,6 +545,7 @@ def _analyze_risk_factors_impl(
 
 
 @tool
+@log_tool_execution
 def analyze_risk_factors(
     race_id: str,
     horse_numbers: list[int],

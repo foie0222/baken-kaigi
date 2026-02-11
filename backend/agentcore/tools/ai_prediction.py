@@ -11,6 +11,8 @@ import boto3
 from botocore.exceptions import ClientError
 from strands import tool
 
+from .common import log_tool_execution
+
 # AWSリージョン（AgentCore環境ではAWS_REGION未設定の場合があるため明示指定）
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 
@@ -233,6 +235,7 @@ def _get_all_sources(table, race_id: str) -> dict:
 
 
 @tool
+@log_tool_execution
 def get_ai_prediction(race_id: str, source: str | None = None) -> dict:
     """外部AIサービスの予想指数を取得する.
 
@@ -300,6 +303,7 @@ def get_ai_prediction(race_id: str, source: str | None = None) -> dict:
 
 
 @tool
+@log_tool_execution
 def list_ai_predictions_for_date(date: str, source: str = "ai-shisu") -> dict:
     """指定日のAI予想データ一覧を取得する.
 
