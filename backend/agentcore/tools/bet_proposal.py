@@ -300,6 +300,68 @@ def _estimate_bet_odds(odds_list: list, bet_type: str) -> float:
         return round(valid[0] * multiplier, 1)
 
 
+def _assign_relative_confidence(bets: list[dict]) -> None:
+    """候補リスト内のスコア分布に基づいて信頼度を相対的に割り当てる.
+
+    絶対閾値（>=70で「高」等）ではなく、
+    選ばれた候補内での相対順位で信頼度を決める。
+    これにより候補間で信頼度にばらつきが出る。
+
+    割り当て規則:
+        - 1件: "high"
+        - 2件: 上位 "high", 下位 "medium"
+        - 3件以上: 上位1/3 "high", 中位 "medium", 下位1/3 "low"
+        - 全スコア同値: expected_valueで代替ランク付け
+        - 全スコア・期待値ともに同値: 全て "medium"
+
+    Args:
+        bets: 買い目候補リスト（_composite_scoreキーを持つ）。
+              スコア同値時はexpected_valueキーをフォールバックに使用。
+              リストをin-placeで変更する。
+    """
+    n = len(bets)
+    if n == 0:
+        return
+    if n == 1:
+        bets[0]["confidence"] = "high"
+        return
+
+    scores = [b.get("_composite_score", 0) for b in bets]
+    if max(scores) == min(scores):
+        # スコア同値の場合、期待値でフォールバック
+        ev_scores = [b.get("expected_value", 0) for b in bets]
+        if max(ev_scores) == min(ev_scores):
+            for b in bets:
+                b["confidence"] = "medium"
+            return
+        scores = ev_scores
+
+    # スコア降順でランク付け
+    indexed = sorted(range(n), key=lambda i: scores[i], reverse=True)
+
+    if n == 2:
+        bets[indexed[0]]["confidence"] = "high"
+        bets[indexed[1]]["confidence"] = "medium"
+        return
+
+    # 3件以上: 上位1/3, 中位, 下位1/3
+    high_count = max(1, round(n / 3))
+    # medium は残り（最低0）、low は残りの要素数
+    medium_count = n - high_count - max(1, round(n / 3))
+    if medium_count < 0:
+        # n=3で high_count=1 → lowも1、medium=1 となるため通常は到達しない
+        high_count = 1
+        medium_count = n - 2
+
+    for rank, idx in enumerate(indexed):
+        if rank < high_count:
+            bets[idx]["confidence"] = "high"
+        elif rank < high_count + medium_count:
+            bets[idx]["confidence"] = "medium"
+        else:
+            bets[idx]["confidence"] = "low"
+
+
 def _generate_bet_candidates(
     axis_horses: list[dict],
     runners_data: list[dict],
@@ -361,13 +423,6 @@ def _generate_bet_candidates(
                     axis_odds, axis_pop, bet_type, total_runners, race_conditions
                 )
 
-                if axis["composite_score"] >= 70:
-                    confidence = "high"
-                elif axis["composite_score"] >= 50:
-                    confidence = "medium"
-                else:
-                    confidence = "low"
-
                 bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
                 axis_name = axis_runner.get("horse_name", "")
 
@@ -392,7 +447,8 @@ def _generate_bet_candidates(
                     "bet_type_name": bet_type_name,
                     "horse_numbers": [axis_hn],
                     "bet_display": str(axis_hn),
-                    "confidence": confidence,
+                    "confidence": "medium",
+                    "_composite_score": axis["composite_score"],
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": axis_odds,
                     "composite_score": axis["composite_score"],
@@ -445,16 +501,8 @@ def _generate_bet_candidates(
                 if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
                     continue  # トリガミ除外
 
-                # 信頼度判定
-                avg_score = (axis["composite_score"] + partner["composite_score"]) / 2
-                if avg_score >= 70:
-                    confidence = "high"
-                elif avg_score >= 50:
-                    confidence = "medium"
-                else:
-                    confidence = "low"
-
                 # reasoning生成
+                avg_score = (axis["composite_score"] + partner["composite_score"]) / 2
                 axis_name = axis_runner.get("horse_name", "")
                 partner_name = partner_runner.get("horse_name", "")
                 reasoning = _generate_bet_reasoning(
@@ -468,7 +516,8 @@ def _generate_bet_candidates(
                     "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
                     "horse_numbers": horse_numbers,
                     "bet_display": bet_display,
-                    "confidence": confidence,
+                    "confidence": "medium",
+                    "_composite_score": avg_score,
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": estimated_odds,
                     "composite_score": avg_score,
@@ -521,12 +570,6 @@ def _generate_bet_candidates(
                         continue
 
                     avg_score = (axis["composite_score"] + p1["composite_score"] + p2["composite_score"]) / 3
-                    if avg_score >= 70:
-                        confidence = "high"
-                    elif avg_score >= 50:
-                        confidence = "medium"
-                    else:
-                        confidence = "low"
 
                     reasoning = f"{axis_hn}番軸-{p1_hn}番-{p2_hn}番の{BET_TYPE_NAMES.get(bet_type, bet_type)}"
 
@@ -535,7 +578,8 @@ def _generate_bet_candidates(
                         "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
                         "horse_numbers": horse_numbers,
                         "bet_display": bet_display,
-                        "confidence": confidence,
+                        "confidence": "medium",
+                        "_composite_score": avg_score,
                         "expected_value": ev.get("expected_return", 0),
                         "composite_odds": estimated_odds,
                         "composite_score": avg_score,
@@ -545,7 +589,16 @@ def _generate_bet_candidates(
 
     # 期待値降順ソート
     bets.sort(key=lambda x: x["expected_value"], reverse=True)
-    return bets[:MAX_BETS]
+    selected = bets[:MAX_BETS]
+
+    # 信頼度を候補リスト内のスコア分布に基づいて相対的に再割り当て
+    _assign_relative_confidence(selected)
+
+    # 内部スコアはソート専用のため、ユーザー向けレスポンスからは削除する
+    for bet in selected:
+        bet.pop("_composite_score", None)
+
+    return selected
 
 
 def _generate_bet_reasoning(
@@ -653,36 +706,26 @@ def _allocate_budget(
     total_ratio = sum(g[2] for g in groups)
     normalized = [(g[0], g[1], g[2] / total_ratio) for g in groups]
 
+    unit = MIN_BET_AMOUNT  # 丸め単位（100円）
+
     total_amount = 0
     for _, group_bets, ratio in normalized:
         group_budget = int(budget * ratio)
-        if len(group_bets) == 1:
-            group_bets[0]["amount"] = max(
-                MIN_BET_AMOUNT, int(math.floor(group_budget / 100) * 100)
-            )
-            total_amount += group_bets[0]["amount"]
+        # 期待値ベースの傾斜配分
+        evs = [max(0, b.get("expected_value", 0)) for b in group_bets]
+        total_ev = sum(evs)
+        if total_ev > 0:
+            # 期待値に比例して配分（unit単位に丸め、最低unit保証）
+            for i, bet in enumerate(group_bets):
+                raw = group_budget * evs[i] / total_ev
+                bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
+                total_amount += bet["amount"]
         else:
-            # composite_scoreベースの傾斜配分（スコアが高い買い目に多く配分）
-            scores = [b.get("composite_score", 50) for b in group_bets]
-            total_score = sum(scores)
-            if total_score > 0 and max(scores) != min(scores):
-                for bet, score in zip(group_bets, scores):
-                    weight = score / total_score
-                    amount = max(
-                        MIN_BET_AMOUNT,
-                        int(math.floor(group_budget * weight / 100) * 100),
-                    )
-                    bet["amount"] = amount
-                    total_amount += amount
-            else:
-                # スコアが同一の場合は均等配分
-                per_bet = max(
-                    MIN_BET_AMOUNT,
-                    int(math.floor(group_budget / len(group_bets) / 100) * 100),
-                )
-                for bet in group_bets:
-                    bet["amount"] = per_bet
-                    total_amount += per_bet
+            # 期待値が全て0の場合は均等配分
+            per_bet = max(unit, int(math.floor(group_budget / len(group_bets) / unit) * unit))
+            for bet in group_bets:
+                bet["amount"] = per_bet
+                total_amount += per_bet
 
     # 予算超過時は低信頼度から金額削減
     if total_amount > budget:
@@ -691,13 +734,52 @@ def _allocate_budget(
         for b in reversed(bets):
             if overage <= 0:
                 break
-            reducible = b["amount"] - MIN_BET_AMOUNT
+            reducible = b["amount"] - unit
             if reducible > 0:
                 reduction = min(reducible, overage)
-                reduction = (reduction // 100) * 100
+                reduction = (reduction // unit) * unit
                 if reduction > 0:
                     b["amount"] -= reduction
                     overage -= reduction
+
+    # 余剰予算を期待値比率で追加配分
+    remaining = budget - sum(b.get("amount", 0) for b in bets if "amount" in b)
+    if remaining >= unit:
+        positive_ev_bets = [
+            b for b in bets
+            if "amount" in b and b.get("expected_value", 0) > 0
+        ]
+
+        if positive_ev_bets:
+            # EV比率に応じて余剰を配分（unit単位に丸め）
+            sorted_by_ev = sorted(
+                positive_ev_bets,
+                key=lambda b: b.get("expected_value", 0),
+                reverse=True,
+            )
+            total_positive_ev = sum(b.get("expected_value", 0) for b in positive_ev_bets)
+            initial_remaining = remaining
+            for bet in sorted_by_ev:
+                ev = bet.get("expected_value", 0)
+                add = int(math.floor(initial_remaining * ev / total_positive_ev / unit) * unit)
+                add = min(add, remaining)
+                if add >= unit:
+                    bet["amount"] += add
+                    remaining -= add
+            # 丸め残りはEV最大の買い目に追加
+            if remaining >= unit:
+                top_add = int(remaining // unit) * unit
+                sorted_by_ev[0]["amount"] += top_add
+                remaining -= top_add
+        else:
+            # 全EV=0: 均等に追加配分
+            all_bets = [b for b in bets if "amount" in b]
+            while remaining >= unit:
+                for bet in all_bets:
+                    if remaining < unit:
+                        break
+                    bet["amount"] += unit
+                    remaining -= unit
 
     return bets
 

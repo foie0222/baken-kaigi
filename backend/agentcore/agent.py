@@ -5,6 +5,7 @@ AgentCore Runtime にデプロイされるメインエージェント。
 
 import logging
 import os
+import re
 import sys
 from typing import Any
 
@@ -178,30 +179,45 @@ def _extract_message_text(message) -> str:
 def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     """応答テキストからクイックリプライ提案を抽出する.
 
+    AIが ``---SUGGESTED_QUESTIONS---`` をマークダウン太字で出力する
+    バリエーション（``**SUGGESTED_QUESTIONS---**`` 等）にも対応する。
+
     Args:
         text: AIの応答テキスト
 
     Returns:
         (本文, 提案リスト) のタプル
     """
-    separator = "---SUGGESTED_QUESTIONS---"
+    # 正規表現でセパレーターのバリエーションを検出（行全体がセパレーターである場合のみ）
+    pattern = r"^\s*\*{0,2}-{0,3}\s*SUGGESTED_QUESTIONS\s*-{0,3}\*{0,2}\s*$"
+    match = re.search(pattern, text, flags=re.MULTILINE)
 
-    if separator not in text:
+    if not match:
         return text.strip(), []
 
-    parts = text.split(separator, 1)
-    main_text = parts[0].strip()
+    main_text = text[: match.start()].strip()
+    questions_text = text[match.end() :].strip()
 
-    if len(parts) < 2:
+    if not questions_text:
         return main_text, []
-
-    questions_text = parts[1].strip()
 
     # すべての行を取得し、空行を除外
     raw_questions = [q.strip() for q in questions_text.split("\n") if q.strip()]
 
+    # 1行に複数の質問が「？」区切りで並んでいる場合を展開
+    expanded: list[str] = []
+    for line in raw_questions:
+        parts = re.split(r"？\s+", line)
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:
+                continue
+            if i < len(parts) - 1:
+                part += "？"
+            expanded.append(part)
+
     # 先頭の「-」「- 」を除去（箇条書き形式の場合）
-    questions = [q.lstrip("-").strip() for q in raw_questions]
+    questions = [q.lstrip("-").strip() for q in expanded]
 
     # 空の質問を除外し、5個までに制限
     questions = [q for q in questions if q][:5]
@@ -227,7 +243,11 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
 
 
 def _format_cart_summary(cart_items: list) -> str:
-    """カート内容をフォーマットする."""
+    """カート内容をフォーマットする.
+
+    各買い目を明確に表示し、馬番の出現頻度を事前計算して
+    LLMの数え間違いを防止する。
+    """
     bet_type_names = {
         "win": "単勝",
         "place": "複勝",
@@ -238,8 +258,15 @@ def _format_cart_summary(cart_items: list) -> str:
         "trifecta": "三連単",
     }
 
+    if not cart_items:
+        return "カートは空です"
+
     lines = []
-    for item in cart_items:
+    horse_count: dict[int, int] = {}
+    race_ids: dict[str, str] = {}  # race_id -> race_name
+    total_amount = 0
+
+    for i, item in enumerate(cart_items, 1):
         race_id = item.get("raceId", "")
         bet_type = item.get("betType", "")
         bet_type_display = bet_type_names.get(bet_type, bet_type)
@@ -247,10 +274,44 @@ def _format_cart_summary(cart_items: list) -> str:
         amount = item.get("amount", 0)
         race_name = item.get("raceName", "")
 
-        line = f"- レースID:{race_id} {race_name} {bet_type_display} {horse_numbers} ¥{amount:,}"
-        lines.append(line)
+        if race_id:
+            race_ids[race_id] = race_name
 
-    return "\n".join(lines) if lines else "カートは空です"
+        display = "-".join(str(n) for n in horse_numbers)
+        line = f"{i}. {race_name} {bet_type_display} {display} ¥{amount:,}"
+        lines.append(line)
+        total_amount += amount
+
+        for hn in horse_numbers:
+            horse_count[hn] = horse_count.get(hn, 0) + 1
+
+    total_bets = len(cart_items)
+    header = f"買い目一覧（全{total_bets}点、合計¥{total_amount:,}）"
+
+    # 対象レースID一覧（ツール呼び出し用）
+    race_id_lines = []
+    for rid, rname in race_ids.items():
+        race_id_lines.append(f"  {rname}: race_id={rid}")
+
+    # 馬番出現頻度サマリー（LLMの数え間違い防止）
+    freq_lines = []
+    for hn in sorted(horse_count.keys()):
+        count = horse_count[hn]
+        freq_lines.append(f"  {hn}番: {total_bets}点中{count}点に出現")
+
+    parts = [header]
+    if race_id_lines:
+        parts.append("")
+        parts.append("対象レース:")
+        parts.extend(race_id_lines)
+    parts.append("")
+    parts.extend(lines)
+    if freq_lines:
+        parts.append("")
+        parts.append("馬番の出現頻度:")
+        parts.extend(freq_lines)
+
+    return "\n".join(parts)
 
 
 def _format_runners_summary(runners_data: list) -> str:

@@ -105,24 +105,40 @@ def _extract_suggested_questions(text: str) -> tuple[str, list[str]]:
     Returns:
         (本文, 提案リスト) のタプル
     """
-    separator = "---SUGGESTED_QUESTIONS---"
+    import re
 
-    if separator not in text:
+    # 正規表現でセパレーターのバリエーションを検出（行全体がセパレーターである場合のみ）
+    pattern = r"^\s*\*{0,2}-{0,3}\s*SUGGESTED_QUESTIONS\s*-{0,3}\*{0,2}\s*$"
+    match = re.search(pattern, text, flags=re.MULTILINE)
+
+    if not match:
         return text.strip(), []
 
-    parts = text.split(separator, 1)
-    main_text = parts[0].strip()
+    main_text = text[: match.start()].strip()
+    questions_text = text[match.end() :].strip()
 
-    if len(parts) < 2:
+    if not questions_text:
         return main_text, []
-
-    questions_text = parts[1].strip()
 
     # すべての行を取得し、空行を除外
     raw_questions = [q.strip() for q in questions_text.split("\n") if q.strip()]
 
+    # 1行に複数の質問が「？」区切りで並んでいる場合を展開
+    expanded: list[str] = []
+    for line in raw_questions:
+        # 「？ 」で区切られた複数質問を分割（末尾の？は保持）
+        parts = re.split(r"？\s+", line)
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if not part:
+                continue
+            # 最後のパート以外は「？」を付け直す
+            if i < len(parts) - 1:
+                part += "？"
+            expanded.append(part)
+
     # 先頭の「-」「- 」を除去（箇条書き形式の場合）
-    questions = [q.lstrip("-").strip() for q in raw_questions]
+    questions = [q.lstrip("-").strip() for q in expanded]
 
     # 空の質問を除外し、5個までに制限
     questions = [q for q in questions if q][:5]
@@ -252,6 +268,43 @@ class TestExtractSuggestedQuestions:
         assert questions[0] == "質問1"
         assert questions[1] == "質問2"
 
+    def test_マークダウン太字セパレーターを処理できる(self):
+        """AIがマークダウン太字でセパレーターを出力した場合も処理できる."""
+        text = """分析結果です。
+
+**SUGGESTED_QUESTIONS---**
+穴馬を探して
+展開予想は？"""
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert main_text == "分析結果です。"
+        assert len(questions) == 2
+        assert questions[0] == "穴馬を探して"
+        assert questions[1] == "展開予想は？"
+
+    def test_マークダウン太字セパレーター_質問が同一行(self):
+        """太字セパレーターの後に質問が改行なしで続く場合も処理できる."""
+        text = "分析結果。\n\n**SUGGESTED_QUESTIONS---**\n2番が外れた場合の保険は？ 4-6追加すべき？ AI指数の差は？"
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert main_text == "分析結果。"
+        assert len(questions) >= 2
+
+    def test_ダッシュなし太字セパレーター(self):
+        """**SUGGESTED_QUESTIONS** のみの場合も処理できる."""
+        text = """分析結果。
+
+**SUGGESTED_QUESTIONS**
+穴馬を探して
+展開予想は？"""
+
+        main_text, questions = _extract_suggested_questions(text)
+
+        assert main_text == "分析結果。"
+        assert len(questions) == 2
+
 
 # =============================================================================
 # inject_bet_proposal_separator のテスト
@@ -314,3 +367,190 @@ class TestInjectBetProposalSeparator:
         assert "混戦レースです" in json_part
         parsed = json.loads(json_part)
         assert parsed["analysis_comment"] == "混戦レースです"
+
+
+# =============================================================================
+# _format_cart_summary のテスト
+# =============================================================================
+
+# agent.py は strands/bedrock_agentcore に依存しているため直接インポートできない。
+# ロジックを再定義してテストする。
+
+_BET_TYPE_NAMES = {
+    "win": "単勝",
+    "place": "複勝",
+    "quinella": "馬連",
+    "quinella_place": "ワイド",
+    "exacta": "馬単",
+    "trio": "三連複",
+    "trifecta": "三連単",
+}
+
+
+def _format_cart_summary(cart_items: list) -> str:
+    """カート内容をフォーマットする（agent.py からロジックを再定義）."""
+    if not cart_items:
+        return "カートは空です"
+
+    lines = []
+    horse_count: dict[int, int] = {}
+    race_ids: dict[str, str] = {}
+    total_amount = 0
+
+    for i, item in enumerate(cart_items, 1):
+        race_id = item.get("raceId", "")
+        bet_type = item.get("betType", "")
+        bet_type_display = _BET_TYPE_NAMES.get(bet_type, bet_type)
+        horse_numbers = item.get("horseNumbers", [])
+        amount = item.get("amount", 0)
+        race_name = item.get("raceName", "")
+
+        if race_id:
+            race_ids[race_id] = race_name
+
+        display = "-".join(str(n) for n in horse_numbers)
+        line = f"{i}. {race_name} {bet_type_display} {display} ¥{amount:,}"
+        lines.append(line)
+        total_amount += amount
+
+        for hn in horse_numbers:
+            horse_count[hn] = horse_count.get(hn, 0) + 1
+
+    total_bets = len(cart_items)
+    header = f"買い目一覧（全{total_bets}点、合計¥{total_amount:,}）"
+
+    race_id_lines = []
+    for rid, rname in race_ids.items():
+        race_id_lines.append(f"  {rname}: race_id={rid}")
+
+    freq_lines = []
+    for hn in sorted(horse_count.keys()):
+        count = horse_count[hn]
+        freq_lines.append(f"  {hn}番: {total_bets}点中{count}点に出現")
+
+    parts = [header]
+    if race_id_lines:
+        parts.append("")
+        parts.append("対象レース:")
+        parts.extend(race_id_lines)
+    parts.append("")
+    parts.extend(lines)
+    if freq_lines:
+        parts.append("")
+        parts.append("馬番の出現頻度:")
+        parts.extend(freq_lines)
+
+    return "\n".join(parts)
+
+
+class TestFormatCartSummary:
+    """_format_cart_summary 関数のテスト."""
+
+    def test_空カートの場合(self):
+        """カートが空の場合は固定メッセージを返す."""
+        assert _format_cart_summary([]) == "カートは空です"
+
+    def test_レースIDが出力に含まれる(self):
+        """race_id がフォーマットされた出力に含まれ、ツール呼び出しに使える."""
+        items = [
+            {
+                "raceId": "202505020811",
+                "raceName": "きさらぎ賞",
+                "betType": "quinella",
+                "horseNumbers": [2, 6],
+                "amount": 300,
+            },
+        ]
+        result = _format_cart_summary(items)
+
+        assert "対象レース:" in result
+        assert "race_id=202505020811" in result
+        assert "きさらぎ賞: race_id=202505020811" in result
+
+    def test_複数レースのIDが全て含まれる(self):
+        """複数レースがある場合、全てのrace_idが含まれる."""
+        items = [
+            {
+                "raceId": "202505020811",
+                "raceName": "きさらぎ賞",
+                "betType": "win",
+                "horseNumbers": [2],
+                "amount": 300,
+            },
+            {
+                "raceId": "202505020812",
+                "raceName": "東京新聞杯",
+                "betType": "win",
+                "horseNumbers": [5],
+                "amount": 300,
+            },
+        ]
+        result = _format_cart_summary(items)
+
+        assert "race_id=202505020811" in result
+        assert "race_id=202505020812" in result
+        assert "きさらぎ賞" in result
+        assert "東京新聞杯" in result
+
+    def test_馬番出現頻度が計算される(self):
+        """馬番の出現頻度が正しく計算される."""
+        items = [
+            {
+                "raceId": "R1",
+                "raceName": "R1",
+                "betType": "quinella",
+                "horseNumbers": [2, 6],
+                "amount": 300,
+            },
+            {
+                "raceId": "R1",
+                "raceName": "R1",
+                "betType": "quinella",
+                "horseNumbers": [2, 8],
+                "amount": 300,
+            },
+        ]
+        result = _format_cart_summary(items)
+
+        assert "2番: 2点中2点に出現" in result
+        assert "6番: 2点中1点に出現" in result
+        assert "8番: 2点中1点に出現" in result
+
+    def test_合計金額と点数がヘッダーに含まれる(self):
+        """ヘッダーに合計金額と買い目数が含まれる."""
+        items = [
+            {
+                "raceId": "R1",
+                "raceName": "R1",
+                "betType": "win",
+                "horseNumbers": [1],
+                "amount": 500,
+            },
+            {
+                "raceId": "R1",
+                "raceName": "R1",
+                "betType": "place",
+                "horseNumbers": [3],
+                "amount": 300,
+            },
+        ]
+        result = _format_cart_summary(items)
+
+        assert "全2点" in result
+        assert "¥800" in result
+
+    def test_券種名が日本語に変換される(self):
+        """betType が日本語名に変換される."""
+        items = [
+            {
+                "raceId": "R1",
+                "raceName": "テスト",
+                "betType": "trifecta",
+                "horseNumbers": [1, 2, 3],
+                "amount": 100,
+            },
+        ]
+        result = _format_cart_summary(items)
+
+        assert "三連単" in result
+        assert "1-2-3" in result

@@ -12,6 +12,7 @@ from tools.bet_proposal import (
     _select_axis_horses,
     _select_bet_types_by_difficulty,
     _generate_bet_candidates,
+    _assign_relative_confidence,
     _allocate_budget,
     _assess_ai_consensus,
     _estimate_bet_odds,
@@ -274,6 +275,66 @@ class TestAllocateBudget:
         # 高信頼度が残っているはず
         confidences = {b["confidence"] for b in bets_with_amount}
         assert "high" in confidences
+
+    def test_同一信頼度内で期待値が高い買い目により多く配分される(self):
+        """同一グループ内でも期待値に応じた傾斜配分がされる."""
+        bets = [
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 2.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.5},
+        ]
+        result = _allocate_budget(bets, 3000)
+        # 期待値2.0 > 期待値1.5 > 期待値0.5 の順に金額が大きい（または同額）
+        assert result[0]["amount"] >= result[1]["amount"]
+        assert result[1]["amount"] >= result[2]["amount"]
+        # 最高と最低が異なる（一律ではない）
+        assert result[0]["amount"] > result[2]["amount"]
+
+    def test_同一信頼度で全て期待値0の場合は均等配分(self):
+        """全買い目の期待値が0の場合は均等配分にフォールバック."""
+        bets = [
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0},
+        ]
+        result = _allocate_budget(bets, 3000)
+        amounts = [b["amount"] for b in result]
+        # 全て同額
+        assert len(set(amounts)) == 1
+
+    def test_余剰予算が期待値の高い買い目に追加配分される(self):
+        """丸めで余った予算は期待値の高い買い目に優先的に追加される."""
+        bets = [
+            {"confidence": "high", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+            {"confidence": "low", "bet_type": "quinella", "expected_value": 0.5},
+        ]
+        result = _allocate_budget(bets, 3000)
+        total = sum(b["amount"] for b in result)
+        # 予算の90%以上を使い切る
+        assert total >= 3000 * 0.9
+        # 最高EVの買い目が最も多い金額を持つ
+        assert result[0]["amount"] >= result[1]["amount"]
+        assert result[0]["amount"] >= result[2]["amount"]
+
+    def test_予算の大部分が使い切られる(self):
+        """8点買いでも予算のほとんどが配分される."""
+        bets = [
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 2.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.8},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.2},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.8},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 0.3},
+        ]
+        result = _allocate_budget(bets, 3000)
+        total = sum(b["amount"] for b in result)
+        # 予算の90%以上を使い切る（3000円のうち2700円以上）
+        assert total >= 2700
+        # 予算を超えない
+        assert total <= 3000
 
 
 # =============================================================================
@@ -934,33 +995,157 @@ class TestPopularityNoneHandling:
         assert len(confidences) >= 2, f"信頼度が{confidences}のみ。分散されていない"
 
 
-class TestScoreBasedAllocation:
-    """スコアベースの傾斜配分テスト."""
 
-    def test_スコアが異なる買い目は異なる金額が配分される(self):
-        """composite_scoreが異なる買い目には傾斜配分される."""
-        bets = [
-            {"confidence": "high", "expected_value": 1.5, "composite_score": 80},
-            {"confidence": "high", "expected_value": 1.2, "composite_score": 60},
-        ]
-        result = _allocate_budget(bets, 3000)
-        # スコアの高い方が多く配分される
-        assert result[0]["amount"] > result[1]["amount"]
+# =============================================================================
+# 相対信頼度割り当てテスト
+# =============================================================================
 
-    def test_スコアが同一の買い目は均等配分される(self):
-        """composite_scoreが同じ買い目は均等に配分される."""
-        bets = [
-            {"confidence": "high", "expected_value": 0, "composite_score": 70},
-            {"confidence": "high", "expected_value": 0, "composite_score": 70},
-        ]
-        result = _allocate_budget(bets, 3000)
-        assert result[0]["amount"] == result[1]["amount"]
 
-    def test_composite_scoreがない場合でも配分できる(self):
-        """composite_scoreフィールドがない買い目でも予算配分できる."""
+class TestAssignRelativeConfidence:
+    """_assign_relative_confidence のテスト."""
+
+    def test_空リストでエラーにならない(self):
+        """空リストを渡してもエラーにならない."""
+        bets = []
+        _assign_relative_confidence(bets)
+        assert bets == []
+
+    def test_1件はhighになる(self):
+        """候補が1件の場合はhighが割り当てられる."""
+        bets = [{"_composite_score": 60, "confidence": "medium"}]
+        _assign_relative_confidence(bets)
+        assert bets[0]["confidence"] == "high"
+
+    def test_2件は上位highと下位medium(self):
+        """候補が2件の場合は上位がhigh、下位がmedium."""
         bets = [
-            {"confidence": "high", "expected_value": 0},
-            {"confidence": "high", "expected_value": 0},
+            {"_composite_score": 50, "confidence": "medium"},
+            {"_composite_score": 80, "confidence": "medium"},
         ]
-        result = _allocate_budget(bets, 3000)
-        assert all(b.get("amount", 0) > 0 for b in result)
+        _assign_relative_confidence(bets)
+        assert bets[1]["confidence"] == "high"
+        assert bets[0]["confidence"] == "medium"
+
+    def test_3件で3段階に分かれる(self):
+        """候補が3件の場合はhigh/medium/lowの3段階."""
+        bets = [
+            {"_composite_score": 90, "confidence": "medium"},
+            {"_composite_score": 70, "confidence": "medium"},
+            {"_composite_score": 50, "confidence": "medium"},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[0]["confidence"] == "high"
+        assert bets[1]["confidence"] == "medium"
+        assert bets[2]["confidence"] == "low"
+
+    def test_全スコア同値で期待値も同値は全てmedium(self):
+        """全候補のスコアも期待値も同じ場合は全てmediumになる."""
+        bets = [
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "high"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "high"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "high"},
+        ]
+        _assign_relative_confidence(bets)
+        for b in bets:
+            assert b["confidence"] == "medium"
+
+    def test_全スコア同値でも期待値が異なれば信頼度が分布する(self):
+        """スコアが同値でも期待値にばらつきがあれば高中低に分かれる."""
+        bets = [
+            {"_composite_score": 75, "expected_value": 1.5, "confidence": "medium"},
+            {"_composite_score": 75, "expected_value": 1.0, "confidence": "medium"},
+            {"_composite_score": 75, "expected_value": 0.5, "confidence": "medium"},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[0]["confidence"] == "high"
+        assert bets[1]["confidence"] == "medium"
+        assert bets[2]["confidence"] == "low"
+
+    def test_全スコア同値で期待値フォールバック_8件(self):
+        """8件でスコア同値・期待値異なる場合に3段階全てが出現する."""
+        bets = [
+            {"_composite_score": 75, "expected_value": 2.0 - i * 0.2, "confidence": "medium"}
+            for i in range(8)
+        ]
+        _assign_relative_confidence(bets)
+        confidences = [b["confidence"] for b in bets]
+        assert "high" in confidences
+        assert "medium" in confidences
+        assert "low" in confidences
+
+    def test_8件で信頼度にばらつきが出る(self):
+        """MAX_BETS=8件の場合、3段階全てが出現する."""
+        bets = [{"_composite_score": 90 - i * 5, "confidence": "medium"} for i in range(8)]
+        _assign_relative_confidence(bets)
+        confidences = [b["confidence"] for b in bets]
+        assert "high" in confidences
+        assert "medium" in confidences
+        assert "low" in confidences
+
+    def test_8件でhigh割合は半分未満(self):
+        """8件のうちhighは3件以下（全部highにならない）."""
+        bets = [{"_composite_score": 90 - i * 5, "confidence": "medium"} for i in range(8)]
+        _assign_relative_confidence(bets)
+        high_count = sum(1 for b in bets if b["confidence"] == "high")
+        assert high_count <= 4
+        assert high_count >= 1
+
+    def test_スコア降順で信頼度が単調非増加(self):
+        """スコア順にソートしたとき信頼度はhigh→medium→lowの順."""
+        bets = [{"_composite_score": 90 - i * 3, "confidence": "medium"} for i in range(6)]
+        _assign_relative_confidence(bets)
+        # スコア降順ソート
+        sorted_bets = sorted(bets, key=lambda b: b["_composite_score"], reverse=True)
+        confidence_order = {"high": 0, "medium": 1, "low": 2}
+        for i in range(len(sorted_bets) - 1):
+            current = confidence_order[sorted_bets[i]["confidence"]]
+            next_val = confidence_order[sorted_bets[i + 1]["confidence"]]
+            assert current <= next_val
+
+    def test_composite_scoreがない場合でもエラーにならない(self):
+        """_composite_scoreキーがなくてもデフォルト0で処理される."""
+        bets = [
+            {"confidence": "medium"},
+            {"confidence": "medium", "_composite_score": 80},
+        ]
+        _assign_relative_confidence(bets)
+        assert bets[1]["confidence"] == "high"
+        assert bets[0]["confidence"] == "medium"
+
+
+class TestGenerateBetCandidatesConfidence:
+    """_generate_bet_candidates が信頼度にばらつきを生むことのテスト."""
+
+    def test_買い目候補の信頼度が全てhighにならない(self):
+        """十分な候補数がある場合、全てhighにはならない."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [
+            {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85},
+            {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 75},
+        ]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["quinella", "quinella_place"],
+            total_runners=12,
+        )
+        if len(bets) >= 3:
+            confidences = {b["confidence"] for b in bets}
+            assert len(confidences) >= 2, f"信頼度が1種類のみ: {confidences}"
+
+    def test_内部スコアがレスポンスから削除される(self):
+        """_composite_scoreは信頼度割り当て後にレスポンスから除去される."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        axis = [{"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85}]
+        bets = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            bet_types=["quinella"],
+            total_runners=12,
+        )
+        for bet in bets:
+            assert "_composite_score" not in bet
