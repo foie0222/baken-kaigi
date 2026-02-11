@@ -130,11 +130,11 @@ class GitHubOidcStack(Stack):
             )
         )
 
-        # S3デプロイアーティファクト書き込み
+        # S3デプロイアーティファクト（アップロード + プリサインドURL生成用の読み取り）
         deploy_role.add_to_policy(
             iam.PolicyStatement(
                 sid="S3DeployUpload",
-                actions=["s3:PutObject"],
+                actions=["s3:PutObject", "s3:GetObject"],
                 resources=[
                     f"arn:aws:s3:::baken-kaigi-jravan-deploy-{Stack.of(self).account}/deploy/*",
                 ],
