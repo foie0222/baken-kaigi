@@ -434,8 +434,9 @@ def _generate_bet_candidates(
                 )
 
                 # 期待値計算（推定オッズと代表人気で計算）
-                # 人気は2頭の平均を使用
-                avg_pop = max(1, (axis_pop + partner_pop) // 2)
+                # 人気は既知の馬のみで平均（未取得を人気上位扱いしない）
+                known_pops = [p for p in [axis_pop, partner_pop] if p > 0]
+                avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
                 ev = _calculate_expected_value(
                     estimated_odds, avg_pop, bet_type, total_runners, race_conditions
                 )
@@ -508,8 +509,9 @@ def _generate_bet_candidates(
                         [axis_odds, p1_odds, p2_odds], bet_type
                     )
 
-                    # 期待値（3頭の平均人気で計算）
-                    avg_pop = max(1, (axis_pop + p1_pop + p2_pop) // 3)
+                    # 期待値（既知人気のみで平均、未取得を人気上位扱いしない）
+                    known_pops = [p for p in [axis_pop, p1_pop, p2_pop] if p > 0]
+                    avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
                     ev = _calculate_expected_value(
                         estimated_odds, avg_pop, bet_type, total_runners, race_conditions
                     )
