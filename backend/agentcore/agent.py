@@ -89,8 +89,8 @@ def _get_agent(request_type: str | None = None, character_type: str | None = Non
             _bet_proposal_agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT)
         return _bet_proposal_agent
 
-    from prompts.characters import DEFAULT_CHARACTER
-    char_key = character_type or DEFAULT_CHARACTER
+    from prompts.characters import CHARACTER_PROMPTS, DEFAULT_CHARACTER
+    char_key = character_type if character_type in CHARACTER_PROMPTS else DEFAULT_CHARACTER
     if char_key not in _consultation_agents:
         logger.info(f"Lazy initializing consultation agent for character: {char_key}")
         from prompts.consultation import get_system_prompt

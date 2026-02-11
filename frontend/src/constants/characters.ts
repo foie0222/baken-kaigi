@@ -1,5 +1,7 @@
+export type CharacterId = 'analyst' | 'intuition' | 'conservative' | 'aggressive';
+
 export interface AICharacter {
-  id: string;
+  id: CharacterId;
   name: string;
   icon: string;
   description: string;

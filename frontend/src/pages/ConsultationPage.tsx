@@ -35,9 +35,10 @@ export function ConsultationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [inputText, setInputText] = useState('');
-  const [characterId, setCharacterId] = useState(() =>
-    localStorage.getItem(STORAGE_KEY_CHARACTER) || DEFAULT_CHARACTER_ID
-  );
+  const [characterId, setCharacterId] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY_CHARACTER);
+    return stored && AI_CHARACTERS.some((c) => c.id === stored) ? stored : DEFAULT_CHARACTER_ID;
+  });
   const selectedCharacter = AI_CHARACTERS.find((c) => c.id === characterId) || AI_CHARACTERS[0];
 
 
@@ -335,6 +336,8 @@ export function ConsultationPage() {
               key={char.id}
               type="button"
               className={`character-chip${char.id === characterId ? ' active' : ''}`}
+              aria-pressed={char.id === characterId}
+              aria-label={`キャラクター選択: ${char.name}`}
               onClick={() => handleCharacterChange(char.id)}
             >
               <span className="character-chip-icon">{char.icon}</span>
