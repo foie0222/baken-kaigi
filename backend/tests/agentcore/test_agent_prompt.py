@@ -12,7 +12,7 @@ from agentcore.prompts.agent_prompt import (
     _build_performance_section,
     _build_stat_emphasis,
 )
-from agentcore.prompts.consultation import get_agent_system_prompt, SYSTEM_PROMPT
+from agentcore.prompts.consultation import get_agent_system_prompt
 
 
 def _make_agent_data(**overrides) -> dict:
