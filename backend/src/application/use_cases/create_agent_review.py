@@ -154,9 +154,9 @@ class CreateAgentReviewUseCase:
         elif has_win and profit <= 0:
             return (
                 f"{race_name}では的中はありましたが、"
-                f"投資{total_invested:,}円に対して回収{total_return:,}円で"
+                f"投資{total_invested:,}円に対して{total_return:,}円の回収で"
                 f"収支は{profit:,}円でした。"
-                f"買い目の絞り込みが課題です。"
+                f"買い目をもっと絞り込む必要があります。"
             )
         else:
             return (
@@ -207,19 +207,20 @@ class CreateAgentReviewUseCase:
         change["intuition"] = 1
 
         # 結果に応じたボーナス
-        if has_win and profit > 0:
-            # 的中して利益: スタイルに応じた得意分野+2
-            style_bonus = {
-                "solid": "risk_management",
-                "longshot": "intuition",
-                "data": "data_analysis",
-                "pace": "pace_reading",
-            }
-            bonus_stat = style_bonus.get(base_style, "data_analysis")
-            change[bonus_stat] = change.get(bonus_stat, 0) + 2
-        elif has_win and profit <= 0:
-            # トリガミ: リスク管理+2
-            change["risk_management"] = change.get("risk_management", 0) + 2
+        if has_win:
+            if profit > 0:
+                # 的中して利益: スタイルに応じた得意分野+2
+                style_bonus = {
+                    "solid": "risk_management",
+                    "longshot": "intuition",
+                    "data": "data_analysis",
+                    "pace": "pace_reading",
+                }
+                bonus_stat = style_bonus.get(base_style, "data_analysis")
+                change[bonus_stat] = change.get(bonus_stat, 0) + 2
+            else:
+                # トリガミ: リスク管理+2
+                change["risk_management"] = change.get("risk_management", 0) + 2
         else:
             # 不的中: 分析力+1（失敗から学ぶ）
             change["data_analysis"] = change.get("data_analysis", 0) + 1

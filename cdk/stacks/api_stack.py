@@ -179,7 +179,7 @@ class BakenKaigiApiStack(Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.RETAIN,
         )
         # agent_id + race_date での検索用 GSI
         agent_review_table.add_global_secondary_index(

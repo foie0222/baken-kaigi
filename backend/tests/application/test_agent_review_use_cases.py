@@ -127,7 +127,7 @@ class TestCreateAgentReviewUseCase:
 
         assert result.review.has_win is True
         assert result.review.profit == -200
-        assert "絞り込み" in result.review.review_text
+        assert "絞り込む" in result.review.review_text
 
     def test_振り返りがリポジトリに保存される(self):
         agent_repo, review_repo = _setup()
