@@ -28,7 +28,7 @@ class DynamoDBAgentRepository(AgentRepository):
 
     def find_by_id(self, agent_id: AgentId) -> Agent | None:
         """エージェントIDで検索する."""
-        response = self._table.get_item(Key={"agent_id": agent_id.value})
+        response = self._table.get_item(Key={"agent_id": str(agent_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -36,9 +36,10 @@ class DynamoDBAgentRepository(AgentRepository):
 
     def find_by_user_id(self, user_id: UserId) -> Agent | None:
         """ユーザーIDでエージェントを検索する."""
+        uid_str = str(user_id.value)
         response = self._table.query(
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(user_id.value),
+            KeyConditionExpression=Key("user_id").eq(uid_str),
         )
         items = response.get("Items", [])
         if not items:
@@ -47,16 +48,16 @@ class DynamoDBAgentRepository(AgentRepository):
 
     def delete(self, agent_id: AgentId) -> None:
         """エージェントを削除する."""
-        self._table.delete_item(Key={"agent_id": agent_id.value})
+        self._table.delete_item(Key={"agent_id": str(agent_id.value)})
 
     @staticmethod
     def _to_dynamodb_item(agent: Agent) -> dict:
         """Agent を DynamoDB アイテムに変換する."""
         return {
-            "agent_id": agent.agent_id.value,
-            "user_id": agent.user_id.value,
-            "name": agent.name.value,
-            "base_style": agent.base_style.value,
+            "agent_id": str(agent.agent_id.value),
+            "user_id": str(agent.user_id.value),
+            "name": str(agent.name.value),
+            "base_style": str(agent.base_style.value),
             "stats": agent.stats.to_dict(),
             "performance": agent.performance.to_dict(),
             "created_at": agent.created_at.isoformat(),

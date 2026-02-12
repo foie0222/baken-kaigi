@@ -30,7 +30,7 @@ class DynamoDBPurchaseOrderRepository(PurchaseOrderRepository):
 
     def find_by_id(self, purchase_id: PurchaseId) -> PurchaseOrder | None:
         """購入注文IDで検索する."""
-        response = self._table.get_item(Key={"purchase_id": purchase_id.value})
+        response = self._table.get_item(Key={"purchase_id": str(purchase_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -40,7 +40,7 @@ class DynamoDBPurchaseOrderRepository(PurchaseOrderRepository):
         """ユーザーIDで検索する."""
         response = self._table.query(
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(user_id.value),
+            KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
             ScanIndexForward=False,
         )
         items = response.get("Items", [])
@@ -50,9 +50,9 @@ class DynamoDBPurchaseOrderRepository(PurchaseOrderRepository):
     def _to_dynamodb_item(order: PurchaseOrder) -> dict:
         """PurchaseOrder を DynamoDB アイテムに変換する."""
         item: dict = {
-            "purchase_id": order.id.value,
-            "user_id": order.user_id.value,
-            "cart_id": order.cart_id.value,
+            "purchase_id": str(order.id.value),
+            "user_id": str(order.user_id.value),
+            "cart_id": str(order.cart_id.value),
             "status": order.status.value,
             "total_amount": order.total_amount.value,
             "created_at": order.created_at.isoformat(),
