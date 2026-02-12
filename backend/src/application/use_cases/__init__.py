@@ -39,6 +39,9 @@ from .update_loss_limit import (
 )
 from .update_loss_limit import InvalidLossLimitAmountError as UpdateInvalidLossLimitAmountError
 from .check_loss_limit import CheckLossLimitResult, CheckLossLimitUseCase
+from .create_agent import AgentAlreadyExistsError, CreateAgentResult, CreateAgentUseCase
+from .get_agent import AgentNotFoundError, GetAgentResult, GetAgentUseCase
+from .update_agent import UpdateAgentResult, UpdateAgentUseCase
 
 __all__ = [
     # Race Use Cases
@@ -93,4 +96,13 @@ __all__ = [
     "LossLimitAlreadySetError",
     "LossLimitNotSetError",
     "LossLimitUserNotFoundError",
+    # Agent Use Cases
+    "AgentAlreadyExistsError",
+    "AgentNotFoundError",
+    "CreateAgentResult",
+    "CreateAgentUseCase",
+    "GetAgentResult",
+    "GetAgentUseCase",
+    "UpdateAgentResult",
+    "UpdateAgentUseCase",
 ]

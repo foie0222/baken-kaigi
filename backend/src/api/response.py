@@ -103,3 +103,13 @@ def unauthorized_response(message: str = "Authentication required", event: dict 
 def forbidden_response(message: str = "Access denied", event: dict | None = None) -> dict:
     """403 Forbiddenレスポンスを生成する."""
     return error_response(message, status_code=403, error_code="FORBIDDEN", event=event)
+
+
+def conflict_response(message: str = "Resource already exists", event: dict | None = None) -> dict:
+    """409 Conflictレスポンスを生成する."""
+    return error_response(message, status_code=409, error_code="CONFLICT", event=event)
+
+
+def created_response(body: Any, event: dict | None = None) -> dict:
+    """201 Createdレスポンスを生成する."""
+    return success_response(body, status_code=201, event=event)

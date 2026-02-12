@@ -1,4 +1,5 @@
 """列挙型モジュール."""
+from .agent_style import AgentStyle
 from .auth_provider import AuthProvider
 from .bet_type import BetType
 from .betting_record_status import BettingRecordStatus
@@ -13,6 +14,7 @@ from .user_status import UserStatus
 from .warning_level import WarningLevel
 
 __all__ = [
+    "AgentStyle",
     "AuthProvider",
     "BetType",
     "BettingRecordStatus",
