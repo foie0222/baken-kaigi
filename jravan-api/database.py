@@ -1959,6 +1959,480 @@ def get_current_kaisai_info(target_date: str) -> list[dict]:
         return results
 
 
+# 競馬場名 → コードの逆引きマッピング
+VENUE_NAME_TO_CODE = {name: code for code, name in VENUE_CODE_MAP.items()}
+
+# 馬場状態名 → コードの逆引きマッピング
+TRACK_CONDITION_CODE_MAP = {"良": "1", "稍重": "2", "重": "3", "不良": "4"}
+
+# 馬場状態コード → 名前の逆引きマッピング（TRACK_CONDITION_CODE_MAPの逆引き）
+TRACK_CONDITION_NAME_MAP = {v: k for k, v in TRACK_CONDITION_CODE_MAP.items()}
+
+# 枠順有利/不利判定の閾値: 全体平均勝率との差(%)
+GATE_ADVANTAGE_THRESHOLD = 5.0
+
+# 距離帯の分類定義
+DISTANCE_RANGES = [
+    ("短距離", 0, 1400),
+    ("マイル", 1500, 1800),
+    ("中距離", 1900, 2200),
+    ("長距離", 2300, 99999),
+]
+
+
+def _classify_distance(distance: int) -> str:
+    """距離を距離帯に分類する."""
+    for label, low, high in DISTANCE_RANGES:
+        if low <= distance <= high:
+            return label
+    return "その他"
+
+
+def _classify_gate(wakuban: int) -> str:
+    """枠番から内枠/中枠/外枠に分類する."""
+    if wakuban <= 2:
+        return "内枠"
+    elif wakuban <= 6:
+        return "中枠"
+    else:
+        return "外枠"
+
+
+def get_horse_course_aptitude(horse_id: str) -> dict | None:
+    """馬のコース適性を集計する.
+
+    jvd_se（出走結果）とjvd_ra（レース情報）をJOINして各カテゴリ別の成績を集計。
+
+    Args:
+        horse_id: 血統登録番号（ketto_toroku_bango）
+
+    Returns:
+        コース適性データ。データがない場合はNone。
+    """
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            # 馬名を取得
+            cur.execute("""
+                SELECT bamei FROM jvd_um WHERE ketto_toroku_bango = %s
+            """, (horse_id,))
+            name_row = cur.fetchone()
+            horse_name = name_row[0].strip() if name_row else None
+
+            # 出走結果とレース情報をJOINして取得
+            cur.execute("""
+                SELECT
+                    ra.keibajo_code,
+                    ra.track_code,
+                    ra.kyori,
+                    ra.babajotai_code_shiba,
+                    ra.babajotai_code_dirt,
+                    se.wakuban,
+                    se.kakutei_chakujun,
+                    se.run_time
+                FROM jvd_se se
+                INNER JOIN jvd_ra ra ON
+                    se.kaisai_nen = ra.kaisai_nen AND
+                    se.kaisai_tsukihi = ra.kaisai_tsukihi AND
+                    se.keibajo_code = ra.keibajo_code AND
+                    se.race_bango = ra.race_bango
+                WHERE se.ketto_toroku_bango = %s
+                  AND se.kakutei_chakujun IS NOT NULL
+                  AND se.kakutei_chakujun != ''
+                  AND se.kakutei_chakujun ~ '^[0-9]+$'
+                ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+            """, (horse_id,))
+            rows = _fetch_all_as_dicts(cur)
+
+            if not rows:
+                return None
+
+            # 各カテゴリ別に集計
+            venue_stats: dict[str, dict] = {}
+            track_type_stats: dict[str, dict] = {}
+            distance_stats: dict[str, dict] = {}
+            condition_stats: dict[str, dict] = {}
+            position_stats: dict[str, dict] = {}
+
+            for row in rows:
+                chakujun = int(row["kakutei_chakujun"])
+                is_win = chakujun == 1
+                is_place = chakujun <= 3
+
+                # by_venue
+                keibajo_code = (row.get("keibajo_code") or "").strip()
+                venue_name = VENUE_CODE_MAP.get(keibajo_code, keibajo_code)
+                if venue_name not in venue_stats:
+                    venue_stats[venue_name] = {"starts": 0, "wins": 0, "places": 0}
+                venue_stats[venue_name]["starts"] += 1
+                if is_win:
+                    venue_stats[venue_name]["wins"] += 1
+                if is_place:
+                    venue_stats[venue_name]["places"] += 1
+
+                # by_track_type
+                track_code = (row.get("track_code") or "").strip()
+                if track_code.startswith("1"):
+                    track_type = "芝"
+                elif track_code.startswith("2"):
+                    track_type = "ダート"
+                else:
+                    track_type = "その他"
+                if track_type not in track_type_stats:
+                    track_type_stats[track_type] = {"starts": 0, "wins": 0}
+                track_type_stats[track_type]["starts"] += 1
+                if is_win:
+                    track_type_stats[track_type]["wins"] += 1
+
+                # by_distance
+                try:
+                    distance = int(row.get("kyori", 0) or 0)
+                except (ValueError, TypeError):
+                    distance = 0
+                distance_range = _classify_distance(distance)
+                if distance_range not in distance_stats:
+                    distance_stats[distance_range] = {"starts": 0, "wins": 0, "best_time": None}
+                distance_stats[distance_range]["starts"] += 1
+                if is_win:
+                    distance_stats[distance_range]["wins"] += 1
+                # best_time の更新
+                run_time = (row.get("run_time") or "").strip()
+                if run_time and run_time != "0":
+                    current_best = distance_stats[distance_range]["best_time"]
+                    if current_best is None or run_time < current_best:
+                        distance_stats[distance_range]["best_time"] = run_time
+
+                # by_track_condition
+                if track_code.startswith("1"):
+                    baba_cd = (row.get("babajotai_code_shiba") or "").strip()
+                else:
+                    baba_cd = (row.get("babajotai_code_dirt") or "").strip()
+                condition = TRACK_CONDITION_NAME_MAP.get(baba_cd, "不明")
+                if condition != "不明":
+                    if condition not in condition_stats:
+                        condition_stats[condition] = {"starts": 0, "wins": 0}
+                    condition_stats[condition]["starts"] += 1
+                    if is_win:
+                        condition_stats[condition]["wins"] += 1
+
+                # by_running_position (枠番)
+                try:
+                    wakuban = int(row.get("wakuban", 0) or 0)
+                except (ValueError, TypeError):
+                    wakuban = 0
+                if wakuban >= 1:
+                    position = _classify_gate(wakuban)
+                    if position not in position_stats:
+                        position_stats[position] = {"starts": 0, "wins": 0}
+                    position_stats[position]["starts"] += 1
+                    if is_win:
+                        position_stats[position]["wins"] += 1
+
+            # レスポンス構築
+            def _rate(wins: int, starts: int) -> float:
+                return round(wins / starts * 100, 1) if starts > 0 else 0.0
+
+            by_venue = [
+                {
+                    "venue": v,
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "places": s["places"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                    "place_rate": _rate(s["places"], s["starts"]),
+                }
+                for v, s in venue_stats.items()
+            ]
+
+            by_track_type = [
+                {
+                    "track_type": t,
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                }
+                for t, s in track_type_stats.items()
+            ]
+
+            by_distance = [
+                {
+                    "distance_range": d,
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                    "best_time": s["best_time"],
+                }
+                for d, s in distance_stats.items()
+            ]
+
+            by_track_condition = [
+                {
+                    "condition": c,
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                }
+                for c, s in condition_stats.items()
+            ]
+
+            by_running_position = [
+                {
+                    "position": p,
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                }
+                for p, s in position_stats.items()
+            ]
+
+            # aptitude_summary: 各カテゴリで最高勝率
+            def _best_key(items: list[dict], key: str) -> str | None:
+                if not items:
+                    return None
+                best = max(items, key=lambda x: x["win_rate"])
+                return best[key] if best["win_rate"] > 0 else None
+
+            aptitude_summary = {
+                "best_venue": _best_key(by_venue, "venue"),
+                "best_distance": _best_key(by_distance, "distance_range"),
+                "preferred_condition": _best_key(by_track_condition, "condition"),
+                "preferred_position": _best_key(by_running_position, "position"),
+            }
+
+            return {
+                "horse_id": horse_id,
+                "horse_name": horse_name,
+                "by_venue": by_venue,
+                "by_track_type": by_track_type,
+                "by_distance": by_distance,
+                "by_track_condition": by_track_condition,
+                "by_running_position": by_running_position,
+                "aptitude_summary": aptitude_summary,
+            }
+    except Exception as e:
+        logger.error(f"Failed to get horse course aptitude: {e}")
+        return None
+
+
+def get_gate_position_stats(
+    venue: str,
+    track_type: str | None = None,
+    distance: int | None = None,
+    track_condition: str | None = None,
+    limit: int = 200,
+) -> dict | None:
+    """枠順・馬番別の成績統計を取得する.
+
+    Args:
+        venue: 競馬場名（例: "東京", "阪神"）
+        track_type: 芝/ダート（任意）
+        distance: 距離（任意）
+        track_condition: 馬場状態（良/稍重/重/不良）（任意）
+        limit: 集計対象レース数上限（任意）
+
+    Returns:
+        枠順傾向データ。データがない場合はNone。
+    """
+    # 競馬場名 → コードに変換
+    keibajo_code = VENUE_NAME_TO_CODE.get(venue)
+    if keibajo_code is None:
+        return None
+
+    try:
+        with get_db() as conn:
+            cur = conn.cursor()
+
+            # レース絞り込み条件を構築
+            race_where = "ra.keibajo_code = %s"
+            race_params: list = [keibajo_code]
+
+            if track_type is not None:
+                if track_type == "芝":
+                    race_where += " AND ra.track_code LIKE '1%'"
+                elif track_type == "ダート":
+                    race_where += " AND ra.track_code LIKE '2%'"
+
+            if distance is not None:
+                race_where += " AND ra.kyori = %s"
+                race_params.append(distance)
+
+            if track_condition is not None:
+                cond_code = TRACK_CONDITION_CODE_MAP.get(track_condition)
+                if cond_code:
+                    race_where += " AND (ra.babajotai_code_shiba = %s OR ra.babajotai_code_dirt = %s)"
+                    race_params.append(cond_code)
+                    race_params.append(cond_code)
+
+            # 対象レースを取得
+            race_query = f"""
+                SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
+                FROM jvd_ra ra
+                WHERE {race_where}
+                ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                LIMIT %s
+            """
+            race_params.append(limit)
+
+            cur.execute(race_query, race_params)
+            races = cur.fetchall()
+
+            if not races:
+                return None
+
+            total_races = len(races)
+
+            # 枠番・馬番別の成績を集計（LIMITはレース数制限なのでサブクエリを使う）
+            se_params = list(race_params)  # race_paramsにはLIMIT値が含まれている
+
+            stats_query = f"""
+                SELECT
+                    se.wakuban,
+                    se.umaban,
+                    se.kakutei_chakujun
+                FROM jvd_se se
+                INNER JOIN (
+                    SELECT ra.kaisai_nen, ra.kaisai_tsukihi, ra.keibajo_code, ra.race_bango
+                    FROM jvd_ra ra
+                    WHERE {race_where}
+                    ORDER BY ra.kaisai_nen DESC, ra.kaisai_tsukihi DESC
+                    LIMIT %s
+                ) ra ON
+                    se.kaisai_nen = ra.kaisai_nen AND
+                    se.kaisai_tsukihi = ra.kaisai_tsukihi AND
+                    se.keibajo_code = ra.keibajo_code AND
+                    se.race_bango = ra.race_bango
+                WHERE se.kakutei_chakujun IS NOT NULL
+                  AND se.kakutei_chakujun != ''
+                  AND se.kakutei_chakujun ~ '^[0-9]+$'
+            """
+
+            cur.execute(stats_query, se_params)
+            result_rows = _fetch_all_as_dicts(cur)
+
+            if not result_rows:
+                return None
+
+            # 枠番別集計
+            gate_stats: dict[int, dict] = {}
+            # 馬番別集計
+            horse_number_stats: dict[int, dict] = {}
+
+            for row in result_rows:
+                try:
+                    wakuban = int(row.get("wakuban", 0) or 0)
+                    umaban = int(row.get("umaban", 0) or 0)
+                    chakujun = int(row["kakutei_chakujun"])
+                except (ValueError, TypeError):
+                    continue
+
+                is_win = chakujun == 1
+                is_place = chakujun <= 3
+
+                # 枠番集計
+                if 1 <= wakuban <= 8:
+                    if wakuban not in gate_stats:
+                        gate_stats[wakuban] = {
+                            "starts": 0, "wins": 0, "places": 0, "finish_sum": 0,
+                        }
+                    gate_stats[wakuban]["starts"] += 1
+                    if is_win:
+                        gate_stats[wakuban]["wins"] += 1
+                    if is_place:
+                        gate_stats[wakuban]["places"] += 1
+                    gate_stats[wakuban]["finish_sum"] += chakujun
+
+                # 馬番集計
+                if 1 <= umaban <= 18:
+                    if umaban not in horse_number_stats:
+                        horse_number_stats[umaban] = {"starts": 0, "wins": 0}
+                    horse_number_stats[umaban]["starts"] += 1
+                    if is_win:
+                        horse_number_stats[umaban]["wins"] += 1
+
+            def _rate(wins: int, starts: int) -> float:
+                return round(wins / starts * 100, 1) if starts > 0 else 0.0
+
+            # gate_range のマッピング
+            gate_range_map = {
+                1: "1-2枠", 2: "1-2枠",
+                3: "3-4枠", 4: "3-4枠",
+                5: "5-6枠", 6: "5-6枠",
+                7: "7-8枠", 8: "7-8枠",
+            }
+
+            by_gate = []
+            for gate in sorted(gate_stats.keys()):
+                s = gate_stats[gate]
+                by_gate.append({
+                    "gate": gate,
+                    "gate_range": gate_range_map.get(gate, f"{gate}枠"),
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "places": s["places"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                    "place_rate": _rate(s["places"], s["starts"]),
+                    "avg_finish": round(s["finish_sum"] / s["starts"], 1) if s["starts"] > 0 else 0.0,
+                })
+
+            by_horse_number = []
+            for num in sorted(horse_number_stats.keys()):
+                s = horse_number_stats[num]
+                by_horse_number.append({
+                    "horse_number": num,
+                    "starts": s["starts"],
+                    "wins": s["wins"],
+                    "win_rate": _rate(s["wins"], s["starts"]),
+                })
+
+            # analysis: 有利/不利な枠の分析
+            total_wins = sum(s["wins"] for s in gate_stats.values())
+            total_starts = sum(s["starts"] for s in gate_stats.values())
+            avg_win_rate = (total_wins / total_starts * 100) if total_starts > 0 else 0.0
+
+            favorable_gates = [
+                g["gate"] for g in by_gate
+                if g["win_rate"] >= avg_win_rate + GATE_ADVANTAGE_THRESHOLD
+            ]
+            unfavorable_gates = [
+                g["gate"] for g in by_gate
+                if g["win_rate"] <= avg_win_rate - GATE_ADVANTAGE_THRESHOLD
+            ]
+
+            # コメント生成
+            comment_parts = []
+            if favorable_gates:
+                gates_str = "・".join(str(g) for g in favorable_gates)
+                comment_parts.append(f"{gates_str}枠が有利")
+            if unfavorable_gates:
+                gates_str = "・".join(str(g) for g in unfavorable_gates)
+                comment_parts.append(f"{gates_str}枠が不利")
+            if not comment_parts:
+                comment = "枠順による有利不利の差は小さい"
+            else:
+                comment = "、".join(comment_parts)
+
+            return {
+                "conditions": {
+                    "venue": venue,
+                    "track_type": track_type,
+                    "distance": distance,
+                    "track_condition": track_condition,
+                },
+                "total_races": total_races,
+                "by_gate": by_gate,
+                "by_horse_number": by_horse_number,
+                "analysis": {
+                    "favorable_gates": favorable_gates,
+                    "unfavorable_gates": unfavorable_gates,
+                    "comment": comment,
+                },
+            }
+    except Exception as e:
+        logger.error(f"Failed to get gate position stats: {e}")
+        return None
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
