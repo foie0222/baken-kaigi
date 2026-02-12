@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '../test/utils'
-import { ConsultationPage } from './ConsultationPage'
+import { BetReviewPage } from './BetReviewPage'
 import { useCartStore } from '../stores/cartStore'
 import { useAuthStore } from '../stores/authStore'
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore'
@@ -30,7 +30,7 @@ const testRunnersData = [
   { horse_number: 2, horse_name: 'テスト馬2', odds: 3.0, popularity: 1, frame_number: 1 },
 ]
 
-describe('ConsultationPage', () => {
+describe('BetReviewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
@@ -55,7 +55,7 @@ describe('ConsultationPage', () => {
 
   describe('ボタンの優先順位', () => {
     it('「やめておく」ボタンが表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       const stopButton = await screen.findByRole('button', { name: /やめておく/i })
       expect(stopButton).toBeInTheDocument()
@@ -63,7 +63,7 @@ describe('ConsultationPage', () => {
     })
 
     it('「購入する」ボタンが表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       const purchaseButton = await screen.findByRole('button', { name: /購入する/i })
       expect(purchaseButton).toBeInTheDocument()
@@ -71,7 +71,7 @@ describe('ConsultationPage', () => {
     })
 
     it('「やめておく」が主アクション（btn-stop）、「購入する」が控えめ（btn-purchase-subtle）', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       const stopButton = await screen.findByRole('button', { name: /やめておく/i })
       const purchaseButton = await screen.findByRole('button', { name: /購入する/i })
@@ -85,7 +85,7 @@ describe('ConsultationPage', () => {
 
   describe('購入ボタンの遷移', () => {
     it('購入ボタンクリックで購入確認ページへ遷移する', async () => {
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       const purchaseButton = await screen.findByRole('button', { name: /購入する/i })
       await user.click(purchaseButton)
@@ -96,7 +96,7 @@ describe('ConsultationPage', () => {
     it('未認証時は購入ボタンが無効化され「ログインして購入」と表示される', async () => {
       useAuthStore.setState({ isAuthenticated: false })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       const purchaseButton = await screen.findByRole('button', { name: /ログインして購入/i })
       expect(purchaseButton).toBeInTheDocument()
@@ -107,7 +107,7 @@ describe('ConsultationPage', () => {
       vi.mocked(apiClient.getIpatStatus).mockResolvedValue({ success: true, data: { configured: false } })
       useIpatSettingsStore.setState({ status: { configured: false }, isLoading: false, error: null })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       const purchaseButton = await screen.findByRole('button', { name: /IPAT設定して購入/i })
       expect(purchaseButton).toBeInTheDocument()
@@ -121,7 +121,7 @@ describe('ConsultationPage', () => {
       vi.mocked(apiClient.getIpatStatus).mockReturnValue(new Promise(() => {}))
       useIpatSettingsStore.setState({ status: null, isLoading: true, error: null })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       const purchaseButton = await screen.findByRole('button', { name: /確認中/i })
       expect(purchaseButton).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('ConsultationPage', () => {
 
   describe('AIヘッダー', () => {
     it('デフォルトキャラクターの説明が表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       expect(await screen.findByText('統計データに基づく冷静な分析')).toBeInTheDocument()
     })
@@ -139,7 +139,7 @@ describe('ConsultationPage', () => {
 
   describe('キャラクター選択', () => {
     it('4種類のキャラクターチップが表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       expect(await screen.findByText('データ分析官')).toBeInTheDocument()
       expect(await screen.findByText('直感の達人')).toBeInTheDocument()
@@ -148,14 +148,14 @@ describe('ConsultationPage', () => {
     })
 
     it('デフォルトでデータ分析官が選択されている', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       const analystChip = (await screen.findByText('データ分析官')).closest('button')
       expect(analystChip).toHaveClass('active')
     })
 
     it('キャラクター選択でヘッダーの説明が変わる', async () => {
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       const aggressiveChip = await screen.findByText('勝負師')
       await user.click(aggressiveChip)
@@ -166,10 +166,10 @@ describe('ConsultationPage', () => {
 
   describe('テキスト入力欄', () => {
     it('テキスト入力欄と送信ボタンが表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // テキスト入力欄が表示される
-      const input = await screen.findByPlaceholderText('AIに質問する...')
+      const input = await screen.findByPlaceholderText('レビューについて質問...')
       expect(input).toBeInTheDocument()
 
       // 送信ボタンが表示される
@@ -180,7 +180,7 @@ describe('ConsultationPage', () => {
 
   describe('買い目グルーピング表示', () => {
     it('買い目一覧のタイトルとレース情報が表示される', async () => {
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -208,7 +208,7 @@ describe('ConsultationPage', () => {
         amount: 500,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -222,7 +222,7 @@ describe('ConsultationPage', () => {
     })
 
     it('削除ボタンにアクセシビリティ属性が設定されている', async () => {
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -250,7 +250,7 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -277,7 +277,7 @@ describe('ConsultationPage', () => {
         amount: 300,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -304,7 +304,7 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -332,7 +332,7 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -357,7 +357,7 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -384,7 +384,7 @@ describe('ConsultationPage', () => {
         amount: 100,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -413,7 +413,7 @@ describe('ConsultationPage', () => {
         amount: 500,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -444,7 +444,7 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -475,7 +475,7 @@ describe('ConsultationPage', () => {
         amount: 600,
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -506,7 +506,7 @@ describe('ConsultationPage', () => {
         amount: 1200, // 6点で1200円 = 1点あたり200円
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -537,7 +537,7 @@ describe('ConsultationPage', () => {
         amount: 99996, // 6点 × 16666円
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 折りたたみトグルをクリックして買い目リストを展開
       const toggle = await screen.findByRole('button', { name: /買い目一覧/ })
@@ -555,14 +555,14 @@ describe('ConsultationPage', () => {
 
   describe('レース概要サマリー', () => {
     it('runnersDataがある場合にレース概要が表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       expect(await screen.findByText('レース概要')).toBeInTheDocument()
       expect(screen.getByText('2頭')).toBeInTheDocument()
     })
 
     it('オッズデータがある場合に上位人気が表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       expect(await screen.findByText('上位人気')).toBeInTheDocument()
       // テスト馬2がオッズ3.0で1番人気
@@ -571,7 +571,7 @@ describe('ConsultationPage', () => {
     })
 
     it('オッズデータがある場合に難易度と人気集中が表示される', async () => {
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       expect(await screen.findByText('難易度')).toBeInTheDocument()
       expect(screen.getByText('人気集中')).toBeInTheDocument()
@@ -594,7 +594,7 @@ describe('ConsultationPage', () => {
         amount: 1000,
       })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // 買い目一覧ボタンは表示される（ページが描画されたことの確認）
       expect(await screen.findByRole('button', { name: /買い目一覧/ })).toBeInTheDocument()
@@ -623,7 +623,7 @@ describe('ConsultationPage', () => {
         runnersData: runnersWithoutOdds,
       })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // レース概要は表示される
       expect(await screen.findByText('レース概要')).toBeInTheDocument()
@@ -649,13 +649,13 @@ describe('ConsultationPage', () => {
         },
       })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // consultWithAgentがrunners_data付きで呼び出される
       await waitFor(() => {
         expect(apiClient.consultWithAgent).toHaveBeenCalledWith(
           expect.objectContaining({
-            prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
+            prompt: 'カートの買い目をレビューしてください。AI指数と照らし合わせてリスクや弱点を指摘し、改善案があれば提案してください。',
             cart_items: expect.arrayContaining([
               expect.objectContaining({
                 raceId: 'test-race-1',
@@ -683,7 +683,7 @@ describe('ConsultationPage', () => {
       // AgentCoreを利用不可に設定
       vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(false)
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // フォールバックメッセージが表示される
       expect(await screen.findByText(/AI分析機能は現在利用できません/)).toBeInTheDocument()
@@ -699,7 +699,7 @@ describe('ConsultationPage', () => {
         data: undefined,
       })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // エラーメッセージが表示される
       expect(await screen.findByText(/分析中に問題が発生しました/)).toBeInTheDocument()
@@ -710,7 +710,7 @@ describe('ConsultationPage', () => {
       vi.mocked(apiClient.isAgentCoreAvailable).mockReturnValue(true)
       vi.mocked(apiClient.consultWithAgent).mockRejectedValue(new Error('Network error'))
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // エラーメッセージが表示される
       expect(await screen.findByText(/通信エラーが発生しました/)).toBeInTheDocument()
@@ -726,7 +726,7 @@ describe('ConsultationPage', () => {
         },
       })
 
-      render(<ConsultationPage />)
+      render(<BetReviewPage />)
 
       // テーブルがtable要素としてレンダリングされる
       const table = await screen.findByRole('table')
@@ -753,7 +753,7 @@ describe('ConsultationPage', () => {
         },
       })
 
-      const { user } = render(<ConsultationPage />)
+      const { user } = render(<BetReviewPage />)
 
       // 初回分析が完了するのを待つ
       expect(await screen.findByText(/初回分析結果です/)).toBeInTheDocument()

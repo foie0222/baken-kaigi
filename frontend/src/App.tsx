@@ -4,7 +4,7 @@ import { Layout } from './components/layout/Layout';
 import { RacesPage } from './pages/RacesPage';
 import { RaceDetailPage } from './pages/RaceDetailPage';
 import { CartPage } from './pages/CartPage';
-import { ConsultationPage } from './pages/ConsultationPage';
+import { BetReviewPage } from './pages/BetReviewPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -46,7 +46,8 @@ function App() {
           <Route index element={<RacesPage />} />
           <Route path="races/:raceId" element={<RaceDetailPage />} />
           <Route path="cart" element={<CartPage />} />
-          <Route path="consultation" element={<ConsultationPage />} />
+          <Route path="bet-review" element={<BetReviewPage />} />
+          <Route path="consultation" element={<Navigate to="/bet-review" replace />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPolicyPage />} />

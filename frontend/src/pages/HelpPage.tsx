@@ -31,7 +31,7 @@ export function HelpPage() {
             <li>レース一覧から気になるレースを選択</li>
             <li>出馬表から馬を選んで券種・金額を設定</li>
             <li>カートに追加して買い目を管理</li>
-            <li>「AIと一緒に確認する」でAI分析を確認</li>
+            <li>「AI 買い目レビュー」でAIが買い目を検証</li>
             <li>納得したらIPAT連携で購入</li>
           </ol>
         </section>

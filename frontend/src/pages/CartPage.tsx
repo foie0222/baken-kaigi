@@ -36,7 +36,7 @@ export function CartPage() {
   };
 
   const handleConsult = () => {
-    navigate('/consultation');
+    navigate('/bet-review');
   };
 
   return (
@@ -152,10 +152,10 @@ export function CartPage() {
             disabled={isLossLimitReached}
             style={isLossLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
           >
-            AIと一緒に確認する →
+            AI 買い目レビュー →
           </button>
           <p className="ai-guide-text">
-            ※ 購入前にAIが買い目を一緒に確認します
+            ※ 購入前にAIが買い目をレビューします
           </p>
 
           {/* IPAT購入ボタン */}
