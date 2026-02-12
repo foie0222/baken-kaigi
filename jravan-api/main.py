@@ -4,6 +4,7 @@ PC-KEIBA Database (PostgreSQL) からレース情報を提供する。
 """
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -160,6 +161,113 @@ class JraChecksumSaveRequest(BaseModel):
     venue_code: str             # 競馬場コード (01-10)
     kaisai_kai: str             # 回次 (01-05)
     base_value: int             # 1日目1Rのbase値
+
+
+class VenueAptitude(BaseModel):
+    """競馬場別適性."""
+    venue: str
+    starts: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+
+
+class TrackTypeAptitude(BaseModel):
+    """トラック種別適性."""
+    track_type: str
+    starts: int
+    wins: int
+    win_rate: float
+
+
+class DistanceAptitude(BaseModel):
+    """距離帯別適性."""
+    distance_range: str
+    starts: int
+    wins: int
+    win_rate: float
+    best_time: str | None
+
+
+class TrackConditionAptitude(BaseModel):
+    """馬場状態別適性."""
+    condition: str
+    starts: int
+    wins: int
+    win_rate: float
+
+
+class RunningPositionAptitude(BaseModel):
+    """枠位置別適性."""
+    position: str
+    starts: int
+    wins: int
+    win_rate: float
+
+
+class AptitudeSummary(BaseModel):
+    """適性サマリー."""
+    best_venue: str | None
+    best_distance: str | None
+    preferred_condition: str | None
+    preferred_position: str | None
+
+
+class CourseAptitudeResponse(BaseModel):
+    """コース適性レスポンス."""
+    horse_id: str
+    horse_name: str | None
+    by_venue: list[VenueAptitude]
+    by_track_type: list[TrackTypeAptitude]
+    by_distance: list[DistanceAptitude]
+    by_track_condition: list[TrackConditionAptitude]
+    by_running_position: list[RunningPositionAptitude]
+    aptitude_summary: AptitudeSummary
+
+
+class GateStatEntry(BaseModel):
+    """枠番別統計エントリ."""
+    gate: int
+    gate_range: str
+    starts: int
+    wins: int
+    places: int
+    win_rate: float
+    place_rate: float
+    avg_finish: float
+
+
+class HorseNumberStatEntry(BaseModel):
+    """馬番別統計エントリ."""
+    horse_number: int
+    starts: int
+    wins: int
+    win_rate: float
+
+
+class GateConditions(BaseModel):
+    """枠順統計の条件."""
+    venue: str
+    track_type: str | None
+    distance: int | None
+    track_condition: str | None
+
+
+class GateAnalysis(BaseModel):
+    """枠順分析."""
+    favorable_gates: list[int]
+    unfavorable_gates: list[int]
+    comment: str
+
+
+class GatePositionResponse(BaseModel):
+    """枠順傾向レスポンス."""
+    conditions: GateConditions
+    total_races: int
+    by_gate: list[GateStatEntry]
+    by_horse_number: list[HorseNumberStatEntry]
+    analysis: GateAnalysis
 
 
 class PopularityStatResponse(BaseModel):
@@ -402,6 +510,29 @@ def get_pedigree(horse_id: str):
     )
 
 
+@app.get("/horses/{horse_id}/course-aptitude", response_model=CourseAptitudeResponse)
+def get_course_aptitude(horse_id: str):
+    """馬のコース適性を取得する."""
+    try:
+        data = db.get_horse_course_aptitude(horse_id)
+
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail="コース適性データが見つかりませんでした"
+            )
+
+        return CourseAptitudeResponse(**data)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get course aptitude")
+        raise HTTPException(
+            status_code=500,
+            detail="コース適性データの取得に失敗しました"
+        )
+
+
 @app.get("/horses/{horse_id}/weights", response_model=list[WeightResponse])
 def get_weight_history(
     horse_id: str,
@@ -570,6 +701,41 @@ def auto_update_jra_checksums(
         raise HTTPException(
             status_code=500,
             detail=f"チェックサム自動更新に失敗しました: {str(e)}",
+        )
+
+
+@app.get("/statistics/gate-position", response_model=GatePositionResponse)
+def get_gate_position_stats(
+    venue: str = Query(..., description="競馬場名（例: 東京、阪神）"),
+    track_type: Literal["芝", "ダート"] | None = Query(None, description="芝/ダート"),
+    distance: int | None = Query(None, description="距離（メートル）"),
+    track_condition: Literal["良", "稍重", "重", "不良"] | None = Query(None, description="馬場状態（良/稍重/重/不良）"),
+    limit: int = Query(default=200, ge=1, le=1000, description="集計対象レース数上限"),
+):
+    """枠順・馬番別の成績統計を取得する."""
+    try:
+        data = db.get_gate_position_stats(
+            venue=venue,
+            track_type=track_type,
+            distance=distance,
+            track_condition=track_condition,
+            limit=limit,
+        )
+
+        if not data:
+            raise HTTPException(
+                status_code=404,
+                detail="枠順統計データが見つかりませんでした"
+            )
+
+        return GatePositionResponse(**data)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to get gate position stats")
+        raise HTTPException(
+            status_code=500,
+            detail="枠順統計データの取得に失敗しました"
         )
 
 
