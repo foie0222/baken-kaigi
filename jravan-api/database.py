@@ -202,6 +202,7 @@ def get_races_by_date(date: str) -> list[dict]:
                 kaisai_nichime
             FROM jvd_ra
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+              AND keibajo_code BETWEEN '01' AND '10'
             ORDER BY keibajo_code, race_bango::integer
         """, (kaisai_nen, kaisai_tsukihi))
         rows = _fetch_all_as_dicts(cur)
@@ -416,6 +417,7 @@ def get_horse_counts_by_date(date: str) -> dict[str, int]:
                 COUNT(*) as count
             FROM jvd_se
             WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+              AND keibajo_code BETWEEN '01' AND '10'
             GROUP BY keibajo_code, race_bango
         """, (kaisai_nen, kaisai_tsukihi))
         rows = _fetch_all_as_dicts(cur)
@@ -566,7 +568,7 @@ def get_race_dates(from_date: str | None = None, to_date: str | None = None) -> 
         query = """
             SELECT DISTINCT kaisai_nen || kaisai_tsukihi as race_date
             FROM jvd_ra
-            WHERE 1=1
+            WHERE keibajo_code BETWEEN '01' AND '10'
         """
         params: list[str] = []
 

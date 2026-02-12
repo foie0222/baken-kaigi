@@ -16,6 +16,11 @@ export function getVenueName(code: string): string {
   return VenueNames[code] || code;
 }
 
+// JRA会場コードかどうかを判定
+export function isJraVenue(code: string): boolean {
+  return Object.hasOwn(VenueNames, code);
+}
+
 // JRA公式の枠色（帽色）
 export const WakuColors: Record<number, { background: string; text: string }> = {
   1: { background: '#FFFFFF', text: '#000000' }, // 白枠 → 文字は黒
