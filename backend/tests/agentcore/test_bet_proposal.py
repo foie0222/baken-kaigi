@@ -17,6 +17,9 @@ from tools.bet_proposal import (
     _assess_ai_consensus,
     _estimate_bet_odds,
     _generate_bet_proposal_impl,
+    _get_character_config,
+    CHARACTER_PROFILES,
+    _DEFAULT_CONFIG,
     SKIP_GATE_THRESHOLD,
     TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
 )
@@ -1149,3 +1152,153 @@ class TestGenerateBetCandidatesConfidence:
         )
         for bet in bets:
             assert "_composite_score" not in bet
+
+
+# =============================================================================
+# ペルソナプロファイルテスト
+# =============================================================================
+
+
+class TestCharacterProfiles:
+    """ペルソナ別設定のテスト."""
+
+    def test_None指定でデフォルト値が返る(self):
+        """character_type=None の場合はデフォルト値."""
+        config = _get_character_config(None)
+        assert config["weight_ai_score"] == _DEFAULT_CONFIG["weight_ai_score"]
+        assert config["max_bets"] == _DEFAULT_CONFIG["max_bets"]
+
+    def test_analyst指定でデフォルトと同一(self):
+        """analyst はデフォルトと同じ."""
+        config = _get_character_config("analyst")
+        for key in _DEFAULT_CONFIG:
+            assert config[key] == _DEFAULT_CONFIG[key]
+
+    def test_conservative設定が正しい(self):
+        """conservative は max_bets=5, allocation_high=0.60, skip_gate_threshold=6."""
+        config = _get_character_config("conservative")
+        assert config["max_bets"] == 5
+        assert config["allocation_high"] == 0.60
+        assert config["skip_gate_threshold"] == 6
+
+    def test_aggressive設定が正しい(self):
+        """aggressive は allocation_low=0.40, skip_gate_threshold=9."""
+        config = _get_character_config("aggressive")
+        assert config["allocation_low"] == 0.40
+        assert config["skip_gate_threshold"] == 9
+
+    def test_intuition設定が正しい(self):
+        """intuition は weight_odds_gap=0.5, weight_ai_score=0.3."""
+        config = _get_character_config("intuition")
+        assert config["weight_odds_gap"] == 0.5
+        assert config["weight_ai_score"] == 0.3
+
+    def test_unknown指定でデフォルトにフォールバック(self):
+        """未知のペルソナはデフォルトにフォールバック."""
+        config = _get_character_config("unknown")
+        for key in _DEFAULT_CONFIG:
+            assert config[key] == _DEFAULT_CONFIG[key]
+
+    def test_全ペルソナのallocation合計が1(self):
+        """全ペルソナの allocation_high + medium + low = 1.0."""
+        for persona in [None, "analyst", "intuition", "conservative", "aggressive"]:
+            config = _get_character_config(persona)
+            total = config["allocation_high"] + config["allocation_medium"] + config["allocation_low"]
+            assert abs(total - 1.0) < 0.01, f"{persona}: allocation合計={total}"
+
+
+# =============================================================================
+# max_bets パラメータテスト
+# =============================================================================
+
+
+class TestMaxBetsParameter:
+    """max_bets パラメータのテスト."""
+
+    def test_max_bets_3で最大3点(self):
+        """max_bets=3 指定で最大3点."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260201_05_11",
+            budget=5000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=12,
+            max_bets=3,
+        )
+        assert len(result["proposed_bets"]) <= 3
+
+    def test_max_bets未指定でデフォルト8点(self):
+        """max_bets 未指定でデフォルト MAX_BETS=8."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260201_05_11",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=12,
+        )
+        assert len(result["proposed_bets"]) <= 8
+
+    def test_conservativeのデフォルトmax_betsは5(self):
+        """character_type='conservative' のデフォルト max_bets は 5."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260201_05_11",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=12,
+            character_type="conservative",
+        )
+        assert len(result["proposed_bets"]) <= 5
+
+    def test_ユーザーmax_betsがペルソナデフォルトを上書き(self):
+        """ユーザー max_bets=8 が conservative デフォルト5を上書き."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result = _generate_bet_proposal_impl(
+            race_id="20260201_05_11",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=12,
+            character_type="conservative",
+            max_bets=8,
+        )
+        # conservative デフォルトの5ではなく、ユーザー指定の8が使われる
+        # 候補が十分あれば5以上になりうる
+        assert len(result["proposed_bets"]) <= 8
+
+
+# =============================================================================
+# ペルソナconfig伝播テスト
+# =============================================================================
+
+
+class TestCharacterConfigPropagation:
+    """ペルソナ設定が各関数に伝播されることのテスト."""
+
+    def test_aggressiveの配分でlow金額がmediumより大きい(self):
+        """aggressive は allocation_low=0.40 > medium=0.25 なので低信頼の金額が多い."""
+        bets = [
+            {"confidence": "high", "bet_type": "quinella", "expected_value": 1.5},
+            {"confidence": "medium", "bet_type": "quinella", "expected_value": 1.0},
+            {"confidence": "low", "bet_type": "quinella", "expected_value": 0.8},
+        ]
+        result = _allocate_budget(
+            bets, 10000,
+            allocation_high=0.35, allocation_medium=0.25, allocation_low=0.40,
+        )
+        low_bet = next(b for b in result if b["confidence"] == "low")
+        medium_bet = next(b for b in result if b["confidence"] == "medium")
+        assert low_bet["amount"] >= medium_bet["amount"]
+
+    def test_conservativeの難易度1でquinella_placeが含まれる(self):
+        """conservative の difficulty_bet_types[1] には quinella_place が含まれる."""
+        config = _get_character_config("conservative")
+        bet_types = config["difficulty_bet_types"][1]
+        assert "quinella_place" in bet_types

@@ -12,8 +12,8 @@ BET_PROPOSAL_SYSTEM_PROMPT = """あなたは競馬の買い目提案を生成す
 
 ## 手順
 
-1. ユーザーのメッセージからレースID・予算・希望券種・注目馬を読み取る
-2. `generate_bet_proposal` ツールを呼び出す
+1. ユーザーのメッセージからレースID・予算・希望券種・注目馬・ペルソナ（character_type）・買い目点数上限（max_bets）を読み取る
+2. `generate_bet_proposal` ツールを呼び出す（ペルソナ・max_betsが指定されていれば引数に含める）
 3. ツールの結果を以下の形式で出力する:
 
 ```
