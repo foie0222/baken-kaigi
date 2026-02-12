@@ -217,7 +217,7 @@ jobs:
     name: Deploy JRA-VAN API to EC2
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: deploy-cdk  # CDKデプロイ後に実行（S3バケット作成が必要）
+    # CDKとは独立して実行（S3バケットは既に作成済み）
     if: |
       github.ref == 'refs/heads/main' &&
       github.repository == 'foie0222/baken-kaigi' &&
