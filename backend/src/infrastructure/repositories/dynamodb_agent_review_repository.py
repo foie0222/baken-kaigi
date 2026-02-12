@@ -27,7 +27,7 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
 
     def find_by_id(self, review_id: ReviewId) -> AgentReview | None:
         """振り返りIDで検索する."""
-        response = self._table.get_item(Key={"review_id": review_id.value})
+        response = self._table.get_item(Key={"review_id": str(review_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -37,7 +37,7 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
         """エージェントIDで振り返り一覧を取得する（新しい順）."""
         response = self._table.query(
             IndexName="agent_id-index",
-            KeyConditionExpression=Key("agent_id").eq(agent_id.value),
+            KeyConditionExpression=Key("agent_id").eq(str(agent_id.value)),
             ScanIndexForward=False,
             Limit=limit,
         )
@@ -48,9 +48,9 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
     def _to_dynamodb_item(review: AgentReview) -> dict:
         """AgentReview を DynamoDB アイテムに変換する."""
         return {
-            "review_id": review.review_id.value,
-            "agent_id": review.agent_id.value,
-            "race_id": review.race_id.value,
+            "review_id": str(review.review_id.value),
+            "agent_id": str(review.agent_id.value),
+            "race_id": str(review.race_id.value),
             "race_date": review.race_date,
             "race_name": review.race_name,
             "bet_results": json.dumps(
