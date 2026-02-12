@@ -40,6 +40,7 @@ from .update_loss_limit import (
 from .update_loss_limit import InvalidLossLimitAmountError as UpdateInvalidLossLimitAmountError
 from .check_loss_limit import CheckLossLimitResult, CheckLossLimitUseCase
 from .create_agent import AgentAlreadyExistsError, CreateAgentResult, CreateAgentUseCase
+from .create_agent_review import CreateAgentReviewResult, CreateAgentReviewUseCase, ReviewAlreadyExistsError
 from .get_agent import AgentNotFoundError, GetAgentResult, GetAgentUseCase
 from .update_agent import UpdateAgentResult, UpdateAgentUseCase
 
@@ -100,9 +101,12 @@ __all__ = [
     "AgentAlreadyExistsError",
     "AgentNotFoundError",
     "CreateAgentResult",
+    "CreateAgentReviewResult",
+    "CreateAgentReviewUseCase",
     "CreateAgentUseCase",
     "GetAgentResult",
     "GetAgentUseCase",
+    "ReviewAlreadyExistsError",
     "UpdateAgentResult",
     "UpdateAgentUseCase",
 ]

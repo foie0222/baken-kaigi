@@ -521,5 +521,20 @@ export interface AgentData {
   level: number;
 }
 
+export interface AgentReview {
+  review_id: string;
+  race_id: string;
+  race_date: string;
+  race_name: string;
+  total_invested: number;
+  total_return: number;
+  profit: number;
+  has_win: boolean;
+  review_text: string;
+  learnings: string[];
+  stats_change: Record<string, number>;
+  created_at: string;
+}
+
 // アプリ状態
 export type PageType = 'races' | 'dashboard' | 'history' | 'settings' | 'cart';

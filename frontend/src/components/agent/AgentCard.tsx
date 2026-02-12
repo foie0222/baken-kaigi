@@ -27,7 +27,7 @@ export function AgentCard({ agent }: AgentCardProps) {
   return (
     <button
       type="button"
-      onClick={() => navigate('/dashboard')}
+      onClick={() => navigate('/agent')}
       style={{
         display: 'flex',
         alignItems: 'center',

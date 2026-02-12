@@ -24,6 +24,7 @@ import type {
   Agent,
   AgentStyleId,
   AgentData,
+  AgentReview,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -715,6 +716,14 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ name }),
     });
+  }
+
+  async getAgentReviews(): Promise<ApiResponse<AgentReview[]>> {
+    const res = await this.request<{ reviews: AgentReview[] }>('/agents/me/reviews');
+    if (res.success && res.data) {
+      return { success: true, data: res.data.reviews };
+    }
+    return { success: false, error: res.error };
   }
 
   // AgentCore が利用可能かどうか
