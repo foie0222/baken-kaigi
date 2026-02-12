@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   getVenueName,
+  isJraVenue,
   VenueNames,
   mapApiRaceToRace,
   mapApiRaceDetailToRaceDetail,
@@ -17,6 +18,24 @@ describe('VenueNames', () => {
     expect(VenueNames['06']).toBe('中山')
     expect(VenueNames['08']).toBe('京都')
     expect(VenueNames['09']).toBe('阪神')
+  })
+})
+
+describe('isJraVenue', () => {
+  it('JRA会場コード（01〜10）はtrueを返す', () => {
+    expect(isJraVenue('01')).toBe(true)
+    expect(isJraVenue('05')).toBe(true)
+    expect(isJraVenue('10')).toBe(true)
+  })
+
+  it('NAR地方競馬の会場コードはfalseを返す', () => {
+    expect(isJraVenue('43')).toBe(false) // 笠松
+    expect(isJraVenue('54')).toBe(false) // 佐賀
+  })
+
+  it('未知のコードはfalseを返す', () => {
+    expect(isJraVenue('99')).toBe(false)
+    expect(isJraVenue('')).toBe(false)
   })
 })
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Race, RaceGrade } from '../types';
-import { getVenueName } from '../types';
+import { getVenueName, isJraVenue } from '../types';
 import { apiClient } from '../api/client';
 import { NextRacesPanel } from '../components/NextRacesPanel';
 import { useAuthStore } from '../stores/authStore';
@@ -224,10 +224,11 @@ export function RacesPage() {
     const response = await apiClient.getRaces(date);
 
     if (response.success && response.data) {
-      setRaces(response.data.races);
-      setVenues(response.data.venues);
-      // 選択中の会場が新しい日付に存在しない場合、最初の会場を選択
-      const fetchedVenues = response.data.venues;
+      const filteredJraRaces = response.data.races.filter(r => isJraVenue(r.venue));
+      setRaces(filteredJraRaces);
+      // JRA会場のみにフィルタ
+      const fetchedVenues = response.data.venues.filter(isJraVenue);
+      setVenues(fetchedVenues);
       if (fetchedVenues.length > 0) {
         setSelectedVenue((prev) => {
           if (!prev || !fetchedVenues.includes(prev)) {
