@@ -101,7 +101,7 @@ interface ChatMessage {
   betActions?: BetAction[];
 }
 
-export function ConsultationPage() {
+export function BetReviewPage() {
   const navigate = useNavigate();
   const { items, currentRunnersData, getTotalAmount, removeItem, updateItemAmount } =
     useCartStore();
@@ -174,7 +174,7 @@ export function ConsultationPage() {
         const capturedRunners = initialRunnersRef.current;
         const runnersData = capturedRunners.length > 0 ? capturedRunners : undefined;
         const response = await apiClient.consultWithAgent({
-          prompt: 'カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。',
+          prompt: 'カートの買い目をレビューしてください。AI指数と照らし合わせてリスクや弱点を指摘し、改善案があれば提案してください。',
           cart_items: capturedItems.map((item) => ({
             raceId: item.raceId,
             raceName: item.raceName,
@@ -453,7 +453,7 @@ export function ConsultationPage() {
         <div className="ai-chat-header">
           <div className="ai-avatar">{selectedCharacter.icon}</div>
           <div className="ai-chat-header-text">
-            <h3>馬券会議 AI</h3>
+            <h3>AI 買い目レビュー</h3>
             <p>{selectedCharacter.description}</p>
           </div>
         </div>
@@ -540,7 +540,7 @@ export function ConsultationPage() {
                 handleSendMessage();
               }
             }}
-            placeholder="AIに質問する..."
+            placeholder="レビューについて質問..."
             disabled={isLoading}
             className="chat-input"
           />

@@ -70,10 +70,10 @@ describe('CartPage', () => {
       expect(screen.getByText('ログインして設定')).toBeInTheDocument()
     })
 
-    it('AIと一緒に確認するボタンが表示される', () => {
+    it('AI買い目レビューボタンが表示される', () => {
       render(<CartPage />)
 
-      const aiButton = screen.getByRole('button', { name: /AIと一緒に確認する/i })
+      const aiButton = screen.getByRole('button', { name: /AI 買い目レビュー/i })
       expect(aiButton).toBeInTheDocument()
     })
   })

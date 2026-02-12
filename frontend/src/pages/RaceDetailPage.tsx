@@ -11,12 +11,16 @@ import { getBetMethodLabel } from '../utils/betMethods';
 import { BetTypeSheet } from '../components/bet/BetTypeSheet';
 import { BetMethodSheet } from '../components/bet/BetMethodSheet';
 import { HorseCheckboxList } from '../components/bet/HorseCheckboxList';
+import { ModeSelectionCards } from '../components/bet/ModeSelectionCards';
+import { BetProposalContent } from '../components/proposal/BetProposalContent';
 import { BetProposalSheet } from '../components/proposal/BetProposalSheet';
 import { useBetCalculation } from '../hooks/useBetCalculation';
 import { MAX_BET_AMOUNT } from '../constants/betting';
 import './RaceDetailPage.css';
 
 const initialSelections: ColumnSelections = { col1: [], col2: [], col3: [] };
+
+type RaceDetailMode = 'select' | 'ai' | 'manual';
 
 export function RaceDetailPage() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -28,6 +32,7 @@ export function RaceDetailPage() {
   const [race, setRace] = useState<RaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<RaceDetailMode>('select');
 
   // 券種・買い方・選択状態
   const [betType, setBetType] = useState<BetType>('win');
@@ -39,6 +44,9 @@ export function RaceDetailPage() {
   const [isBetTypeSheetOpen, setIsBetTypeSheetOpen] = useState(false);
   const [isBetMethodSheetOpen, setIsBetMethodSheetOpen] = useState(false);
   const [isProposalSheetOpen, setIsProposalSheetOpen] = useState(false);
+
+  // AI提案リマウント用key
+  const [aiContentKey, setAiContentKey] = useState(0);
 
   // 点数計算
   const { betCount } = useBetCalculation(betType, betMethod, selections);
@@ -240,6 +248,11 @@ export function RaceDetailPage() {
     }
   };
 
+  const handleBackToSelect = () => {
+    setAiContentKey((k) => k + 1);
+    setMode('select');
+  };
+
   if (loading) return <div className="loading">読み込み中...</div>;
   if (error) return <div className="error">{error}</div>;
   if (!race) return <div className="no-races">レースが見つかりません</div>;
@@ -285,149 +298,185 @@ export function RaceDetailPage() {
         </div>
       </div>
 
-      {/* 券種・買い方セレクター */}
-      <div className="selector-area">
-        <button
-          className="selector-badge bet-type"
-          onClick={() => setIsBetTypeSheetOpen(true)}
-        >
-          <span className="label">{BetTypeLabels[betType]}</span>
-          <span className="arrow">▼</span>
-        </button>
-        <button
-          className={`selector-badge bet-method ${!canSelectMethod ? 'disabled' : ''}`}
-          onClick={() => canSelectMethod && setIsBetMethodSheetOpen(true)}
-          disabled={!canSelectMethod}
-        >
-          <span className="label">{getBetMethodLabel(betMethod, betType)}</span>
-          <span className="arrow">▼</span>
-        </button>
-        {selectionDisplay && (
-          <button className="clear-selection-btn" onClick={clearSelection}>
-            ✕ クリア
+      {mode === 'select' && (
+        <ModeSelectionCards
+          onSelectAi={() => setMode('ai')}
+          onSelectManual={() => setMode('manual')}
+        />
+      )}
+
+      {mode === 'ai' && (
+        <>
+          <button className="back-to-select-btn" onClick={handleBackToSelect}>
+            ← 選び直す
           </button>
-        )}
-      </div>
 
-      {/* 馬リスト */}
-      <HorseCheckboxList
-        horses={race.horses}
-        betType={betType}
-        method={betMethod}
-        selections={selections}
-        onSelectionChange={setSelections}
-      />
+          <div className="ai-proposal-section">
+            <BetProposalContent key={aiContentKey} race={race} />
+          </div>
 
-      {/* 買い目入力セクション */}
-      <div className="bet-section">
-        <div className="bet-input-group">
-          <label>
-            選択した馬番
-            <span className="selection-label">{getSelectionLabel()}</span>
-          </label>
-          <div className={`selected-horses-display ${selectionDisplay ? 'has-selection' : ''}`}>
-            {selectionDisplay ? (
-              <>
-                <span className="selected-numbers">{selectionDisplay}</span>
-                {betCount > 0 && (
-                  <span className="inline-bet-count">{betCount}点</span>
-                )}
-                <button className="clear-selection-btn" onClick={clearSelection}>
-                  クリア
-                </button>
-              </>
-            ) : (
-              <span className="no-selection">上のリストから馬を選択してください</span>
+          {itemCount > 0 && (
+            <button
+              className="btn-ai-confirm mt-3"
+              onClick={() => navigate('/cart')}
+            >
+              カートを確認する（{itemCount}件） →
+            </button>
+          )}
+        </>
+      )}
+
+      {mode === 'manual' && (
+        <>
+          <button className="back-to-select-btn" onClick={handleBackToSelect}>
+            ← 選び直す
+          </button>
+
+          {/* 券種・買い方セレクター */}
+          <div className="selector-area">
+            <button
+              className="selector-badge bet-type"
+              onClick={() => setIsBetTypeSheetOpen(true)}
+            >
+              <span className="label">{BetTypeLabels[betType]}</span>
+              <span className="arrow">▼</span>
+            </button>
+            <button
+              className={`selector-badge bet-method ${!canSelectMethod ? 'disabled' : ''}`}
+              onClick={() => canSelectMethod && setIsBetMethodSheetOpen(true)}
+              disabled={!canSelectMethod}
+            >
+              <span className="label">{getBetMethodLabel(betMethod, betType)}</span>
+              <span className="arrow">▼</span>
+            </button>
+            {selectionDisplay && (
+              <button className="clear-selection-btn" onClick={clearSelection}>
+                ✕ クリア
+              </button>
             )}
           </div>
-        </div>
 
-        <div className="bet-input-group">
-          <label>金額</label>
-          <div className="amount-input-wrapper">
-            <button className="amount-stepper-btn" onClick={handleAmountMinus}>−</button>
-            <div className="amount-center">
-              <span className="currency-symbol">¥</span>
-              <input
-                type="number"
-                className="amount-input"
-                value={betAmount}
-                onChange={(e) => setBetAmount(Math.max(100, parseInt(e.target.value) || 100))}
-              />
+          {/* 馬リスト */}
+          <HorseCheckboxList
+            horses={race.horses}
+            betType={betType}
+            method={betMethod}
+            selections={selections}
+            onSelectionChange={setSelections}
+          />
+
+          {/* 買い目入力セクション */}
+          <div className="bet-section">
+            <div className="bet-input-group">
+              <label>
+                選択した馬番
+                <span className="selection-label">{getSelectionLabel()}</span>
+              </label>
+              <div className={`selected-horses-display ${selectionDisplay ? 'has-selection' : ''}`}>
+                {selectionDisplay ? (
+                  <>
+                    <span className="selected-numbers">{selectionDisplay}</span>
+                    {betCount > 0 && (
+                      <span className="inline-bet-count">{betCount}点</span>
+                    )}
+                    <button className="clear-selection-btn" onClick={clearSelection}>
+                      クリア
+                    </button>
+                  </>
+                ) : (
+                  <span className="no-selection">上のリストから馬を選択してください</span>
+                )}
+              </div>
             </div>
-            <button className="amount-stepper-btn" onClick={handleAmountPlus}>＋</button>
-          </div>
-          <div className="amount-presets">
-            {[100, 500, 1000, 5000].map((amount) => (
+
+            <div className="bet-input-group">
+              <label>金額</label>
+              <div className="amount-input-wrapper">
+                <button className="amount-stepper-btn" onClick={handleAmountMinus}>−</button>
+                <div className="amount-center">
+                  <span className="currency-symbol">¥</span>
+                  <input
+                    type="number"
+                    className="amount-input"
+                    value={betAmount}
+                    onChange={(e) => setBetAmount(Math.max(100, parseInt(e.target.value) || 100))}
+                  />
+                </div>
+                <button className="amount-stepper-btn" onClick={handleAmountPlus}>＋</button>
+              </div>
+              <div className="amount-presets">
+                {[100, 500, 1000, 5000].map((amount) => (
+                  <button
+                    key={amount}
+                    className="preset-btn"
+                    onClick={() => setBetAmount(amount)}
+                  >
+                    ¥{amount.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {betCount > 0 && (
+              <div className="bet-summary">
+                <span>{betCount}点</span>
+                <span>¥{totalAmount.toLocaleString()}</span>
+              </div>
+            )}
+
+            <button
+              className="btn-proposal"
+              onClick={() => setIsProposalSheetOpen(true)}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+                <line x1="9" y1="21" x2="15" y2="21" />
+              </svg>
+              AI分析提案
+            </button>
+
+            <button
+              className="btn-add-cart-subtle"
+              onClick={handleAddToCart}
+              disabled={betCount === 0}
+            >
+              カートに追加
+            </button>
+            <p className="ai-guide-text">
+              ※ カートに追加後、AI買い目レビューで確認できます
+            </p>
+
+            {itemCount > 0 && (
               <button
-                key={amount}
-                className="preset-btn"
-                onClick={() => setBetAmount(amount)}
+                className="btn-ai-confirm mt-3"
+                onClick={() => navigate('/cart')}
               >
-                ¥{amount.toLocaleString()}
+                カートを確認する（{itemCount}件） →
               </button>
-            ))}
+            )}
           </div>
-        </div>
 
-        {betCount > 0 && (
-          <div className="bet-summary">
-            <span>{betCount}点</span>
-            <span>¥{totalAmount.toLocaleString()}</span>
-          </div>
-        )}
-
-        <button
-          className="btn-proposal"
-          onClick={() => setIsProposalSheetOpen(true)}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
-            <line x1="9" y1="21" x2="15" y2="21" />
-          </svg>
-          AI分析提案
-        </button>
-
-        <button
-          className="btn-add-cart-subtle"
-          onClick={handleAddToCart}
-          disabled={betCount === 0}
-        >
-          カートに追加
-        </button>
-        <p className="ai-guide-text">
-          ※ カートに追加後、AIと一緒に買い目を確認できます
-        </p>
-
-        {itemCount > 0 && (
-          <button
-            className="btn-ai-confirm mt-3"
-            onClick={() => navigate('/cart')}
-          >
-            カートを確認する（{itemCount}件） →
-          </button>
-        )}
-      </div>
-
-      {/* ボトムシート */}
-      <BetTypeSheet
-        isOpen={isBetTypeSheetOpen}
-        onClose={() => setIsBetTypeSheetOpen(false)}
-        selectedType={betType}
-        onSelect={handleBetTypeChange}
-      />
-      <BetMethodSheet
-        isOpen={isBetMethodSheetOpen}
-        onClose={() => setIsBetMethodSheetOpen(false)}
-        betType={betType}
-        selectedMethod={betMethod}
-        onSelect={handleBetMethodChange}
-      />
-      <BetProposalSheet
-        isOpen={isProposalSheetOpen}
-        onClose={() => setIsProposalSheetOpen(false)}
-        race={race}
-      />
+          {/* ボトムシート */}
+          <BetTypeSheet
+            isOpen={isBetTypeSheetOpen}
+            onClose={() => setIsBetTypeSheetOpen(false)}
+            selectedType={betType}
+            onSelect={handleBetTypeChange}
+          />
+          <BetMethodSheet
+            isOpen={isBetMethodSheetOpen}
+            onClose={() => setIsBetMethodSheetOpen(false)}
+            betType={betType}
+            selectedMethod={betMethod}
+            onSelect={handleBetMethodChange}
+          />
+          <BetProposalSheet
+            isOpen={isProposalSheetOpen}
+            onClose={() => setIsProposalSheetOpen(false)}
+            race={race}
+          />
+        </>
+      )}
     </div>
   );
 }

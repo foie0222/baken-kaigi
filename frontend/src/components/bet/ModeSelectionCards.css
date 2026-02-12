@@ -1,0 +1,87 @@
+.mode-selection-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 80px;
+}
+
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 16px;
+  background: white;
+  border: 2px solid #e8e8e8;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.mode-card:active {
+  transform: scale(0.98);
+}
+
+.mode-card-ai {
+  border-color: #c8e6c9;
+}
+
+.mode-card-ai:active {
+  background: #f0f9f1;
+}
+
+.mode-card-manual {
+  border-color: #e0e0e0;
+}
+
+.mode-card-manual:active {
+  background: #f5f5f5;
+}
+
+.mode-card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.mode-card-ai .mode-card-icon {
+  background: #e8f5e9;
+  color: #1a5f2a;
+}
+
+.mode-card-manual .mode-card-icon {
+  background: #f5f5f5;
+  color: #555;
+}
+
+.mode-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mode-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+}
+
+.mode-card-desc {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.4;
+}
+
+.mode-card-arrow {
+  flex-shrink: 0;
+  font-size: 18px;
+  color: #ccc;
+  font-weight: 600;
+}

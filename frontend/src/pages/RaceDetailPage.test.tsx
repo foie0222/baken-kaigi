@@ -40,9 +40,62 @@ describe('RaceDetailPage', () => {
     useCartStore.getState().clearCart()
   })
 
-  describe('カートに追加ボタン', () => {
-    it('btn-add-cart-subtleクラスが適用されている', async () => {
+  describe('モード選択', () => {
+    it('初期表示でモード選択カードが表示される', async () => {
       render(<RaceDetailPage />)
+
+      expect(await screen.findByText('AIにおまかせ')).toBeInTheDocument()
+      expect(screen.getByText('自分で選ぶ')).toBeInTheDocument()
+    })
+
+    it('「AIにおまかせ」クリックでAI提案フォームが表示される', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      const aiCard = await screen.findByText('AIにおまかせ')
+      await user.click(aiCard)
+
+      // AI提案フォームの要素が表示される
+      expect(await screen.findByText('予算')).toBeInTheDocument()
+      expect(screen.getByText('提案を生成')).toBeInTheDocument()
+      // 「選び直す」ボタンが表示される
+      expect(screen.getByText('← 選び直す')).toBeInTheDocument()
+    })
+
+    it('「自分で選ぶ」クリックで手動入力UIが表示される', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      const manualCard = await screen.findByText('自分で選ぶ')
+      await user.click(manualCard)
+
+      // 手動入力UIの要素が表示される
+      expect(await screen.findByText('カートに追加')).toBeInTheDocument()
+      // 「選び直す」ボタンが表示される
+      expect(screen.getByText('← 選び直す')).toBeInTheDocument()
+    })
+
+    it('「選び直す」ボタンでモード選択に戻る', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      // AIモードに遷移
+      const aiCard = await screen.findByText('AIにおまかせ')
+      await user.click(aiCard)
+
+      // 選び直すボタンでモード選択に戻る
+      const backBtn = screen.getByText('← 選び直す')
+      await user.click(backBtn)
+
+      expect(await screen.findByText('AIにおまかせ')).toBeInTheDocument()
+      expect(screen.getByText('自分で選ぶ')).toBeInTheDocument()
+    })
+  })
+
+  describe('手動モード - カートに追加ボタン', () => {
+    it('btn-add-cart-subtleクラスが適用されている', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      // 手動モードに切り替え
+      const manualCard = await screen.findByText('自分で選ぶ')
+      await user.click(manualCard)
 
       const addButton = await screen.findByRole('button', { name: /カートに追加/i })
       expect(addButton).toBeInTheDocument()
@@ -50,17 +103,23 @@ describe('RaceDetailPage', () => {
     })
   })
 
-  describe('AI案内テキスト', () => {
+  describe('手動モード - AI案内テキスト', () => {
     it('AI案内テキストが表示される', async () => {
-      render(<RaceDetailPage />)
+      const { user } = render(<RaceDetailPage />)
 
-      expect(await screen.findByText(/カートに追加後、AIと一緒に買い目を確認できます/i)).toBeInTheDocument()
+      const manualCard = await screen.findByText('自分で選ぶ')
+      await user.click(manualCard)
+
+      expect(await screen.findByText(/カートに追加後、AI買い目レビューで確認できます/i)).toBeInTheDocument()
     })
 
     it('AI案内テキストにai-guide-textクラスが適用されている', async () => {
-      render(<RaceDetailPage />)
+      const { user } = render(<RaceDetailPage />)
 
-      const guideText = await screen.findByText(/カートに追加後、AIと一緒に買い目を確認できます/i)
+      const manualCard = await screen.findByText('自分で選ぶ')
+      await user.click(manualCard)
+
+      const guideText = await screen.findByText(/カートに追加後、AI買い目レビューで確認できます/i)
       expect(guideText).toHaveClass('ai-guide-text')
     })
   })
@@ -105,6 +164,10 @@ describe('RaceDetailPage', () => {
 
       // レース詳細がロードされるのを待つ
       await screen.findByText('テストレース')
+
+      // 手動モードに切り替え
+      const manualCard = screen.getByText('自分で選ぶ')
+      await user.click(manualCard)
 
       // 馬1を選択
       const checkboxes = await screen.findAllByRole('checkbox')
