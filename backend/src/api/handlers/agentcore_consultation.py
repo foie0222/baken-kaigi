@@ -1,7 +1,6 @@
 """AgentCore 相談 API ハンドラー.
 
 AgentCore Runtime にリクエストをプロキシする。
-このファイルは他のバックエンドモジュールに依存せず、独立して動作する。
 """
 import json
 import logging
@@ -12,6 +11,9 @@ from typing import Any
 import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
+
+from src.api.auth import get_authenticated_user_id
+from src.application.use_cases.get_betting_summary import GetBettingSummaryUseCase
 
 # ロガー設定
 logger = logging.getLogger(__name__)
@@ -80,6 +82,36 @@ def _get_body(event: dict) -> dict:
     return parsed
 
 
+def _get_betting_summary(event: dict) -> dict | None:
+    """認証済みユーザーの成績サマリーを取得する.
+
+    成績取得に失敗しても相談を妨げないよう、エラー時はNoneを返す。
+    """
+    try:
+        user_id = get_authenticated_user_id(event)
+        if user_id is None:
+            return None
+
+        from src.api.dependencies import Dependencies
+
+        repo = Dependencies.get_betting_record_repository()
+        use_case = GetBettingSummaryUseCase(repo)
+        summary = use_case.execute(str(user_id))
+
+        if summary.record_count == 0:
+            return None
+
+        return {
+            "record_count": summary.record_count,
+            "win_rate": float(summary.win_rate * 100),
+            "roi": float(summary.roi),
+            "net_profit": int(summary.net_profit),
+        }
+    except Exception:
+        logger.warning("Failed to get betting summary", exc_info=True)
+        return None
+
+
 def invoke_agentcore(event: dict, context: Any) -> dict:
     """AgentCore にリクエストを送信する.
 
@@ -130,6 +162,11 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         "prompt": body.get("prompt", ""),
         "cart_items": body.get("cart_items", []),
     }
+
+    # 認証済みユーザーの成績サマリーを取得
+    betting_summary = _get_betting_summary(event)
+    if betting_summary is not None:
+        payload["betting_summary"] = betting_summary
 
     try:
         # boto3 クライアント設定
