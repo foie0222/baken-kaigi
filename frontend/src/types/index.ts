@@ -18,7 +18,7 @@ export function getVenueName(code: string): string {
 
 // JRA会場コードかどうかを判定
 export function isJraVenue(code: string): boolean {
-  return code in VenueNames;
+  return Object.hasOwn(VenueNames, code);
 }
 
 // JRA公式の枠色（帽色）
