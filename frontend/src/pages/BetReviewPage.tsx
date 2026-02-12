@@ -13,6 +13,8 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../constants/characters';
+import { useAgentStore } from '../stores/agentStore';
+import { AGENT_STYLE_MAP } from '../constants/agentStyles';
 
 // レース難易度・人気集中度の算出閾値
 // オッズの絶対値で人気集中度を判定（2倍未満=集中、4倍未満=普通、それ以上=混戦）
@@ -122,6 +124,11 @@ export function BetReviewPage() {
   });
   const selectedCharacter = AI_CHARACTERS.find((c) => c.id === characterId) || AI_CHARACTERS[0];
 
+  // エージェント育成データ（ある場合はcharacter_typeの代わりに使用）
+  const { agent, getAgentData } = useAgentStore();
+  const agentData = getAgentData();
+  const agentStyleInfo = agent ? AGENT_STYLE_MAP[agent.base_style] : null;
+
 
   const [isBetListExpanded, setIsBetListExpanded] = useState(false);
 
@@ -183,7 +190,7 @@ export function BetReviewPage() {
             amount: item.amount,
           })),
           runners_data: runnersData,
-          character_type: characterId,
+          ...(agentData ? { agent_data: agentData } : { character_type: characterId }),
         });
 
         if (!isMounted) return;
@@ -259,7 +266,7 @@ export function BetReviewPage() {
         })),
         runners_data: runnersData,
         session_id: sessionId,
-        character_type: characterId,
+        ...(agentData ? { agent_data: agentData } : { character_type: characterId }),
       });
 
       if (response.success && response.data) {
@@ -451,28 +458,31 @@ export function BetReviewPage() {
 
       <div className="ai-chat-container">
         <div className="ai-chat-header">
-          <div className="ai-avatar">{selectedCharacter.icon}</div>
+          <div className="ai-avatar">{agent ? (agentStyleInfo?.icon || '\u{1F916}') : selectedCharacter.icon}</div>
           <div className="ai-chat-header-text">
-            <h3>AI 買い目レビュー</h3>
-            <p>{selectedCharacter.description}</p>
+            <h3>{agent ? `${agent.name} の買い目レビュー` : 'AI 買い目レビュー'}</h3>
+            <p>{agent ? `Lv.${agent.level} ${agentStyleInfo?.label || ''}` : selectedCharacter.description}</p>
           </div>
         </div>
 
-        <div className="character-selector">
-          {AI_CHARACTERS.map((char) => (
-            <button
-              key={char.id}
-              type="button"
-              className={`character-chip${char.id === characterId ? ' active' : ''}`}
-              aria-pressed={char.id === characterId}
-              aria-label={`キャラクター選択: ${char.name}`}
-              onClick={() => handleCharacterChange(char.id)}
-            >
-              <span className="character-chip-icon">{char.icon}</span>
-              <span className="character-chip-name">{char.name}</span>
-            </button>
-          ))}
-        </div>
+        {/* エージェント未作成の場合のみキャラクター選択を表示 */}
+        {!agent && (
+          <div className="character-selector">
+            {AI_CHARACTERS.map((char) => (
+              <button
+                key={char.id}
+                type="button"
+                className={`character-chip${char.id === characterId ? ' active' : ''}`}
+                aria-pressed={char.id === characterId}
+                aria-label={`キャラクター選択: ${char.name}`}
+                onClick={() => handleCharacterChange(char.id)}
+              >
+                <span className="character-chip-icon">{char.icon}</span>
+                <span className="character-chip-name">{char.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <RaceSummaryCard runnersData={initialRunnersRef.current} />
 
