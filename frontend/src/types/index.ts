@@ -481,5 +481,45 @@ export interface LossLimitCheckResult {
   message: string;
 }
 
+// エージェント育成
+export type AgentStyleId = 'solid' | 'longshot' | 'data' | 'pace';
+
+export interface AgentStats {
+  data_analysis: number;
+  pace_reading: number;
+  risk_management: number;
+  intuition: number;
+}
+
+export interface AgentPerformance {
+  total_bets: number;
+  wins: number;
+  total_invested: number;
+  total_return: number;
+}
+
+export interface Agent {
+  agent_id: string;
+  user_id: string;
+  name: string;
+  base_style: AgentStyleId;
+  stats: AgentStats;
+  performance: AgentPerformance;
+  level: number;
+  win_rate: number;
+  roi: number;
+  profit: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentData {
+  name: string;
+  base_style: AgentStyleId;
+  stats: AgentStats;
+  performance: AgentPerformance;
+  level: number;
+}
+
 // アプリ状態
 export type PageType = 'races' | 'dashboard' | 'history' | 'settings' | 'cart';

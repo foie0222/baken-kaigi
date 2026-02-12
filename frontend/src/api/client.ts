@@ -21,6 +21,9 @@ import type {
   LossLimit,
   PendingLossLimitChange,
   LossLimitCheckResult,
+  Agent,
+  AgentStyleId,
+  AgentData,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -44,6 +47,8 @@ export interface AgentCoreConsultationRequest {
   session_id?: string;
   type?: 'consultation' | 'bet_proposal';
   character_type?: 'analyst' | 'intuition' | 'conservative' | 'aggressive';
+  agent_data?: AgentData;
+  betting_summary?: Record<string, unknown>;
 }
 
 export interface BetAction {
@@ -690,6 +695,25 @@ class ApiClient {
       body: JSON.stringify({
         display_name: data.displayName,
       }),
+    });
+  }
+
+  // Agent API（エージェント育成）
+  async createAgent(name: string, baseStyle: AgentStyleId): Promise<ApiResponse<Agent>> {
+    return this.request<Agent>('/agents', {
+      method: 'POST',
+      body: JSON.stringify({ name, base_style: baseStyle }),
+    });
+  }
+
+  async getMyAgent(): Promise<ApiResponse<Agent>> {
+    return this.request<Agent>('/agents/me');
+  }
+
+  async updateAgent(name: string): Promise<ApiResponse<Agent>> {
+    return this.request<Agent>('/agents/me', {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
     });
   }
 

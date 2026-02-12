@@ -4,6 +4,9 @@ import type { Race, RaceGrade } from '../types';
 import { getVenueName } from '../types';
 import { apiClient } from '../api/client';
 import { NextRacesPanel } from '../components/NextRacesPanel';
+import { useAuthStore } from '../stores/authStore';
+import { useAgentStore } from '../stores/agentStore';
+import { AgentCard, AgentOnboardingCard } from '../components/agent/AgentCard';
 
 // グレードバッジのCSSクラスを取得
 function getGradeBadgeClass(grade: RaceGrade | undefined): string {
@@ -136,6 +139,16 @@ function selectDisplayDates(dates: string[]): string[] {
 
 export function RacesPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
+  const { agent, hasFetched, fetchAgent } = useAgentStore();
+
+  // ログイン済みの場合のみエージェント情報を取得
+  useEffect(() => {
+    if (isAuthenticated && !hasFetched) {
+      fetchAgent();
+    }
+  }, [isAuthenticated, hasFetched, fetchAgent]);
+
   const [dateButtons, setDateButtons] = useState<string[]>([]);
   const [selectedDateIdx, setSelectedDateIdx] = useState(0);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
@@ -283,6 +296,11 @@ export function RacesPage() {
 
   return (
     <div className="fade-in">
+      {/* エージェントカード（ログイン済みの場合） */}
+      {isAuthenticated && hasFetched && (
+        agent ? <AgentCard agent={agent} /> : <AgentOnboardingCard />
+      )}
+
       {/* 次のレースパネル（今日の場合のみ表示） */}
       <NextRacesPanel races={races} isToday={isToday} />
 
