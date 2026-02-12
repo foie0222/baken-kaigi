@@ -135,23 +135,19 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       const options: {
         preferredBetTypes?: BetType[];
         axisHorses?: number[];
-        characterType?: string;
+        characterType: string;
         maxBets?: number;
-      } = {};
+      } = { characterType: characterId };
 
       if (axisHorses.length > 0) options.axisHorses = axisHorses;
       if (selectedBetTypes.length > 0) options.preferredBetTypes = selectedBetTypes;
-      if (characterId !== DEFAULT_CHARACTER_ID) options.characterType = characterId;
       if (maxBets !== null) options.maxBets = maxBets;
-
-      // characterType は常に送信（デフォルトでも）
-      options.characterType = characterId;
 
       const response = await apiClient.requestBetProposal(
         race.id,
         effectiveBudget,
         runnersData,
-        Object.keys(options).length > 0 ? options : undefined
+        options,
       );
 
       if (!isMountedRef.current) return;
@@ -269,6 +265,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
                 <button
                   key={char.id}
                   className={`proposal-character-chip ${characterId === char.id ? 'active' : ''}`}
+                  aria-pressed={characterId === char.id}
                   onClick={() => handleCharacterChange(char.id)}
                 >
                   <span className="proposal-character-icon">{char.icon}</span>
@@ -313,6 +310,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
                 <button
                   key={opt.value}
                   className={`proposal-bet-type-chip ${selectedBetTypes.includes(opt.value) ? 'active' : ''}`}
+                  aria-pressed={selectedBetTypes.includes(opt.value)}
                   onClick={() => handleBetTypeToggle(opt.value)}
                 >
                   {opt.label}
@@ -332,6 +330,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
                 <button
                   key={preset}
                   className={`proposal-preset-btn ${maxBets === preset ? 'active' : ''}`}
+                  aria-pressed={maxBets === preset}
                   onClick={() => handleMaxBetsToggle(preset)}
                 >
                   {preset}点

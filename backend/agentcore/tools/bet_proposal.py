@@ -245,6 +245,9 @@ def _select_axis_horses(
     predicted_pace: str = "",
     running_styles: list[dict] | None = None,
     user_axis: list[int] | None = None,
+    weight_ai_score: float = WEIGHT_AI_SCORE,
+    weight_odds_gap: float = WEIGHT_ODDS_GAP,
+    weight_pace_compat: float = WEIGHT_PACE_COMPAT,
 ) -> list[dict]:
     """軸馬を自動選定する.
 
@@ -271,7 +274,9 @@ def _select_axis_horses(
             for hn in valid_axis:
                 runner = runners_map.get(hn, {})
                 score = _calculate_composite_score(
-                    hn, runners_data, ai_predictions, predicted_pace, running_styles
+                    hn, runners_data, ai_predictions, predicted_pace, running_styles,
+                    weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
+                    weight_pace_compat=weight_pace_compat,
                 )
                 result.append({
                     "horse_number": hn,
@@ -286,7 +291,9 @@ def _select_axis_horses(
     for runner in runners_data:
         hn = runner.get("horse_number")
         score = _calculate_composite_score(
-            hn, runners_data, ai_predictions, predicted_pace, running_styles
+            hn, runners_data, ai_predictions, predicted_pace, running_styles,
+            weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
+            weight_pace_compat=weight_pace_compat,
         )
         scored.append({
             "horse_number": hn,
@@ -440,6 +447,9 @@ def _generate_bet_candidates(
     running_styles: list[dict] | None = None,
     max_bets: int = MAX_BETS,
     torigami_threshold: float = TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
+    weight_ai_score: float = WEIGHT_AI_SCORE,
+    weight_odds_gap: float = WEIGHT_ODDS_GAP,
+    weight_pace_compat: float = WEIGHT_PACE_COMPAT,
 ) -> list[dict]:
     """買い目候補を生成し、トリガミチェックを行う.
 
@@ -469,7 +479,9 @@ def _generate_bet_candidates(
         if hn in axis_numbers:
             continue
         score = _calculate_composite_score(
-            hn, runners_data, ai_predictions, predicted_pace, running_styles
+            hn, runners_data, ai_predictions, predicted_pace, running_styles,
+            weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
+            weight_pace_compat=weight_pace_compat,
         )
         partner_scores.append({
             "horse_number": hn,
@@ -926,6 +938,10 @@ def _generate_bet_proposal_impl(
         running_styles: 脚質データ
         preferred_bet_types: ユーザー指定の券種リスト
         axis_horses: ユーザー指定の軸馬番号リスト
+        character_type: ペルソナ種別（"analyst"/"intuition"/"conservative"/"aggressive"）。
+            未指定またはNoneの場合はデフォルト（analyst相当）を使用。
+        max_bets: 買い目点数上限。未指定の場合はペルソナのデフォルト値
+            （analystは8、conservativeは5など）。指定時はペルソナのデフォルトより優先。
 
     Returns:
         統合提案結果
@@ -946,7 +962,10 @@ def _generate_bet_proposal_impl(
 
     # Phase 2: 軸馬選定
     selected_axis = _select_axis_horses(
-        runners_data, ai_predictions, predicted_pace, running_styles, axis_horses
+        runners_data, ai_predictions, predicted_pace, running_styles, axis_horses,
+        weight_ai_score=config["weight_ai_score"],
+        weight_odds_gap=config["weight_odds_gap"],
+        weight_pace_compat=config["weight_pace_compat"],
     )
 
     # Phase 3: レース難易度判定 + 券種選定
@@ -984,6 +1003,9 @@ def _generate_bet_proposal_impl(
         running_styles=running_styles,
         max_bets=effective_max_bets,
         torigami_threshold=config["torigami_threshold"],
+        weight_ai_score=config["weight_ai_score"],
+        weight_odds_gap=config["weight_odds_gap"],
+        weight_pace_compat=config["weight_pace_compat"],
     )
 
     # Phase 5: 予算配分
@@ -1002,7 +1024,8 @@ def _generate_bet_proposal_impl(
 
     # 分析コメント生成
     analysis_comment = _generate_analysis_comment(
-        selected_axis, difficulty, predicted_pace, skip, ai_consensus, bets
+        selected_axis, difficulty, predicted_pace, skip, ai_consensus, bets,
+        skip_gate_threshold=config["skip_gate_threshold"],
     )
 
     return {
@@ -1030,6 +1053,7 @@ def _generate_analysis_comment(
     skip: dict,
     ai_consensus: str,
     bets: list[dict],
+    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
 ) -> str:
     """分析ナラティブを生成する."""
     parts = []
@@ -1050,7 +1074,7 @@ def _generate_analysis_comment(
     parts.append(f"AI合議: {ai_consensus}")
 
     # 見送り
-    if skip["skip_score"] >= SKIP_GATE_THRESHOLD:
+    if skip["skip_score"] >= skip_gate_threshold:
         parts.append(f"見送りスコア{skip['skip_score']}/10。予算を50%削減して提案")
     elif skip["skip_score"] >= 5:
         parts.append(f"見送りスコア{skip['skip_score']}/10。慎重な検討を推奨")
