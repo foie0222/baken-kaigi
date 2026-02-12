@@ -27,6 +27,12 @@ class Testプロンプト切り替え:
         assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
         assert "必ず" in BET_PROPOSAL_SYSTEM_PROMPT
 
+    def test_相談用プロンプトにユーザーコンテキスト活用ルールが含まれる(self):
+        from agentcore.prompts.consultation import SYSTEM_PROMPT
+
+        assert "ユーザーコンテキスト活用ルール" in SYSTEM_PROMPT
+        assert "回収率が低いユーザー" in SYSTEM_PROMPT
+
     def test_買い目提案用プロンプトにフォールバック禁止が含まれる(self):
         from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
 
@@ -683,3 +689,98 @@ class TestExtractBetActions:
         assert len(questions) == 2
         assert questions[0] == "穴馬を探して"
         assert questions[1] == "展開予想は？"
+
+
+# =============================================================================
+# _format_betting_context のテスト
+# =============================================================================
+
+
+def _format_betting_context(summary: dict) -> str:
+    """ユーザーの成績サマリーをフォーマットする（agent.py からロジックを再定義）."""
+    parts = []
+    if summary.get("record_count", 0) > 0:
+        parts.append(f"通算成績: {summary['record_count']}件")
+        if summary.get("win_rate") is not None:
+            parts.append(f"的中率: {summary['win_rate']:.1f}%")
+        if summary.get("roi") is not None:
+            parts.append(f"回収率: {summary['roi']:.1f}%")
+        if summary.get("net_profit") is not None:
+            parts.append(f"収支: {summary['net_profit']:+,}円")
+    return " / ".join(parts) if parts else "成績データなし"
+
+
+class TestFormatBettingContext:
+    """_format_betting_context 関数のテスト."""
+
+    def test_全項目が揃っている場合(self):
+        """全項目が揃っている場合にフォーマットされる."""
+        summary = {
+            "record_count": 50,
+            "win_rate": 25.0,
+            "roi": 85.5,
+            "net_profit": -7250,
+        }
+        result = _format_betting_context(summary)
+
+        assert "通算成績: 50件" in result
+        assert "的中率: 25.0%" in result
+        assert "回収率: 85.5%" in result
+        assert "収支: -7,250円" in result
+        assert " / " in result
+
+    def test_成績データがない場合(self):
+        """record_countが0の場合は成績データなしを返す."""
+        summary = {"record_count": 0}
+        result = _format_betting_context(summary)
+
+        assert result == "成績データなし"
+
+    def test_空辞書の場合(self):
+        """空辞書の場合は成績データなしを返す."""
+        result = _format_betting_context({})
+
+        assert result == "成績データなし"
+
+    def test_プラス収支の場合(self):
+        """プラス収支はプラス記号付きで表示される."""
+        summary = {
+            "record_count": 10,
+            "win_rate": 40.0,
+            "roi": 120.0,
+            "net_profit": 5000,
+        }
+        result = _format_betting_context(summary)
+
+        assert "収支: +5,000円" in result
+
+    def test_roi_win_rateがNoneの場合(self):
+        """roiやwin_rateがNoneの場合はスキップされる."""
+        summary = {
+            "record_count": 5,
+            "win_rate": None,
+            "roi": None,
+            "net_profit": -1000,
+        }
+        result = _format_betting_context(summary)
+
+        assert "通算成績: 5件" in result
+        assert "的中率" not in result
+        assert "回収率" not in result
+        assert "収支: -1,000円" in result
+
+    def test_Decimal型の値を処理できる(self):
+        """DynamoDB由来のDecimal型もfloatフォーマットで処理できる."""
+        from decimal import Decimal
+
+        summary = {
+            "record_count": 20,
+            "win_rate": Decimal("30.0"),
+            "roi": Decimal("92.5"),
+            "net_profit": Decimal("-1500"),
+        }
+        result = _format_betting_context(summary)
+
+        assert "的中率: 30.0%" in result
+        assert "回収率: 92.5%" in result
+        assert "収支: -1,500円" in result

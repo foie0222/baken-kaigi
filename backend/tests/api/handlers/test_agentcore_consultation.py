@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 from botocore.exceptions import BotoCoreError, ClientError
 
 from src.api.handlers.agentcore_consultation import invoke_agentcore
+from src.domain.value_objects import BettingSummary
+from src.domain.value_objects.money import Money
 
 
 class TestInvokeAgentcoreErrorHandling:
@@ -162,3 +164,131 @@ class TestInvokeAgentcoreTypeValidation:
         assert result["statusCode"] == 400
         body = json.loads(result["body"])
         assert "cart_items" in body["error"]
+
+
+class TestInvokeAgentcoreBettingSummary:
+    """invoke_agentcore の成績サマリー注入テスト."""
+
+    def _make_event(self, prompt="テスト", user_id=None):
+        """テスト用イベントを作成する."""
+        event = {"body": json.dumps({"prompt": prompt})}
+        if user_id:
+            event["requestContext"] = {
+                "authorizer": {"claims": {"sub": user_id}}
+            }
+        return event
+
+    def _make_summary(self, record_count=10, win_rate=0.25, roi=85.0, net_profit=-1500):
+        """テスト用BettingSummaryを作成する."""
+        total_investment = 10000
+        total_payout = total_investment + net_profit
+        return BettingSummary(
+            total_investment=Money.of(total_investment),
+            total_payout=Money.of(total_payout),
+            net_profit=net_profit,
+            win_rate=win_rate,
+            record_count=record_count,
+            roi=roi,
+        )
+
+    @patch("src.api.handlers.agentcore_consultation.boto3")
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    @patch("src.api.handlers.agentcore_consultation.GetBettingSummaryUseCase")
+    def test_認証済みユーザーの成績がペイロードに含まれる(
+        self, mock_use_case_cls, mock_boto3
+    ) -> None:
+        """認証済みユーザーの成績サマリーがAgentCoreペイロードに注入される."""
+        summary = self._make_summary()
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = summary
+        mock_use_case_cls.return_value = mock_use_case
+
+        mock_client = MagicMock()
+        mock_client.invoke_agent_runtime.return_value = {
+            "contentType": "application/json",
+            "response": [{"message": "分析結果", "session_id": "s1"}],
+        }
+        mock_boto3.client.return_value = mock_client
+
+        event = self._make_event(user_id="user-123")
+        invoke_agentcore(event, None)
+
+        # invoke_agent_runtime に渡されたペイロードを検証
+        call_kwargs = mock_client.invoke_agent_runtime.call_args
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
+        assert "betting_summary" in payload
+        assert payload["betting_summary"]["record_count"] == 10
+        assert payload["betting_summary"]["win_rate"] == 25.0
+        assert payload["betting_summary"]["roi"] == 85.0
+        assert payload["betting_summary"]["net_profit"] == -1500
+
+    @patch("src.api.handlers.agentcore_consultation.boto3")
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    def test_未認証ユーザーの場合betting_summaryは含まれない(
+        self, mock_boto3
+    ) -> None:
+        """未認証ユーザーの場合、betting_summaryはペイロードに含まれない."""
+        mock_client = MagicMock()
+        mock_client.invoke_agent_runtime.return_value = {
+            "contentType": "application/json",
+            "response": [{"message": "結果", "session_id": "s2"}],
+        }
+        mock_boto3.client.return_value = mock_client
+
+        event = self._make_event()  # user_idなし
+        invoke_agentcore(event, None)
+
+        call_kwargs = mock_client.invoke_agent_runtime.call_args
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
+        assert "betting_summary" not in payload
+
+    @patch("src.api.handlers.agentcore_consultation.boto3")
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    @patch("src.api.handlers.agentcore_consultation.GetBettingSummaryUseCase")
+    def test_成績取得エラーでも相談は続行される(
+        self, mock_use_case_cls, mock_boto3
+    ) -> None:
+        """成績取得に失敗しても相談自体は正常に完了する."""
+        mock_use_case = MagicMock()
+        mock_use_case.execute.side_effect = Exception("DynamoDB error")
+        mock_use_case_cls.return_value = mock_use_case
+
+        mock_client = MagicMock()
+        mock_client.invoke_agent_runtime.return_value = {
+            "contentType": "application/json",
+            "response": [{"message": "結果", "session_id": "s3"}],
+        }
+        mock_boto3.client.return_value = mock_client
+
+        event = self._make_event(user_id="user-456")
+        result = invoke_agentcore(event, None)
+
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["message"] == "結果"
+
+    @patch("src.api.handlers.agentcore_consultation.boto3")
+    @patch("src.api.handlers.agentcore_consultation.AGENTCORE_AGENT_ARN", "arn:test")
+    @patch("src.api.handlers.agentcore_consultation.GetBettingSummaryUseCase")
+    def test_成績が0件の場合betting_summaryは含まれない(
+        self, mock_use_case_cls, mock_boto3
+    ) -> None:
+        """成績が0件の場合、betting_summaryはペイロードに含まれない."""
+        summary = self._make_summary(record_count=0, win_rate=0.0, roi=0.0, net_profit=0)
+        mock_use_case = MagicMock()
+        mock_use_case.execute.return_value = summary
+        mock_use_case_cls.return_value = mock_use_case
+
+        mock_client = MagicMock()
+        mock_client.invoke_agent_runtime.return_value = {
+            "contentType": "application/json",
+            "response": [{"message": "結果", "session_id": "s4"}],
+        }
+        mock_boto3.client.return_value = mock_client
+
+        event = self._make_event(user_id="user-new")
+        invoke_agentcore(event, None)
+
+        call_kwargs = mock_client.invoke_agent_runtime.call_args
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
+        assert "betting_summary" not in payload
