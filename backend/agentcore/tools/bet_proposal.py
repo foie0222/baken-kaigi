@@ -102,6 +102,67 @@ PACE_STYLE_COMPAT = {
     "スロー": {"逃げ": 1.0, "先行": 1.0, "自在": 0.5, "差し": -0.5, "追込": -1.0},
 }
 
+# ペルソナ別プロファイル
+# analyst はデフォルトと同一のため空辞書
+CHARACTER_PROFILES = {
+    "analyst": {},
+    "intuition": {
+        "weight_ai_score": 0.3, "weight_odds_gap": 0.5,
+        "allocation_high": 0.40, "allocation_low": 0.30,
+        "torigami_threshold": 1.5, "skip_gate_threshold": 8,
+        "difficulty_bet_types": {
+            1: ["exacta", "quinella"], 2: ["exacta", "quinella"],
+            3: ["exacta", "trio"], 4: ["trio", "trifecta"],
+            5: ["trio", "quinella_place"],
+        },
+    },
+    "conservative": {
+        "allocation_high": 0.60, "allocation_low": 0.10,
+        "max_bets": 5, "torigami_threshold": 2.5, "skip_gate_threshold": 6,
+        "weight_ai_score": 0.6, "weight_odds_gap": 0.2,
+        "difficulty_bet_types": {
+            1: ["quinella", "quinella_place"], 2: ["quinella", "quinella_place"],
+            3: ["quinella_place", "quinella"], 4: ["quinella_place"],
+            5: ["quinella_place"],
+        },
+    },
+    "aggressive": {
+        "allocation_high": 0.35, "allocation_medium": 0.25, "allocation_low": 0.40,
+        "torigami_threshold": 1.5, "skip_gate_threshold": 9,
+        "weight_ai_score": 0.3, "weight_odds_gap": 0.5,
+        "difficulty_bet_types": {
+            1: ["exacta", "trifecta"], 2: ["exacta", "trifecta"],
+            3: ["trifecta", "trio"], 4: ["trifecta", "trio"],
+            5: ["trio", "trifecta"],
+        },
+    },
+}
+
+_DEFAULT_CONFIG = {
+    "weight_ai_score": WEIGHT_AI_SCORE, "weight_odds_gap": WEIGHT_ODDS_GAP,
+    "weight_pace_compat": WEIGHT_PACE_COMPAT,
+    "allocation_high": ALLOCATION_HIGH, "allocation_medium": ALLOCATION_MEDIUM,
+    "allocation_low": ALLOCATION_LOW,
+    "max_bets": MAX_BETS, "torigami_threshold": TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
+    "skip_gate_threshold": SKIP_GATE_THRESHOLD,
+    "difficulty_bet_types": DIFFICULTY_BET_TYPES,
+}
+
+
+def _get_character_config(character_type: str | None) -> dict:
+    """ペルソナに応じた設定を返す.
+
+    Args:
+        character_type: ペルソナ種別（None or 未知のキーはデフォルト）
+
+    Returns:
+        設定辞書
+    """
+    config = dict(_DEFAULT_CONFIG)
+    if character_type and character_type in CHARACTER_PROFILES:
+        config.update(CHARACTER_PROFILES[character_type])
+    return config
+
 
 # =============================================================================
 # Phase 2: 軸馬選定
@@ -114,6 +175,9 @@ def _calculate_composite_score(
     ai_predictions: list[dict],
     predicted_pace: str = "",
     running_styles: list[dict] | None = None,
+    weight_ai_score: float = WEIGHT_AI_SCORE,
+    weight_odds_gap: float = WEIGHT_ODDS_GAP,
+    weight_pace_compat: float = WEIGHT_PACE_COMPAT,
 ) -> float:
     """AI指数順位 x オッズ乖離 x 展開相性の複合スコアを計算する.
 
@@ -168,9 +232,9 @@ def _calculate_composite_score(
 
     # 加重平均
     composite = (
-        ai_score * WEIGHT_AI_SCORE
-        + odds_gap_score * WEIGHT_ODDS_GAP
-        + pace_score * WEIGHT_PACE_COMPAT
+        ai_score * weight_ai_score
+        + odds_gap_score * weight_odds_gap
+        + pace_score * weight_pace_compat
     )
     return round(min(100, max(0, composite)), 1)
 
@@ -181,6 +245,9 @@ def _select_axis_horses(
     predicted_pace: str = "",
     running_styles: list[dict] | None = None,
     user_axis: list[int] | None = None,
+    weight_ai_score: float = WEIGHT_AI_SCORE,
+    weight_odds_gap: float = WEIGHT_ODDS_GAP,
+    weight_pace_compat: float = WEIGHT_PACE_COMPAT,
 ) -> list[dict]:
     """軸馬を自動選定する.
 
@@ -207,7 +274,9 @@ def _select_axis_horses(
             for hn in valid_axis:
                 runner = runners_map.get(hn, {})
                 score = _calculate_composite_score(
-                    hn, runners_data, ai_predictions, predicted_pace, running_styles
+                    hn, runners_data, ai_predictions, predicted_pace, running_styles,
+                    weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
+                    weight_pace_compat=weight_pace_compat,
                 )
                 result.append({
                     "horse_number": hn,
@@ -222,7 +291,9 @@ def _select_axis_horses(
     for runner in runners_data:
         hn = runner.get("horse_number")
         score = _calculate_composite_score(
-            hn, runners_data, ai_predictions, predicted_pace, running_styles
+            hn, runners_data, ai_predictions, predicted_pace, running_styles,
+            weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
+            weight_pace_compat=weight_pace_compat,
         )
         scored.append({
             "horse_number": hn,
@@ -243,12 +314,14 @@ def _select_axis_horses(
 def _select_bet_types_by_difficulty(
     difficulty_stars: int,
     preferred_bet_types: list[str] | None = None,
+    difficulty_bet_types: dict | None = None,
 ) -> list[str]:
     """レース難易度から推奨券種を選定する.
 
     Args:
         difficulty_stars: レース難易度（1-5）
         preferred_bet_types: ユーザー指定の券種リスト
+        difficulty_bet_types: ペルソナ別の難易度→券種マッピング
 
     Returns:
         推奨券種リスト
@@ -256,8 +329,9 @@ def _select_bet_types_by_difficulty(
     if preferred_bet_types:
         return preferred_bet_types
 
+    mapping = difficulty_bet_types if difficulty_bet_types is not None else DIFFICULTY_BET_TYPES
     stars = max(1, min(5, difficulty_stars))
-    return DIFFICULTY_BET_TYPES[stars]
+    return mapping[stars]
 
 
 # =============================================================================
@@ -371,6 +445,11 @@ def _generate_bet_candidates(
     race_conditions: list[str] | None = None,
     predicted_pace: str = "",
     running_styles: list[dict] | None = None,
+    max_bets: int = MAX_BETS,
+    torigami_threshold: float = TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
+    weight_ai_score: float = WEIGHT_AI_SCORE,
+    weight_odds_gap: float = WEIGHT_ODDS_GAP,
+    weight_pace_compat: float = WEIGHT_PACE_COMPAT,
 ) -> list[dict]:
     """買い目候補を生成し、トリガミチェックを行う.
 
@@ -400,7 +479,9 @@ def _generate_bet_candidates(
         if hn in axis_numbers:
             continue
         score = _calculate_composite_score(
-            hn, runners_data, ai_predictions, predicted_pace, running_styles
+            hn, runners_data, ai_predictions, predicted_pace, running_styles,
+            weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
+            weight_pace_compat=weight_pace_compat,
         )
         partner_scores.append({
             "horse_number": hn,
@@ -498,7 +579,7 @@ def _generate_bet_candidates(
                 )
 
                 # トリガミチェック（推定オッズが閾値未満なら除外）
-                if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
+                if 0 < estimated_odds < torigami_threshold:
                     continue  # トリガミ除外
 
                 # reasoning生成
@@ -589,7 +670,7 @@ def _generate_bet_candidates(
 
     # 期待値降順ソート
     bets.sort(key=lambda x: x["expected_value"], reverse=True)
-    selected = bets[:MAX_BETS]
+    selected = bets[:max_bets]
 
     # 信頼度を候補リスト内のスコア分布に基づいて相対的に再割り当て
     _assign_relative_confidence(selected)
@@ -644,15 +725,20 @@ def _generate_bet_reasoning(
 def _allocate_budget(
     bets: list[dict],
     budget: int,
+    allocation_high: float = ALLOCATION_HIGH,
+    allocation_medium: float = ALLOCATION_MEDIUM,
+    allocation_low: float = ALLOCATION_LOW,
 ) -> list[dict]:
     """信頼度別に予算を配分する.
 
-    高信頼: 50% / 中信頼: 30% / 穴狙い: 20%
     100円単位に丸め、最低100円保証。
 
     Args:
         bets: 買い目候補リスト
         budget: 総予算
+        allocation_high: 高信頼の配分比率
+        allocation_medium: 中信頼の配分比率
+        allocation_low: 穴狙いの配分比率
 
     Returns:
         金額付き買い目リスト
@@ -669,11 +755,11 @@ def _allocate_budget(
     # 存在するグループのみに配分
     groups = []
     if high:
-        groups.append(("high", high, ALLOCATION_HIGH))
+        groups.append(("high", high, allocation_high))
     if medium:
-        groups.append(("medium", medium, ALLOCATION_MEDIUM))
+        groups.append(("medium", medium, allocation_medium))
     if value:
-        groups.append(("low", value, ALLOCATION_LOW))
+        groups.append(("low", value, allocation_low))
 
     if not groups:
         return bets
@@ -694,11 +780,11 @@ def _allocate_budget(
         value = [b for b in bets if b.get("confidence") == "low"]
         groups = []
         if high:
-            groups.append(("high", high, ALLOCATION_HIGH))
+            groups.append(("high", high, allocation_high))
         if medium:
-            groups.append(("medium", medium, ALLOCATION_MEDIUM))
+            groups.append(("medium", medium, allocation_medium))
         if value:
-            groups.append(("low", value, ALLOCATION_LOW))
+            groups.append(("low", value, allocation_low))
         if not groups:
             return bets
 
@@ -835,6 +921,8 @@ def _generate_bet_proposal_impl(
     running_styles: list[dict] | None = None,
     preferred_bet_types: list[str] | None = None,
     axis_horses: list[int] | None = None,
+    character_type: str | None = None,
+    max_bets: int | None = None,
 ) -> dict:
     """買い目提案の統合実装（テスト用に公開）.
 
@@ -850,12 +938,20 @@ def _generate_bet_proposal_impl(
         running_styles: 脚質データ
         preferred_bet_types: ユーザー指定の券種リスト
         axis_horses: ユーザー指定の軸馬番号リスト
+        character_type: ペルソナ種別（"analyst"/"intuition"/"conservative"/"aggressive"）。
+            未指定またはNoneの場合はデフォルト（analyst相当）を使用。
+        max_bets: 買い目点数上限。未指定の場合はペルソナのデフォルト値
+            （analystは8、conservativeは5など）。指定時はペルソナのデフォルトより優先。
 
     Returns:
         統合提案結果
     """
     race_conditions = race_conditions or []
     running_styles = running_styles or []
+
+    # ペルソナ設定の解決
+    config = _get_character_config(character_type)
+    effective_max_bets = max_bets if max_bets is not None else config["max_bets"]
 
     # Phase 2: ペース予想
     front_runners = 0
@@ -866,7 +962,10 @@ def _generate_bet_proposal_impl(
 
     # Phase 2: 軸馬選定
     selected_axis = _select_axis_horses(
-        runners_data, ai_predictions, predicted_pace, running_styles, axis_horses
+        runners_data, ai_predictions, predicted_pace, running_styles, axis_horses,
+        weight_ai_score=config["weight_ai_score"],
+        weight_odds_gap=config["weight_odds_gap"],
+        weight_pace_compat=config["weight_pace_compat"],
     )
 
     # Phase 3: レース難易度判定 + 券種選定
@@ -874,7 +973,8 @@ def _generate_bet_proposal_impl(
         total_runners, race_conditions, venue, runners_data
     )
     bet_types = _select_bet_types_by_difficulty(
-        difficulty["difficulty_stars"], preferred_bet_types
+        difficulty["difficulty_stars"], preferred_bet_types,
+        difficulty_bet_types=config["difficulty_bet_types"],
     )
 
     # Phase 6: 見送りゲート
@@ -888,7 +988,7 @@ def _generate_bet_proposal_impl(
     )
 
     effective_budget = budget
-    if skip["skip_score"] >= SKIP_GATE_THRESHOLD:
+    if skip["skip_score"] >= config["skip_gate_threshold"]:
         effective_budget = int(budget * SKIP_BUDGET_REDUCTION)
 
     # Phase 4: 買い目生成
@@ -901,10 +1001,20 @@ def _generate_bet_proposal_impl(
         race_conditions=race_conditions,
         predicted_pace=predicted_pace,
         running_styles=running_styles,
+        max_bets=effective_max_bets,
+        torigami_threshold=config["torigami_threshold"],
+        weight_ai_score=config["weight_ai_score"],
+        weight_odds_gap=config["weight_odds_gap"],
+        weight_pace_compat=config["weight_pace_compat"],
     )
 
     # Phase 5: 予算配分
-    bets = _allocate_budget(bets, effective_budget)
+    bets = _allocate_budget(
+        bets, effective_budget,
+        allocation_high=config["allocation_high"],
+        allocation_medium=config["allocation_medium"],
+        allocation_low=config["allocation_low"],
+    )
 
     # 合計金額
     total_amount = sum(b.get("amount", 0) for b in bets)
@@ -914,7 +1024,8 @@ def _generate_bet_proposal_impl(
 
     # 分析コメント生成
     analysis_comment = _generate_analysis_comment(
-        selected_axis, difficulty, predicted_pace, skip, ai_consensus, bets
+        selected_axis, difficulty, predicted_pace, skip, ai_consensus, bets,
+        skip_gate_threshold=config["skip_gate_threshold"],
     )
 
     return {
@@ -942,6 +1053,7 @@ def _generate_analysis_comment(
     skip: dict,
     ai_consensus: str,
     bets: list[dict],
+    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
 ) -> str:
     """分析ナラティブを生成する."""
     parts = []
@@ -962,7 +1074,7 @@ def _generate_analysis_comment(
     parts.append(f"AI合議: {ai_consensus}")
 
     # 見送り
-    if skip["skip_score"] >= SKIP_GATE_THRESHOLD:
+    if skip["skip_score"] >= skip_gate_threshold:
         parts.append(f"見送りスコア{skip['skip_score']}/10。予算を50%削減して提案")
     elif skip["skip_score"] >= 5:
         parts.append(f"見送りスコア{skip['skip_score']}/10。慎重な検討を推奨")
@@ -984,6 +1096,8 @@ def generate_bet_proposal(
     budget: int,
     preferred_bet_types: list[str] | None = None,
     axis_horses: list[int] | None = None,
+    character_type: str | None = None,
+    max_bets: int | None = None,
 ) -> dict:
     """レース分析に基づき、買い目の提案を一括生成する.
 
@@ -997,6 +1111,8 @@ def generate_bet_proposal(
         preferred_bet_types: 券種の指定リスト (省略時はレース難易度から自動選定)
             "win", "place", "quinella", "quinella_place", "exacta", "trio", "trifecta"
         axis_horses: 軸馬の馬番リスト (省略時はAI指数上位から自動選定)
+        character_type: ペルソナ種別 ("analyst", "intuition", "conservative", "aggressive")
+        max_bets: 買い目点数上限 (省略時はペルソナのデフォルト値)
 
     Returns:
         提案結果:
@@ -1049,6 +1165,8 @@ def generate_bet_proposal(
             running_styles=running_styles,
             preferred_bet_types=preferred_bet_types,
             axis_horses=axis_horses,
+            character_type=character_type,
+            max_bets=max_bets,
         )
         if "error" not in result:
             _last_proposal_result = result

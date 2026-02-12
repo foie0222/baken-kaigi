@@ -53,6 +53,97 @@
   transform: scale(0.97);
 }
 
+/* ペルソナ選択 */
+.proposal-character-selector {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.proposal-character-selector::-webkit-scrollbar {
+  display: none;
+}
+
+.proposal-character-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #ddd;
+  background: white;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.proposal-character-chip.active {
+  border-color: #1a5f2a;
+  background: #e8f5e9;
+  color: #1a5f2a;
+}
+
+.proposal-character-chip:active {
+  transform: scale(0.97);
+}
+
+.proposal-character-icon {
+  font-size: 16px;
+}
+
+.proposal-character-name {
+  font-size: 12px;
+}
+
+/* 予算自由入力 */
+.proposal-budget-custom-input {
+  padding: 10px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.proposal-budget-custom-input:focus,
+.proposal-budget-custom-input.active {
+  border-color: #1a5f2a;
+}
+
+/* 券種チップ */
+.proposal-bet-type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proposal-bet-type-chip {
+  padding: 8px 14px;
+  border: 1.5px solid #ddd;
+  background: white;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.proposal-bet-type-chip.active {
+  border-color: #1a5f2a;
+  background: #e8f5e9;
+  color: #1a5f2a;
+}
+
+.proposal-bet-type-chip:active {
+  transform: scale(0.97);
+}
+
 .proposal-axis-input {
   padding: 10px 12px;
   border: 1.5px solid #ddd;

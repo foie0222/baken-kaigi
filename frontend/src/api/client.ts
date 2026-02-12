@@ -444,6 +444,8 @@ class ApiClient {
     options?: {
       preferredBetTypes?: BetType[];
       axisHorses?: number[];
+      characterType?: string;
+      maxBets?: number;
     }
   ): Promise<ApiResponse<BetProposalResponse>> {
     const optionParts: string[] = [];
@@ -452,6 +454,12 @@ class ApiClient {
     }
     if (options?.axisHorses?.length) {
       optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
+    }
+    if (options?.characterType) {
+      optionParts.push(`ペルソナ(character_type): ${options.characterType}`);
+    }
+    if (options?.maxBets) {
+      optionParts.push(`買い目点数上限(max_bets): ${options.maxBets}点`);
     }
     const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
 
