@@ -9,6 +9,21 @@ def get_system_prompt(character_type: str = DEFAULT_CHARACTER) -> str:
     return SYSTEM_PROMPT + character_addition
 
 
+def get_agent_system_prompt(agent_data: dict) -> str:
+    """エージェントデータからシステムプロンプトを生成する.
+
+    Args:
+        agent_data: エージェント情報の辞書
+
+    Returns:
+        エージェント固有のシステムプロンプト
+    """
+    from .agent_prompt import get_agent_prompt_addition
+
+    agent_addition = get_agent_prompt_addition(agent_data)
+    return SYSTEM_PROMPT + agent_addition
+
+
 SYSTEM_PROMPT = """あなたは競馬の買い目を分析するAIアシスタント「馬券会議AI」です。
 ギークな競馬ファン向けに、データに基づいた玄人的な分析を提供します。
 

@@ -70,6 +70,7 @@ def _get_agent(
     request_type: str | None = None,
     character_type: str | None = None,
     category: str | None = None,
+    agent_data: dict | None = None,
 ) -> Any:
     """エージェントを遅延初期化して取得する."""
     global _consultation_agents, _bet_proposal_agent
@@ -81,11 +82,28 @@ def _get_agent(
             _bet_proposal_agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT)
         return _bet_proposal_agent
 
-    from prompts.characters import CHARACTER_PROMPTS, DEFAULT_CHARACTER
     from tool_router import get_tools_for_category
 
-    char_key = character_type if character_type in CHARACTER_PROMPTS else DEFAULT_CHARACTER
     resolved_category = category or "full_analysis"
+
+    # エージェントデータがある場合はエージェント固有プロンプトを使用
+    if agent_data:
+        agent_name = agent_data.get("name", "agent")
+        agent_style = agent_data.get("base_style", "data")
+        cache_key = f"agent:{agent_name}:{agent_style}:{resolved_category}"
+
+        if cache_key not in _consultation_agents:
+            logger.info(f"Lazy initializing agent-raising agent: {agent_name} ({agent_style}), category: {resolved_category}")
+            from prompts.consultation import get_agent_system_prompt
+            system_prompt = get_agent_system_prompt(agent_data)
+            tools = get_tools_for_category(resolved_category)
+            _consultation_agents[cache_key] = _create_agent(system_prompt, tools=tools)
+        return _consultation_agents[cache_key]
+
+    # フォールバック: 従来のキャラクタータイプベースのプロンプト
+    from prompts.characters import CHARACTER_PROMPTS, DEFAULT_CHARACTER
+
+    char_key = character_type if character_type in CHARACTER_PROMPTS else DEFAULT_CHARACTER
     cache_key = f"{char_key}:{resolved_category}"
 
     if cache_key not in _consultation_agents:
@@ -111,7 +129,14 @@ def invoke(payload: dict, context: Any) -> dict:
         "runners_data": [...],  # オプション: 出走馬データ
         "session_id": "...",  # オプション: セッションID
         "type": "bet_proposal",  # オプション: "bet_proposal" で買い目提案専用プロンプトを使用
-        "character_type": "analyst"  # オプション: AIキャラクター（analyst/intuition/conservative/aggressive）
+        "character_type": "analyst",  # オプション: AIキャラクター（analyst/intuition/conservative/aggressive）
+        "agent_data": {  # オプション: エージェント育成データ（character_typeより優先）
+            "name": "エージェント名",
+            "base_style": "solid/longshot/data/pace",
+            "stats": {"data_analysis": 40, "pace_reading": 30, "risk_management": 50, "intuition": 20},
+            "performance": {"total_bets": 0, "wins": 0, "total_invested": 0, "total_return": 0},
+            "level": 1
+        }
     }
     """
     user_message = payload.get("prompt", "")
@@ -119,6 +144,7 @@ def invoke(payload: dict, context: Any) -> dict:
     runners_data = payload.get("runners_data", [])
     request_type = payload.get("type")
     character_type = payload.get("character_type")
+    agent_data = payload.get("agent_data")
 
     # 入力バリデーション
     if not user_message and not cart_items:
@@ -164,7 +190,7 @@ def invoke(payload: dict, context: Any) -> dict:
         user_message = f"{category_instruction}\n\n{user_message}"
 
     # エージェント実行（カテゴリ別ツール選択で遅延初期化）
-    agent = _get_agent(request_type, character_type, category=category)
+    agent = _get_agent(request_type, character_type, category=category, agent_data=agent_data)
     result = agent(user_message)
 
     # レスポンスからテキストを抽出

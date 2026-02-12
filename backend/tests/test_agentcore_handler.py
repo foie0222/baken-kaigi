@@ -536,3 +536,88 @@ class TestTypeフィールド中継:
             assert response["statusCode"] == 400
             response_body = json.loads(response["body"])
             assert "Invalid type" in response_body["error"]
+
+
+class TestAgentData中継:
+    """invoke_agentcore が agent_data / character_type を AgentCore に中継することの検証."""
+
+    def _invoke_and_get_payload(self, body: dict) -> dict:
+        """共通: invoke_agentcore を呼んで送信された payload を返す."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            event = {"body": json.dumps(body)}
+            context = MagicMock()
+
+            mock_client = MagicMock()
+            mock_streaming_body = MagicMock()
+            mock_streaming_body.read.return_value = json.dumps(
+                {"message": "OK", "session_id": "test-agent"}
+            ).encode("utf-8")
+            mock_client.invoke_agent_runtime.return_value = {
+                "contentType": "application/json",
+                "response": mock_streaming_body,
+            }
+
+            with patch("agentcore_handler.boto3") as mock_boto3:
+                mock_boto3.client.return_value = mock_client
+                invoke_agentcore(event, context)
+
+            call_args = mock_client.invoke_agent_runtime.call_args
+            return json.loads(call_args.kwargs["payload"])
+
+    def test_agent_dataがpayloadに含まれる(self):
+        """agent_data がリクエストに含まれる場合、payload に中継される."""
+        agent_data = {
+            "name": "ハヤテ",
+            "base_style": "solid",
+            "stats": {"data_analysis": 40, "pace_reading": 30, "risk_management": 50, "intuition": 20},
+            "performance": {"total_bets": 10, "wins": 3, "total_invested": 10000, "total_return": 12000},
+            "level": 2,
+        }
+        payload = self._invoke_and_get_payload({"prompt": "分析して", "agent_data": agent_data})
+        assert payload["agent_data"] == agent_data
+        assert "character_type" not in payload
+
+    def test_agent_dataがある場合character_typeは含まれない(self):
+        """agent_data と character_type が両方ある場合、agent_data のみ中継される."""
+        agent_data = {"name": "テスト", "base_style": "data"}
+        payload = self._invoke_and_get_payload({
+            "prompt": "分析して",
+            "agent_data": agent_data,
+            "character_type": "analyst",
+        })
+        assert "agent_data" in payload
+        assert "character_type" not in payload
+
+    def test_character_typeがpayloadに含まれる(self):
+        """agent_data がなく character_type がある場合、character_type が中継される."""
+        payload = self._invoke_and_get_payload({
+            "prompt": "分析して",
+            "character_type": "intuition",
+        })
+        assert payload["character_type"] == "intuition"
+        assert "agent_data" not in payload
+
+    def test_不正なcharacter_typeは無視される(self):
+        """character_type が無効な値の場合、payload に含まれない."""
+        payload = self._invoke_and_get_payload({
+            "prompt": "分析して",
+            "character_type": "invalid_character",
+        })
+        assert "character_type" not in payload
+
+    def test_agent_dataもcharacter_typeもない場合(self):
+        """どちらも指定されない場合、payload にエージェント情報は含まれない."""
+        payload = self._invoke_and_get_payload({"prompt": "分析して"})
+        assert "agent_data" not in payload
+        assert "character_type" not in payload
+
+    def test_betting_summaryがpayloadに含まれる(self):
+        """betting_summary がリクエストに含まれる場合、payload に中継される."""
+        summary = {"record_count": 10, "win_rate": 30.0, "roi": 85.0}
+        payload = self._invoke_and_get_payload({
+            "prompt": "分析して",
+            "betting_summary": summary,
+        })
+        assert payload["betting_summary"] == summary
