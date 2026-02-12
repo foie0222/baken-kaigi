@@ -3,6 +3,8 @@ import os
 
 from src.domain.ports import (
     AIClient,
+    AgentRepository,
+    AgentReviewRepository,
     BettingRecordRepository,
     CartRepository,
     ConsultationSessionRepository,
@@ -53,6 +55,8 @@ class Dependencies:
     _spending_limit_provider: SpendingLimitProvider | None = None
     _betting_record_repository: BettingRecordRepository | None = None
     _loss_limit_change_repository: LossLimitChangeRepository | None = None
+    _agent_repository: AgentRepository | None = None
+    _agent_review_repository: AgentReviewRepository | None = None
 
     @classmethod
     def get_cart_repository(cls) -> CartRepository:
@@ -263,6 +267,52 @@ class Dependencies:
         cls._betting_record_repository = repository
 
     @classmethod
+    def get_agent_repository(cls) -> AgentRepository:
+        """エージェントリポジトリを取得する."""
+        if cls._agent_repository is None:
+            if os.environ.get("AGENT_TABLE_NAME") is not None:
+                from src.infrastructure.repositories.dynamodb_agent_repository import (
+                    DynamoDBAgentRepository,
+                )
+
+                cls._agent_repository = DynamoDBAgentRepository()
+            else:
+                from src.infrastructure.repositories.in_memory_agent_repository import (
+                    InMemoryAgentRepository,
+                )
+
+                cls._agent_repository = InMemoryAgentRepository()
+        return cls._agent_repository
+
+    @classmethod
+    def set_agent_repository(cls, repository: AgentRepository) -> None:
+        """エージェントリポジトリを設定する（テスト用）."""
+        cls._agent_repository = repository
+
+    @classmethod
+    def get_agent_review_repository(cls) -> AgentReviewRepository:
+        """エージェント振り返りリポジトリを取得する."""
+        if cls._agent_review_repository is None:
+            if os.environ.get("AGENT_REVIEW_TABLE_NAME") is not None:
+                from src.infrastructure.repositories.dynamodb_agent_review_repository import (
+                    DynamoDBAgentReviewRepository,
+                )
+
+                cls._agent_review_repository = DynamoDBAgentReviewRepository()
+            else:
+                from src.infrastructure.repositories.in_memory_agent_review_repository import (
+                    InMemoryAgentReviewRepository,
+                )
+
+                cls._agent_review_repository = InMemoryAgentReviewRepository()
+        return cls._agent_review_repository
+
+    @classmethod
+    def set_agent_review_repository(cls, repository: AgentReviewRepository) -> None:
+        """エージェント振り返りリポジトリを設定する（テスト用）."""
+        cls._agent_review_repository = repository
+
+    @classmethod
     def reset(cls) -> None:
         """全ての依存性をリセットする（テスト用）."""
         cls._cart_repository = None
@@ -276,3 +326,5 @@ class Dependencies:
         cls._spending_limit_provider = None
         cls._betting_record_repository = None
         cls._loss_limit_change_repository = None
+        cls._agent_repository = None
+        cls._agent_review_repository = None

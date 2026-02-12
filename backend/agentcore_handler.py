@@ -85,6 +85,8 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         cart_items: カート内容（オプション）
         runners_data: 出走馬データ（オプション）
         session_id: セッションID（オプション）
+        character_type: AIキャラクター（オプション、agent_dataがない場合のフォールバック）
+        agent_data: エージェント育成データ（オプション、character_typeより優先）
 
     Returns:
         message: AI からの応答
@@ -128,6 +130,23 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
                 event=event,
             )
         payload["type"] = request_type
+
+    # エージェントデータを中継（agent_data > character_type の優先順位）
+    agent_data = body.get("agent_data")
+    if agent_data and isinstance(agent_data, dict):
+        payload["agent_data"] = agent_data
+    else:
+        # フォールバック: 従来のキャラクタータイプ
+        _VALID_CHARACTER_TYPES = {"analyst", "intuition", "conservative", "aggressive"}
+        character_type = body.get("character_type")
+        if character_type:
+            if isinstance(character_type, str) and character_type in _VALID_CHARACTER_TYPES:
+                payload["character_type"] = character_type
+
+    # ユーザー成績サマリーを中継
+    betting_summary = body.get("betting_summary")
+    if betting_summary and isinstance(betting_summary, dict):
+        payload["betting_summary"] = betting_summary
 
     try:
         # boto3 クライアント設定

@@ -147,6 +147,53 @@ class BakenKaigiApiStack(Stack):
             time_to_live_attribute="ttl",
         )
 
+        # Agent テーブル
+        agent_table = dynamodb.Table(
+            self,
+            "AgentTable",
+            table_name="baken-kaigi-agent",
+            partition_key=dynamodb.Attribute(
+                name="agent_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+        # user_id での検索用 GSI
+        agent_table.add_global_secondary_index(
+            index_name="user_id-index",
+            partition_key=dynamodb.Attribute(
+                name="user_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
+        # Agent Review テーブル
+        agent_review_table = dynamodb.Table(
+            self,
+            "AgentReviewTable",
+            table_name="baken-kaigi-agent-review",
+            partition_key=dynamodb.Attribute(
+                name="review_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+        # agent_id + race_date での検索用 GSI
+        agent_review_table.add_global_secondary_index(
+            index_name="agent_id-index",
+            partition_key=dynamodb.Attribute(
+                name="agent_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="race_date",
+                type=dynamodb.AttributeType.STRING,
+            ),
+        )
+
         # ========================================
         # Cognito User Pool（ユーザー認証）
         # ========================================
@@ -481,7 +528,9 @@ class BakenKaigiApiStack(Stack):
             "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
             "BETTING_RECORD_TABLE_NAME": betting_record_table.table_name,
             "LOSS_LIMIT_CHANGE_TABLE_NAME": loss_limit_change_table.table_name,
-            "CODE_VERSION": "5",  # コード更新強制用
+            "AGENT_TABLE_NAME": agent_table.table_name,
+            "AGENT_REVIEW_TABLE_NAME": agent_review_table.table_name,
+            "CODE_VERSION": "6",  # コード更新強制用
         }
 
         # 開発用オリジン許可時の環境変数を追加
@@ -1074,6 +1123,34 @@ class BakenKaigiApiStack(Stack):
             **lambda_no_vpc_props,
         )
 
+        # エージェントAPI
+        agent_fn = lambda_.Function(
+            self,
+            "AgentFunction",
+            handler="src.api.handlers.agent.agent_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-agent",
+            description="エージェントAPI（統合ハンドラー）",
+            **lambda_no_vpc_props,
+        )
+
+        # エージェント振り返りAPI
+        agent_review_fn = lambda_.Function(
+            self,
+            "AgentReviewFunction",
+            handler="src.api.handlers.agent.agent_review_handler",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-agent-review",
+            description="エージェント振り返りAPI",
+            **lambda_no_vpc_props,
+        )
+
         # Cognito Post Confirmation トリガー
         cognito_post_confirmation_fn = lambda_.Function(
             self,
@@ -1579,6 +1656,52 @@ class BakenKaigiApiStack(Stack):
             authorizer=cognito_authorizer,
         )
 
+        # /agents
+        agents = api.root.add_resource("agents")
+        agent_integration = apigw.LambdaIntegration(agent_fn)
+        agents.add_method(
+            "POST",
+            agent_integration,
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /agents/me
+        agents_me = agents.add_resource("me")
+        agents_me.add_method(
+            "GET",
+            agent_integration,
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        agents_me.add_method(
+            "PUT",
+            agent_integration,
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
+        # /agents/me/reviews
+        agents_reviews = agents_me.add_resource("reviews")
+        agent_review_integration = apigw.LambdaIntegration(agent_review_fn)
+        agents_reviews.add_method(
+            "GET",
+            agent_review_integration,
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+        agents_reviews.add_method(
+            "POST",
+            agent_review_integration,
+            api_key_required=True,
+            authorization_type=apigw.AuthorizationType.COGNITO,
+            authorizer=cognito_authorizer,
+        )
+
         # ========================================
         # AgentCore 相談 API
         # ========================================
@@ -1692,6 +1815,11 @@ class BakenKaigiApiStack(Stack):
         ]
         for fn in ipat_credential_functions:
             fn.add_to_role_policy(ipat_secrets_policy)
+
+        # エージェント関連 Lambda に Agent テーブルへのアクセス権限を付与
+        agent_table.grant_read_write_data(agent_fn)
+        agent_table.grant_read_data(agent_review_fn)
+        agent_review_table.grant_read_write_data(agent_review_fn)
 
         # 投票記録関連 Lambda に Betting Record テーブルへのアクセス権限を付与
         betting_record_table.grant_read_write_data(betting_record_fn)

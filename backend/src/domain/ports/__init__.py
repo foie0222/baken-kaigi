@@ -1,4 +1,6 @@
 """ポートモジュール."""
+from .agent_repository import AgentRepository
+from .agent_review_repository import AgentReviewRepository
 from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, ConsultationContext
 from .betting_record_repository import BettingRecordRepository
 from .cart_repository import CartRepository
@@ -63,6 +65,8 @@ from .race_data_provider import (
 )
 
 __all__ = [
+    "AgentRepository",
+    "AgentReviewRepository",
     "AIClient",
     "AmountFeedbackContext",
     "AncestorData",

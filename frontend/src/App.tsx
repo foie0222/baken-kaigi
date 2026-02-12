@@ -27,6 +27,8 @@ import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage';
 import { CookiePolicyPage } from './pages/legal/CookiePolicyPage';
 import { HelpPage } from './pages/HelpPage';
 import { OAuthProfilePage } from './pages/auth/OAuthProfilePage';
+import { OnboardingPage } from './pages/OnboardingPage';
+import { AgentProfilePage } from './pages/AgentProfilePage';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useAuthStore } from './stores/authStore';
 import './styles/index.css';
@@ -69,6 +71,8 @@ function App() {
           <Route path="profile" element={<AuthGuard><ProfilePage /></AuthGuard>} />
           <Route path="change-password" element={<AuthGuard><ChangePasswordPage /></AuthGuard>} />
           <Route path="delete-account" element={<AuthGuard><DeleteAccountPage /></AuthGuard>} />
+          <Route path="onboarding" element={<AuthGuard><OnboardingPage /></AuthGuard>} />
+          <Route path="agent" element={<AuthGuard><AgentProfilePage /></AuthGuard>} />
           <Route path="dashboard" element={<AuthGuard><DashboardPage /></AuthGuard>} />
           <Route path="history" element={<AuthGuard><HistoryPage /></AuthGuard>} />
           <Route path="purchase/confirm" element={<AuthGuard><PurchaseConfirmPage /></AuthGuard>} />
