@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ProposalCard } from './ProposalCard';
 import { apiClient } from '../../api/client';
 import { useCartStore, type AddItemResult } from '../../stores/cartStore';
@@ -24,6 +24,13 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
   const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set());
   const isMountedRef = useRef(true);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const resetState = () => {
     setResult(null);
     setError(null);
@@ -31,7 +38,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
   };
 
   const handleGenerate = async () => {
-    isMountedRef.current = true;
+    if (loading) return;
     setLoading(true);
     setError(null);
     setResult(null);
