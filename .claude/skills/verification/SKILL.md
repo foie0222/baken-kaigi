@@ -53,12 +53,14 @@ gh run list --limit 5
 
 ### Step 3: ブラウザでログイン
 
-1. `tabs_context_mcp` でブラウザタブ情報を取得
-2. 新しいタブを作成
-3. `https://bakenkaigi.com/login` にアクセス
-4. `.claude/verification.local.json` から認証情報を読み込み
-5. メールアドレス・パスワードを入力してログイン
-6. ログイン成功を確認（ホーム画面への遷移）
+Playwright MCP（`browser_*` ツール）を使用する。
+
+1. `browser_navigate` で `https://bakenkaigi.com/login` にアクセス
+2. `.claude/verification.local.json` から認証情報を読み込み
+3. `browser_snapshot` でログインフォームの要素を取得
+4. `browser_fill_form` または `browser_type` でメール・パスワードを入力
+5. `browser_click` でログインボタンをクリック
+6. `browser_snapshot` でログイン成功を確認（ホーム画面への遷移）
 7. Cookie同意バナーが表示された場合は拒否（プライバシー優先）
 
 ### Step 4: PR変更の反映確認（重点）
@@ -74,9 +76,10 @@ Step 1で特定した変更箇所を優先的に確認：
 [references/verification-checklist.md](references/verification-checklist.md) に従って、各ページを順に確認する。
 
 各ページで必ず以下を実施：
-- `read_console_messages` でJSエラーを確認（pattern: "error|Error|ERR"）
-- `read_network_requests` で5xxエラーやタイムアウトを確認
-- スクリーンショットでレイアウト崩れを目視確認
+- `browser_console_messages` でJSエラーを確認（level: "error"）
+- `browser_network_requests` でAPIエラーを確認
+- `browser_take_screenshot` でレイアウト崩れを目視確認
+- `browser_snapshot` で要素のアクセシビリティツリーを確認
 
 **開催日データの確認:** レース一覧は開催日にのみデータが表示される。非開催日は「レースがありません」等の表示が正しいことを確認する。
 
