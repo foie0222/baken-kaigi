@@ -52,4 +52,5 @@ uv.lock
 # Claude Code個人設定
 .claude/settings.local.json
 .claude/ralph-loop.local.md
+.claude/verification.local.json
 .claude/logs/
