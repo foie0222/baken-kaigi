@@ -30,7 +30,7 @@ class DynamoDBLossLimitChangeRepository(LossLimitChangeRepository):
 
     def find_by_id(self, change_id: LossLimitChangeId) -> LossLimitChange | None:
         """変更リクエストIDで検索する."""
-        response = self._table.get_item(Key={"change_id": change_id.value})
+        response = self._table.get_item(Key={"change_id": str(change_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -40,7 +40,7 @@ class DynamoDBLossLimitChangeRepository(LossLimitChangeRepository):
         """ユーザーIDで保留中の変更リクエストを検索する."""
         response = self._table.query(
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(user_id.value),
+            KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
             FilterExpression=Attr("status").eq(LossLimitChangeStatus.PENDING.value),
         )
         items = response.get("Items", [])
@@ -50,7 +50,7 @@ class DynamoDBLossLimitChangeRepository(LossLimitChangeRepository):
         """ユーザーIDで変更リクエストを検索する."""
         response = self._table.query(
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(user_id.value),
+            KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
         )
         items = response.get("Items", [])
         return [self._from_dynamodb_item(item) for item in items]
@@ -59,8 +59,8 @@ class DynamoDBLossLimitChangeRepository(LossLimitChangeRepository):
     def _to_dynamodb_item(change: LossLimitChange) -> dict:
         """LossLimitChange を DynamoDB アイテムに変換する."""
         return {
-            "change_id": change.change_id.value,
-            "user_id": change.user_id.value,
+            "change_id": str(change.change_id.value),
+            "user_id": str(change.user_id.value),
             "current_limit": change.current_limit.value,
             "requested_limit": change.requested_limit.value,
             "change_type": change.change_type.value,

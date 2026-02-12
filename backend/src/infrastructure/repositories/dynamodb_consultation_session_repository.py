@@ -46,7 +46,7 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
 
     def find_by_id(self, session_id: SessionId) -> ConsultationSession | None:
         """セッションIDで検索する."""
-        response = self._table.get_item(Key={"session_id": session_id.value})
+        response = self._table.get_item(Key={"session_id": str(session_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -56,14 +56,14 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
         """ユーザーIDで検索する（GSI使用）."""
         response = self._table.query(
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(user_id.value),
+            KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
         )
         items = response.get("Items", [])
         return [self._from_dynamodb_item(item) for item in items]
 
     def delete(self, session_id: SessionId) -> None:
         """セッションを削除する."""
-        self._table.delete_item(Key={"session_id": session_id.value})
+        self._table.delete_item(Key={"session_id": str(session_id.value)})
 
     def _to_dynamodb_item(self, session: ConsultationSession) -> dict[str, Any]:
         """ConsultationSessionエンティティをDynamoDBアイテムに変換."""
@@ -79,7 +79,7 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
         for msg in session.get_messages():
             messages.append(
                 {
-                    "message_id": msg.message_id.value,
+                    "message_id": str(msg.message_id.value),
                     "type": msg.type.value,
                     "content": msg.content,
                     "timestamp": msg.timestamp.isoformat(),
@@ -104,7 +104,7 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
                 )
             data_feedbacks.append(
                 {
-                    "cart_item_id": fb.cart_item_id.value,
+                    "cart_item_id": str(fb.cart_item_id.value),
                     "horse_summaries": horse_summaries,
                     "overall_comment": fb.overall_comment,
                     "generated_at": fb.generated_at.isoformat(),
@@ -128,8 +128,8 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
             }
 
         return {
-            "session_id": session.session_id.value,
-            "user_id": session.user_id.value if session.user_id else "__anonymous__",
+            "session_id": str(session.session_id.value),
+            "user_id": str(session.user_id.value) if session.user_id else "__anonymous__",
             "cart_snapshot": cart_snapshot,
             "messages": messages,
             "data_feedbacks": data_feedbacks,
@@ -229,8 +229,8 @@ class DynamoDBConsultationSessionRepository(ConsultationSessionRepository):
     def _cart_item_to_dict(self, item: CartItem) -> dict[str, Any]:
         """CartItemを辞書に変換."""
         return {
-            "item_id": item.item_id.value,
-            "race_id": item.race_id.value,
+            "item_id": str(item.item_id.value),
+            "race_id": str(item.race_id.value),
             "race_name": item.race_name,
             "bet_type": item.bet_selection.bet_type.value,
             "horse_numbers": item.bet_selection.horse_numbers.to_list(),

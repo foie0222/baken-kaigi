@@ -32,7 +32,7 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
 
     def find_by_id(self, record_id: BettingRecordId) -> BettingRecord | None:
         """投票記録IDで検索する."""
-        response = self._table.get_item(Key={"record_id": record_id.value})
+        response = self._table.get_item(Key={"record_id": str(record_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -47,7 +47,7 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
         bet_type: Optional[BetType] = None,
     ) -> list[BettingRecord]:
         """ユーザーIDで検索する（GSI使用、フィルタ付き）."""
-        key_condition = Key("user_id").eq(user_id.value)
+        key_condition = Key("user_id").eq(str(user_id.value))
         if from_date is not None and to_date is not None:
             key_condition = key_condition & Key("race_date").between(
                 from_date.isoformat(), to_date.isoformat()
@@ -89,9 +89,9 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
     def _to_dynamodb_item(record: BettingRecord) -> dict:
         """BettingRecord を DynamoDB アイテムに変換する."""
         item: dict = {
-            "record_id": record.record_id.value,
-            "user_id": record.user_id.value,
-            "race_id": record.race_id.value,
+            "record_id": str(record.record_id.value),
+            "user_id": str(record.user_id.value),
+            "race_id": str(record.race_id.value),
             "race_name": record.race_name,
             "race_date": record.race_date.isoformat(),
             "venue": record.venue,

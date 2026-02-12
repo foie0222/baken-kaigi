@@ -36,7 +36,7 @@ class DynamoDBCartRepository(CartRepository):
 
     def find_by_id(self, cart_id: CartId) -> Cart | None:
         """カートIDで検索する."""
-        response = self._table.get_item(Key={"cart_id": cart_id.value})
+        response = self._table.get_item(Key={"cart_id": str(cart_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -46,7 +46,7 @@ class DynamoDBCartRepository(CartRepository):
         """ユーザーIDで検索する（GSI使用）."""
         response = self._table.query(
             IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(user_id.value),
+            KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
             Limit=1,
         )
         items = response.get("Items", [])
@@ -56,7 +56,7 @@ class DynamoDBCartRepository(CartRepository):
 
     def delete(self, cart_id: CartId) -> None:
         """カートを削除する."""
-        self._table.delete_item(Key={"cart_id": cart_id.value})
+        self._table.delete_item(Key={"cart_id": str(cart_id.value)})
 
     def _to_dynamodb_item(self, cart: Cart) -> dict[str, Any]:
         """CartエンティティをDynamoDBアイテムに変換."""
@@ -66,8 +66,8 @@ class DynamoDBCartRepository(CartRepository):
         for item in cart.get_items():
             items.append(
                 {
-                    "item_id": item.item_id.value,
-                    "race_id": item.race_id.value,
+                    "item_id": str(item.item_id.value),
+                    "race_id": str(item.race_id.value),
                     "race_name": item.race_name,
                     "bet_type": item.bet_selection.bet_type.value,
                     "horse_numbers": item.bet_selection.horse_numbers.to_list(),
@@ -77,8 +77,8 @@ class DynamoDBCartRepository(CartRepository):
             )
 
         return {
-            "cart_id": cart.cart_id.value,
-            "user_id": cart.user_id.value if cart.user_id else "__anonymous__",
+            "cart_id": str(cart.cart_id.value),
+            "user_id": str(cart.user_id.value) if cart.user_id else "__anonymous__",
             "items": items,
             "created_at": cart.created_at.isoformat(),
             "updated_at": cart.updated_at.isoformat(),

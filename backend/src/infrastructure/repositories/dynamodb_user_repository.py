@@ -28,7 +28,7 @@ class DynamoDBUserRepository(UserRepository):
 
     def find_by_id(self, user_id: UserId) -> User | None:
         """ユーザーIDで検索する."""
-        response = self._table.get_item(Key={"user_id": user_id.value})
+        response = self._table.get_item(Key={"user_id": str(user_id.value)})
         item = response.get("Item")
         if item is None:
             return None
@@ -38,7 +38,7 @@ class DynamoDBUserRepository(UserRepository):
         """メールアドレスで検索する."""
         response = self._table.query(
             IndexName="email-index",
-            KeyConditionExpression=Key("email").eq(email.value),
+            KeyConditionExpression=Key("email").eq(str(email.value)),
         )
         items = response.get("Items", [])
         if not items:
@@ -47,15 +47,15 @@ class DynamoDBUserRepository(UserRepository):
 
     def delete(self, user_id: UserId) -> None:
         """ユーザーを削除する."""
-        self._table.delete_item(Key={"user_id": user_id.value})
+        self._table.delete_item(Key={"user_id": str(user_id.value)})
 
     @staticmethod
     def _to_dynamodb_item(user: User) -> dict:
         """User を DynamoDB アイテムに変換する."""
         item: dict = {
-            "user_id": user.user_id.value,
-            "email": user.email.value,
-            "display_name": user.display_name.value,
+            "user_id": str(user.user_id.value),
+            "email": str(user.email.value),
+            "display_name": str(user.display_name.value),
             "date_of_birth": user.date_of_birth.value.isoformat(),
             "terms_accepted_at": user.terms_accepted_at.isoformat(),
             "privacy_accepted_at": user.privacy_accepted_at.isoformat(),
