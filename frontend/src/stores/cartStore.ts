@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { CartItem, RunnerData } from '../types';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
-export type AddItemResult = 'ok' | 'different_race' | 'invalid_amount';
+export type AddItemResult = 'ok' | 'merged' | 'different_race' | 'invalid_amount';
 
 interface CartState {
   cartId: string;
@@ -47,19 +47,43 @@ export const useCartStore = create<CartState>()(
           }
         }
 
+        // 同一券種・同一組み合わせの重複チェック
+        const duplicate = state.items.find((existing) => {
+          if (existing.betType !== item.betType) return false;
+          if (existing.betDisplay && item.betDisplay) {
+            return existing.betDisplay === item.betDisplay;
+          }
+          const sortedExisting = [...existing.horseNumbers].sort((a, b) => a - b);
+          const sortedNew = [...item.horseNumbers].sort((a, b) => a - b);
+          return sortedExisting.length === sortedNew.length &&
+            sortedExisting.every((v, i) => v === sortedNew[i]);
+        });
+
         // runnersDataはCart単位で保持（CartItemには含めない）
         const { runnersData, ...itemWithoutRunners } = item;
+        const runnersUpdate: Partial<CartState> = {};
+        if (runnersData && runnersData.length > 0) {
+          runnersUpdate.currentRunnersData = runnersData;
+        }
+
+        if (duplicate) {
+          const mergedAmount = Math.min(duplicate.amount + item.amount, MAX_BET_AMOUNT);
+          set((state) => ({
+            items: state.items.map((i) =>
+              i.id === duplicate.id ? { ...i, amount: mergedAmount } : i
+            ),
+            ...runnersUpdate,
+          }));
+          return 'merged';
+        }
+
         const newItem: CartItem = {
           ...itemWithoutRunners,
           id: generateItemId(),
         };
-        const updates: Partial<CartState> = {};
-        if (runnersData && runnersData.length > 0) {
-          updates.currentRunnersData = runnersData;
-        }
         set((state) => ({
           items: [...state.items, newItem],
-          ...updates,
+          ...runnersUpdate,
         }));
         return 'ok';
       },

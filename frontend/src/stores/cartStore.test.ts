@@ -114,8 +114,8 @@ describe('cartStore', () => {
     })
 
     it('特定のアイテムのみ削除される', () => {
-      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース1' }))
-      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース2' }))
+      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース1', horseNumbers: [1, 2] }))
+      useCartStore.getState().addItem(createMockCartItem({ raceName: 'レース2', horseNumbers: [3, 4] }))
       const itemToRemove = useCartStore.getState().items[0].id
 
       useCartStore.getState().removeItem(itemToRemove)
@@ -176,9 +176,9 @@ describe('cartStore', () => {
     })
 
     it('アイテム数を正しく返す', () => {
-      useCartStore.getState().addItem(createMockCartItem())
-      useCartStore.getState().addItem(createMockCartItem())
-      useCartStore.getState().addItem(createMockCartItem())
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [1, 2] }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [3, 4] }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [5, 6] }))
 
       const count = useCartStore.getState().getItemCount()
       expect(count).toBe(3)
@@ -206,8 +206,8 @@ describe('cartStore', () => {
     })
 
     it('特定のアイテムのみ金額が更新される', () => {
-      useCartStore.getState().addItem(createMockCartItem({ amount: 1000 }))
-      useCartStore.getState().addItem(createMockCartItem({ amount: 1500 }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [1, 2], amount: 1000 }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [3, 4], amount: 1500 }))
       const itemId = useCartStore.getState().items[0].id
 
       useCartStore.getState().updateItemAmount(itemId, 3000)
@@ -218,8 +218,8 @@ describe('cartStore', () => {
     })
 
     it('合計金額も正しく再計算される', () => {
-      useCartStore.getState().addItem(createMockCartItem({ amount: 1000 }))
-      useCartStore.getState().addItem(createMockCartItem({ amount: 2000 }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [1, 2], amount: 1000 }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [3, 4], amount: 2000 }))
       const itemId = useCartStore.getState().items[0].id
 
       useCartStore.getState().updateItemAmount(itemId, 5000)
@@ -325,8 +325,8 @@ describe('cartStore', () => {
       const runnersData = [
         { horse_number: 1, horse_name: '馬A', odds: 5.0, popularity: 2, frame_number: 1 },
       ]
-      useCartStore.getState().addItem(createMockCartItem({ runnersData }))
-      useCartStore.getState().addItem(createMockCartItem({ runnersData }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [1, 2], runnersData }))
+      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [3, 4], runnersData }))
 
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(2)
@@ -405,6 +405,76 @@ describe('cartStore', () => {
       expect(result).toBe('invalid_amount')
       const state = useCartStore.getState()
       expect(state.items).toHaveLength(0)
+    })
+  })
+
+  describe('重複検出と金額合算', () => {
+    it('同一券種・同一馬番の買い目を追加すると金額が合算される', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [2, 6], betDisplay: '2-6', amount: 300 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [2, 6], betDisplay: '2-6', amount: 600 })
+      )
+
+      expect(result).toBe('merged')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].amount).toBe(900) // 300 + 600
+    })
+
+    it('合算後にMAX_BET_AMOUNTを超える場合は上限でクランプされる', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'win', horseNumbers: [1], betDisplay: '1', amount: 80000 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'win', horseNumbers: [1], betDisplay: '1', amount: 50000 })
+      )
+
+      expect(result).toBe('merged')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].amount).toBe(100000) // MAX_BET_AMOUNT
+    })
+
+    it('券種が異なれば重複とみなさない', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [2, 6], betDisplay: '2-6', amount: 300 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'exacta', horseNumbers: [2, 6], betDisplay: '2-6', amount: 600 })
+      )
+
+      expect(result).toBe('ok')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(2)
+    })
+
+    it('馬番が異なれば重複とみなさない', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [2, 6], betDisplay: '2-6', amount: 300 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [2, 8], betDisplay: '2-8', amount: 600 })
+      )
+
+      expect(result).toBe('ok')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(2)
+    })
+
+    it('betDisplayがない場合はhorseNumbersのソート比較で重複判定する', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [6, 2], amount: 300 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'quinella', horseNumbers: [2, 6], amount: 600 })
+      )
+
+      expect(result).toBe('merged')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].amount).toBe(900)
     })
   })
 
