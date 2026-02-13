@@ -25,6 +25,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from batch.ai_shisu_scraper import VENUE_CODE_MAP
+from batch.dynamodb_utils import convert_floats
 
 # ロガー設定
 logger = logging.getLogger(__name__)
@@ -238,7 +239,7 @@ def save_indices(
         "source": SOURCE_NAME,
         "venue": venue,
         "race_number": race_number,
-        "indices": indices,
+        "indices": convert_floats(indices),
         "scraped_at": scraped_at.isoformat(),
         "ttl": ttl,
     }
