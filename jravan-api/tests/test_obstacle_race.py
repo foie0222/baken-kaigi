@@ -23,7 +23,7 @@ def _make_row(**overrides):
         "kyosomei_hondai": "",
         "kyosomei_fukudai": "",
         "grade_code": "",
-        "kyori": "2860",
+        "kyori": "1600",
         "track_code": "",
         "babajotai_code_shiba": "",
         "babajotai_code_dirt": "",
@@ -107,3 +107,62 @@ class TestObstacleShuhetsuCodes:
     def test_平地コードは含まれない(self):
         for code in ["11", "12", "13", "14"]:
             assert code not in OBSTACLE_SHUBETSU_CODES
+
+
+class TestRaceNameObstacleFallback:
+    """track_codeもshubetsu_codeも障害を示さない場合、レース名からフォールバック判定."""
+
+    def test_レース名にジャンプを含む場合は障害と判定(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="小倉ジャンプステークス",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_レース名に障害を含む場合は障害と判定(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="障害未勝利",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_通常のレース名では障害判定されない(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="東京優駿",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is False
+
+    def test_副題にジャンプを含む場合も障害と判定(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="", kyosomei_fukudai="ジャンプ特別",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_距離2860mでtrack_codeもshubetsuも不明な場合は障害と推定(self):
+        """JRA平地レース最長距離は3,600m（ステイヤーズS）だが、
+        障害は2,710m〜4,250mの独特な距離設定。track_codeとshubetsu_codeが
+        両方不明でも、障害特有の距離であれば障害と推定する."""
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="", kyori="3390",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_距離2400mは平地としても妥当なので障害判定されない(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="", kyori="2400",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is False

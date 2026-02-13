@@ -648,6 +648,17 @@ def _to_race_dict(row: dict) -> dict:
     if not is_obstacle and shubetsu_code in OBSTACLE_SHUBETSU_CODES:
         is_obstacle = True
 
+    # track_codeもshubetsu_codeも障害を示さない場合、レース名・距離からフォールバック判定
+    # track_codeが芝(1x)・ダート(2x)の場合は平地確定なのでスキップ
+    if not is_obstacle and not track_code.startswith(("1", "2")):
+        race_name = (row.get("kyosomei_hondai", "") or "") + (row.get("kyosomei_fukudai", "") or "")
+        if "ジャンプ" in race_name or "障害" in race_name:
+            is_obstacle = True
+        else:
+            kyori = row.get("kyori", "") or ""
+            if kyori.isdigit() and int(kyori) >= 2710:
+                is_obstacle = True
+
     if track_code.startswith("1"):
         track_type = "芝"
     elif track_code.startswith("2"):
