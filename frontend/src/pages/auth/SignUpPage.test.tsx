@@ -58,6 +58,15 @@ describe('SignUpPage', () => {
     expect(screen.getByRole('button', { name: '新規登録' })).toBeDisabled()
   })
 
+  it('パスワードが8文字未満の場合は新規登録ボタンが無効', async () => {
+    const { user } = render(<SignUpPage />)
+    await user.type(screen.getByLabelText('表示名'), 'テストユーザー')
+    await user.type(screen.getByLabelText('メールアドレス'), 'test@example.com')
+    await user.type(screen.getByLabelText('パスワード（8文字以上、英大小+数字）'), 'Passw11')
+    await user.type(screen.getByLabelText('パスワード（確認）'), 'Passw11')
+    expect(screen.getByRole('button', { name: '新規登録' })).toBeDisabled()
+  })
+
   it('全フィールドが有効な場合は新規登録ボタンが有効', async () => {
     const { user } = render(<SignUpPage />)
     await user.type(screen.getByLabelText('表示名'), 'テストユーザー')
