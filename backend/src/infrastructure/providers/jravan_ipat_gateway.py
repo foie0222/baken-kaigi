@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class JraVanIpatGateway(IpatGateway):
     """JRA-VAN jravan-api 経由の IPAT ゲートウェイ."""
 
-    DEFAULT_TIMEOUT = 10
+    DEFAULT_TIMEOUT = 25
 
     def __init__(self, base_url: str | None = None, timeout: int | None = None) -> None:
         """初期化."""
