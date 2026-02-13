@@ -92,7 +92,7 @@ export function CartPage() {
             <div className="cart-summary">
               <div className="cart-summary-row">
                 <span>買い目数</span>
-                <span>{items.length}点</span>
+                <span>{items.reduce((sum, item) => sum + (item.betCount || 1), 0)}点</span>
               </div>
               <div className="cart-summary-row total">
                 <span>合計金額</span>
