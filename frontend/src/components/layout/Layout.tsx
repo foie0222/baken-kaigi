@@ -19,7 +19,7 @@ export function Layout() {
   }, [isAuthenticated, fetchLossLimit]);
 
   return (
-    <>
+    <div className="app-layout">
       <Header />
       <LossLimitAlert />
       <main>
@@ -28,6 +28,6 @@ export function Layout() {
       <BottomNav />
       <CookieConsentBanner />
       <Toast />
-    </>
+    </div>
   );
 }

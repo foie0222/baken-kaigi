@@ -1,15 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { acquireScrollLock, releaseScrollLock, _resetForTest } from './scrollLock';
 
 describe('scrollLock', () => {
+  let mainEl: HTMLElement;
+
   beforeEach(() => {
     _resetForTest();
     document.body.style.overflow = '';
+    mainEl = document.createElement('main');
+    document.body.appendChild(mainEl);
   });
 
-  it('acquireScrollLock sets overflow to hidden', () => {
+  afterEach(() => {
+    mainEl.remove();
+  });
+
+  it('acquireScrollLock sets overflow to hidden on body and main', () => {
     acquireScrollLock();
     expect(document.body.style.overflow).toBe('hidden');
+    expect(mainEl.style.overflow).toBe('hidden');
     releaseScrollLock();
   });
 
@@ -17,6 +26,7 @@ describe('scrollLock', () => {
     acquireScrollLock();
     releaseScrollLock();
     expect(document.body.style.overflow).toBe('');
+    expect(mainEl.style.overflow).toBe('');
   });
 
   it('multiple acquires keep overflow hidden until all released', () => {
