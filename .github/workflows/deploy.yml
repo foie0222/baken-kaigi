@@ -50,10 +50,15 @@ jobs:
 
       - name: CDK Deploy
         run: |
-          # ApiStack を先にデプロイしてから BatchStack をデプロイする。
-          # 同名 Lambda の競合を防ぐためデプロイ順序を明示的に指定。
+          # デプロイ順序:
+          # 1. HrdbTablesStack: DynamoDBテーブル作成（BatchStackが参照するため先に）
+          # 2. ApiStack: API Gateway + Lambda
+          # 3. BatchStack: バッチLambda（ApiStackの旧リソース削除後に）
+          # 4. MonitoringStack: CloudWatchダッシュボード
+          cdk deploy BakenKaigiHrdbTablesStack --require-approval never
           cdk deploy BakenKaigiApiStack --require-approval never
           cdk deploy BakenKaigiBatchStack --require-approval never
+          cdk deploy BakenKaigiMonitoringStack --require-approval never
         working-directory: cdk
 
       - name: Output CDK deployment summary
@@ -62,7 +67,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Deployment completed at $(date)" >> $GITHUB_STEP_SUMMARY
           echo "- AWS Region: ap-northeast-1" >> $GITHUB_STEP_SUMMARY
-          echo "- Deploy order: BakenKaigiApiStack → BakenKaigiBatchStack" >> $GITHUB_STEP_SUMMARY
+          echo "- Deploy order: HrdbTablesStack → ApiStack → BatchStack → MonitoringStack" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployed Stacks" >> $GITHUB_STEP_SUMMARY
           cdk ls >> $GITHUB_STEP_SUMMARY
