@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -50,8 +50,8 @@ export function ForgotPasswordPage() {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
             style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 8, fontSize: 16, boxSizing: 'border-box' }} />
         </div>
-        <button type="submit" disabled={isLoading || !email}
-          style={{ padding: 14, background: (isLoading || !email) ? '#ccc' : '#1a73e8', color: 'white', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: (isLoading || !email) ? 'default' : 'pointer' }}>
+        <button type="submit" disabled={isLoading || !email || !isValidEmail}
+          style={{ padding: 14, background: (isLoading || !email || !isValidEmail) ? '#ccc' : '#1a73e8', color: 'white', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: (isLoading || !email || !isValidEmail) ? 'default' : 'pointer' }}>
           {isLoading ? '送信中...' : 'リセットコードを送信'}
         </button>
       </form>

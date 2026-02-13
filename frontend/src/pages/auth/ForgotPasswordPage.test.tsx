@@ -20,13 +20,12 @@ describe('ForgotPasswordPage', () => {
     expect(button).toBeDisabled()
   })
 
-  it('不正なメールアドレスの場合はバリデーションエラーが表示される', async () => {
+  it('不正なメールアドレスの場合は送信ボタンが無効', async () => {
     const { user } = render(<ForgotPasswordPage />)
     const input = screen.getByRole('textbox')
     await user.type(input, 'not-an-email')
     const button = screen.getByRole('button', { name: 'リセットコードを送信' })
-    await user.click(button)
-    expect(screen.getByText('有効なメールアドレスを入力してください')).toBeInTheDocument()
+    expect(button).toBeDisabled()
   })
 
   it('有効なメールアドレスの場合は送信ボタンが有効', async () => {
