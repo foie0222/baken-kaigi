@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgentStore } from '../stores/agentStore';
-import { AGENT_STYLE_MAP } from '../constants/agentStyles';
+import { AGENT_STYLES, AGENT_STYLE_MAP } from '../constants/agentStyles';
 import { apiClient } from '../api/client';
 import type { AgentReview } from '../types';
-
-const STAT_LABELS: Record<string, string> = {
-  data_analysis: 'データ分析',
-  pace_reading: '展開読み',
-  risk_management: 'リスク管理',
-  intuition: '直感',
-};
 
 const LEVEL_TITLES: Record<number, string> = {
   1: '駆け出し',
@@ -24,26 +17,6 @@ const LEVEL_TITLES: Record<number, string> = {
   9: '伝説',
   10: '神',
 };
-
-function StatBar({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontSize: 12, color: '#555' }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>{value}</span>
-      </div>
-      <div style={{ height: 6, background: '#e8e8e8', borderRadius: 3 }}>
-        <div style={{
-          height: '100%',
-          width: `${value}%`,
-          background: color,
-          borderRadius: 3,
-          transition: 'width 0.3s ease',
-        }} />
-      </div>
-    </div>
-  );
-}
 
 function ReviewCard({ review }: { review: AgentReview }) {
   return (
@@ -93,30 +66,17 @@ function ReviewCard({ review }: { review: AgentReview }) {
         </div>
       )}
 
-      {Object.keys(review.stats_change).length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-          {Object.entries(review.stats_change).map(([stat, change]) => (
-            <span key={stat} style={{
-              fontSize: 10,
-              color: '#059669',
-              background: '#ecfdf5',
-              padding: '2px 6px',
-              borderRadius: 6,
-            }}>
-              {STAT_LABELS[stat] || stat} +{change}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
 export function AgentProfilePage() {
   const navigate = useNavigate();
-  const { agent, fetchAgent } = useAgentStore();
+  const { agent, fetchAgent, updateAgent } = useAgentStore();
   const [reviews, setReviews] = useState<AgentReview[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [isEditingStyle, setIsEditingStyle] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     fetchAgent();
@@ -191,7 +151,62 @@ export function AgentProfilePage() {
             {styleInfo?.label || agent.base_style}
           </span>
           <span style={{ fontSize: 13, color: '#666' }}>Lv.{agent.level} {levelTitle}</span>
+          <button
+            type="button"
+            onClick={() => setIsEditingStyle(!isEditingStyle)}
+            style={{
+              fontSize: 12,
+              color: '#1a73e8',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            {isEditingStyle ? '閉じる' : '変更'}
+          </button>
         </div>
+
+        {isEditingStyle && (
+          <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {AGENT_STYLES.map((style) => {
+              const isSelected = agent.base_style === style.id;
+              return (
+                <button
+                  key={style.id}
+                  type="button"
+                  disabled={isUpdating}
+                  onClick={async () => {
+                    if (style.id === agent.base_style) return;
+                    setIsUpdating(true);
+                    const success = await updateAgent(style.id);
+                    if (success) {
+                      setIsEditingStyle(false);
+                      await fetchAgent();
+                    }
+                    setIsUpdating(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: 12,
+                    border: isSelected ? `2px solid ${style.color}` : '2px solid #e5e7eb',
+                    borderRadius: 10,
+                    background: isSelected ? `${style.color}08` : 'white',
+                    cursor: isSelected ? 'default' : 'pointer',
+                    opacity: isUpdating ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: 24, marginBottom: 4 }}>{style.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: isSelected ? style.color : '#333' }}>
+                    {style.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* 成績サマリー */}
         {agent.performance.total_bets > 0 && (
@@ -223,22 +238,6 @@ export function AgentProfilePage() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* 能力値 */}
-      <div style={{
-        background: 'white',
-        borderRadius: 14,
-        padding: '16px',
-        marginBottom: 16,
-      }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 12px' }}>
-          能力値
-        </h3>
-        <StatBar label="データ分析" value={agent.stats.data_analysis} color="#3b82f6" />
-        <StatBar label="展開読み" value={agent.stats.pace_reading} color="#8b5cf6" />
-        <StatBar label="リスク管理" value={agent.stats.risk_management} color="#059669" />
-        <StatBar label="直感" value={agent.stats.intuition} color="#f59e0b" />
       </div>
 
       {/* 振り返り履歴 */}
