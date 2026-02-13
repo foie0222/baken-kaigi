@@ -248,11 +248,6 @@ export function RaceDetailPage() {
     }
   };
 
-  const handleBackToSelect = () => {
-    setAiContentKey((k) => k + 1);
-    setMode('select');
-  };
-
   if (loading) return <div className="loading">読み込み中...</div>;
   if (error || !race) return (
     <div className="fade-in">
