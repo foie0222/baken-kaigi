@@ -5,7 +5,6 @@ from aws_cdk import BundlingOptions, CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_secretsmanager as secretsmanager
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_dynamodb as dynamodb
-from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
@@ -22,8 +21,6 @@ class BakenKaigiApiStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        vpc: ec2.IVpc | None = None,
-        jravan_api_url: str | None = None,
         allow_dev_origins: bool = False,
         **kwargs,
     ) -> None:
@@ -32,8 +29,6 @@ class BakenKaigiApiStack(Stack):
         Args:
             scope: CDK スコープ
             construct_id: コンストラクト ID
-            vpc: VPC（JRA-VAN 連携時に必要）
-            jravan_api_url: JRA-VAN API の URL（例: http://10.0.1.100:8000）
             allow_dev_origins: 開発用オリジン（localhost）を許可するかどうか
             **kwargs: その他のスタックパラメータ
         """
@@ -41,9 +36,6 @@ class BakenKaigiApiStack(Stack):
 
         # プロジェクトルートディレクトリ
         project_root = Path(__file__).parent.parent.parent
-
-        # JRA-VAN 連携設定
-        use_jravan = jravan_api_url is not None
 
         # ========================================
         # DynamoDB テーブル
@@ -556,11 +548,6 @@ class BakenKaigiApiStack(Stack):
         if allow_dev_origins:
             lambda_environment["ALLOW_DEV_ORIGINS"] = "true"
 
-        # JRA-VAN 連携時の環境変数を追加
-        if use_jravan:
-            lambda_environment["RACE_DATA_PROVIDER"] = "jravan"
-            lambda_environment["JRAVAN_API_URL"] = jravan_api_url  # type: ignore
-
         lambda_common_props: dict = {
             "runtime": lambda_.Runtime.PYTHON_3_12,
             "timeout": Duration.seconds(30),
@@ -568,19 +555,6 @@ class BakenKaigiApiStack(Stack):
             "layers": [deps_layer],
             "environment": lambda_environment,
         }
-
-        # VPC不要Lambda用の共通プロパティ（DynamoDB/Secrets Manager等のAWSサービスのみ使用）
-        lambda_no_vpc_props = dict(lambda_common_props)
-
-        # VPC 設定（JRA-VAN 連携時に必要）
-        # Lambda はプライベート（ISOLATED）サブネットに配置
-        # DynamoDB へは VPC Gateway Endpoint 経由でアクセス
-        # EC2 へは VPC 内通信でアクセス
-        if vpc is not None:
-            lambda_common_props["vpc"] = vpc
-            lambda_common_props["vpc_subnets"] = ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
-            )
 
         # Lambda関数を作成
         # レースAPI
@@ -647,7 +621,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-add-to-cart",
             description="カートに買い目追加",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         get_cart_fn = lambda_.Function(
@@ -660,7 +634,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-cart",
             description="カート取得",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         remove_from_cart_fn = lambda_.Function(
@@ -673,7 +647,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-remove-from-cart",
             description="カートアイテム削除",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         clear_cart_fn = lambda_.Function(
@@ -686,7 +660,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-clear-cart",
             description="カートクリア",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # 相談API
@@ -700,7 +674,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-start-consultation",
             description="AI相談開始",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         send_message_fn = lambda_.Function(
@@ -713,7 +687,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-send-message",
             description="メッセージ送信",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         get_consultation_fn = lambda_.Function(
@@ -726,7 +700,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-consultation",
             description="相談セッション取得",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # 馬API
@@ -982,7 +956,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-user-profile",
             description="ユーザープロフィール取得",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         update_user_profile_fn = lambda_.Function(
@@ -995,7 +969,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-update-user-profile",
             description="ユーザープロフィール更新",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         delete_account_fn = lambda_.Function(
@@ -1008,7 +982,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-delete-account",
             description="アカウント削除",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # ========================================
@@ -1025,7 +999,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-loss-limit",
             description="損失制限API（統合ハンドラー）",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # ========================================
@@ -1056,7 +1030,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-purchase-history",
             description="購入履歴取得",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         get_purchase_detail_fn = lambda_.Function(
@@ -1069,7 +1043,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-purchase-detail",
             description="購入詳細取得",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         get_ipat_balance_fn = lambda_.Function(
@@ -1096,7 +1070,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-save-ipat-credentials",
             description="IPAT認証情報保存",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         get_ipat_status_fn = lambda_.Function(
@@ -1109,7 +1083,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-get-ipat-status",
             description="IPAT設定ステータス取得",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         delete_ipat_credentials_fn = lambda_.Function(
@@ -1122,7 +1096,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-delete-ipat-credentials",
             description="IPAT認証情報削除",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # ========================================
@@ -1139,7 +1113,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-betting-record",
             description="投票記録API（統合ハンドラー）",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # エージェントAPI
@@ -1153,7 +1127,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-agent",
             description="エージェントAPI（統合ハンドラー）",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # エージェント振り返りAPI
@@ -1167,7 +1141,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-agent-review",
             description="エージェント振り返りAPI",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # Cognito Post Confirmation トリガー
@@ -1181,7 +1155,7 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-cognito-post-confirmation",
             description="Cognito確認完了トリガー",
-            **lambda_no_vpc_props,
+            **lambda_common_props,
         )
 
         # Post Confirmation トリガー設定

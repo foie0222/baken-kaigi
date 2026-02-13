@@ -7,7 +7,6 @@ from pathlib import Path
 
 from aws_cdk import BundlingOptions, Duration, Stack
 from aws_cdk import aws_dynamodb as dynamodb
-from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
@@ -26,8 +25,6 @@ class BakenKaigiBatchStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        vpc: ec2.IVpc | None = None,
-        jravan_api_url: str | None = None,
         **kwargs,
     ) -> None:
         """スタックを初期化する.
@@ -35,14 +32,11 @@ class BakenKaigiBatchStack(Stack):
         Args:
             scope: CDK スコープ
             construct_id: コンストラクト ID
-            vpc: VPC（JRA-VAN 連携時に必要）
-            jravan_api_url: JRA-VAN API の URL（例: http://10.0.1.100:8000）
             **kwargs: その他のスタックパラメータ
         """
         super().__init__(scope, construct_id, **kwargs)
 
         project_root = Path(__file__).parent.parent.parent
-        use_jravan = jravan_api_url is not None
 
         # ========================================
         # DynamoDB テーブル参照（既存テーブルを名前で参照）
@@ -445,16 +439,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
             },
         }
-
-        # VPC設定（EC2にアクセスするためVPC内に配置）
-        if vpc is not None:
-            jra_checksum_updater_props["vpc"] = vpc
-            jra_checksum_updater_props["vpc_subnets"] = ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
-            )
-
-        if use_jravan and jravan_api_url is not None:
-            jra_checksum_updater_props["environment"]["JRAVAN_API_URL"] = jravan_api_url
 
         jra_checksum_updater_fn = lambda_.Function(
             self,
