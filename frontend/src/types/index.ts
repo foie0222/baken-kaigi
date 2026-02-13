@@ -398,7 +398,7 @@ export interface ProposedBet {
   bet_type: BetType;
   horse_numbers: number[];
   amount?: number;
-  bet_count: number;
+  bet_count?: number;
   bet_display: string;
   confidence: 'high' | 'medium' | 'low';
   expected_value: number;

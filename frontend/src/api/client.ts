@@ -542,6 +542,11 @@ class ApiClient {
             : '提案データの形式が不正です';
         return { success: false, error: errorMessage };
       }
+      // bet_count が欠落している場合のフォールバック（LLMが独自にJSONを生成した場合に起こりうる）
+      const bets = data.proposed_bets as Record<string, unknown>[];
+      for (const bet of bets) {
+        if (bet.bet_count == null) bet.bet_count = 1;
+      }
       return { success: true, data: parsed as BetProposalResponse };
     } catch {
       return { success: false, error: '提案データの解析に失敗しました' };

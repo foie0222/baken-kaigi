@@ -74,6 +74,15 @@ describe('ProposalCard', () => {
     expect(screen.getByText(/期待値:.*未確定/)).toBeInTheDocument()
   })
 
+  it('bet_countが未定義でも「1点」と表示される', () => {
+    const betWithoutCount: ProposedBet = { ...mockBet, bet_count: undefined }
+    render(
+      <ProposalCard bet={betWithoutCount} onAddToCart={vi.fn()} isAdded={false} />
+    )
+
+    expect(screen.getByText(/1点/)).toBeInTheDocument()
+  })
+
   it('オッズがある場合は数値が表示される', () => {
     render(
       <ProposalCard bet={mockBet} onAddToCart={vi.fn()} isAdded={false} />
