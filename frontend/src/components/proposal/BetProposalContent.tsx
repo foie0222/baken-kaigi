@@ -190,9 +190,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       })),
     });
 
-    if (addResult === 'ok') {
+    if (addResult === 'ok' || addResult === 'merged') {
       setAddedIndices((prev) => new Set(prev).add(index));
-      showToast('カートに追加しました');
+      showToast(addResult === 'merged' ? '同じ買い目の金額を合算しました' : 'カートに追加しました');
     } else {
       const message = addResult === 'different_race'
         ? 'カートには同じレースの買い目のみ追加できます'
@@ -229,7 +229,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
         })),
       });
 
-      if (addResult === 'ok') {
+      if (addResult === 'ok' || addResult === 'merged') {
         addedCount++;
         newIndices.add(index);
       } else if (!firstError) {
