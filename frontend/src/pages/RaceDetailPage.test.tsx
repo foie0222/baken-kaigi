@@ -48,52 +48,46 @@ describe('RaceDetailPage', () => {
     mockNavigate.mockClear()
   })
 
-  describe('モード選択', () => {
-    it('初期表示でモード選択カードが表示される', async () => {
+  describe('デフォルトAIモード', () => {
+    it('初期表示でAI提案フォームが表示される', async () => {
       render(<RaceDetailPage />)
-
-      expect(await screen.findByText('AIにおまかせ')).toBeInTheDocument()
-      expect(screen.getByText('自分で選ぶ')).toBeInTheDocument()
-    })
-
-    it('「AIにおまかせ」クリックでAI提案フォームが表示される', async () => {
-      const { user } = render(<RaceDetailPage />)
-
-      const aiCard = await screen.findByText('AIにおまかせ')
-      await user.click(aiCard)
 
       // AI提案フォームの要素が表示される
       expect(await screen.findByText('予算')).toBeInTheDocument()
       expect(screen.getByText('提案を生成')).toBeInTheDocument()
-      // 「選び直す」ボタンが表示される
-      expect(screen.getByText('← 選び直す')).toBeInTheDocument()
     })
 
-    it('「自分で選ぶ」クリックで手動入力UIが表示される', async () => {
+    it('「手動で買い目を選ぶ」リンクが表示される', async () => {
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByText('手動で買い目を選ぶ')).toBeInTheDocument()
+    })
+
+    it('「手動で買い目を選ぶ」クリックで手動入力UIが表示される', async () => {
       const { user } = render(<RaceDetailPage />)
 
-      const manualCard = await screen.findByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
       // 手動入力UIの要素が表示される
       expect(await screen.findByText('カートに追加')).toBeInTheDocument()
-      // 「選び直す」ボタンが表示される
-      expect(screen.getByText('← 選び直す')).toBeInTheDocument()
+      // 「AI提案に戻る」ボタンが表示される
+      expect(screen.getByText('← AI提案に戻る')).toBeInTheDocument()
     })
 
-    it('「選び直す」ボタンでモード選択に戻る', async () => {
+    it('手動モードから「AI提案に戻る」ボタンでAIモードに戻る', async () => {
       const { user } = render(<RaceDetailPage />)
 
-      // AIモードに遷移
-      const aiCard = await screen.findByText('AIにおまかせ')
-      await user.click(aiCard)
+      // 手動モードに遷移
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
-      // 選び直すボタンでモード選択に戻る
-      const backBtn = screen.getByText('← 選び直す')
+      // AI提案に戻る
+      const backBtn = screen.getByText('← AI提案に戻る')
       await user.click(backBtn)
 
-      expect(await screen.findByText('AIにおまかせ')).toBeInTheDocument()
-      expect(screen.getByText('自分で選ぶ')).toBeInTheDocument()
+      expect(await screen.findByText('予算')).toBeInTheDocument()
+      expect(screen.getByText('提案を生成')).toBeInTheDocument()
     })
   })
 
@@ -102,8 +96,8 @@ describe('RaceDetailPage', () => {
       const { user } = render(<RaceDetailPage />)
 
       // 手動モードに切り替え
-      const manualCard = await screen.findByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
       const addButton = await screen.findByRole('button', { name: /カートに追加/i })
       expect(addButton).toBeInTheDocument()
@@ -115,8 +109,8 @@ describe('RaceDetailPage', () => {
     it('MAX_BET_AMOUNTを超える金額が入力されても上限でクランプされる', async () => {
       const { user } = render(<RaceDetailPage />)
 
-      const manualCard = await screen.findByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
       const amountInput = await screen.findByRole('spinbutton')
       await user.clear(amountInput)
@@ -128,8 +122,8 @@ describe('RaceDetailPage', () => {
     it('複数点の買い目がある場合、総額がMAX_BET_AMOUNTを超えないよう1点上限が調整される', async () => {
       const { user } = render(<RaceDetailPage />)
 
-      const manualCard = await screen.findByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
       // 券種を馬連に変更（ダイアログ操作）
       const betTypeBtn = await screen.findByRole('button', { name: /単勝/ })
@@ -159,23 +153,23 @@ describe('RaceDetailPage', () => {
     })
   })
 
-  describe('手動モード - AI案内テキスト', () => {
-    it('AI案内テキストが表示される', async () => {
+  describe('手動モード - 案内テキスト', () => {
+    it('購入確認案内テキストが表示される', async () => {
       const { user } = render(<RaceDetailPage />)
 
-      const manualCard = await screen.findByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
-      expect(await screen.findByText(/カートに追加後、AI買い目レビューで確認できます/i)).toBeInTheDocument()
+      expect(await screen.findByText(/カートに追加後、購入確認へ進めます/i)).toBeInTheDocument()
     })
 
-    it('AI案内テキストにai-guide-textクラスが適用されている', async () => {
+    it('案内テキストにai-guide-textクラスが適用されている', async () => {
       const { user } = render(<RaceDetailPage />)
 
-      const manualCard = await screen.findByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
-      const guideText = await screen.findByText(/カートに追加後、AI買い目レビューで確認できます/i)
+      const guideText = await screen.findByText(/カートに追加後、購入確認へ進めます/i)
       expect(guideText).toHaveClass('ai-guide-text')
     })
   })
@@ -273,8 +267,8 @@ describe('RaceDetailPage', () => {
       await screen.findByText('テストレース')
 
       // 手動モードに切り替え
-      const manualCard = screen.getByText('自分で選ぶ')
-      await user.click(manualCard)
+      const manualLink = screen.getByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
 
       // 馬1を選択
       const checkboxes = await screen.findAllByRole('checkbox')

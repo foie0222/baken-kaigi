@@ -398,6 +398,24 @@ class BakenKaigiApiStack(Stack):
             ),
         )
 
+        # Usage Tracking テーブル（利用制限管理）
+        usage_tracking_table = dynamodb.Table(
+            self,
+            "UsageTrackingTable",
+            table_name="baken-kaigi-usage-tracking",
+            partition_key=dynamodb.Attribute(
+                name="user_key",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="date",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute="ttl",
+        )
+
         # ========================================
         # AgentCore Runtime
         # ========================================
@@ -530,6 +548,7 @@ class BakenKaigiApiStack(Stack):
             "LOSS_LIMIT_CHANGE_TABLE_NAME": loss_limit_change_table.table_name,
             "AGENT_TABLE_NAME": agent_table.table_name,
             "AGENT_REVIEW_TABLE_NAME": agent_review_table.table_name,
+            "USAGE_TRACKING_TABLE_NAME": usage_tracking_table.table_name,
             "CODE_VERSION": "6",  # コード更新強制用
         }
 
@@ -1743,6 +1762,9 @@ class BakenKaigiApiStack(Stack):
         ai_predictions_table.grant_read_data(agentcore_consultation_fn)
         speed_indices_table.grant_read_data(agentcore_consultation_fn)
         past_performances_table.grant_read_data(agentcore_consultation_fn)
+
+        # 利用制限テーブルへの読み書き権限
+        usage_tracking_table.grant_read_write_data(agentcore_consultation_fn)
 
         # /api/consultation
         api_resource = api.root.add_resource("api")

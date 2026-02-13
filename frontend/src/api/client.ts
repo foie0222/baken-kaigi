@@ -28,6 +28,7 @@ import type {
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { getOrCreateGuestId } from '../utils/guestId';
 
 // API ベース URL（環境変数から取得）
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -58,12 +59,25 @@ export interface BetAction {
   params: Record<string, unknown>;
 }
 
+export interface UsageInfo {
+  consulted_races: number;
+  max_races: number;
+  remaining_races: number;
+  tier: 'anonymous' | 'free' | 'premium';
+}
+
 export interface AgentCoreConsultationResponse {
   message: string;
   session_id: string;
   suggested_questions?: string[];
   bet_actions?: BetAction[];
   confidence?: number;
+  usage?: UsageInfo;
+}
+
+export interface RateLimitError {
+  error: { message: string; code: string };
+  usage: UsageInfo;
 }
 
 class ApiClient {
@@ -106,14 +120,21 @@ class ApiClient {
     }
 
     // Cognito認証トークンを付与（ログイン済みの場合）
+    let isAuthenticated = false;
     try {
       const session = await fetchAuthSession();
       const idToken = session.tokens?.idToken?.toString();
       if (idToken) {
         headers['Authorization'] = `Bearer ${idToken}`;
+        isAuthenticated = true;
       }
     } catch {
       // 未認証の場合は Authorization ヘッダーなし
+    }
+
+    // 未認証時はゲストIDを付与
+    if (!isAuthenticated) {
+      headers['X-Guest-Id'] = getOrCreateGuestId();
     }
 
     return headers;
@@ -295,6 +316,14 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        // 429: 利用制限超過 — usage 情報を含めて返す
+        if (response.status === 429 && data.usage) {
+          return {
+            success: false,
+            error: this.extractErrorMessage(data, response.status),
+            data: { usage: data.usage } as unknown as AgentCoreConsultationResponse,
+          };
+        }
         return {
           success: false,
           error: this.extractErrorMessage(data, response.status),

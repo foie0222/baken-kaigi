@@ -35,10 +35,6 @@ export function CartPage() {
     }
   };
 
-  const handleConsult = () => {
-    navigate('/bet-review');
-  };
-
   return (
     <div className="fade-in">
       <button className="back-btn" onClick={() => navigate('/')}>
@@ -146,17 +142,6 @@ export function CartPage() {
           <button className="add-more-btn" onClick={() => navigate(`/races/${items[0].raceId}`)}>
             ＋ このレースに買い目を追加
           </button>
-          <button
-            className="btn-ai-confirm"
-            onClick={handleConsult}
-            disabled={isLossLimitReached}
-            style={isLossLimitReached ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-          >
-            AI 買い目レビュー →
-          </button>
-          <p className="ai-guide-text">
-            ※ 購入前にAIが買い目をレビューします
-          </p>
 
           {/* IPAT購入ボタン */}
           {isAuthenticated && ipatStatus?.configured && items.length > 0 && (
