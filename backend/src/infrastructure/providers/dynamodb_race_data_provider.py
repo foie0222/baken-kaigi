@@ -42,6 +42,11 @@ from src.domain.ports.race_data_provider import (
     TrainerTrackStatsData,
     VenueAptitudeData,
     WeightData,
+    OddsHistoryData,
+    OddsMovementData,
+    OddsSnapshotData,
+    OddsTimestampData,
+    NotableMovementData,
 )
 
 logger = logging.getLogger(__name__)
@@ -825,9 +830,71 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             ),
         )
 
-    # Phase 3 以降で実装（暫定スタブ）
     def get_odds_history(self, race_id):
-        return None
+        """GAMBLE-OS APIからオッズ履歴を取得する."""
+        from src.infrastructure.clients.realtime_odds_client import RealtimeOddsClient
+
+        client = RealtimeOddsClient()
+        history_raw = client.get_odds_history(str(race_id))
+        if not history_raw:
+            return None
+
+        odds_timestamps = []
+        for entry in history_raw:
+            snapshots = [
+                OddsSnapshotData(
+                    horse_number=o.get("horse_number", 0),
+                    win_odds=float(o.get("odds", 0)),
+                    place_odds_min=None,
+                    place_odds_max=None,
+                    popularity=o.get("popularity", 0),
+                )
+                for o in entry.get("odds", [])
+            ]
+            odds_timestamps.append(
+                OddsTimestampData(
+                    timestamp=entry.get("timestamp", ""),
+                    odds=snapshots,
+                )
+            )
+
+        movements = []
+        if len(odds_timestamps) >= 2:
+            first = {s.horse_number: s for s in odds_timestamps[0].odds}
+            last = {s.horse_number: s for s in odds_timestamps[-1].odds}
+            for num, last_snap in last.items():
+                first_snap = first.get(num)
+                if not first_snap or first_snap.win_odds <= 0:
+                    continue
+                change = ((last_snap.win_odds - first_snap.win_odds) / first_snap.win_odds) * 100
+                if change > 5:
+                    trend = "上昇"
+                elif change < -5:
+                    trend = "下降"
+                else:
+                    trend = "横ばい"
+                movements.append(
+                    OddsMovementData(
+                        horse_number=num,
+                        initial_odds=first_snap.win_odds,
+                        final_odds=last_snap.win_odds,
+                        change_rate=round(change, 1),
+                        trend=trend,
+                    )
+                )
+
+        notable = [
+            NotableMovementData(horse_number=m.horse_number, description=f"{m.trend}({m.change_rate}%)")
+            for m in movements
+            if abs(m.change_rate) >= 20
+        ]
+
+        return OddsHistoryData(
+            race_id=str(race_id),
+            odds_history=odds_timestamps,
+            odds_movement=movements,
+            notable_movements=notable,
+        )
 
     def get_stallion_offspring_stats(self, stallion_id, year=None, track_type=None):
         return (None, [], [], [], [])

@@ -21,7 +21,7 @@ from .constants import (
     WIN_PLACE_RATIO_HIGH,
     WIN_PLACE_RATIO_LOW,
 )
-from . import dynamodb_client
+from . import odds_client
 
 logger = get_tool_logger("odds_analysis")
 
@@ -55,9 +55,7 @@ def analyze_odds_movement(
         - betting_patterns: 投票パターン分析
     """
     try:
-        # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
-        logger.info("odds history data not available in DynamoDB, returning empty")
-        odds_history = []
+        odds_history = odds_client.get_odds_history(race_id)
 
         if not odds_history:
             return {
@@ -125,9 +123,8 @@ def _fetch_place_odds(race_id: str) -> list[dict]:
     Returns:
         複勝オッズリスト
     """
-    # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
-    logger.info("place odds data not available in DynamoDB, returning empty")
-    return []
+    win_odds = odds_client.get_win_odds(race_id)
+    return [o for o in win_odds if o.get("type") == "place"]
 
 
 def _analyze_market_overview(
