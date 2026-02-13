@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem, RunnerData } from '../types';
+import { BetTypeOrdered } from '../types';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
 export type AddItemResult = 'ok' | 'merged' | 'different_race' | 'invalid_amount';
@@ -53,6 +54,12 @@ export const useCartStore = create<CartState>()(
           if (existing.betDisplay && item.betDisplay) {
             return existing.betDisplay === item.betDisplay;
           }
+          // 順序依存券種（馬単・三連単）は配列をそのまま比較
+          if (BetTypeOrdered[item.betType]) {
+            return existing.horseNumbers.length === item.horseNumbers.length &&
+              existing.horseNumbers.every((v, i) => v === item.horseNumbers[i]);
+          }
+          // 順序非依存券種はソートして比較
           const sortedExisting = [...existing.horseNumbers].sort((a, b) => a - b);
           const sortedNew = [...item.horseNumbers].sort((a, b) => a - b);
           return sortedExisting.length === sortedNew.length &&
@@ -69,9 +76,20 @@ export const useCartStore = create<CartState>()(
         if (duplicate) {
           const mergedAmount = Math.min(duplicate.amount + item.amount, MAX_BET_AMOUNT);
           set((state) => ({
-            items: state.items.map((i) =>
-              i.id === duplicate.id ? { ...i, amount: mergedAmount } : i
-            ),
+            items: state.items.map((i) => {
+              if (i.id !== duplicate.id) return i;
+              const merged = { ...i, amount: mergedAmount };
+              if (!merged.betDisplay && itemWithoutRunners.betDisplay) {
+                merged.betDisplay = itemWithoutRunners.betDisplay;
+              }
+              if (!merged.betMethod && itemWithoutRunners.betMethod) {
+                merged.betMethod = itemWithoutRunners.betMethod;
+              }
+              if (merged.betCount == null && itemWithoutRunners.betCount != null) {
+                merged.betCount = itemWithoutRunners.betCount;
+              }
+              return merged;
+            }),
             ...runnersUpdate,
           }));
           return 'merged';

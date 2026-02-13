@@ -463,6 +463,33 @@ describe('cartStore', () => {
       expect(state.items).toHaveLength(2)
     })
 
+    it('順序依存券種（馬単）は逆順の馬番を重複とみなさない', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'exacta', horseNumbers: [2, 6], amount: 300 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'exacta', horseNumbers: [6, 2], amount: 600 })
+      )
+
+      expect(result).toBe('ok')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(2)
+    })
+
+    it('順序依存券種（三連単）は同順の馬番を重複とみなす', () => {
+      useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'trifecta', horseNumbers: [1, 2, 3], amount: 300 })
+      )
+      const result = useCartStore.getState().addItem(
+        createMockCartItem({ betType: 'trifecta', horseNumbers: [1, 2, 3], amount: 600 })
+      )
+
+      expect(result).toBe('merged')
+      const state = useCartStore.getState()
+      expect(state.items).toHaveLength(1)
+      expect(state.items[0].amount).toBe(900)
+    })
+
     it('betDisplayがない場合はhorseNumbersのソート比較で重複判定する', () => {
       useCartStore.getState().addItem(
         createMockCartItem({ betType: 'quinella', horseNumbers: [6, 2], amount: 300 })
