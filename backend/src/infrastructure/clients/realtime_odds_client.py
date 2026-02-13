@@ -31,11 +31,11 @@ class RealtimeOddsClient:
             response.raise_for_status()
             data = response.json()
             if data.get("ret") != "0":
-                logger.warning(f"Odds API error: {data.get('msg')}")
+                logger.warning("Odds API error: %s", data.get("msg"))
                 return []
             return data.get("odds", [])
-        except Exception as e:
-            logger.error(f"Failed to get odds: {e}")
+        except (requests.RequestException, ValueError) as e:
+            logger.exception("Failed to get odds for race %s", race_id)
             return []
 
     def get_odds_history(self, race_id: str) -> list[dict]:
@@ -48,9 +48,9 @@ class RealtimeOddsClient:
             response.raise_for_status()
             data = response.json()
             if data.get("ret") != "0":
-                logger.warning(f"Odds history API error: {data.get('msg')}")
+                logger.warning("Odds history API error: %s", data.get("msg"))
                 return []
             return data.get("history", [])
-        except Exception as e:
-            logger.error(f"Failed to get odds history: {e}")
+        except (requests.RequestException, ValueError) as e:
+            logger.exception("Failed to get odds history for race %s", race_id)
             return []

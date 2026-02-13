@@ -61,7 +61,13 @@ class HrdbClient:
         """prccd=select でSQL送信し、キューIDを取得する."""
         params = {**self._auth_params(), "prccd": "select", "cmd1": sql}
         response = requests.post(self._endpoint, data=params, timeout=self._timeout)
-        data = response.json()
+        try:
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as e:
+            raise HrdbApiError(f"HTTP error on submit: {e}") from e
+        except ValueError as e:
+            raise HrdbApiError(f"Invalid JSON response on submit: {e}") from e
 
         ret = data.get("ret", "")
         if ret != "0":
@@ -81,7 +87,17 @@ class HrdbClient:
             response = requests.post(
                 self._endpoint, data=params, timeout=self._timeout
             )
-            data = response.json()
+            try:
+                response.raise_for_status()
+                data = response.json()
+            except requests.RequestException as e:
+                raise HrdbApiError(f"HTTP error on state polling: {e}") from e
+            except ValueError as e:
+                raise HrdbApiError(f"Invalid JSON response on state: {e}") from e
+
+            ret = data.get("ret", "")
+            if ret != "0":
+                raise HrdbApiError(data.get("msg", f"認証/APIエラー (ret={ret})"))
 
             status = data.get("ret1", "")
             if status == _STATUS_DONE:
@@ -98,6 +114,10 @@ class HrdbClient:
         """prccd=getcsv でCSV結果を取得しdictリストに変換する."""
         params = {**self._auth_params(), "prccd": "getcsv", "qid": queue_id}
         response = requests.post(self._endpoint, data=params, timeout=self._timeout)
+        try:
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise HrdbApiError(f"HTTP error on getcsv: {e}") from e
         text = response.text.strip()
         if not text:
             return []

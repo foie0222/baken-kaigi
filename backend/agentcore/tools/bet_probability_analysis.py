@@ -88,7 +88,7 @@ def _get_past_statistics(race_info: dict, bet_type: str) -> dict | None:
     NOTE: 統計データはDynamoDBに移行済みのレース・出走馬データから
     算出する設計だが、現時点では統計テーブルが未整備のためNoneを返す。
     """
-    # TODO: DynamoDBベースの統計集計を実装
+    # DynamoDBベースの統計テーブル整備後に実装予定
     return None
 
 

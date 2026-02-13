@@ -1,5 +1,17 @@
 """HRDB CSVカラム→DynamoDBアイテム変換."""
 
+from decimal import Decimal, InvalidOperation
+
+
+def _to_decimal_or_none(value: str) -> Decimal | None:
+    """数値文字列をDecimalに変換する。変換不可なら None を返す."""
+    if not value or not value.strip():
+        return None
+    try:
+        return Decimal(value)
+    except InvalidOperation:
+        return None
+
 
 def _make_race_id(opdt: str, rcoursecd: str, rno: str) -> str:
     """レースIDを生成する."""
@@ -39,13 +51,13 @@ def map_racedtl_to_runner_item(row: dict) -> dict:
         "jockey_id": row.get("JKYCD", ""),
         "jockey_name": row.get("JKYNAME", ""),
         "trainer_id": row.get("TRNRCD", ""),
-        "odds": row.get("ODDS", ""),
+        "odds": _to_decimal_or_none(row.get("ODDS", "")),
         "popularity": int(row.get("NINKI", "0")),
         "waku_ban": int(row.get("WAKUBAN", "0")),
         "weight_carried": row.get("FUTAN", ""),
         "finish_position": int(row.get("KAKUTEI", "0")),
         "time": row.get("TIME", ""),
-        "last_3f": row.get("AGARI3F", ""),
+        "last_3f": _to_decimal_or_none(row.get("AGARI3F", "")),
     }
 
 

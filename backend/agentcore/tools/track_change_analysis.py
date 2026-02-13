@@ -111,7 +111,7 @@ def _get_daily_races(race_date: str, venue: str) -> list[dict]:
 
     DynamoDBに日付+会場ベースのレース一覧クエリがないため、空リストを返す。
     """
-    # TODO: DynamoDBにrace_dateベースのGSI追加後に実装
+    # DynamoDBにrace_dateベースのGSI追加後に実装予定
     return []
 
 

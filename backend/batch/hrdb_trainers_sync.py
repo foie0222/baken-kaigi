@@ -72,6 +72,13 @@ def handler(event: dict, context) -> dict:
 
     for i in range(0, len(missing_ids), MAX_IDS_PER_QUERY):
         chunk = missing_ids[i : i + MAX_IDS_PER_QUERY]
+        for id_ in chunk:
+            if not id_.isalnum():
+                logger.warning("Skipping invalid trainer_id: %s", id_)
+                chunk = [c for c in chunk if c.isalnum()]
+                break
+        if not chunk:
+            continue
         in_clause = ", ".join(f"'{id_}'" for id_ in chunk)
         rows = hrdb_client.query(
             f"SELECT * FROM TRNR WHERE TRNRCD IN ({in_clause})"

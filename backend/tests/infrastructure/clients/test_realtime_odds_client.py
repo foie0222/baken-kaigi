@@ -1,6 +1,7 @@
 """リアルタイムオッズクライアントのテスト."""
 from unittest.mock import patch, MagicMock
 import pytest
+import requests
 from src.infrastructure.clients.realtime_odds_client import RealtimeOddsClient
 
 
@@ -63,7 +64,7 @@ class TestRealtimeOddsClient:
 
     @patch("src.infrastructure.clients.realtime_odds_client.requests.get")
     def test_ネットワークエラー時に空リストを返す(self, mock_get):
-        mock_get.side_effect = Exception("Connection refused")
+        mock_get.side_effect = requests.ConnectionError("Connection refused")
 
         client = self._make_client()
         result = client.get_win_odds("20260215_06_11")

@@ -172,11 +172,15 @@ def _get_current_odds(race_id: str) -> dict:
     """
     try:
         runners = dynamodb_client.get_runners(race_id)
-        return {
-            r.get("horse_number"): float(r.get("odds", 0))
-            for r in runners
-            if r.get("odds") is not None
-        }
+        odds_map: dict = {}
+        for r in runners:
+            odds_val = r.get("odds")
+            if odds_val is not None:
+                try:
+                    odds_map[r.get("horse_number")] = float(odds_val)
+                except (TypeError, ValueError):
+                    pass
+        return odds_map
     except Exception as e:
         logger.error(f"Failed to get odds for race {race_id}: {e}")
         return {}

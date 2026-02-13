@@ -71,7 +71,9 @@ def handler(event: dict, context) -> dict:
     total_synced = 0
 
     for i in range(0, len(missing_ids), MAX_IDS_PER_QUERY):
-        chunk = missing_ids[i : i + MAX_IDS_PER_QUERY]
+        chunk = [id_ for id_ in missing_ids[i : i + MAX_IDS_PER_QUERY] if id_.isalnum()]
+        if not chunk:
+            continue
         in_clause = ", ".join(f"'{id_}'" for id_ in chunk)
         rows = hrdb_client.query(
             f"SELECT * FROM HORSE WHERE BLDNO IN ({in_clause})"

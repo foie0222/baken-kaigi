@@ -76,7 +76,8 @@ class TestMapRacedtlToRunnerItem:
         assert item["horse_name"] == "テスト馬"
         assert item["horse_id"] == "2020100001"
         assert item["jockey_id"] == "01234"
-        assert item["odds"] == "5.6"
+        from decimal import Decimal
+        assert item["odds"] == Decimal("5.6")
         assert item["finish_position"] == 1
         assert item["race_date"] == "20260215"
 
