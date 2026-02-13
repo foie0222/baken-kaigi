@@ -85,6 +85,19 @@ class TestSuccessResponseCors:
         assert resp["headers"]["Access-Control-Allow-Origin"] == "https://bakenkaigi.com"
 
 
+    def test_Allow_HeadersにX_Guest_Idとx_api_keyが含まれる(self):
+        resp = success_response({"ok": True})
+        allow_headers = resp["headers"]["Access-Control-Allow-Headers"]
+        assert "X-Guest-Id" in allow_headers
+        assert "x-api-key" in allow_headers
+
+    def test_error_responseのAllow_HeadersにもX_Guest_Idが含まれる(self):
+        resp = error_response("error")
+        allow_headers = resp["headers"]["Access-Control-Allow-Headers"]
+        assert "X-Guest-Id" in allow_headers
+        assert "x-api-key" in allow_headers
+
+
 class TestErrorResponseCors:
     """error_responseのCORSテスト."""
 

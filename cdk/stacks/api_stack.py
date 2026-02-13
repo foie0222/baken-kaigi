@@ -1228,7 +1228,7 @@ class BakenKaigiApiStack(Stack):
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=cors_origins,
                 allow_methods=apigw.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization", "x-api-key"],
+                allow_headers=["Content-Type", "Authorization", "x-api-key", "X-Guest-Id"],
             ),
         )
 
@@ -1237,7 +1237,7 @@ class BakenKaigiApiStack(Stack):
         # ========================================
         cors_headers = {
             "Access-Control-Allow-Origin": "'*'",
-            "Access-Control-Allow-Headers": "'Content-Type,Authorization,x-api-key'",
+            "Access-Control-Allow-Headers": "'Content-Type,Authorization,x-api-key,X-Guest-Id'",
             "Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
         }
         for response_type in [

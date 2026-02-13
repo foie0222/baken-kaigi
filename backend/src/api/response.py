@@ -43,7 +43,7 @@ def success_response(body: Any, status_code: int = 200, event: dict | None = Non
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": get_cors_origin(event),
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Guest-Id",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization,x-api-key,X-Guest-Id",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
         "body": json.dumps(body, ensure_ascii=False, default=str),
@@ -73,7 +73,7 @@ def error_response(
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": get_cors_origin(event),
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Guest-Id",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization,x-api-key,X-Guest-Id",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
         "body": json.dumps(body, ensure_ascii=False),
