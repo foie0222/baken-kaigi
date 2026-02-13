@@ -10,11 +10,23 @@ import boto3
 
 from src.domain.identifiers import RaceId
 from src.domain.ports.race_data_provider import (
+    AncestorData,
+    AptitudeSummaryData,
+    ConditionAptitudeData,
+    CourseAptitudeData,
+    DistanceAptitudeData,
+    ExtendedPedigreeData,
+    HorsePerformanceData,
+    PedigreeData,
+    PerformanceData,
+    PositionAptitudeData,
     RaceData,
     RaceDataProvider,
     RaceResultData,
     RaceResultsData,
     RunnerData,
+    TrackTypeAptitudeData,
+    VenueAptitudeData,
     WeightData,
 )
 
@@ -210,22 +222,269 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         )
 
     # ========================================
-    # 未実装メソッド（Phase 2 Task 10-11 で実装）
+    # 馬系メソッド（Task 10）
     # ========================================
 
     def get_past_performance(self, horse_id):
-        return []
+        """馬の過去成績を取得する."""
+        items = self._query_horse_runners(horse_id)
+        if not items:
+            return []
 
-    def get_jockey_stats(self, jockey_id, course):
-        return None
+        results = []
+        for item in items:
+            race_id = item.get("race_id", "")
+            race_info = self._get_race_info(race_id)
+            race_date_str = item.get("race_date", "")
+            race_dt = (
+                datetime.strptime(race_date_str, "%Y%m%d").replace(tzinfo=JST)
+                if len(race_date_str) == 8
+                else datetime.now(JST)
+            )
+            venue_code = race_info.get("venue_code", "")
+            condition = str(race_info.get("track_condition", ""))
+            results.append(PerformanceData(
+                race_date=race_dt,
+                race_name=race_info.get("race_name", ""),
+                venue=VENUE_CODE_MAP.get(venue_code, venue_code),
+                finish_position=int(item.get("finish_position", 0)),
+                distance=int(race_info.get("distance", 0)),
+                track_condition=TRACK_CONDITION_MAP.get(condition, condition),
+                time=item.get("time", ""),
+            ))
+
+        results.sort(key=lambda r: r.race_date, reverse=True)
+        return results
+
+    def get_horse_performances(self, horse_id, limit=5, track_type=None):
+        """馬の過去成績を詳細に取得する."""
+        items = self._query_horse_runners(horse_id)
+        if not items:
+            return []
+
+        # 新しい順にソート
+        items.sort(key=lambda i: i.get("race_date", ""), reverse=True)
+
+        results = []
+        for item in items:
+            if len(results) >= limit:
+                break
+
+            race_id = item.get("race_id", "")
+            race_info = self._get_race_info(race_id)
+
+            track_code = str(race_info.get("track_code", ""))
+            item_track_type = TRACK_TYPE_MAP.get(track_code[:1], "") if track_code else ""
+
+            if track_type and item_track_type != track_type:
+                continue
+
+            venue_code = race_info.get("venue_code", "")
+            condition = str(race_info.get("track_condition", ""))
+            odds_str = item.get("odds", "")
+
+            results.append(HorsePerformanceData(
+                race_id=race_id,
+                race_date=item.get("race_date", ""),
+                race_name=race_info.get("race_name", ""),
+                venue=VENUE_CODE_MAP.get(venue_code, venue_code),
+                distance=int(race_info.get("distance", 0)),
+                track_type=item_track_type,
+                track_condition=TRACK_CONDITION_MAP.get(condition, condition),
+                finish_position=int(item.get("finish_position", 0)),
+                total_runners=int(race_info.get("horse_count", 0)),
+                time=item.get("time", ""),
+                horse_name=item.get("horse_name"),
+                last_3f=item.get("last_3f") or None,
+                weight_carried=float(item["weight_carried"]) if item.get("weight_carried") else None,
+                jockey_name=item.get("jockey_name"),
+                odds=float(odds_str) if odds_str else None,
+                popularity=int(item["popularity"]) if item.get("popularity") else None,
+            ))
+
+        return results
 
     def get_pedigree(self, horse_id):
-        return None
+        """馬の血統情報を取得する."""
+        item = self._get_horse_info(horse_id)
+        if not item:
+            return None
+        return PedigreeData(
+            horse_id=horse_id,
+            horse_name=item.get("horse_name"),
+            sire_name=item.get("sire_name"),
+            dam_name=item.get("dam_name"),
+            broodmare_sire=item.get("broodmare_sire"),
+        )
+
+    def get_extended_pedigree(self, horse_id):
+        """馬の拡張血統情報を取得する."""
+        item = self._get_horse_info(horse_id)
+        if not item:
+            return None
+        sire_name = item.get("sire_name")
+        dam_name = item.get("dam_name")
+        bms = item.get("broodmare_sire")
+        return ExtendedPedigreeData(
+            horse_id=horse_id,
+            horse_name=item.get("horse_name"),
+            sire=AncestorData(name=sire_name) if sire_name else None,
+            dam=AncestorData(name=dam_name, broodmare_sire=bms) if dam_name else None,
+            inbreeding=[],
+            lineage_type=None,
+        )
 
     def get_weight_history(self, horse_id, limit=5):
-        return []
+        """馬の体重履歴を取得する."""
+        items = self._query_horse_runners(horse_id)
+        if not items:
+            return []
+
+        items.sort(key=lambda i: i.get("race_date", ""), reverse=True)
+        results = []
+        for item in items[:limit]:
+            if "weight" not in item:
+                continue
+            results.append(WeightData(
+                weight=int(item["weight"]),
+                weight_diff=int(item.get("weight_diff", 0)),
+            ))
+        return results
+
+    def get_course_aptitude(self, horse_id):
+        """馬のコース適性を取得する."""
+        items = self._query_horse_runners(horse_id)
+        if not items:
+            return None
+
+        horse_name = None
+        horse_info = self._get_horse_info(horse_id)
+        if horse_info:
+            horse_name = horse_info.get("horse_name")
+
+        # 集計用
+        venue_stats: dict[str, dict] = {}
+        track_type_stats: dict[str, dict] = {}
+        distance_stats: dict[str, dict] = {}
+        condition_stats: dict[str, dict] = {}
+        position_stats: dict[str, dict] = {}
+
+        for item in items:
+            race_info = self._get_race_info(item.get("race_id", ""))
+            venue_code = race_info.get("venue_code", "")
+            venue = VENUE_CODE_MAP.get(venue_code, venue_code)
+            track_code = str(race_info.get("track_code", ""))
+            track_type = TRACK_TYPE_MAP.get(track_code[:1], "") if track_code else ""
+            condition_code = str(race_info.get("track_condition", ""))
+            condition = TRACK_CONDITION_MAP.get(condition_code, condition_code)
+            distance = int(race_info.get("distance", 0))
+            finish_pos = int(item.get("finish_position", 0))
+            waku = int(item.get("waku_ban", 0))
+
+            is_win = finish_pos == 1
+            is_place = 1 <= finish_pos <= 3
+
+            # 会場別
+            if venue:
+                s = venue_stats.setdefault(venue, {"starts": 0, "wins": 0, "places": 0})
+                s["starts"] += 1
+                s["wins"] += int(is_win)
+                s["places"] += int(is_place)
+
+            # トラック種別
+            if track_type:
+                s = track_type_stats.setdefault(track_type, {"starts": 0, "wins": 0})
+                s["starts"] += 1
+                s["wins"] += int(is_win)
+
+            # 距離帯
+            if distance > 0:
+                dist_range = self._distance_range(distance)
+                s = distance_stats.setdefault(dist_range, {"starts": 0, "wins": 0})
+                s["starts"] += 1
+                s["wins"] += int(is_win)
+
+            # 馬場状態
+            if condition:
+                s = condition_stats.setdefault(condition, {"starts": 0, "wins": 0})
+                s["starts"] += 1
+                s["wins"] += int(is_win)
+
+            # 枠順
+            if waku > 0:
+                pos = self._waku_position(waku)
+                s = position_stats.setdefault(pos, {"starts": 0, "wins": 0})
+                s["starts"] += 1
+                s["wins"] += int(is_win)
+
+        by_venue = [
+            VenueAptitudeData(
+                venue=v, starts=s["starts"], wins=s["wins"], places=s["places"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+                place_rate=s["places"] / s["starts"] if s["starts"] else 0,
+            )
+            for v, s in venue_stats.items()
+        ]
+        by_track = [
+            TrackTypeAptitudeData(
+                track_type=t, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for t, s in track_type_stats.items()
+        ]
+        by_distance = [
+            DistanceAptitudeData(
+                distance_range=d, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for d, s in distance_stats.items()
+        ]
+        by_condition = [
+            ConditionAptitudeData(
+                condition=c, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for c, s in condition_stats.items()
+        ]
+        by_position = [
+            PositionAptitudeData(
+                position=p, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for p, s in position_stats.items()
+        ]
+
+        best_venue = max(by_venue, key=lambda x: x.win_rate).venue if by_venue else None
+        best_dist = max(by_distance, key=lambda x: x.win_rate).distance_range if by_distance else None
+
+        return CourseAptitudeData(
+            horse_id=horse_id,
+            horse_name=horse_name,
+            by_venue=by_venue,
+            by_track_type=by_track,
+            by_distance=by_distance,
+            by_track_condition=by_condition,
+            by_running_position=by_position,
+            aptitude_summary=AptitudeSummaryData(
+                best_venue=best_venue,
+                best_distance=best_dist,
+                preferred_condition=None,
+                preferred_position=None,
+            ),
+        )
+
+    # HRDB未サポートメソッド（スタブ）
+    def get_horse_training(self, horse_id, limit=5, days=30):
+        return ([], None)
 
     def get_jra_checksum(self, venue_code, kaisai_kai, kaisai_nichime, race_number):
+        return None
+
+    # ========================================
+    # 人物・統計系メソッド（Task 11 で実装）
+    # ========================================
+
+    def get_jockey_stats(self, jockey_id, course):
         return None
 
     def get_past_race_stats(self, track_type, distance, grade_class=None, limit=100):
@@ -237,19 +496,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     def get_jockey_stats_detail(self, jockey_id, year=None, period="recent"):
         return None
 
-    def get_horse_performances(self, horse_id, limit=5, track_type=None):
-        return []
-
-    def get_horse_training(self, horse_id, limit=5, days=30):
-        return ([], None)
-
-    def get_extended_pedigree(self, horse_id):
-        return None
-
     def get_odds_history(self, race_id):
-        return None
-
-    def get_course_aptitude(self, horse_id):
         return None
 
     def get_trainer_info(self, trainer_id):
@@ -277,6 +524,58 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
 
     def get_breeder_stats(self, breeder_id, year=None, period="all"):
         return None
+
+    # ========================================
+    # 内部ヘルパー（DynamoDB アクセス）
+    # ========================================
+
+    def _query_horse_runners(self, horse_id: str) -> list[dict]:
+        """horse_id-index でrunnersテーブルを検索する."""
+        resp = self._runners_table.query(
+            IndexName="horse_id-index",
+            KeyConditionExpression="horse_id = :hid",
+            ExpressionAttributeValues={":hid": horse_id},
+        )
+        return resp.get("Items", [])
+
+    def _get_horse_info(self, horse_id: str) -> dict | None:
+        """horsesテーブルから馬情報を取得する."""
+        resp = self._horses_table.get_item(
+            Key={"horse_id": horse_id, "sk": "info"},
+        )
+        return resp.get("Item")
+
+    def _get_race_info(self, race_id: str) -> dict:
+        """racesテーブルからレース情報を取得する."""
+        if not race_id:
+            return {}
+        race_date = race_id.split("_")[0]
+        resp = self._races_table.get_item(
+            Key={"race_date": race_date, "race_id": race_id},
+        )
+        return resp.get("Item", {})
+
+    @staticmethod
+    def _distance_range(distance: int) -> str:
+        """距離を距離帯文字列に変換する."""
+        if distance <= 1400:
+            return "~1400m"
+        if distance <= 1800:
+            return "1400-1800m"
+        if distance <= 2200:
+            return "1800-2200m"
+        return "2200m~"
+
+    @staticmethod
+    def _waku_position(waku: int) -> str:
+        """枠番を位置カテゴリに変換する."""
+        if waku <= 2:
+            return "内枠(1-2)"
+        if waku <= 4:
+            return "中内枠(3-4)"
+        if waku <= 6:
+            return "中外枠(5-6)"
+        return "外枠(7-8)"
 
     # ========================================
     # 内部変換メソッド
