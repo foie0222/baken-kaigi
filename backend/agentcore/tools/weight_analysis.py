@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 # 馬体重変動判定閾値
 WEIGHT_BIG_CHANGE = 10  # 10kg以上は大幅変動
@@ -43,23 +39,7 @@ def analyze_weight_trend(
     """
     try:
         # 過去成績を取得（体重データ含む）
-        response = requests.get(
-            f"{get_api_url()}/horses/{horse_id}/performances",
-            params={"limit": 10},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 404:
-            return {
-                "warning": "馬体重データが見つかりませんでした",
-                "horse_name": horse_name,
-            }
-
-        response.raise_for_status()
-        data = response.json()
-
-        performances = data.get("performances", [])
+        performances = dynamodb_client.get_horse_performances(horse_id, limit=10)
         if not performances:
             return {
                 "warning": "過去成績がありません",
@@ -102,9 +82,6 @@ def analyze_weight_trend(
             "current_weight_evaluation": current_weight_evaluation,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze weight trend: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze weight trend: {e}")
         return {"error": str(e)}
