@@ -7,6 +7,7 @@ baken-kaigi/
 ├── frontend/     # React + TypeScript + Vite
 ├── backend/      # Python Lambda
 ├── cdk/          # AWS CDK インフラ
+├── jravan-api/   # JRA-VAN API（EC2用）
 └── aidlc-docs/   # DDD設計ドキュメント
 ```
 
@@ -33,8 +34,8 @@ baken-kaigi/
 # デプロイ前チェック（必須）
 ./scripts/pre-deploy-check.sh
 
-# CDKデプロイ
-cd cdk && npx cdk deploy --all --require-approval never
+# CDKデプロイ（必ず --context jravan=true を付ける）
+cd cdk && npx cdk deploy --all --context jravan=true --require-approval never
 
 # フロントエンド開発
 cd frontend && npm run dev
@@ -71,4 +72,4 @@ cd backend && pytest
 ## 注意事項
 
 - セキュリティ最優先（IAM最小権限、シークレット管理）
-- GAMBLE-OS (HRDB-API) をデータソースとして使用
+- CDKは必ず `--context jravan=true` を付ける

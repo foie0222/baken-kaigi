@@ -1,22 +1,21 @@
 """レースデータ取得ツール.
 
-DynamoDB からレース・馬データを取得する。
+JRA-VAN API を呼び出してレース・馬データを取得する。
 """
 
-import logging
-
+import requests
 from strands import tool
 
-from . import dynamodb_client
-
-logger = logging.getLogger(__name__)
+from .jravan_client import cached_get, get_api_url
 
 
 def _fetch_race_detail(race_id: str) -> dict:
-    """DynamoDBからレース詳細を取得する共通関数."""
-    race = dynamodb_client.get_race(race_id)
-    runners = dynamodb_client.get_runners(race_id)
-    return {"race": race or {}, "runners": runners}
+    """JRA-VAN APIからレース詳細を取得する共通関数."""
+    response = cached_get(
+        f"{get_api_url()}/races/{race_id}",
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 def _extract_race_conditions(race: dict) -> list[str]:
@@ -72,8 +71,8 @@ def get_race_data(race_id: str) -> dict:
             "race": data.get("race", {}),
             "runners": data.get("runners", []),
         }
-    except Exception as e:
-        return {"error": f"データ取得に失敗しました: {str(e)}"}
+    except requests.RequestException as e:
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
 
 
 @tool
@@ -115,5 +114,5 @@ def get_race_runners(race_id: str) -> dict:
             "total_runners": race.get("horse_count", len(runners)),
             "race_name": race.get("race_name", ""),
         }
-    except Exception as e:
-        return {"error": f"データ取得に失敗しました: {str(e)}"}
+    except requests.RequestException as e:
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}

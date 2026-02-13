@@ -5,11 +5,15 @@
 
 import logging
 
+import requests
 from strands import tool
 
-from . import dynamodb_client
+from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
+
+# 定数定義
+API_TIMEOUT_SECONDS = 30
 
 
 @tool
@@ -84,6 +88,9 @@ def analyze_scratch_impact(
             "refund_impact": refund_impact,
             "overall_comment": overall_comment,
         }
+    except requests.RequestException as e:
+        logger.error(f"Failed to analyze scratch impact: {e}")
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze scratch impact: {e}")
         return {"error": str(e)}
@@ -92,11 +99,16 @@ def analyze_scratch_impact(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        result = dynamodb_client.get_race(race_id)
-        if result is None:
+        response = requests.get(
+            f"{get_api_url()}/races/{race_id}",
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 404:
             return {"error": "レース情報が見つかりませんでした", "race_id": race_id}
-        return result
-    except Exception as e:
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
         logger.error(f"Failed to get race info: {e}")
         return {"error": f"レース情報取得エラー: {str(e)}"}
 
@@ -104,8 +116,15 @@ def _get_race_info(race_id: str) -> dict:
 def _get_runners(race_id: str) -> list[dict]:
     """出走馬情報を取得する."""
     try:
-        return dynamodb_client.get_runners(race_id)
-    except Exception as e:
+        response = requests.get(
+            f"{get_api_url()}/races/{race_id}/runners",
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except requests.RequestException as e:
         logger.error(f"Failed to get runners: {e}")
         return []
 

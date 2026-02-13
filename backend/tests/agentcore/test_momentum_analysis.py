@@ -2,9 +2,10 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
+import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -16,29 +17,43 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
+@pytest.fixture(autouse=True)
+def mock_jravan_client():
+    """JRA-VANクライアントをモック化."""
+    with patch("tools.momentum_analysis.get_headers", return_value={"x-api-key": "test-key"}):
+        with patch("tools.momentum_analysis.get_api_url", return_value="https://api.example.com"):
+            yield
+
+
 class TestAnalyzeMomentum:
     """勢い分析統合テスト."""
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    def test_正常系_勢いを分析(self, mock_get_perfs):
+    @patch("tools.momentum_analysis.requests.get")
+    def test_正常系_勢いを分析(self, mock_get):
         """正常系: 勢いを正しく分析できる."""
-        mock_get_perfs.return_value = [
-            {"finish_position": 1},
-            {"finish_position": 2},
-            {"finish_position": 3},
-        ]
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "performances": [
+                {"finish_position": 1},
+                {"finish_position": 2},
+                {"finish_position": 3},
+            ]
+        }
+        mock_get.return_value = mock_response
 
         result = analyze_momentum(
             horse_id="horse_001",
             horse_name="テスト馬",
         )
 
+        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    def test_例外時にwarningを返す(self, mock_get_perfs):
-        """異常系: Exception発生時はwarningを返す（_get_performancesがキャッチ）."""
-        mock_get_perfs.side_effect = Exception("Connection failed")
+    @patch("tools.momentum_analysis.requests.get")
+    def test_RequestException時にwarningを返す(self, mock_get):
+        """異常系: RequestException発生時はwarningを返す（_get_performancesがキャッチ）."""
+        mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_momentum(
             horse_id="horse_001",
@@ -48,4 +63,4 @@ class TestAnalyzeMomentum:
         # _get_performancesがexceptionをキャッチして空リストを返すので、warningになる
         has_warning = "warning" in result
         has_error = "error" in result
-        assert has_warning or has_error, "Expected 'warning' or 'error' on Exception"
+        assert has_warning or has_error, "Expected 'warning' or 'error' on RequestException"

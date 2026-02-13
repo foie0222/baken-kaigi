@@ -93,6 +93,6 @@ jobs:
         run: pytest tests/ -v
 
       - name: CDK Synth
-        run: cdk synth
+        run: cdk synth --context jravan=true
         env:
           AWS_DEFAULT_REGION: ap-northeast-1

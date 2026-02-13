@@ -5,11 +5,17 @@
 
 import logging
 
+import requests
 from strands import tool
 
-from . import dynamodb_client
+from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
+
+# 定数定義
+API_TIMEOUT_SECONDS = 30
+DEFAULT_TRAINING_LIMIT = 5
+DEFAULT_DAYS = 30
 
 # 調教評価基準（栗東CW 5F基準）
 KURITTO_CW_5F_EXCELLENT = 51.0  # 51秒以下: 超優秀
@@ -52,9 +58,24 @@ def analyze_training_condition(
         分析結果（調教サマリー、状態評価、勝負気配など）
     """
     try:
-        # DynamoDBに調教データテーブルなし（将来HRDB-API経由で取得予定）
-        training_records = []
-        training_summary = {}
+        response = requests.get(
+            f"{get_api_url()}/horses/{horse_id}/training",
+            params={"limit": DEFAULT_TRAINING_LIMIT, "days": DEFAULT_DAYS},
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+
+        if response.status_code == 404:
+            return {
+                "warning": "調教データが見つかりませんでした",
+                "horse_name": horse_name,
+            }
+
+        response.raise_for_status()
+        data = response.json()
+
+        training_records = data.get("training_records", [])
+        training_summary = data.get("training_summary", {})
 
         if not training_records:
             return {
@@ -96,6 +117,9 @@ def analyze_training_condition(
             "historical_pattern": historical_pattern,
             "overall_comment": overall_comment,
         }
+    except requests.RequestException as e:
+        logger.error(f"Failed to analyze training condition: {e}")
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze training condition: {e}")
         return {"error": str(e)}
