@@ -1,6 +1,6 @@
 """AgentCore 相談 API ハンドラー.
 
-AgentCore Runtime にリクエストをプロキシする。
+AgentCore Runtime にリクエストをプロキシし、利用制限を管理する。
 このファイルは他のバックエンドモジュールに依存せず、独立して動作する。
 """
 import base64
