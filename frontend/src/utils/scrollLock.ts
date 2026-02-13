@@ -1,8 +1,9 @@
 /**
- * document.body.style.overflow の競合を防ぐためのスクロールロック管理.
+ * スクロールロック管理.
  *
  * 複数のモーダル/BottomSheetが同時にオープンしている場合でも、
  * すべてが閉じるまで overflow: hidden を維持する。
+ * body と main 両方をロックする（main は独立スクロールコンテナ）。
  */
 let lockCount = 0;
 let savedOverflow = '';
@@ -11,6 +12,8 @@ export function acquireScrollLock(): void {
   if (lockCount === 0) {
     savedOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const main = document.querySelector('main');
+    if (main) (main as HTMLElement).style.overflow = 'hidden';
   }
   lockCount++;
 }
@@ -19,6 +22,8 @@ export function releaseScrollLock(): void {
   lockCount = Math.max(0, lockCount - 1);
   if (lockCount === 0) {
     document.body.style.overflow = savedOverflow;
+    const main = document.querySelector('main');
+    if (main) (main as HTMLElement).style.overflow = '';
   }
 }
 

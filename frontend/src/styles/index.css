@@ -82,8 +82,8 @@ body {
 .app-layout {
     display: flex;
     flex-direction: column;
-    height: 100dvh;
     height: 100vh; /* fallback */
+    height: 100dvh;
     max-width: var(--app-max-width);
     margin: 0 auto;
 }
