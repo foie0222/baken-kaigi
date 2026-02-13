@@ -1,11 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { LoginPage } from './LoginPage'
 import { useAuthStore } from '../../stores/authStore'
 
 describe('LoginPage', () => {
+  const originalState = useAuthStore.getState()
+
   beforeEach(() => {
     useAuthStore.setState({ isLoading: false, error: null })
+  })
+
+  afterEach(() => {
+    useAuthStore.setState(originalState)
   })
 
   it('ログインフォームが表示される', () => {
@@ -22,7 +28,7 @@ describe('LoginPage', () => {
 
   it('メールアドレスのみ入力でパスワードが空の場合はログインボタンが無効', async () => {
     const { user } = render(<LoginPage />)
-    const emailInput = screen.getByPlaceholderText('example@email.com')
+    const emailInput = screen.getByLabelText('メールアドレス')
     await user.type(emailInput, 'test@example.com')
     const button = screen.getByRole('button', { name: 'ログイン' })
     expect(button).toBeDisabled()
@@ -30,7 +36,7 @@ describe('LoginPage', () => {
 
   it('パスワードのみ入力でメールアドレスが空の場合はログインボタンが無効', async () => {
     const { user } = render(<LoginPage />)
-    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement
+    const passwordInput = screen.getByLabelText('パスワード')
     await user.type(passwordInput, 'password123')
     const button = screen.getByRole('button', { name: 'ログイン' })
     expect(button).toBeDisabled()
@@ -38,8 +44,8 @@ describe('LoginPage', () => {
 
   it('不正なメールアドレスの場合はログインボタンが無効', async () => {
     const { user } = render(<LoginPage />)
-    const emailInput = screen.getByPlaceholderText('example@email.com')
-    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement
+    const emailInput = screen.getByLabelText('メールアドレス')
+    const passwordInput = screen.getByLabelText('パスワード')
     await user.type(emailInput, 'not-an-email')
     await user.type(passwordInput, 'password123')
     const button = screen.getByRole('button', { name: 'ログイン' })
@@ -48,8 +54,8 @@ describe('LoginPage', () => {
 
   it('有効なメールアドレスとパスワードでログインボタンが有効', async () => {
     const { user } = render(<LoginPage />)
-    const emailInput = screen.getByPlaceholderText('example@email.com')
-    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement
+    const emailInput = screen.getByLabelText('メールアドレス')
+    const passwordInput = screen.getByLabelText('パスワード')
     await user.type(emailInput, 'test@example.com')
     await user.type(passwordInput, 'password123')
     const button = screen.getByRole('button', { name: 'ログイン' })
@@ -61,8 +67,8 @@ describe('LoginPage', () => {
     useAuthStore.setState({ signIn: mockSignIn } as never)
 
     const { user } = render(<LoginPage />)
-    const emailInput = screen.getByPlaceholderText('example@email.com')
-    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement
+    const emailInput = screen.getByLabelText('メールアドレス')
+    const passwordInput = screen.getByLabelText('パスワード')
     await user.type(emailInput, 'test@example.com')
     await user.type(passwordInput, 'password123')
     await user.click(screen.getByRole('button', { name: 'ログイン' }))

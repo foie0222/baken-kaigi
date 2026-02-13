@@ -2,8 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { SocialLoginButtons } from '../../components/auth/SocialLoginButtons';
-
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+import { EMAIL_REGEX } from '../../utils/validation';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -38,8 +37,9 @@ export function LoginPage() {
 
       <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>メールアドレス</label>
+          <label htmlFor="login-email" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>メールアドレス</label>
           <input
+            id="login-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -50,8 +50,9 @@ export function LoginPage() {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>パスワード</label>
+          <label htmlFor="login-password" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>パスワード</label>
           <input
+            id="login-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
