@@ -10,7 +10,7 @@ interface AgentState {
 
   fetchAgent: () => Promise<void>;
   createAgent: (name: string, baseStyle: AgentStyleId) => Promise<boolean>;
-  updateAgent: (name: string) => Promise<boolean>;
+  updateAgent: (baseStyle: AgentStyleId) => Promise<boolean>;
   getAgentData: () => AgentData | null;
   clearError: () => void;
   reset: () => void;
@@ -47,9 +47,9 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
     return false;
   },
 
-  updateAgent: async (name: string) => {
+  updateAgent: async (baseStyle: AgentStyleId) => {
     set({ isLoading: true, error: null });
-    const result = await apiClient.updateAgent(name);
+    const result = await apiClient.updateAgent(baseStyle);
 
     if (result.success && result.data) {
       set({ agent: result.data, isLoading: false });
@@ -67,7 +67,6 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
     return {
       name: agent.name,
       base_style: agent.base_style,
-      stats: agent.stats,
       performance: agent.performance,
       level: agent.level,
     };

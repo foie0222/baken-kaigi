@@ -489,13 +489,6 @@ export interface LossLimitCheckResult {
 // エージェント育成
 export type AgentStyleId = 'solid' | 'longshot' | 'data' | 'pace';
 
-export interface AgentStats {
-  data_analysis: number;
-  pace_reading: number;
-  risk_management: number;
-  intuition: number;
-}
-
 export interface AgentPerformance {
   total_bets: number;
   wins: number;
@@ -508,7 +501,6 @@ export interface Agent {
   user_id: string;
   name: string;
   base_style: AgentStyleId;
-  stats: AgentStats;
   performance: AgentPerformance;
   level: number;
   win_rate: number;
@@ -521,7 +513,6 @@ export interface Agent {
 export interface AgentData {
   name: string;
   base_style: AgentStyleId;
-  stats: AgentStats;
   performance: AgentPerformance;
   level: number;
 }
@@ -537,7 +528,6 @@ export interface AgentReview {
   has_win: boolean;
   review_text: string;
   learnings: string[];
-  stats_change: Record<string, number>;
   created_at: string;
 }
 
