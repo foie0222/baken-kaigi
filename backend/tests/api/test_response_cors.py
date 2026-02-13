@@ -87,15 +87,9 @@ class TestSuccessResponseCors:
 
     def test_Allow_HeadersにX_Guest_Idとx_api_keyが含まれる(self):
         resp = success_response({"ok": True})
-        allow_headers = resp["headers"]["Access-Control-Allow-Headers"]
-        assert "X-Guest-Id" in allow_headers
-        assert "x-api-key" in allow_headers
-
-    def test_error_responseのAllow_HeadersにもX_Guest_Idが含まれる(self):
-        resp = error_response("error")
-        allow_headers = resp["headers"]["Access-Control-Allow-Headers"]
-        assert "X-Guest-Id" in allow_headers
-        assert "x-api-key" in allow_headers
+        tokens = {h.strip() for h in resp["headers"]["Access-Control-Allow-Headers"].split(",")}
+        assert "X-Guest-Id" in tokens
+        assert "x-api-key" in tokens
 
 
 class TestErrorResponseCors:
@@ -109,6 +103,12 @@ class TestErrorResponseCors:
         event = _make_event("https://www.bakenkaigi.com")
         resp = error_response("error", event=event)
         assert resp["headers"]["Access-Control-Allow-Origin"] == "https://www.bakenkaigi.com"
+
+    def test_Allow_HeadersにX_Guest_Idとx_api_keyが含まれる(self):
+        resp = error_response("error")
+        tokens = {h.strip() for h in resp["headers"]["Access-Control-Allow-Headers"].split(",")}
+        assert "X-Guest-Id" in tokens
+        assert "x-api-key" in tokens
 
 
 class TestWrapperResponseCors:

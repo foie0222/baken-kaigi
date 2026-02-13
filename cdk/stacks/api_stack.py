@@ -1220,6 +1220,8 @@ class BakenKaigiApiStack(Stack):
                 "http://127.0.0.1:3000",
             ])
 
+        cors_allow_headers = ["Content-Type", "Authorization", "x-api-key", "X-Guest-Id"]
+
         api = apigw.RestApi(
             self,
             "BakenKaigiApi",
@@ -1228,7 +1230,7 @@ class BakenKaigiApiStack(Stack):
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=cors_origins,
                 allow_methods=apigw.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization", "x-api-key", "X-Guest-Id"],
+                allow_headers=cors_allow_headers,
             ),
         )
 
@@ -1237,7 +1239,7 @@ class BakenKaigiApiStack(Stack):
         # ========================================
         cors_headers = {
             "Access-Control-Allow-Origin": "'*'",
-            "Access-Control-Allow-Headers": "'Content-Type,Authorization,x-api-key,X-Guest-Id'",
+            "Access-Control-Allow-Headers": f"'{','.join(cors_allow_headers)}'",
             "Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
         }
         for response_type in [
