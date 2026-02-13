@@ -14,7 +14,10 @@ from database import _to_race_dict, AGE_CONDITION_MAP, OBSTACLE_SHUBETSU_CODES
 
 
 def _make_row(**overrides):
-    """テスト用のレースデータ行を作成する."""
+    """テスト用のレースデータ行を作成する.
+
+    デフォルト距離は1600m（平地の標準距離）を使用。
+    """
     base = {
         "kaisai_nen": "2026",
         "kaisai_tsukihi": "0214",
@@ -23,7 +26,7 @@ def _make_row(**overrides):
         "kyosomei_hondai": "",
         "kyosomei_fukudai": "",
         "grade_code": "",
-        "kyori": "2860",
+        "kyori": "1600",
         "track_code": "",
         "babajotai_code_shiba": "",
         "babajotai_code_dirt": "",
@@ -107,3 +110,52 @@ class TestObstacleShuhetsuCodes:
     def test_平地コードは含まれない(self):
         for code in ["11", "12", "13", "14"]:
             assert code not in OBSTACLE_SHUBETSU_CODES
+
+
+class TestRaceNameObstacleFallback:
+    """track_codeもshubetsu_codeも障害を示さない場合、レース名からフォールバック判定."""
+
+    def test_レース名にジャンプを含む場合は障害と判定(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="小倉ジャンプステークス",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_レース名に障害を含む場合は障害と判定(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="障害未勝利",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_通常のレース名では障害判定されない(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="東京優駿",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is False
+
+    def test_副題にジャンプを含む場合も障害と判定(self):
+        row = _make_row(
+            track_code="", kyoso_shubetsu_code="14",
+            kyosomei_hondai="", kyosomei_fukudai="ジャンプ特別",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is True
+        assert result["track_type"] == "障害"
+
+    def test_track_code芝でレース名にジャンプを含んでもフォールバックはスキップ(self):
+        """track_codeが芝(1x)の場合、レース名フォールバックは適用されない."""
+        row = _make_row(
+            track_code="11", kyoso_shubetsu_code="14",
+            kyosomei_hondai="ジャンプ大会",
+        )
+        result = _to_race_dict(row)
+        assert result["is_obstacle"] is False
+        assert result["track_type"] == "芝"
