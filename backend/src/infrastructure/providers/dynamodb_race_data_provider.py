@@ -16,9 +16,19 @@ from src.domain.ports.race_data_provider import (
     CourseAptitudeData,
     DistanceAptitudeData,
     ExtendedPedigreeData,
+    GateAnalysisData,
+    GatePositionConditionsData,
+    GatePositionStatsData,
+    GateStatsData,
+    HorseNumberStatsData,
     HorsePerformanceData,
+    JockeyInfoData,
+    JockeyStatsData,
+    JockeyStatsDetailData,
+    PastRaceStats,
     PedigreeData,
     PerformanceData,
+    PopularityStats,
     PositionAptitudeData,
     RaceData,
     RaceDataProvider,
@@ -26,6 +36,10 @@ from src.domain.ports.race_data_provider import (
     RaceResultsData,
     RunnerData,
     TrackTypeAptitudeData,
+    TrainerClassStatsData,
+    TrainerInfoData,
+    TrainerStatsDetailData,
+    TrainerTrackStatsData,
     VenueAptitudeData,
     WeightData,
 )
@@ -481,37 +495,342 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         return None
 
     # ========================================
-    # 人物・統計系メソッド（Task 11 で実装）
+    # 人物・統計系メソッド（Task 11）
     # ========================================
 
     def get_jockey_stats(self, jockey_id, course):
-        return None
+        """騎手のコース成績を取得する."""
+        items = self._scan_runners_by_field("jockey_id", jockey_id)
+        if not items:
+            return None
 
-    def get_past_race_stats(self, track_type, distance, grade_class=None, limit=100):
-        return None
+        venue_code = VENUE_NAME_MAP.get(course, "")
+        filtered = []
+        for item in items:
+            race_info = self._get_race_info(item.get("race_id", ""))
+            if race_info.get("venue_code") == venue_code:
+                filtered.append(item)
+
+        if not filtered:
+            return None
+
+        jockey_info = self._jockeys_table.get_item(
+            Key={"jockey_id": jockey_id, "sk": "info"},
+        ).get("Item", {})
+
+        total = len(filtered)
+        wins = sum(1 for i in filtered if int(i.get("finish_position", 0)) == 1)
+        places = sum(1 for i in filtered if 1 <= int(i.get("finish_position", 0)) <= 3)
+
+        return JockeyStatsData(
+            jockey_id=jockey_id,
+            jockey_name=jockey_info.get("jockey_name", ""),
+            course=course,
+            total_races=total,
+            wins=wins,
+            win_rate=wins / total if total else 0,
+            place_rate=places / total if total else 0,
+        )
 
     def get_jockey_info(self, jockey_id):
-        return None
+        """騎手基本情報を取得する."""
+        resp = self._jockeys_table.get_item(
+            Key={"jockey_id": jockey_id, "sk": "info"},
+        )
+        item = resp.get("Item")
+        if not item:
+            return None
+        return JockeyInfoData(
+            jockey_id=jockey_id,
+            jockey_name=item.get("jockey_name", ""),
+            jockey_name_kana=item.get("jockey_name_kana"),
+            affiliation=item.get("affiliation"),
+        )
 
     def get_jockey_stats_detail(self, jockey_id, year=None, period="recent"):
-        return None
+        """騎手の成績統計を取得する."""
+        items = self._scan_runners_by_field("jockey_id", jockey_id)
+        if not items:
+            return None
 
-    def get_odds_history(self, race_id):
-        return None
+        jockey_info = self._jockeys_table.get_item(
+            Key={"jockey_id": jockey_id, "sk": "info"},
+        ).get("Item", {})
+
+        total = len(items)
+        wins = sum(1 for i in items if int(i.get("finish_position", 0)) == 1)
+        seconds = sum(1 for i in items if int(i.get("finish_position", 0)) == 2)
+        thirds = sum(1 for i in items if int(i.get("finish_position", 0)) == 3)
+        places = wins + seconds + thirds
+
+        return JockeyStatsDetailData(
+            jockey_id=jockey_id,
+            jockey_name=jockey_info.get("jockey_name", ""),
+            total_rides=total,
+            wins=wins,
+            second_places=seconds,
+            third_places=thirds,
+            win_rate=wins / total if total else 0,
+            place_rate=places / total if total else 0,
+            period=period,
+            year=year,
+        )
 
     def get_trainer_info(self, trainer_id):
-        return None
+        """調教師基本情報を取得する."""
+        resp = self._trainers_table.get_item(
+            Key={"trainer_id": trainer_id, "sk": "info"},
+        )
+        item = resp.get("Item")
+        if not item:
+            return None
+        return TrainerInfoData(
+            trainer_id=trainer_id,
+            trainer_name=item.get("trainer_name", ""),
+            trainer_name_kana=item.get("trainer_name_kana"),
+            affiliation=item.get("affiliation"),
+        )
 
     def get_trainer_stats_detail(self, trainer_id, year=None, period="all"):
-        return (None, [], [])
+        """調教師の成績統計を取得する."""
+        items = self._scan_runners_by_field("trainer_id", trainer_id)
+        if not items:
+            return (None, [], [])
 
-    def get_stallion_offspring_stats(self, stallion_id, year=None, track_type=None):
-        return (None, [], [], [], [])
+        trainer_info = self._trainers_table.get_item(
+            Key={"trainer_id": trainer_id, "sk": "info"},
+        ).get("Item", {})
+
+        total = len(items)
+        wins = sum(1 for i in items if int(i.get("finish_position", 0)) == 1)
+        seconds = sum(1 for i in items if int(i.get("finish_position", 0)) == 2)
+        thirds = sum(1 for i in items if int(i.get("finish_position", 0)) == 3)
+        places = wins + seconds + thirds
+
+        stats = TrainerStatsDetailData(
+            trainer_id=trainer_id,
+            trainer_name=trainer_info.get("trainer_name", ""),
+            total_starts=total,
+            wins=wins,
+            second_places=seconds,
+            third_places=thirds,
+            win_rate=wins / total if total else 0,
+            place_rate=places / total if total else 0,
+            period=period,
+            year=year,
+        )
+
+        # トラック別・クラス別集計
+        track_agg: dict[str, dict] = {}
+        class_agg: dict[str, dict] = {}
+        for item in items:
+            race_info = self._get_race_info(item.get("race_id", ""))
+            tc = str(race_info.get("track_code", ""))
+            tt = TRACK_TYPE_MAP.get(tc[:1], "") if tc else ""
+            gc = GRADE_CODE_MAP.get(str(race_info.get("grade_code", "")), "")
+            fp = int(item.get("finish_position", 0))
+
+            if tt:
+                s = track_agg.setdefault(tt, {"starts": 0, "wins": 0})
+                s["starts"] += 1
+                s["wins"] += int(fp == 1)
+            if gc:
+                s = class_agg.setdefault(gc, {"starts": 0, "wins": 0})
+                s["starts"] += 1
+                s["wins"] += int(fp == 1)
+
+        track_stats = [
+            TrainerTrackStatsData(
+                track_type=t, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for t, s in track_agg.items()
+        ]
+        class_stats = [
+            TrainerClassStatsData(
+                grade_class=g, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for g, s in class_agg.items()
+        ]
+
+        return (stats, track_stats, class_stats)
+
+    def get_past_race_stats(self, track_type, distance, grade_class=None, limit=100):
+        """過去の同条件レース統計を取得する."""
+        # track_type名からコード先頭桁を逆引き
+        track_prefix = {v: k for k, v in TRACK_TYPE_MAP.items()}.get(track_type, "")
+
+        resp = self._races_table.scan(ProjectionExpression="race_id, race_date, track_code, distance, grade_code, venue_code, horse_count")
+        race_items = resp.get("Items", [])
+        while resp.get("LastEvaluatedKey"):
+            resp = self._races_table.scan(
+                ProjectionExpression="race_id, race_date, track_code, distance, grade_code, venue_code, horse_count",
+                ExclusiveStartKey=resp["LastEvaluatedKey"],
+            )
+            race_items.extend(resp.get("Items", []))
+
+        matching_races = []
+        for ri in race_items:
+            tc = str(ri.get("track_code", ""))
+            if track_prefix and not tc.startswith(track_prefix):
+                continue
+            if int(ri.get("distance", 0)) != distance:
+                continue
+            if grade_class:
+                gc = GRADE_CODE_MAP.get(str(ri.get("grade_code", "")), "")
+                if gc != grade_class:
+                    continue
+            matching_races.append(ri)
+            if len(matching_races) >= limit:
+                break
+
+        if not matching_races:
+            return None
+
+        pop_stats: dict[int, dict] = {}
+        for race in matching_races:
+            runner_resp = self._runners_table.query(
+                KeyConditionExpression="race_id = :ri",
+                ExpressionAttributeValues={":ri": race["race_id"]},
+            )
+            for item in runner_resp.get("Items", []):
+                pop = int(item.get("popularity", 0))
+                fp = int(item.get("finish_position", 0))
+                if pop <= 0:
+                    continue
+                s = pop_stats.setdefault(pop, {"total": 0, "wins": 0, "places": 0})
+                s["total"] += 1
+                s["wins"] += int(fp == 1)
+                s["places"] += int(1 <= fp <= 3)
+
+        popularity_stats = [
+            PopularityStats(
+                popularity=p,
+                total_runs=s["total"],
+                wins=s["wins"],
+                places=s["places"],
+                win_rate=s["wins"] / s["total"] if s["total"] else 0,
+                place_rate=s["places"] / s["total"] if s["total"] else 0,
+            )
+            for p, s in sorted(pop_stats.items())
+        ]
+
+        return PastRaceStats(
+            total_races=len(matching_races),
+            popularity_stats=popularity_stats,
+            avg_win_payout=None,
+            avg_place_payout=None,
+            track_type=track_type,
+            distance=distance,
+            grade_class=grade_class,
+        )
 
     def get_gate_position_stats(
         self, venue, track_type=None, distance=None, track_condition=None, limit=100
     ):
+        """枠順別成績統計を取得する."""
+        venue_code = VENUE_NAME_MAP.get(venue, "")
+        track_prefix = {v: k for k, v in TRACK_TYPE_MAP.items()}.get(track_type, "") if track_type else ""
+        cond_code = {v: k for k, v in TRACK_CONDITION_MAP.items()}.get(track_condition, "") if track_condition else ""
+
+        resp = self._races_table.scan(
+            ProjectionExpression="race_id, race_date, venue_code, track_code, distance, track_condition, horse_count",
+        )
+        race_items = resp.get("Items", [])
+
+        matching = []
+        for ri in race_items:
+            if ri.get("venue_code") != venue_code:
+                continue
+            tc = str(ri.get("track_code", ""))
+            if track_prefix and not tc.startswith(track_prefix):
+                continue
+            if distance and int(ri.get("distance", 0)) != distance:
+                continue
+            if cond_code and str(ri.get("track_condition", "")) != cond_code:
+                continue
+            matching.append(ri)
+            if len(matching) >= limit:
+                break
+
+        if not matching:
+            return None
+
+        gate_agg: dict[int, dict] = {}
+        number_agg: dict[int, dict] = {}
+
+        for race in matching:
+            runner_resp = self._runners_table.query(
+                KeyConditionExpression="race_id = :ri",
+                ExpressionAttributeValues={":ri": race["race_id"]},
+            )
+            for item in runner_resp.get("Items", []):
+                waku = int(item.get("waku_ban", 0))
+                hnum = int(item.get("horse_number", 0))
+                fp = int(item.get("finish_position", 0))
+                is_win = fp == 1
+                is_place = 1 <= fp <= 3
+
+                if waku > 0:
+                    s = gate_agg.setdefault(waku, {"starts": 0, "wins": 0, "places": 0, "finish_sum": 0})
+                    s["starts"] += 1
+                    s["wins"] += int(is_win)
+                    s["places"] += int(is_place)
+                    s["finish_sum"] += fp if fp > 0 else 0
+
+                if hnum > 0:
+                    s = number_agg.setdefault(hnum, {"starts": 0, "wins": 0})
+                    s["starts"] += 1
+                    s["wins"] += int(is_win)
+
+        by_gate = [
+            GateStatsData(
+                gate=g,
+                gate_range=f"{g}枠",
+                starts=s["starts"],
+                wins=s["wins"],
+                places=s["places"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+                place_rate=s["places"] / s["starts"] if s["starts"] else 0,
+                avg_finish=s["finish_sum"] / s["starts"] if s["starts"] else 0,
+            )
+            for g, s in sorted(gate_agg.items())
+        ]
+        by_number = [
+            HorseNumberStatsData(
+                horse_number=n, starts=s["starts"], wins=s["wins"],
+                win_rate=s["wins"] / s["starts"] if s["starts"] else 0,
+            )
+            for n, s in sorted(number_agg.items())
+        ]
+
+        favorable = [g.gate for g in by_gate if g.win_rate > 0.1]
+        unfavorable = [g.gate for g in by_gate if g.win_rate < 0.05 and g.starts >= 3]
+
+        return GatePositionStatsData(
+            conditions=GatePositionConditionsData(
+                venue=venue,
+                track_type=track_type,
+                distance=distance,
+                track_condition=track_condition,
+            ),
+            total_races=len(matching),
+            by_gate=by_gate,
+            by_horse_number=by_number,
+            analysis=GateAnalysisData(
+                favorable_gates=favorable,
+                unfavorable_gates=unfavorable,
+                comment="",
+            ),
+        )
+
+    # Phase 3 以降で実装（暫定スタブ）
+    def get_odds_history(self, race_id):
         return None
+
+    def get_stallion_offspring_stats(self, stallion_id, year=None, track_type=None):
+        return (None, [], [], [], [])
 
     def get_owner_info(self, owner_id):
         return None
@@ -528,6 +847,22 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     # ========================================
     # 内部ヘルパー（DynamoDB アクセス）
     # ========================================
+
+    def _scan_runners_by_field(self, field: str, value: str) -> list[dict]:
+        """runnersテーブルをフィールド値でスキャンする."""
+        resp = self._runners_table.scan(
+            FilterExpression=f"{field} = :val",
+            ExpressionAttributeValues={":val": value},
+        )
+        items = resp.get("Items", [])
+        while resp.get("LastEvaluatedKey"):
+            resp = self._runners_table.scan(
+                FilterExpression=f"{field} = :val",
+                ExpressionAttributeValues={":val": value},
+                ExclusiveStartKey=resp["LastEvaluatedKey"],
+            )
+            items.extend(resp.get("Items", []))
+        return items
 
     def _query_horse_runners(self, horse_id: str) -> list[dict]:
         """horse_id-index でrunnersテーブルを検索する."""
