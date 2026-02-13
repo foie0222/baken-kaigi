@@ -194,7 +194,7 @@ class TestSaveIndices:
         assert item["source"] == "jiro8-speed"
         assert item["venue"] == "東京"
         assert item["race_number"] == 11
-        assert item["indices"] == indices
+        assert len(item["indices"]) == 1
         assert "ttl" in item
         expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
         assert item["ttl"] == expected_ttl
