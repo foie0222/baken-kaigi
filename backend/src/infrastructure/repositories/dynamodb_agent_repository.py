@@ -9,7 +9,7 @@ from src.domain.entities import Agent
 from src.domain.enums import AgentStyle
 from src.domain.identifiers import AgentId, UserId
 from src.domain.ports.agent_repository import AgentRepository
-from src.domain.value_objects import AgentName, AgentPerformance, AgentStats
+from src.domain.value_objects import AgentName, AgentPerformance
 
 
 class DynamoDBAgentRepository(AgentRepository):
@@ -58,7 +58,6 @@ class DynamoDBAgentRepository(AgentRepository):
             "user_id": str(agent.user_id.value),
             "name": str(agent.name.value),
             "base_style": str(agent.base_style.value),
-            "stats": agent.stats.to_dict(),
             "performance": agent.performance.to_dict(),
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat(),
@@ -67,7 +66,6 @@ class DynamoDBAgentRepository(AgentRepository):
     @staticmethod
     def _from_dynamodb_item(item: dict) -> Agent:
         """DynamoDB アイテムから Agent を復元する."""
-        stats_data = item.get("stats", {})
         perf_data = item.get("performance", {})
 
         return Agent(
@@ -75,12 +73,6 @@ class DynamoDBAgentRepository(AgentRepository):
             user_id=UserId(item["user_id"]),
             name=AgentName(item["name"]),
             base_style=AgentStyle(item["base_style"]),
-            stats=AgentStats(
-                data_analysis=int(stats_data.get("data_analysis", 0)),
-                pace_reading=int(stats_data.get("pace_reading", 0)),
-                risk_management=int(stats_data.get("risk_management", 0)),
-                intuition=int(stats_data.get("intuition", 0)),
-            ),
             performance=AgentPerformance(
                 total_bets=int(perf_data.get("total_bets", 0)),
                 wins=int(perf_data.get("wins", 0)),
