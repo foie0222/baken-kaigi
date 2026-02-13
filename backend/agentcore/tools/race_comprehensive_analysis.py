@@ -3,12 +3,11 @@
 レースの出走メンバーを総合的に分析し、各馬の評価と有力馬を特定する。
 """
 
-import requests
 from strands import tool
 
+from . import dynamodb_client
 from .common import get_tool_logger, log_tool_execution
 from .constants import (
-    API_TIMEOUT_SECONDS,
     FAVORITE_ODDS_THRESHOLD,
     JOCKEY_WIN_RATE_A,
     JOCKEY_WIN_RATE_B,
@@ -22,7 +21,6 @@ from .constants import (
     WEIGHT_CHANGE_B,
     WEIGHT_CHANGE_C,
 )
-from .jravan_client import get_api_url, get_headers
 
 logger = get_tool_logger("race_comprehensive_analysis")
 
@@ -106,9 +104,6 @@ def analyze_race_comprehensive(race_id: str) -> dict:
             "notable_horses": notable_horses,
             "betting_suggestion": betting_suggestion,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze race comprehensive: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze race comprehensive: {e}")
         return {"error": str(e)}
@@ -117,16 +112,11 @@ def analyze_race_comprehensive(race_id: str) -> dict:
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 404:
+        result = dynamodb_client.get_race(race_id)
+        if result is None:
             return {"error": "レース情報が見つかりませんでした", "race_id": race_id}
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
+        return result
+    except Exception as e:
         logger.error(f"Failed to get race info: {e}")
         return {"error": f"レース情報取得エラー: {str(e)}"}
 
@@ -134,46 +124,45 @@ def _get_race_info(race_id: str) -> dict:
 def _get_runners(race_id: str) -> list[dict]:
     """出走馬リストを取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}/runners",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json().get("runners", [])
-    except requests.RequestException as e:
+        return dynamodb_client.get_runners(race_id)
+    except Exception as e:
         logger.error(f"Failed to get runners for race {race_id}: {e}")
         return []
 
 
 def _get_running_styles(race_id: str) -> list[dict]:
-    """脚質データを取得する."""
+    """脚質データを取得する.
+
+    DynamoDBに脚質専用データがないため、runnersのrunning_styleフィールドで代替する。
+    """
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}/running-styles",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json().get("running_styles", [])
-    except requests.RequestException as e:
+        runners = dynamodb_client.get_runners(race_id)
+        return [
+            {
+                "horse_number": r.get("horse_number"),
+                "horse_name": r.get("horse_name", ""),
+                "running_style": r.get("running_style", "不明"),
+            }
+            for r in runners
+        ]
+    except Exception as e:
         logger.error(f"Failed to get running styles for race {race_id}: {e}")
         return []
 
 
 def _get_current_odds(race_id: str) -> dict:
-    """現在のオッズを取得する."""
+    """現在のオッズを取得する.
+
+    DynamoDBにオッズ専用データがないため、runnersのoddsフィールドで代替する。
+    """
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}/odds/win",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        data = response.json()
-        # 馬番をキーにしたマップに変換
-        return {o.get("horse_number"): o.get("odds", 0) for o in data.get("odds", [])}
-    except requests.RequestException as e:
+        runners = dynamodb_client.get_runners(race_id)
+        return {
+            r.get("horse_number"): float(r.get("odds", 0))
+            for r in runners
+            if r.get("odds") is not None
+        }
+    except Exception as e:
         logger.error(f"Failed to get current odds for race {race_id}: {e}")
         return {}
 
@@ -240,33 +229,14 @@ def _evaluate_horse_factors(
 
     # 過去成績から評価
     try:
-        response = requests.get(
-            f"{get_api_url()}/horses/{horse_id}/performances",
-            params={"limit": 5},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            performances = data.get("performances", [])
-            if performances:
-                factors["form"] = _evaluate_form_from_performances(performances)
-    except requests.RequestException as e:
+        performances = dynamodb_client.get_horse_performances(horse_id, limit=5)
+        if performances:
+            factors["form"] = _evaluate_form_from_performances(performances)
+    except Exception as e:
         logger.debug(f"Failed to get performances for horse {horse_id}: {e}")
 
-    # コース適性評価
-    try:
-        response = requests.get(
-            f"{get_api_url()}/horses/{horse_id}/course-aptitude",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            venue = race_info.get("venue", "")
-            factors["course_aptitude"] = _evaluate_course_aptitude(data, venue)
-    except requests.RequestException as e:
-        logger.debug(f"Failed to get course aptitude for horse {horse_id}: {e}")
+    # コース適性評価 - DynamoDBにコース適性データがないためスキップ
+    # factors["course_aptitude"] はデフォルト "B" のまま
 
     # 騎手評価（キャッシュ対応で同一騎手への重複リクエスト防止）
     jockey_id = runner.get("jockey_id", "")
@@ -275,17 +245,12 @@ def _evaluate_horse_factors(
             factors["jockey"] = _evaluate_jockey(jockey_cache[jockey_id])
         else:
             try:
-                response = requests.get(
-                    f"{get_api_url()}/jockeys/{jockey_id}/stats",
-                    headers=get_headers(),
-                    timeout=API_TIMEOUT_SECONDS,
-                )
-                if response.status_code == 200:
-                    jockey_stats = response.json()
+                jockey_data = dynamodb_client.get_jockey(jockey_id)
+                if jockey_data:
                     if jockey_cache is not None:
-                        jockey_cache[jockey_id] = jockey_stats
-                    factors["jockey"] = _evaluate_jockey(jockey_stats)
-            except requests.RequestException as e:
+                        jockey_cache[jockey_id] = jockey_data
+                    factors["jockey"] = _evaluate_jockey(jockey_data)
+            except Exception as e:
                 logger.debug(f"Failed to get jockey stats for {jockey_id}: {e}")
 
     # 調教師評価（キャッシュ対応で同一調教師への重複リクエスト防止）
@@ -295,18 +260,12 @@ def _evaluate_horse_factors(
             factors["trainer"] = _evaluate_trainer(trainer_cache[trainer_id])
         else:
             try:
-                response = requests.get(
-                    f"{get_api_url()}/trainers/{trainer_id}/stats",
-                    params={"period": "recent"},
-                    headers=get_headers(),
-                    timeout=API_TIMEOUT_SECONDS,
-                )
-                if response.status_code == 200:
-                    trainer_stats = response.json()
+                trainer_data = dynamodb_client.get_trainer(trainer_id)
+                if trainer_data:
                     if trainer_cache is not None:
-                        trainer_cache[trainer_id] = trainer_stats
-                    factors["trainer"] = _evaluate_trainer(trainer_stats)
-            except requests.RequestException as e:
+                        trainer_cache[trainer_id] = trainer_data
+                    factors["trainer"] = _evaluate_trainer(trainer_data)
+            except Exception as e:
                 logger.debug(f"Failed to get trainer stats for {trainer_id}: {e}")
 
     # 馬体重変動評価
