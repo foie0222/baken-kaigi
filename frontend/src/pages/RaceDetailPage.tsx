@@ -32,7 +32,7 @@ export function RaceDetailPage() {
   const [race, setRace] = useState<RaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<RaceDetailMode>('select');
+  const [mode, setMode] = useState<RaceDetailMode>('ai');
 
   // 券種・買い方・選択状態
   const [betType, setBetType] = useState<BetType>('win');
@@ -319,9 +319,11 @@ export function RaceDetailPage() {
 
       {mode === 'ai' && (
         <>
-          <button className="back-to-select-btn" onClick={handleBackToSelect}>
-            ← 選び直す
-          </button>
+          <div className="mode-switch-link">
+            <button className="text-link-btn" onClick={() => setMode('manual')}>
+              手動で買い目を選ぶ
+            </button>
+          </div>
 
           <div className="ai-proposal-section">
             <BetProposalContent key={aiContentKey} race={race} />
@@ -340,8 +342,8 @@ export function RaceDetailPage() {
 
       {mode === 'manual' && (
         <>
-          <button className="back-to-select-btn" onClick={handleBackToSelect}>
-            ← 選び直す
+          <button className="back-to-select-btn" onClick={() => { setAiContentKey((k) => k + 1); setMode('ai'); }}>
+            ← AI提案に戻る
           </button>
 
           {/* 券種・買い方セレクター */}
@@ -455,7 +457,7 @@ export function RaceDetailPage() {
               カートに追加
             </button>
             <p className="ai-guide-text">
-              ※ カートに追加後、AI買い目レビューで確認できます
+              ※ カートに追加後、購入確認へ進めます
             </p>
 
             {itemCount > 0 && (
