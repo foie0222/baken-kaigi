@@ -4,7 +4,7 @@ import pytest
 from src.domain.entities import Agent
 from src.domain.enums import AgentStyle
 from src.domain.identifiers import AgentId, UserId
-from src.domain.value_objects import AgentName, AgentPerformance, AgentStats
+from src.domain.value_objects import AgentName, AgentPerformance
 
 
 class TestAgent:
@@ -19,7 +19,6 @@ class TestAgent:
         )
         assert agent.name.value == "ハヤテ"
         assert agent.base_style == AgentStyle.SOLID
-        assert agent.stats.risk_management == 50
         assert agent.performance.total_bets == 0
         assert agent.level == 1
 
@@ -58,26 +57,15 @@ class TestAgent:
         assert agent.performance.total_invested == 1000
         assert agent.performance.total_return == 2400
 
-    def test_名前を変更できる(self):
-        agent = Agent.create(
-            agent_id=AgentId("agt_001"),
-            user_id=UserId("usr_001"),
-            name=AgentName("ハヤテ"),
-            base_style=AgentStyle.PACE,
-        )
-        agent.update_name(AgentName("シンプウ"))
-        assert agent.name.value == "シンプウ"
-
-    def test_能力値を変更できる(self):
+    def test_スタイルを変更できる(self):
         agent = Agent.create(
             agent_id=AgentId("agt_001"),
             user_id=UserId("usr_001"),
             name=AgentName("ハヤテ"),
             base_style=AgentStyle.SOLID,
         )
-        original_data = agent.stats.data_analysis
-        agent.apply_stats_change(data_analysis=5)
-        assert agent.stats.data_analysis == original_data + 5
+        agent.update_style(AgentStyle.DATA)
+        assert agent.base_style == AgentStyle.DATA
 
     def test_character_typeへの変換(self):
         mapping = {
@@ -122,33 +110,6 @@ class TestAgentName:
     def test_前後の空白はトリムされる(self):
         name = AgentName("  ハヤテ  ")
         assert name.value == "ハヤテ"
-
-
-class TestAgentStats:
-    """AgentStats値オブジェクトのテスト."""
-
-    def test_スタイル別の初期値(self):
-        solid = AgentStats.initial_for_style("solid")
-        assert solid.data_analysis == 40
-        assert solid.risk_management == 50
-
-        data = AgentStats.initial_for_style("data")
-        assert data.data_analysis == 60
-
-    def test_能力値は0から100の範囲(self):
-        with pytest.raises(ValueError):
-            AgentStats(data_analysis=-1, pace_reading=0, risk_management=0, intuition=0)
-        with pytest.raises(ValueError):
-            AgentStats(data_analysis=101, pace_reading=0, risk_management=0, intuition=0)
-
-    def test_変更後も範囲内に収まる(self):
-        stats = AgentStats(data_analysis=98, pace_reading=50, risk_management=50, intuition=50)
-        new_stats = stats.apply_change(data_analysis=10)
-        assert new_stats.data_analysis == 100  # 上限でクリップ
-
-        stats2 = AgentStats(data_analysis=2, pace_reading=50, risk_management=50, intuition=50)
-        new_stats2 = stats2.apply_change(data_analysis=-10)
-        assert new_stats2.data_analysis == 0  # 下限でクリップ
 
 
 class TestAgentPerformance:

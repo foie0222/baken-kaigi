@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from ..enums import AgentStyle
 from ..identifiers import AgentId, UserId
-from ..value_objects import AgentName, AgentPerformance, AgentStats
+from ..value_objects import AgentName, AgentPerformance
 
 # レベル算出用の経験値閾値
 _LEVEL_THRESHOLDS = [0, 10, 30, 60, 100, 150, 210, 280, 360, 450]
@@ -20,7 +20,6 @@ class Agent:
     user_id: UserId
     name: AgentName
     base_style: AgentStyle
-    stats: AgentStats
     performance: AgentPerformance = field(default_factory=AgentPerformance.empty)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -40,7 +39,6 @@ class Agent:
             user_id=user_id,
             name=name,
             base_style=base_style,
-            stats=AgentStats.initial_for_style(base_style.value),
             performance=AgentPerformance.empty(),
             created_at=now,
             updated_at=now,
@@ -58,30 +56,14 @@ class Agent:
                 break
         return level
 
-    def update_name(self, name: AgentName) -> None:
-        """エージェント名を変更する."""
-        self.name = name
+    def update_style(self, style: AgentStyle) -> None:
+        """分析スタイルを変更する."""
+        self.base_style = style
         self.updated_at = datetime.now(timezone.utc)
 
     def record_result(self, invested: int, returned: int, is_win: bool) -> None:
         """レース結果を記録する."""
         self.performance = self.performance.record_result(invested, returned, is_win)
-        self.updated_at = datetime.now(timezone.utc)
-
-    def apply_stats_change(
-        self,
-        data_analysis: int = 0,
-        pace_reading: int = 0,
-        risk_management: int = 0,
-        intuition: int = 0,
-    ) -> None:
-        """能力値を変更する."""
-        self.stats = self.stats.apply_change(
-            data_analysis=data_analysis,
-            pace_reading=pace_reading,
-            risk_management=risk_management,
-            intuition=intuition,
-        )
         self.updated_at = datetime.now(timezone.utc)
 
     def to_character_type(self) -> str:
