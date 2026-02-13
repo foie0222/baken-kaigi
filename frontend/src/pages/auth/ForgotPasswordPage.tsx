@@ -2,13 +2,23 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
   const { forgotPassword, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  const isValidEmail = EMAIL_REGEX.test(email);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!isValidEmail) {
+      setValidationError('有効なメールアドレスを入力してください');
+      return;
+    }
+    setValidationError('');
     try {
       await forgotPassword(email);
       navigate('/reset-password', { state: { email } });
@@ -27,21 +37,21 @@ export function ForgotPasswordPage() {
         パスワードリセット用のコードを送信します。
       </p>
 
-      {error && (
+      {(error || validationError) && (
         <div style={{ background: '#ffebee', color: '#c62828', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
-          {error}
-          <button onClick={clearError} style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', color: '#c62828' }}>✕</button>
+          {validationError || error}
+          <button onClick={() => { clearError(); setValidationError(''); }} style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', color: '#c62828' }}>✕</button>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>メールアドレス</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
             style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 8, fontSize: 16, boxSizing: 'border-box' }} />
         </div>
-        <button type="submit" disabled={isLoading}
-          style={{ padding: 14, background: isLoading ? '#ccc' : '#1a73e8', color: 'white', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: isLoading ? 'default' : 'pointer' }}>
+        <button type="submit" disabled={isLoading || !email}
+          style={{ padding: 14, background: (isLoading || !email) ? '#ccc' : '#1a73e8', color: 'white', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: (isLoading || !email) ? 'default' : 'pointer' }}>
           {isLoading ? '送信中...' : 'リセットコードを送信'}
         </button>
       </form>
