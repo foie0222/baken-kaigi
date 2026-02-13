@@ -48,7 +48,18 @@ AGE_CONDITION_MAP = {
     "12": "3歳",
     "13": "3歳以上",
     "14": "4歳以上",
+    # 障害レース
+    # 障害の競走種別コードは21〜29まで存在するが、
+    # 年齢条件を持つものとして21（3歳以上）, 22（4歳以上）のみを扱う。
+    # 23〜29は現行データでは使用されておらず、あえてマッピングしない。
+    "21": "3歳以上",
+    "22": "4歳以上",
 }
+
+# 障害レースの競走種別コード（track_code未設定時のフォールバック判定用）
+# 21〜29はすべて「障害レース」として扱うが、AGE_CONDITION_MAPで年齢条件が
+# 定義されているのは21, 22のみである点に注意。
+OBSTACLE_SHUBETSU_CODES = frozenset({"21", "22", "23", "24", "25", "26", "27", "28", "29"})
 
 # 競走条件コード → クラスのマッピング（共通定数）
 # 表示用とAPI用で異なる場合は display/api を分けて定義
@@ -625,9 +636,18 @@ def _to_race_dict(row: dict) -> dict:
     race_id = _make_race_id(kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango)
     venue_name = VENUE_CODE_MAP.get(keibajo_code, keibajo_code)
 
+    # 競走種別コード（年齢条件・障害判定に使用）
+    shubetsu_code = (row.get("kyoso_shubetsu_code", "") or "").strip()
+    age_condition = AGE_CONDITION_MAP.get(shubetsu_code, "")
+
     # トラックコードの解釈
     track_code = row.get("track_code", "") or ""
     is_obstacle = track_code.startswith("3")  # 3x = 障害
+
+    # track_codeが未設定の場合、競走種別コードからフォールバック判定
+    if not is_obstacle and shubetsu_code in OBSTACLE_SHUBETSU_CODES:
+        is_obstacle = True
+
     if track_code.startswith("1"):
         track_type = "芝"
     elif track_code.startswith("2"):
@@ -644,10 +664,6 @@ def _to_race_dict(row: dict) -> dict:
         baba_cd = row.get("babajotai_code_dirt", "") or ""
     baba_map = {"1": "良", "2": "稍重", "3": "重", "4": "不良"}
     track_condition = baba_map.get(baba_cd, "")
-
-    # 競走種別コード（年齢条件）の解釈 - モジュール定数を使用
-    shubetsu_code = (row.get("kyoso_shubetsu_code", "") or "").strip()
-    age_condition = AGE_CONDITION_MAP.get(shubetsu_code, "")
 
     # 競走条件コード（クラス）の解釈 - モジュール定数を使用
     joken_code = (row.get("kyoso_joken_code", "") or "").strip()
