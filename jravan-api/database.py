@@ -6,7 +6,7 @@ pg8000 (pure Python PostgreSQL driver) を使用。
 import logging
 import os
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -1231,8 +1231,14 @@ def calculate_jra_checksum(base_value: int, kaisai_nichime: int, race_number: in
     return None
 
 
+CHECKSUM_STALENESS_DAYS = 7
+
+
 def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race_number: int) -> int | None:
     """JRA出馬表URLのチェックサムを取得する.
+
+    updated_at が CHECKSUM_STALENESS_DAYS 日以上前の場合は
+    古いデータとみなし None を返す（不正リンク防止）。
 
     Args:
         venue_code: 競馬場コード（01-10）
@@ -1241,12 +1247,12 @@ def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race
         race_number: レース番号（1-12）
 
     Returns:
-        チェックサム値（0-255）、データがない場合はNone
+        チェックサム値（0-255）、データがない場合またはデータが古い場合はNone
     """
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("""
-            SELECT base_value
+            SELECT base_value, updated_at
             FROM jra_url_checksums
             WHERE venue_code = %s AND kaisai_kai = %s
         """, (venue_code, kaisai_kai))
@@ -1261,6 +1267,21 @@ def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race
             return None
 
         base_value = row[0]
+        updated_at = row[1]
+
+        if updated_at is not None:
+            jst = timezone(timedelta(hours=9))
+            now = datetime.now(jst)
+            if updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=jst)
+            age = now - updated_at
+            if age > timedelta(days=CHECKSUM_STALENESS_DAYS):
+                logger.warning(
+                    f"Stale checksum data for venue_code={venue_code}, kaisai_kai={kaisai_kai}: "
+                    f"updated_at={updated_at}, age={age.days} days. Returning None."
+                )
+                return None
+
         return calculate_jra_checksum(base_value, kaisai_nichime, race_number)
 
 

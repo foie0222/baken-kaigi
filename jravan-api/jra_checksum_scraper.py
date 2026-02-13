@@ -20,6 +20,7 @@ JRA_BASE_URL = "https://www.jra.go.jp/JRADB/accessD.html"
 REQUEST_DELAY_SECONDS = 0.1
 REQUEST_TIMEOUT = 30
 USER_AGENT = "Mozilla/5.0 (compatible; BakenKaigiBot/1.0; +https://bakenkaigi.com)"
+MAX_BRUTE_FORCE_VENUES = 5  # ブルートフォース探索で試す会場数の上限
 
 JST = timezone(timedelta(hours=9))
 
@@ -217,8 +218,44 @@ def find_valid_checksum(venue_code: str, year: str, kaisai_kai: str, kaisai_nich
     return None
 
 
+def _discover_venues_from_nav(nav_checksums: dict[str, int], target_date: str) -> list[dict]:
+    """ナビゲーションのCNAMEリンクから会場情報を自動検出する.
+
+    get_current_kaisai_info() が空の場合のフォールバック。
+    CNAMEをパースして1Rリンクを持つ会場を検出する。
+
+    Args:
+        nav_checksums: {CNAME: checksum} の辞書
+        target_date: 日付（YYYYMMDD形式）
+
+    Returns:
+        検出された開催情報のリスト
+    """
+    venues = {}
+    for cname in nav_checksums:
+        parsed = parse_cname(cname)
+        if parsed is None:
+            continue
+        if parsed["date"] != target_date:
+            continue
+        if parsed["race_number"] != 1:
+            continue
+        key = (parsed["venue_code"], parsed["kaisai_kai"])
+        if key not in venues:
+            venues[key] = {
+                "venue_code": parsed["venue_code"],
+                "kaisai_kai": parsed["kaisai_kai"],
+                "kaisai_nichime": parsed["kaisai_nichime"],
+                "date": target_date,
+            }
+    return sorted(venues.values(), key=lambda v: v["venue_code"])
+
+
 def scrape_jra_checksums(target_date: str) -> list[dict]:
     """JRAサイトから全会場のbase_valueを取得してDBに保存する.
+
+    DBに開催情報がない場合でも、JRAサイトのナビゲーションリンクから
+    会場情報を自動検出してスクレイピングを実行する。
 
     Args:
         target_date: 日付（YYYYMMDD形式）
@@ -228,37 +265,77 @@ def scrape_jra_checksums(target_date: str) -> list[dict]:
     """
     # 1. DBから当日の開催情報を取得
     kaisai_list = db.get_current_kaisai_info(target_date)
-    if not kaisai_list:
-        logger.info(f"No kaisai info found for {target_date}")
-        return []
-
-    logger.info(f"Found {len(kaisai_list)} venues for {target_date}: "
-                f"{[k['venue_code'] for k in kaisai_list]}")
 
     year = target_date[:4]
     results = []
+    html = None
 
-    # 2. 最初の会場で有効なチェックサムを探す
-    first = kaisai_list[0]
-    found = find_valid_checksum(
-        venue_code=first["venue_code"],
-        year=year,
-        kaisai_kai=first["kaisai_kai"],
-        kaisai_nichime=first["kaisai_nichime"],
-        date=target_date,
-    )
+    if kaisai_list:
+        logger.info(f"Found {len(kaisai_list)} venues for {target_date}: "
+                    f"{[k['venue_code'] for k in kaisai_list]}")
 
-    if not found:
+        # 2a. DBの開催情報で最初の会場のチェックサムを探す
+        first = kaisai_list[0]
+        found = find_valid_checksum(
+            venue_code=first["venue_code"],
+            year=year,
+            kaisai_kai=first["kaisai_kai"],
+            kaisai_nichime=first["kaisai_nichime"],
+            date=target_date,
+        )
+        if found:
+            html, _ = found
+    else:
+        logger.info(f"No kaisai info in DB for {target_date}. "
+                    "Trying standalone discovery from JRA site.")
+
+    # 2b. DBに情報がない、またはDBの情報で見つからない場合は
+    #     主要会場をブルートフォースで試す（上位会場のみ）
+    if html is None:
+        common_venues = ["05", "06", "08", "09", "10", "01", "02", "03", "04", "07"]
+        venues_to_try = common_venues[:MAX_BRUTE_FORCE_VENUES]
+        logger.info(f"Trying brute-force discovery with {len(venues_to_try)} venues")
+        for venue_code in venues_to_try:
+            for kaisai_kai in ["01", "02", "03"]:
+                for nichime in range(1, 9):
+                    found = find_valid_checksum(
+                        venue_code=venue_code,
+                        year=year,
+                        kaisai_kai=kaisai_kai,
+                        kaisai_nichime=nichime,
+                        date=target_date,
+                    )
+                    if found:
+                        html, _ = found
+                        logger.info(
+                            f"Found valid page via brute-force: "
+                            f"venue={venue_code}, kai={kaisai_kai}, nichime={nichime}"
+                        )
+                        break
+                if html:
+                    break
+            if html:
+                break
+
+    if html is None:
         logger.error("Failed to find valid checksum for any venue")
         return []
-
-    html, _ = found
 
     # 3. ナビゲーションから全会場のチェックサムを抽出
     nav_checksums = extract_checksums_from_nav(html)
     logger.info(f"Extracted {len(nav_checksums)} CNAME checksums from navigation")
 
-    # 4. 各会場の1Rチェックサムからbase_valueを計算して保存
+    # 4. DBの開催情報がなければナビゲーションから会場を検出
+    if not kaisai_list:
+        kaisai_list = _discover_venues_from_nav(nav_checksums, target_date)
+        logger.info(f"Discovered {len(kaisai_list)} venues from navigation: "
+                    f"{[k['venue_code'] for k in kaisai_list]}")
+
+    if not kaisai_list:
+        logger.warning("No venues found in navigation either")
+        return []
+
+    # 5. 各会場の1Rチェックサムからbase_valueを計算して保存
     for kaisai in kaisai_list:
         venue_code = kaisai["venue_code"]
         kaisai_kai = kaisai["kaisai_kai"]
