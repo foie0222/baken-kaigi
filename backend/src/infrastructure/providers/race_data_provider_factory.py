@@ -9,7 +9,6 @@ def create_race_data_provider() -> RaceDataProvider:
 
     RACE_DATA_PROVIDER:
         "dynamodb" → DynamoDbRaceDataProvider
-        "jravan"   → JraVanRaceDataProvider
         未設定      → MockRaceDataProvider
     """
     provider_type = os.environ.get("RACE_DATA_PROVIDER", "")
@@ -19,12 +18,6 @@ def create_race_data_provider() -> RaceDataProvider:
         )
 
         return DynamoDbRaceDataProvider()
-    elif provider_type == "jravan":
-        from src.infrastructure.providers.jravan_race_data_provider import (
-            JraVanRaceDataProvider,
-        )
-
-        return JraVanRaceDataProvider()
     else:
         from src.infrastructure.providers.mock_race_data_provider import (
             MockRaceDataProvider,

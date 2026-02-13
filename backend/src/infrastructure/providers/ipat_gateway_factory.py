@@ -9,7 +9,6 @@ def create_ipat_gateway() -> IpatGateway:
 
     IPAT_GATEWAY:
         "gambleos" → GambleOsIpatGateway
-        "jravan"   → JraVanIpatGateway
         未設定      → MockIpatGateway
     """
     gateway_type = os.environ.get("IPAT_GATEWAY", "")
@@ -19,12 +18,6 @@ def create_ipat_gateway() -> IpatGateway:
         )
 
         return GambleOsIpatGateway()
-    elif gateway_type == "jravan":
-        from src.infrastructure.providers.jravan_ipat_gateway import (
-            JraVanIpatGateway,
-        )
-
-        return JraVanIpatGateway()
     else:
         from src.infrastructure.providers.mock_ipat_gateway import MockIpatGateway
 
