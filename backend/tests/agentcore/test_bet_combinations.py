@@ -2,9 +2,10 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
+import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -34,12 +35,11 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 
 
 @pytest.fixture(autouse=True)
-def mock_dynamodb_client():
-    """DynamoDBクライアントをモック化."""
-    with patch("tools.bet_combinations.dynamodb_client") as mock_client:
-        mock_client.get_runners.return_value = []
-        mock_client.get_horse_performances.return_value = []
-        yield mock_client
+def mock_jravan_client():
+    """JRA-VANクライアントをモック化."""
+    with patch("tools.bet_combinations.get_headers", return_value={"x-api-key": "test-key"}):
+        with patch("tools.bet_combinations.get_api_url", return_value="https://api.example.com"):
+            yield
 
 
 def _make_runners(count=6):
@@ -65,14 +65,19 @@ def _make_running_styles(styles_map):
 class TestSuggestBetCombinations:
     """馬券組み合わせ統合テスト."""
 
-    def test_正常系_馬券組み合わせを提案(self, mock_dynamodb_client):
+    @patch("tools.bet_combinations.requests.get")
+    def test_正常系_馬券組み合わせを提案(self, mock_get):
         """正常系: 馬券組み合わせを正しく提案できる."""
-        mock_dynamodb_client.get_runners.return_value = [
-            {"horse_number": 1, "horse_id": "h1", "odds": 2.5, "popularity": 1},
-            {"horse_number": 2, "horse_id": "h2", "odds": 5.0, "popularity": 2},
-            {"horse_number": 3, "horse_id": "h3", "odds": 10.0, "popularity": 3},
-        ]
-        mock_dynamodb_client.get_horse_performances.return_value = []
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "runners": [
+                {"horse_number": 1, "odds": 2.5, "popularity": 1},
+                {"horse_number": 2, "odds": 5.0, "popularity": 2},
+                {"horse_number": 3, "odds": 10.0, "popularity": 3},
+            ],
+        }
+        mock_get.return_value = mock_response
 
         result = suggest_bet_combinations(
             race_id="20260125_06_11",
@@ -84,9 +89,10 @@ class TestSuggestBetCombinations:
         # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    def test_Exception時にエラーを返す(self, mock_dynamodb_client):
-        """異常系: Exception発生時はerrorを返す."""
-        mock_dynamodb_client.get_runners.side_effect = Exception("Connection failed")
+    @patch("tools.bet_combinations.requests.get")
+    def test_RequestException時にエラーを返す(self, mock_get):
+        """異常系: RequestException発生時はerrorを返す."""
+        mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = suggest_bet_combinations(
             race_id="20260125_06_11",
@@ -102,7 +108,7 @@ class TestCalculateHorseScores:
     """_calculate_horse_scores のテスト."""
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_基本スコアが50で初期化される(self, mock_form, mock_dynamodb_client):
+    def test_基本スコアが50で初期化される(self, mock_form):
         """脚質・枠順の補正がない場合、基本スコアはBASE_SCORE."""
         runners = [{"horse_number": 8, "horse_id": "h1", "horse_name": "テスト馬"}]
         styles = []
@@ -112,7 +118,7 @@ class TestCalculateHorseScores:
         assert scores[8]["score"] == BASE_SCORE
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_先行脚質でスコアが加算される(self, mock_form, mock_dynamodb_client):
+    def test_先行脚質でスコアが加算される(self, mock_form):
         """先行脚質の馬はスコアが+5される."""
         runners = [{"horse_number": 8, "horse_id": "h1"}]
         styles = _make_running_styles({8: "先行"})
@@ -123,7 +129,7 @@ class TestCalculateHorseScores:
         assert "脚質良好" in scores[8]["reasons"]
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_差し脚質でスコアが加算される(self, mock_form, mock_dynamodb_client):
+    def test_差し脚質でスコアが加算される(self, mock_form):
         """差し脚質の馬はスコアが+5される."""
         runners = [{"horse_number": 8, "horse_id": "h1"}]
         styles = _make_running_styles({8: "差し"})
@@ -133,7 +139,7 @@ class TestCalculateHorseScores:
         assert scores[8]["score"] == BASE_SCORE + SCORE_DELTA_STYLE
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_追込脚質でリスク理由が追加される(self, mock_form, mock_dynamodb_client):
+    def test_追込脚質でリスク理由が追加される(self, mock_form):
         """追込脚質の馬はリスク理由に追加される."""
         runners = [{"horse_number": 8, "horse_id": "h1"}]
         styles = _make_running_styles({8: "追込"})
@@ -144,7 +150,7 @@ class TestCalculateHorseScores:
         assert "追込脚質" in scores[8]["risk_reasons"]
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_内枠でスコアが加算される(self, mock_form, mock_dynamodb_client):
+    def test_内枠でスコアが加算される(self, mock_form):
         """馬番4以下の内枠はスコアが+5される."""
         runners = [{"horse_number": 3, "horse_id": "h1"}]
         styles = []
@@ -155,7 +161,7 @@ class TestCalculateHorseScores:
         assert "内枠有利" in scores[3]["reasons"]
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_外枠でスコアが減算される(self, mock_form, mock_dynamodb_client):
+    def test_外枠でスコアが減算される(self, mock_form):
         """馬番14以上の外枠はスコアが-5される."""
         runners = [{"horse_number": 15, "horse_id": "h1"}]
         styles = []
@@ -166,7 +172,7 @@ class TestCalculateHorseScores:
         assert "外枠不利" in scores[15]["risk_reasons"]
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(20, ["好成績継続"], []))
-    def test_過去成績のスコアが反映される(self, mock_form, mock_dynamodb_client):
+    def test_過去成績のスコアが反映される(self, mock_form):
         """_evaluate_formの結果がスコアに反映される."""
         runners = [{"horse_number": 8, "horse_id": "h1"}]
         styles = []
@@ -177,7 +183,7 @@ class TestCalculateHorseScores:
         assert "好成績継続" in scores[8]["reasons"]
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(0, [], []))
-    def test_スコアは0から100の範囲に収まる(self, mock_form, mock_dynamodb_client):
+    def test_スコアは0から100の範囲に収まる(self, mock_form):
         """スコアは0未満や100超えにはならない."""
         # 内枠(+5) + 先行(+5) でも100を超えないことを確認
         mock_form.return_value = (60, ["好成績"], [])
@@ -189,7 +195,7 @@ class TestCalculateHorseScores:
         assert scores[1]["score"] <= 100
 
     @patch("tools.bet_combinations._evaluate_form", return_value=(-60, [], ["成績不振"]))
-    def test_スコアは0未満にならない(self, mock_form, mock_dynamodb_client):
+    def test_スコアは0未満にならない(self, mock_form):
         """スコアは0未満にならない."""
         runners = [{"horse_number": 15, "horse_id": "h1"}]
         styles = _make_running_styles({15: "追込"})

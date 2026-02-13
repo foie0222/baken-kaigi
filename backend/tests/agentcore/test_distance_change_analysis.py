@@ -2,9 +2,10 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
+import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -16,21 +17,31 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
+@pytest.fixture(autouse=True)
+def mock_jravan_client():
+    """JRA-VANクライアントをモック化."""
+    with patch("tools.distance_change_analysis.get_headers", return_value={"x-api-key": "test-key"}):
+        with patch("tools.distance_change_analysis.get_api_url", return_value="https://api.example.com"):
+            yield
+
+
 class TestAnalyzeDistanceChange:
     """距離変更分析統合テスト."""
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    @patch("tools.dynamodb_client.get_race")
-    def test_正常系_距離変更を分析(self, mock_get_race, mock_get_perfs):
+    @patch("tools.distance_change_analysis.requests.get")
+    def test_正常系_距離変更を分析(self, mock_get):
         """正常系: 距離変更を正しく分析できる."""
-        mock_get_race.return_value = {
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
             "distance": 2000,
             "track_type": "芝",
+            "performances": [
+                {"distance": 1600, "finish_position": 1},
+                {"distance": 1800, "finish_position": 2},
+            ],
         }
-        mock_get_perfs.return_value = [
-            {"distance": 1600, "finish_position": 1},
-            {"distance": 1800, "finish_position": 2},
-        ]
+        mock_get.return_value = mock_response
 
         result = analyze_distance_change(
             race_id="20260125_06_11",
@@ -38,12 +49,13 @@ class TestAnalyzeDistanceChange:
             horse_name="テスト馬",
         )
 
+        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.dynamodb_client.get_race")
-    def test_例外時にエラーを返す(self, mock_get_race):
-        """異常系: 例外発生時はerrorを返す."""
-        mock_get_race.side_effect = Exception("Connection failed")
+    @patch("tools.distance_change_analysis.requests.get")
+    def test_RequestException時にエラーを返す(self, mock_get):
+        """異常系: RequestException発生時はerrorを返す."""
+        mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_distance_change(
             race_id="20260125_06_11",

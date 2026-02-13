@@ -2,9 +2,10 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
+import requests
 
 # strandsモジュールが利用できない場合はスキップ
 try:
@@ -23,6 +24,20 @@ except ImportError:
     STRANDS_AVAILABLE = False
 
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
+
+
+@pytest.fixture(autouse=True)
+def mock_get_headers():
+    """全テストで get_headers をモック化してboto3呼び出しを防ぐ."""
+    with patch("tools.horse_analysis.get_headers", return_value={"x-api-key": "test-key"}):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def mock_get_api_url():
+    """全テストで get_api_url をモック化."""
+    with patch("tools.horse_analysis.get_api_url", return_value="https://api.example.com"):
+        yield
 
 
 class TestEvaluateForm:
@@ -132,23 +147,28 @@ class TestAnalyzeDistance:
 class TestAnalyzeHorsePerformance:
     """analyze_horse_performance 統合テスト."""
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    def test_正常系_馬の成績を分析(self, mock_get_perfs):
-        """正常系: DynamoDBからデータ取得成功時、分析結果を返す."""
-        mock_get_perfs.return_value = [
-            {
-                "finish_position": 1,
-                "distance": 1600,
-                "last_3f": 33.5,
-                "grade_class": "2勝",
-            },
-            {
-                "finish_position": 2,
-                "distance": 1800,
-                "last_3f": 33.8,
-                "grade_class": "2勝",
-            },
-        ]
+    @patch("tools.horse_analysis.requests.get")
+    def test_正常系_馬の成績を分析(self, mock_get):
+        """正常系: APIが成功した場合、分析結果を返す."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "performances": [
+                {
+                    "finish_position": 1,
+                    "distance": 1600,
+                    "last_3f": 33.5,
+                    "grade_class": "2勝",
+                },
+                {
+                    "finish_position": 2,
+                    "distance": 1800,
+                    "last_3f": 33.8,
+                    "grade_class": "2勝",
+                },
+            ]
+        }
+        mock_get.return_value = mock_response
 
         result = analyze_horse_performance("horse_001", "テスト馬")
 
@@ -158,30 +178,38 @@ class TestAnalyzeHorsePerformance:
         assert "ability_analysis" in result
         assert "comment" in result
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    def test_データなしで警告を返す(self, mock_get_perfs):
-        """データが空の場合は警告を返す."""
-        mock_get_perfs.return_value = []
+    @patch("tools.horse_analysis.requests.get")
+    def test_404エラーで警告を返す(self, mock_get):
+        """異常系: 404の場合は警告を返す."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
 
         result = analyze_horse_performance("horse_999", "不明馬")
 
         assert "warning" in result
-        assert "過去成績がありません" in result["warning"]
+        assert "見つかりませんでした" in result["warning"]
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    def test_例外時にエラーを返す(self, mock_get_perfs):
-        """Exception発生時はerrorを含む辞書を返す."""
-        mock_get_perfs.side_effect = Exception("Connection failed")
+    @patch("tools.horse_analysis.requests.get")
+    def test_RequestException時にエラーを返す(self, mock_get):
+        """異常系: RequestException発生時はerrorを含む辞書を返す."""
+        mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_horse_performance("horse_001", "テスト馬")
 
         assert "error" in result
+        assert "API呼び出しに失敗しました" in result["error"]
 
-    @patch("tools.dynamodb_client.get_horse_performances")
-    def test_limit引数が適切に適用される(self, mock_get_perfs):
-        """limit引数がDynamoDB呼び出しに適用されることを確認."""
-        mock_get_perfs.return_value = []
+    @patch("tools.horse_analysis.requests.get")
+    def test_limit引数が適切に適用される(self, mock_get):
+        """limit引数がAPIリクエストに適用されることを確認."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"performances": []}
+        mock_get.return_value = mock_response
 
         analyze_horse_performance("horse_001", "テスト馬", limit=10)
 
-        mock_get_perfs.assert_called_once_with("horse_001", limit=10)
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        assert call_args.kwargs["params"]["limit"] == 10

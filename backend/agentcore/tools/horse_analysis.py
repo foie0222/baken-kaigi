@@ -5,13 +5,15 @@
 
 import logging
 
+import requests
 from strands import tool
 
-from . import dynamodb_client
+from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
 
 # 定数定義
+API_TIMEOUT_SECONDS = 30
 DEFAULT_PERFORMANCE_LIMIT = 5
 MAX_PERFORMANCE_LIMIT = 20
 
@@ -52,7 +54,23 @@ def analyze_horse_performance(
         # limit のバリデーション
         limit = min(max(1, limit), MAX_PERFORMANCE_LIMIT)
 
-        performances = dynamodb_client.get_horse_performances(horse_id, limit=limit)
+        response = requests.get(
+            f"{get_api_url()}/horses/{horse_id}/performances",
+            params={"limit": limit},
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+
+        if response.status_code == 404:
+            return {
+                "warning": "過去成績データが見つかりませんでした",
+                "horse_name": horse_name,
+            }
+
+        response.raise_for_status()
+        data = response.json()
+
+        performances = data.get("performances", [])
         if not performances:
             return {
                 "warning": "過去成績がありません",
@@ -89,6 +107,9 @@ def analyze_horse_performance(
             "distance_preference": distance_preference,
             "comment": comment,
         }
+    except requests.RequestException as e:
+        logger.error(f"Failed to analyze horse performance: {e}")
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze horse performance: {e}")
         return {"error": str(e)}
@@ -145,13 +166,8 @@ def _analyze_ability(performances: list[dict]) -> dict[str, str]:
     last_3f_times = []
     for p in performances:
         last_3f = p.get("last_3f")
-        if last_3f is not None:
-            try:
-                last_3f_val = float(last_3f)
-                if last_3f_val > 0:
-                    last_3f_times.append(last_3f_val)
-            except (TypeError, ValueError):
-                pass
+        if last_3f and isinstance(last_3f, (int, float)) and last_3f > 0:
+            last_3f_times.append(last_3f)
 
     if last_3f_times:
         avg_last_3f = sum(last_3f_times) / len(last_3f_times)

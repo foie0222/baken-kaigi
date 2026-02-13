@@ -1,24 +1,12 @@
 """馬API ハンドラーのテスト."""
 import json
 
-import pytest
-
-from src.api.dependencies import Dependencies
 from src.api.handlers.horses import (
     get_course_aptitude,
     get_extended_pedigree,
     get_horse_performances,
     get_horse_training,
 )
-from src.infrastructure import MockRaceDataProvider
-
-
-@pytest.fixture(autouse=True)
-def _use_mock_provider():
-    """テスト用にMockRaceDataProviderを設定する."""
-    Dependencies.set_race_data_provider(MockRaceDataProvider())
-    yield
-    Dependencies.reset()
 
 
 class TestGetHorsePerformances:

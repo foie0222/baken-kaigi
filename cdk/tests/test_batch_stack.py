@@ -25,16 +25,16 @@ class TestBatchStack:
     """バッチスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が15個作成されること（スクレイパー8 + チェックサム1 + HRDB6）."""
-        template.resource_count_is("AWS::Lambda::Function", 15)
+        """Lambda関数が10個作成されること（スクレイパー9 + チェックサム1）."""
+        template.resource_count_is("AWS::Lambda::Function", 10)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること（バッチ用）."""
         template.resource_count_is("AWS::Lambda::LayerVersion", 1)
 
     def test_eventbridge_rules_created(self, template):
-        """EventBridgeルールが19個作成されること."""
-        template.resource_count_is("AWS::Events::Rule", 19)
+        """EventBridgeルールが12個作成されること."""
+        template.resource_count_is("AWS::Events::Rule", 12)
 
     def test_no_dynamodb_tables(self, template):
         """DynamoDBテーブルはバッチスタックに含まれないこと."""
@@ -153,3 +153,16 @@ class TestBatchStack:
             },
         )
 
+    def test_keibagrant_scraper_has_table_env(self, template):
+        """馬柱スクレイパーにテーブル名環境変数が設定されていること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-keibagrant-scraper",
+                "Environment": {
+                    "Variables": {
+                        "PAST_PERFORMANCES_TABLE_NAME": "baken-kaigi-past-performances",
+                    },
+                },
+            },
+        )

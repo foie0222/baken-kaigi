@@ -5,11 +5,15 @@
 
 import logging
 
+import requests
 from strands import tool
 
-from . import dynamodb_client
+from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
+
+# 定数定義
+API_TIMEOUT_SECONDS = 30
 
 
 @tool
@@ -67,6 +71,9 @@ def analyze_momentum(
             "finishing_trend": finishing_trend,
             "overall_comment": overall_comment,
         }
+    except requests.RequestException as e:
+        logger.error(f"Failed to analyze momentum: {e}")
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze momentum: {e}")
         return {"error": str(e)}
@@ -75,8 +82,17 @@ def analyze_momentum(
 def _get_performances(horse_id: str) -> list[dict]:
     """過去成績を取得する."""
     try:
-        return dynamodb_client.get_horse_performances(horse_id, limit=10)
-    except Exception as e:
+        response = requests.get(
+            f"{get_api_url()}/horses/{horse_id}/performances",
+            params={"limit": 10},
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("performances", data) if isinstance(data, dict) else data
+        return []
+    except requests.RequestException as e:
         logger.error(f"Failed to get performances for horse {horse_id}: {e}")
         return []
 

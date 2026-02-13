@@ -5,11 +5,15 @@
 
 import logging
 
+import requests
 from strands import tool
 
-from . import dynamodb_client
+from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
+
+# 定数定義
+API_TIMEOUT_SECONDS = 30
 
 # 距離カテゴリ
 DISTANCE_CATEGORIES = {
@@ -84,6 +88,9 @@ def analyze_distance_change(
             "best_distance": best_distance,
             "overall_comment": overall_comment,
         }
+    except requests.RequestException as e:
+        logger.error(f"Failed to analyze distance change: {e}")
+        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze distance change: {e}")
         return {"error": str(e)}
@@ -92,8 +99,16 @@ def analyze_distance_change(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        return dynamodb_client.get_race(race_id) or {}
-    except Exception as e:
+        response = requests.get(
+            f"{get_api_url()}/races/{race_id}",
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 404:
+            return {"error": "レース情報が見つかりませんでした", "race_id": race_id}
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
         logger.error(f"Failed to get race info: {e}")
         return {"error": f"レース情報取得エラー: {str(e)}"}
 
@@ -101,8 +116,17 @@ def _get_race_info(race_id: str) -> dict:
 def _get_performances(horse_id: str) -> list[dict]:
     """過去成績を取得する."""
     try:
-        return dynamodb_client.get_horse_performances(horse_id, limit=20)
-    except Exception as e:
+        response = requests.get(
+            f"{get_api_url()}/horses/{horse_id}/performances",
+            params={"limit": 20},
+            headers=get_headers(),
+            timeout=API_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("performances", data) if isinstance(data, dict) else data
+        return []
+    except requests.RequestException as e:
         logger.error(f"Failed to get performances for horse {horse_id}: {e}")
         return []
 
