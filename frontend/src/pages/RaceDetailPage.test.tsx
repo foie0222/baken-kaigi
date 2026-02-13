@@ -4,12 +4,15 @@ import { RaceDetailPage } from './RaceDetailPage'
 import { useCartStore } from '../stores/cartStore'
 import { apiClient } from '../api/client'
 
-// react-router-domのuseParamsをモック
+const mockNavigate = vi.fn()
+
+// react-router-domのuseParams・useNavigateをモック
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return {
     ...actual,
     useParams: () => ({ raceId: 'test-race-id' }),
+    useNavigate: () => mockNavigate,
   }
 })
 
@@ -38,6 +41,7 @@ vi.mock('../api/client', () => ({
 describe('RaceDetailPage', () => {
   beforeEach(() => {
     useCartStore.getState().clearCart()
+    mockNavigate.mockClear()
   })
 
   describe('モード選択', () => {
@@ -155,6 +159,57 @@ describe('RaceDetailPage', () => {
       render(<RaceDetailPage />)
 
       expect(await screen.findByText('レース詳細の取得に失敗しました')).toBeInTheDocument()
+    })
+  })
+
+  describe('エラー状態のUI表示', () => {
+    it('APIエラー時にタイトル「レースが見つかりませんでした」が表示される', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: false,
+        error: 'Race not found',
+      })
+
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByText('レースが見つかりませんでした')).toBeInTheDocument()
+    })
+
+    it('APIエラー時に「レース一覧に戻る」ボタンが表示される', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: false,
+        error: 'Race not found',
+      })
+
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByRole('button', { name: 'レース一覧に戻る' })).toBeInTheDocument()
+    })
+
+    it('「レース一覧に戻る」ボタンクリックでホームページに遷移する', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: false,
+        error: 'Race not found',
+      })
+
+      const { user } = render(<RaceDetailPage />)
+
+      const backBtn = await screen.findByRole('button', { name: 'レース一覧に戻る' })
+      await user.click(backBtn)
+
+      expect(mockNavigate).toHaveBeenCalledWith('/')
+    })
+
+    it('レースデータがnullの場合もエラーUIが表示される', async () => {
+      vi.mocked(apiClient.getRaceDetail).mockResolvedValueOnce({
+        success: true,
+        data: null as never,
+      })
+
+      render(<RaceDetailPage />)
+
+      expect(await screen.findByText('レースが見つかりませんでした')).toBeInTheDocument()
+      expect(screen.getByText('レース詳細の取得に失敗しました')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'レース一覧に戻る' })).toBeInTheDocument()
     })
   })
 

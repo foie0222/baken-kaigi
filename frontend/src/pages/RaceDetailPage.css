@@ -293,3 +293,61 @@
 .btn-proposal:active {
   background: #e8f5e9;
 }
+
+/* レース未発見エラー */
+.race-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  min-height: 50vh;
+}
+
+.race-not-found-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.race-not-found-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 8px;
+}
+
+.race-not-found-message {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+.race-not-found-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  background: #1a5f2a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.race-not-found-btn:active {
+  background: #145222;
+}

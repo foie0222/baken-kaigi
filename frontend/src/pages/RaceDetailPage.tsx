@@ -254,8 +254,20 @@ export function RaceDetailPage() {
   };
 
   if (loading) return <div className="loading">読み込み中...</div>;
-  if (error) return <div className="error">{error}</div>;
-  if (!race) return <div className="no-races">レースが見つかりません</div>;
+  if (error || !race) return (
+    <div className="fade-in">
+      <div className="race-not-found">
+        <div className="race-not-found-icon">!</div>
+        <h2 className="race-not-found-title">レースが見つかりませんでした</h2>
+        <p className="race-not-found-message">
+          {error || '指定されたレースは存在しないか、データがまだ公開されていません。'}
+        </p>
+        <button className="race-not-found-btn" onClick={() => navigate('/')}>
+          レース一覧に戻る
+        </button>
+      </div>
+    </div>
+  );
 
   const required = BetTypeRequiredHorses[betType];
   const canSelectMethod = required > 1;
