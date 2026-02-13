@@ -3,14 +3,20 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { SocialLoginButtons } from '../../components/auth/SocialLoginButtons';
 
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
 export function LoginPage() {
   const navigate = useNavigate();
   const { signIn, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const isValidEmail = EMAIL_REGEX.test(email);
+  const canSubmit = isValidEmail && password.length > 0 && !isLoading;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!canSubmit) return;
     try {
       await signIn(email, password);
       navigate('/');
@@ -30,7 +36,7 @@ export function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>メールアドレス</label>
           <input
@@ -56,16 +62,16 @@ export function LoginPage() {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={!canSubmit}
           style={{
             padding: 14,
-            background: isLoading ? '#ccc' : '#1a73e8',
+            background: !canSubmit ? '#ccc' : '#1a73e8',
             color: 'white',
             border: 'none',
             borderRadius: 8,
             fontSize: 16,
             fontWeight: 600,
-            cursor: isLoading ? 'default' : 'pointer',
+            cursor: !canSubmit ? 'default' : 'pointer',
           }}
         >
           {isLoading ? 'ログイン中...' : 'ログイン'}
