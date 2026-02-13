@@ -5,7 +5,6 @@ AI指数ベースの妙味分析、時間帯別変動分析、単複比分析を
 """
 
 import math
-from datetime import datetime, timedelta
 
 from strands import tool
 
@@ -13,7 +12,6 @@ from .common import get_tool_logger, log_tool_execution
 from .constants import (
     AI_VALUE_HIGH,
     AI_VALUE_LOW,
-    API_TIMEOUT_SECONDS,
     ODDS_DROP,
     ODDS_RISE,
     ODDS_SHARP_DROP,

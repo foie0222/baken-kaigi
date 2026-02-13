@@ -1,6 +1,6 @@
 """DynamoDB読み出しクライアント（AgentCoreツール用）.
 
-JRA-VAN API (jravan_client) の代替として、DynamoDBから直接データを読み出す。
+GAMBLE-OS (HRDB-API) が投入したデータをDynamoDBから読み出す。
 """
 
 import os

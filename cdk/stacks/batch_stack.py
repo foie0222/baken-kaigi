@@ -74,9 +74,6 @@ class BakenKaigiBatchStack(Stack):
             exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
         )
 
-        # NOTE: スクレイパー Lambda は外部サイトにHTTPアクセスするためVPC外に配置。
-        # VPC設定はEC2にアクセスが必要な jra_checksum_updater にのみ適用する。
-
         # ========================================
         # AI予想スクレイパー Lambda
         # ========================================

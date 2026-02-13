@@ -145,8 +145,13 @@ def _analyze_ability(performances: list[dict]) -> dict[str, str]:
     last_3f_times = []
     for p in performances:
         last_3f = p.get("last_3f")
-        if last_3f and isinstance(last_3f, (int, float)) and last_3f > 0:
-            last_3f_times.append(last_3f)
+        if last_3f is not None:
+            try:
+                last_3f_val = float(last_3f)
+                if last_3f_val > 0:
+                    last_3f_times.append(last_3f_val)
+            except (TypeError, ValueError):
+                pass
 
     if last_3f_times:
         avg_last_3f = sum(last_3f_times) / len(last_3f_times)

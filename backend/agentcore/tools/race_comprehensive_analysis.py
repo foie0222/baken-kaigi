@@ -24,16 +24,6 @@ from .constants import (
 
 logger = get_tool_logger("race_comprehensive_analysis")
 
-# 騎手評価の勝率閾値（%）
-JOCKEY_WIN_RATE_EXCELLENT = 18.0
-JOCKEY_WIN_RATE_GOOD = 12.0
-
-# 馬体重評価の閾値（kg）
-BODY_WEIGHT_IDEAL_MIN = 460.0
-BODY_WEIGHT_IDEAL_MAX = 500.0
-BODY_WEIGHT_ACCEPTABLE_MIN = 440.0
-BODY_WEIGHT_ACCEPTABLE_MAX = 520.0
-
 
 @tool
 @log_tool_execution
@@ -221,8 +211,8 @@ def _evaluate_horse_factors(
         "form": "B",
         "course_aptitude": "B",
         "jockey": "B",
-        # trainer: JRA-VAN API に調教師成績エンドポイント（/trainers/{id}/stats 等）が
-        # 存在しないため、現時点では評価不可。API 追加時に勝率ベース評価を実装予定。
+        # trainer: 調教師成績は現時点ではDynamoDBに格納されていないため評価不可。
+        # データ投入パイプライン構築時に勝率ベース評価を実装予定。
         "trainer": "B",
         "weight": "B",
     }
