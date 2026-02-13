@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { BetProposalSheet } from './BetProposalSheet'
+import { MAX_BET_AMOUNT } from '../../constants/betting'
 import type { RaceDetail } from '../../types'
 
 // apiClientモック
@@ -72,6 +73,61 @@ describe('BetProposalSheet', () => {
     const input = screen.getByLabelText(/注目馬/)
     expect(input).toBeInTheDocument()
     expect(input.id).toBe('axis-horses-input')
+  })
+
+  it('自由入力でMAX_BET_AMOUNTを超える予算を指定するとエラーが表示される', async () => {
+    const { user } = render(
+      <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
+    )
+
+    const customInput = screen.getByPlaceholderText('自由入力（円）')
+    await user.clear(customInput)
+    await user.type(customInput, String(MAX_BET_AMOUNT + 1))
+
+    await user.click(screen.getByText('提案を生成'))
+
+    expect(screen.getByText(`予算は${MAX_BET_AMOUNT.toLocaleString()}円以下を指定してください`)).toBeInTheDocument()
+  })
+
+  it('自由入力でMAX_BET_AMOUNTちょうどの予算は生成を許可する', async () => {
+    const { apiClient } = await import('../../api/client')
+    const mockRequest = vi.mocked(apiClient.requestBetProposal)
+    mockRequest.mockResolvedValueOnce({
+      success: true,
+      data: {
+        race_id: 'race_001',
+        race_summary: {
+          race_name: 'テストレース',
+          difficulty_stars: 3,
+          predicted_pace: 'ミドル',
+          ai_consensus_level: '概ね合意',
+          skip_score: 3,
+          skip_recommendation: '通常判断',
+        },
+        proposed_bets: [],
+        total_amount: 0,
+        budget_remaining: MAX_BET_AMOUNT,
+        analysis_comment: '',
+        disclaimer: '',
+      },
+    })
+
+    const { user } = render(
+      <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
+    )
+
+    const customInput = screen.getByPlaceholderText('自由入力（円）')
+    await user.clear(customInput)
+    await user.type(customInput, String(MAX_BET_AMOUNT))
+
+    await user.click(screen.getByText('提案を生成'))
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      'race_001',
+      MAX_BET_AMOUNT,
+      expect.any(Array),
+      expect.any(Object)
+    )
   })
 
   it('生成ボタンクリックでAPIが呼ばれる', async () => {

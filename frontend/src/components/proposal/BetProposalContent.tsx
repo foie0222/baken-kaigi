@@ -6,6 +6,7 @@ import { useCartStore, type AddItemResult } from '../../stores/cartStore';
 import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../../constants/characters';
+import { MAX_BET_AMOUNT } from '../../constants/betting';
 import { BetTypeLabels, type BetType } from '../../types';
 import type { RaceDetail, BetProposalResponse } from '../../types';
 import './BetProposalSheet.css';
@@ -113,6 +114,10 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     if (loading) return;
     if (effectiveBudget < 100) {
       setError('予算は100円以上を指定してください');
+      return;
+    }
+    if (effectiveBudget > MAX_BET_AMOUNT) {
+      setError(`予算は${MAX_BET_AMOUNT.toLocaleString()}円以下を指定してください`);
       return;
     }
     setLoading(true);
