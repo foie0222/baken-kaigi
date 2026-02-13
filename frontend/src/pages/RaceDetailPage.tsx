@@ -411,7 +411,11 @@ export function RaceDetailPage() {
                     type="number"
                     className="amount-input"
                     value={betAmount}
-                    onChange={(e) => setBetAmount(Math.max(100, parseInt(e.target.value) || 100))}
+                    onChange={(e) => {
+                      const effectiveBetCount = betCount > 0 ? betCount : 1;
+                      const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
+                      setBetAmount(Math.min(maxPerBet, Math.max(100, parseInt(e.target.value, 10) || 100)));
+                    }}
                   />
                 </div>
                 <button className="amount-stepper-btn" onClick={handleAmountPlus}>＋</button>
