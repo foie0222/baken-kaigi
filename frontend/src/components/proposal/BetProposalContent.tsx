@@ -6,7 +6,7 @@ import { useCartStore, type AddItemResult } from '../../stores/cartStore';
 import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../../constants/characters';
-import { MAX_BET_AMOUNT } from '../../constants/betting';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../../constants/betting';
 import { BetTypeLabels, type BetType } from '../../types';
 import type { RaceDetail, BetProposalResponse } from '../../types';
 import './BetProposalSheet.css';
@@ -112,8 +112,10 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
 
   const handleGenerate = async () => {
     if (loading) return;
-    if (effectiveBudget < 100) {
-      setError('予算は100円以上を指定してください');
+    setError(null);
+    setRateLimited(false);
+    if (effectiveBudget < MIN_BET_AMOUNT) {
+      setError(`予算は${MIN_BET_AMOUNT.toLocaleString()}円以上を指定してください`);
       return;
     }
     if (effectiveBudget > MAX_BET_AMOUNT) {
@@ -121,10 +123,8 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       return;
     }
     setLoading(true);
-    setError(null);
     setResult(null);
     setAddedIndices(new Set());
-    setRateLimited(false);
 
     try {
       const runnersData = race.horses.map((h) => ({
