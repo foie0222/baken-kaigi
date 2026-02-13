@@ -24,6 +24,7 @@ from stacks.api_stack import BakenKaigiApiStack
 from stacks.batch_stack import BakenKaigiBatchStack
 from stacks.jravan_server_stack import JraVanServerStack
 from stacks.github_oidc_stack import GitHubOidcStack
+from stacks.hrdb_tables_stack import HrdbTablesStack
 from stacks.monitoring_stack import BakenKaigiMonitoringStack
 
 app = cdk.App()
@@ -104,6 +105,13 @@ else:
         env=env,
     )
     batch_stack.add_dependency(api_stack)
+
+# HRDB移行用 DynamoDB テーブル
+HrdbTablesStack(
+    app,
+    "BakenKaigiHrdbTablesStack",
+    env=env,
+)
 
 # モニタリングスタック（CloudWatch ダッシュボード）
 BakenKaigiMonitoringStack(
