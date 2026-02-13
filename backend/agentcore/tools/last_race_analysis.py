@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 
 @tool
@@ -76,9 +72,6 @@ def analyze_last_race_detail(
             "impact_on_current": impact,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze last race: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze last race: {e}")
         return {"error": str(e)}
@@ -87,16 +80,8 @@ def analyze_last_race_detail(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 404:
-            return {"error": "レース情報が見つかりませんでした", "race_id": race_id}
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
+        return dynamodb_client.get_race(race_id) or {}
+    except Exception as e:
         logger.error(f"Failed to get race info: {e}")
         return {"error": f"レース情報取得エラー: {str(e)}"}
 
@@ -104,17 +89,8 @@ def _get_race_info(race_id: str) -> dict:
 def _get_performances(horse_id: str, limit: int = 5) -> list[dict]:
     """過去成績を取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/horses/{horse_id}/performances",
-            params={"limit": limit},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("performances", data) if isinstance(data, dict) else data
-        return []
-    except requests.RequestException as e:
+        return dynamodb_client.get_horse_performances(horse_id, limit=limit)
+    except Exception as e:
         logger.error(f"Failed to get performances for horse {horse_id}: {e}")
         return []
 

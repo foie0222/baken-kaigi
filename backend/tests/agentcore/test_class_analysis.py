@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -17,32 +16,22 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.class_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.class_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
-
-
 class TestAnalyzeClassFactor:
     """クラス分析統合テスト."""
 
-    @patch("tools.class_analysis.requests.get")
-    def test_正常系_クラス要因を分析(self, mock_get):
+    @patch("tools.dynamodb_client.get_horse_performances")
+    @patch("tools.dynamodb_client.get_race")
+    def test_正常系_クラス要因を分析(self, mock_get_race, mock_get_perfs):
         """正常系: クラス要因を正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        mock_get_race.return_value = {
             "grade_class": "OP",
             "distance": 1600,
             "track_type": "芝",
-            "performances": [
-                {"grade_class": "3勝", "finish_position": 1},
-                {"grade_class": "3勝", "finish_position": 2},
-            ],
         }
-        mock_get.return_value = mock_response
+        mock_get_perfs.return_value = [
+            {"grade_class": "3勝", "finish_position": 1},
+            {"grade_class": "3勝", "finish_position": 2},
+        ]
 
         result = analyze_class_factor(
             race_id="20260125_06_11",
@@ -50,13 +39,12 @@ class TestAnalyzeClassFactor:
             horse_name="テスト馬",
         )
 
-        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.class_analysis.requests.get")
-    def test_RequestException時にエラーを返す(self, mock_get):
-        """異常系: RequestException発生時はerrorを返す."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
+    @patch("tools.dynamodb_client.get_race")
+    def test_例外時にエラーを返す(self, mock_get_race):
+        """異常系: 例外発生時はerrorを返す."""
+        mock_get_race.side_effect = Exception("Connection failed")
 
         result = analyze_class_factor(
             race_id="20260125_06_11",
