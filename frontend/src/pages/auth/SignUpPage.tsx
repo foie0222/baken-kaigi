@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { PasswordStrengthIndicator } from '../../components/auth/PasswordStrengthIndicator';
 import { SocialLoginButtons } from '../../components/auth/SocialLoginButtons';
+import { EMAIL_REGEX } from '../../utils/validation';
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -30,7 +31,9 @@ export function SignUpPage() {
     }
   };
 
+  const isValidEmail = EMAIL_REGEX.test(email);
   const passwordMismatch = confirmPassword && password !== confirmPassword;
+  const canSubmit = displayName.length > 0 && isValidEmail && password.length >= 8 && confirmPassword.length > 0 && !passwordMismatch && !isLoading;
 
   return (
     <div className="fade-in" style={{ padding: 16 }}>
@@ -43,10 +46,11 @@ export function SignUpPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>表示名</label>
+          <label htmlFor="signup-displayname" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>表示名</label>
           <input
+            id="signup-displayname"
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -57,19 +61,22 @@ export function SignUpPage() {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>メールアドレス</label>
+          <label htmlFor="signup-email" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>メールアドレス</label>
           <input
+            id="signup-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             style={{ width: '100%', padding: 12, border: '1px solid #ddd', borderRadius: 8, fontSize: 16, boxSizing: 'border-box' }}
+            placeholder="example@email.com"
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>パスワード（8文字以上、英大小+数字）</label>
+          <label htmlFor="signup-password" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>パスワード（8文字以上、英大小+数字）</label>
           <input
+            id="signup-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -81,8 +88,9 @@ export function SignUpPage() {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>パスワード（確認）</label>
+          <label htmlFor="signup-confirm-password" style={{ display: 'block', fontSize: 14, marginBottom: 4, color: '#666' }}>パスワード（確認）</label>
           <input
+            id="signup-confirm-password"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -100,16 +108,16 @@ export function SignUpPage() {
 
         <button
           type="submit"
-          disabled={isLoading || !!passwordMismatch}
+          disabled={!canSubmit}
           style={{
             padding: 14,
-            background: isLoading ? '#ccc' : '#1a73e8',
+            background: !canSubmit ? '#ccc' : '#1a73e8',
             color: 'white',
             border: 'none',
             borderRadius: 8,
             fontSize: 16,
             fontWeight: 600,
-            cursor: isLoading ? 'default' : 'pointer',
+            cursor: !canSubmit ? 'default' : 'pointer',
           }}
         >
           {isLoading ? '登録中...' : '新規登録'}
