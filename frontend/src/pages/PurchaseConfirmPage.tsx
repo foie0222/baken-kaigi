@@ -117,15 +117,9 @@ export function PurchaseConfirmPage() {
       <div style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: '#666', fontWeight: 600, marginBottom: 12 }}>IPAT残高</div>
         {balance ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, color: '#666' }}>投票可能残高</span>
-              <span style={{ fontSize: 14, fontWeight: 600 }}>¥{balance.betBalance.toLocaleString()}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 14, color: '#666' }}>投票限度額</span>
-              <span style={{ fontSize: 14 }}>¥{balance.limitVoteAmount.toLocaleString()}</span>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: 14, color: '#666' }}>残高</span>
+            <span style={{ fontSize: 20, fontWeight: 700 }}>¥{balance.betBalance.toLocaleString()}</span>
           </div>
         ) : (
           <p style={{ fontSize: 14, color: '#999' }}>
