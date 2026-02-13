@@ -39,6 +39,7 @@ export function RaceDetailPage() {
   const [betMethod, setBetMethod] = useState<BetMethod>('normal');
   const [selections, setSelections] = useState<ColumnSelections>(initialSelections);
   const [betAmount, setBetAmount] = useState(100);
+  const [amountInput, setAmountInput] = useState('100');
 
   // ボトムシートの開閉状態
   const [isBetTypeSheetOpen, setIsBetTypeSheetOpen] = useState(false);
@@ -96,7 +97,9 @@ export function RaceDetailPage() {
   const handleAmountMinus = () => {
     if (betAmount > 100) {
       const newAmount = betAmount <= 500 ? betAmount - 100 : betAmount - 500;
-      setBetAmount(Math.max(100, newAmount));
+      const clamped = Math.max(100, newAmount);
+      setBetAmount(clamped);
+      setAmountInput(String(clamped));
     }
   };
 
@@ -104,7 +107,11 @@ export function RaceDetailPage() {
     const increment = betAmount < 500 ? 100 : 500;
     const effectiveBetCount = betCount > 0 ? betCount : 1;
     const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
-    setBetAmount((prev) => Math.min(prev + increment, maxPerBet));
+    setBetAmount((prev) => {
+      const next = Math.min(prev + increment, maxPerBet);
+      setAmountInput(String(next));
+      return next;
+    });
   };
 
   const handleAddToCart = () => {
@@ -407,14 +414,27 @@ export function RaceDetailPage() {
                   <input
                     type="number"
                     className="amount-input"
-                    value={betAmount}
+                    value={amountInput}
                     onChange={(e) => {
+                      const raw = e.target.value;
+                      const parsed = parseInt(raw, 10);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        const effectiveBetCount = betCount > 0 ? betCount : 1;
+                        const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
+                        const clamped = Math.min(maxPerBet, Math.max(100, parsed));
+                        setBetAmount(clamped);
+                        setAmountInput(String(clamped));
+                      } else {
+                        setAmountInput(raw);
+                      }
+                    }}
+                    onBlur={() => {
                       const effectiveBetCount = betCount > 0 ? betCount : 1;
                       const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
-                      setBetAmount(Math.min(maxPerBet, Math.max(100, parseInt(e.target.value, 10) || 100)));
-                    }}
-                    onBlur={(e) => {
-                      e.target.value = String(betAmount);
+                      const parsed = parseInt(amountInput, 10);
+                      const clamped = Math.min(maxPerBet, Math.max(100, isNaN(parsed) ? 100 : parsed));
+                      setBetAmount(clamped);
+                      setAmountInput(String(clamped));
                     }}
                   />
                 </div>
@@ -425,7 +445,7 @@ export function RaceDetailPage() {
                   <button
                     key={amount}
                     className="preset-btn"
-                    onClick={() => setBetAmount(amount)}
+                    onClick={() => { setBetAmount(amount); setAmountInput(String(amount)); }}
                   >
                     ¥{amount.toLocaleString()}
                   </button>
