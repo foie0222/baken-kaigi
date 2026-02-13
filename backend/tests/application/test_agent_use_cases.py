@@ -82,19 +82,28 @@ class TestGetAgentUseCase:
 class TestUpdateAgentUseCase:
     """エージェント更新ユースケースのテスト."""
 
-    def test_名前を更新できる(self):
+    def test_スタイルを更新できる(self):
         repo = InMemoryAgentRepository()
         create_uc = CreateAgentUseCase(repo)
         create_uc.execute("usr_001", "ハヤテ", "solid")
 
         update_uc = UpdateAgentUseCase(repo)
-        result = update_uc.execute("usr_001", name="シンプウ")
+        result = update_uc.execute("usr_001", base_style="data")
 
-        assert result.agent.name.value == "シンプウ"
+        assert result.agent.base_style == AgentStyle.DATA
 
     def test_存在しないユーザーはエラー(self):
         repo = InMemoryAgentRepository()
         update_uc = UpdateAgentUseCase(repo)
 
         with pytest.raises(AgentNotFoundError):
-            update_uc.execute("usr_nonexistent", name="テスト")
+            update_uc.execute("usr_nonexistent", base_style="data")
+
+    def test_不正なスタイルはエラー(self):
+        repo = InMemoryAgentRepository()
+        create_uc = CreateAgentUseCase(repo)
+        create_uc.execute("usr_001", "ハヤテ", "solid")
+
+        update_uc = UpdateAgentUseCase(repo)
+        with pytest.raises(ValueError):
+            update_uc.execute("usr_001", base_style="invalid")

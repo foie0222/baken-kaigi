@@ -4,9 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.domain.entities import Agent
+from src.domain.enums import AgentStyle
 from src.domain.identifiers import UserId
 from src.domain.ports.agent_repository import AgentRepository
-from src.domain.value_objects import AgentName
 
 from .get_agent import AgentNotFoundError
 
@@ -25,12 +25,12 @@ class UpdateAgentUseCase:
         """初期化."""
         self._agent_repository = agent_repository
 
-    def execute(self, user_id: str, name: str | None = None) -> UpdateAgentResult:
+    def execute(self, user_id: str, base_style: str | None = None) -> UpdateAgentResult:
         """エージェントを更新する.
 
         Args:
             user_id: ユーザーID
-            name: 新しいエージェント名（Noneなら変更なし）
+            base_style: 新しいスタイル（Noneなら変更なし）
 
         Returns:
             更新結果
@@ -45,8 +45,8 @@ class UpdateAgentUseCase:
         if agent is None:
             raise AgentNotFoundError(f"Agent not found for user: {user_id}")
 
-        if name is not None:
-            agent.update_name(AgentName(name))
+        if base_style is not None:
+            agent.update_style(AgentStyle(base_style))
 
         self._agent_repository.save(agent)
 
