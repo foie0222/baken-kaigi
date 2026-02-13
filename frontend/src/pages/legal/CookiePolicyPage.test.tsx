@@ -36,4 +36,9 @@ describe('CookiePolicyPage', () => {
     render(<CookiePolicyPage />)
     expect(screen.getByText(/戻る/)).toBeInTheDocument()
   })
+
+  it('プレースホルダーテキストが表示されない', () => {
+    render(<CookiePolicyPage />)
+    expect(screen.queryByText(/法務確認後/)).not.toBeInTheDocument()
+  })
 })
