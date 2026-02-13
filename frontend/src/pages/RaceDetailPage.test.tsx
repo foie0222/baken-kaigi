@@ -107,6 +107,21 @@ describe('RaceDetailPage', () => {
     })
   })
 
+  describe('手動モード - 金額入力の上限バリデーション', () => {
+    it('MAX_BET_AMOUNT(100,000)を超える金額が入力されても上限でクランプされる', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      const manualCard = await screen.findByText('自分で選ぶ')
+      await user.click(manualCard)
+
+      const amountInput = await screen.findByRole('spinbutton')
+      await user.clear(amountInput)
+      await user.type(amountInput, '999999')
+
+      expect(amountInput).toHaveValue(100000)
+    })
+  })
+
   describe('手動モード - AI案内テキスト', () => {
     it('AI案内テキストが表示される', async () => {
       const { user } = render(<RaceDetailPage />)
