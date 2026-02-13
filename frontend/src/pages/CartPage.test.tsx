@@ -76,5 +76,12 @@ describe('CartPage', () => {
       const addMoreButton = screen.getByRole('button', { name: /別のレースの買い目を追加/i })
       expect(addMoreButton).toBeInTheDocument()
     })
+
+    it('「このレースに買い目を追加」ボタンが表示される', () => {
+      render(<CartPage />)
+
+      const addMoreBtn = screen.getByRole('button', { name: /このレースに買い目を追加/ })
+      expect(addMoreBtn).toBeInTheDocument()
+    })
   })
 })

@@ -143,7 +143,7 @@ export function RaceDetailPage() {
       })),
     });
 
-    if (result !== 'ok') {
+    if (result === 'different_race' || result === 'invalid_amount') {
       const message = result === 'different_race'
         ? 'カートには同じレースの買い目のみ追加できます'
         : '金額が範囲外です';
@@ -153,7 +153,7 @@ export function RaceDetailPage() {
 
     setSelections(initialSelections);
     setBetAmount(100);
-    showToast('カートに追加しました');
+    showToast(result === 'merged' ? '同じ買い目の金額を合算しました' : 'カートに追加しました');
   };
 
   // 選択ヒントのラベル生成
@@ -408,7 +408,11 @@ export function RaceDetailPage() {
                     type="number"
                     className="amount-input"
                     value={betAmount}
-                    onChange={(e) => setBetAmount(Math.max(100, parseInt(e.target.value) || 100))}
+                    onChange={(e) => {
+                      const effectiveBetCount = betCount > 0 ? betCount : 1;
+                      const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
+                      setBetAmount(Math.min(maxPerBet, Math.max(100, parseInt(e.target.value, 10) || 100)));
+                    }}
                   />
                 </div>
                 <button className="amount-stepper-btn" onClick={handleAmountPlus}>＋</button>

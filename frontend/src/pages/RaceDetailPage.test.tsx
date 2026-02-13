@@ -3,6 +3,7 @@ import { render, screen } from '../test/utils'
 import { RaceDetailPage } from './RaceDetailPage'
 import { useCartStore } from '../stores/cartStore'
 import { apiClient } from '../api/client'
+import { MAX_BET_AMOUNT } from '../constants/betting'
 
 const mockNavigate = vi.fn()
 
@@ -32,6 +33,9 @@ vi.mock('../api/client', () => ({
         horses: [
           { number: 1, wakuBan: 1, name: 'テスト馬1', jockey: '騎手1', weight: '54.0', odds: 5.0, popularity: 2, color: '#FFFFFF', textColor: '#000000' },
           { number: 2, wakuBan: 1, name: 'テスト馬2', jockey: '騎手2', weight: '56.0', odds: 3.0, popularity: 1, color: '#FFFFFF', textColor: '#000000' },
+          { number: 3, wakuBan: 2, name: 'テスト馬3', jockey: '騎手3', weight: '55.0', odds: 8.0, popularity: 3, color: '#000000', textColor: '#FFFFFF' },
+          { number: 4, wakuBan: 2, name: 'テスト馬4', jockey: '騎手4', weight: '54.0', odds: 12.0, popularity: 4, color: '#000000', textColor: '#FFFFFF' },
+          { number: 5, wakuBan: 3, name: 'テスト馬5', jockey: '騎手5', weight: '56.0', odds: 15.0, popularity: 5, color: '#FF0000', textColor: '#FFFFFF' },
         ],
       },
     }),
@@ -98,6 +102,54 @@ describe('RaceDetailPage', () => {
       const addButton = await screen.findByRole('button', { name: /カートに追加/i })
       expect(addButton).toBeInTheDocument()
       expect(addButton).toHaveClass('btn-add-cart-subtle')
+    })
+  })
+
+  describe('手動モード - 金額入力の上限バリデーション', () => {
+    it('MAX_BET_AMOUNTを超える金額が入力されても上限でクランプされる', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
+
+      const amountInput = await screen.findByRole('spinbutton')
+      await user.clear(amountInput)
+      await user.type(amountInput, '999999')
+
+      expect(amountInput).toHaveValue(MAX_BET_AMOUNT)
+    })
+
+    it('複数点の買い目がある場合、総額がMAX_BET_AMOUNTを超えないよう1点上限が調整される', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
+
+      // 券種を馬連に変更（ダイアログ操作）
+      const betTypeBtn = await screen.findByRole('button', { name: /単勝/ })
+      await user.click(betTypeBtn)
+      const umaren = await screen.findByText('馬連')
+      await user.click(umaren)
+
+      // 買い方をボックスに変更
+      const betMethodBtn = await screen.findByRole('button', { name: /通常/ })
+      await user.click(betMethodBtn)
+      const boxBtn = await screen.findByText('ボックス')
+      await user.click(boxBtn)
+
+      // 3頭選択 → C(3,2) = 3点
+      const checkboxes = await screen.findAllByRole('checkbox')
+      await user.click(checkboxes[0])
+      await user.click(checkboxes[1])
+      await user.click(checkboxes[2])
+
+      // 大きい金額を入力
+      const amountInput = await screen.findByRole('spinbutton')
+      await user.clear(amountInput)
+      await user.type(amountInput, '999999')
+
+      // betCount=3なので上限は floor(MAX_BET_AMOUNT / 3) = 33333
+      expect(amountInput).toHaveValue(Math.floor(MAX_BET_AMOUNT / 3))
     })
   })
 
@@ -228,7 +280,7 @@ describe('RaceDetailPage', () => {
 
       // cartStoreのcurrentRunnersDataにマッピングされたデータが入っている
       const state = useCartStore.getState()
-      expect(state.currentRunnersData).toHaveLength(2)
+      expect(state.currentRunnersData).toHaveLength(5)
       expect(state.currentRunnersData[0]).toEqual(
         expect.objectContaining({
           horse_number: 1,
