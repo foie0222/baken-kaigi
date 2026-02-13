@@ -75,8 +75,7 @@ body {
     color: #1a1a1a;
     line-height: 1.5;
     font-size: 14px;
-    padding-bottom: 70px;
-    scroll-padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+    padding-bottom: var(--bottom-nav-height);
 }
 
 /* Alert Banner */
@@ -1238,7 +1237,6 @@ main {
     padding: 16px;
     border-bottom: 1px solid #f0f0f0;
     gap: 12px;
-    scroll-margin-bottom: calc(var(--bottom-nav-height) + 16px);
 }
 
 .cart-item-info {
