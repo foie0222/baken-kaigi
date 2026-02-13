@@ -25,7 +25,7 @@ class JraVanServerStack(Stack):
         scope: Construct,
         construct_id: str,
         vpc: ec2.IVpc | None = None,
-        instance_type: str = "t3.small",
+        instance_type: str = "t3.nano",
         volume_size: int = 50,
         **kwargs,
     ) -> None:
@@ -154,8 +154,8 @@ class JraVanServerStack(Stack):
         # ========================================
         # Windows Server 2022 AMI
         # ========================================
-        windows_ami = ec2.MachineImage.latest_windows(
-            ec2.WindowsVersion.WINDOWS_SERVER_2022_JAPANESE_FULL_BASE
+        windows_ami = ec2.MachineImage.generic_windows(
+            {"ap-northeast-1": "ami-0a85b31fbd5b1ae65"}
         )
 
         # ========================================
