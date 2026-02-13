@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -17,36 +16,11 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.gate_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.gate_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
-
-
 class TestAnalyzeGatePosition:
     """枠順分析統合テスト."""
 
-    @patch("tools.gate_analysis.requests.get")
-    def test_正常系_枠順を分析(self, mock_get):
+    def test_正常系_枠順を分析(self):
         """正常系: 枠順データを正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "by_gate": [
-                {"gate": 1, "win_rate": 12.0},
-                {"gate": 2, "win_rate": 10.0},
-                {"gate": 3, "win_rate": 11.0},
-            ],
-            "analysis": {"summary": "内枠有利"},
-            "by_running_position": [
-                {"position": "内", "starts": 10, "wins": 3},
-            ],
-            "aptitude_summary": {},
-        }
-        mock_get.return_value = mock_response
-
         result = analyze_gate_position(
             race_id="20260125_06_11",
             horse_number=3,
@@ -58,21 +32,48 @@ class TestAnalyzeGatePosition:
             distance=1600,
         )
 
-        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
+        assert result["horse_name"] == "テスト馬"
+        assert "gate_info" in result
+        assert "course_gate_tendency" in result
+        assert "horse_gate_aptitude" in result
+        assert "running_style_fit" in result
 
-    @patch("tools.gate_analysis.requests.get")
-    def test_RequestException時にwarningが返る(self, mock_get):
-        """異常系: RequestException発生時はエラーではなくwarningやデフォルト値で処理される."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
-
+    def test_枠番が正しく計算される(self):
+        """馬番から枠番が正しく計算される."""
         result = analyze_gate_position(
             horse_number=3,
-            horse_id="horse_001",
             horse_name="テスト馬",
         )
 
-        # gate_analysis は内部でエラーをハンドリングし、デフォルト値で結果を返す
-        has_horse_name = "horse_name" in result
-        has_error = "error" in result
-        assert has_horse_name or has_error, "Expected 'horse_name' (graceful degradation) or 'error' key"
+        assert result["gate_info"]["gate"] == 2
+        assert result["gate_info"]["position_type"] == "内枠"
+
+    def test_外枠の判定(self):
+        """馬番13以上は外枠と判定される."""
+        result = analyze_gate_position(
+            horse_number=15,
+            horse_name="外枠馬",
+        )
+
+        assert result["gate_info"]["position_type"] == "外枠"
+
+    def test_馬番0の場合はデフォルト値(self):
+        """馬番0の場合はデフォルト値で処理される."""
+        result = analyze_gate_position(
+            horse_number=0,
+            horse_name="テスト馬",
+        )
+
+        assert "error" not in result
+        assert result["gate_info"]["position_type"] == "不明"
+
+    def test_例外時にエラーを返す(self):
+        """異常系: 内部例外発生時はerrorを返す."""
+        with patch("tools.gate_analysis._get_position_type", side_effect=Exception("test error")):
+            result = analyze_gate_position(
+                horse_number=3,
+                horse_name="テスト馬",
+            )
+
+        assert "error" in result

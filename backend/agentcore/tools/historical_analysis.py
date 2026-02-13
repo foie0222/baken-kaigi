@@ -4,58 +4,13 @@
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 並列API呼び出しの最大ワーカー数
-MAX_PARALLEL_WORKERS = 5
-
-
-def _fetch_parallel_stats(api_calls: list[dict]) -> list[dict]:
-    """複数のAPI呼び出しを並列実行する.
-
-    Args:
-        api_calls: API呼び出し情報のリスト
-            各要素は {"url": str, "params": dict} の形式
-
-    Returns:
-        各API呼び出しの結果リスト（同じ順序）
-    """
-    results: list[dict | None] = [None] * len(api_calls)
-
-    def fetch_single(index: int, call: dict) -> tuple[int, dict[str, Any]]:
-        try:
-            response = requests.get(
-                call["url"],
-                params=call.get("params", {}),
-                headers=get_headers(),
-                timeout=call.get("timeout", API_TIMEOUT_SECONDS),
-            )
-            if response.status_code == 404:
-                return index, {"error": "not_found"}
-            response.raise_for_status()
-            return index, response.json()
-        except requests.RequestException as e:
-            logger.error(f"Parallel API call failed: {e}")
-            return index, {"error": str(e)}
-
-    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
-        futures = [
-            executor.submit(fetch_single, i, call)
-            for i, call in enumerate(api_calls)
-        ]
-        for future in as_completed(futures):
-            index, result = future.result()
-            results[index] = result
-
-    return [r if r is not None else {"error": "unknown"} for r in results]
 
 # 定数定義
 DEFAULT_PAST_RACES_LIMIT = 100  # 集計対象レース数のデフォルト値
@@ -87,71 +42,18 @@ def analyze_past_race_trends(
         分析結果（人気別傾向、荒れやすさなど）
     """
     try:
-        # トラック種別をコードに変換
-        track_code = _to_track_code(track_type)
-
-        response = requests.get(
-            f"{get_api_url()}/statistics/past-races",
-            params={
-                "track_code": track_code,
-                "distance": distance,
-                "grade_code": grade_class if grade_class else None,
-                "limit": DEFAULT_PAST_RACES_LIMIT,
-            },
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 404:
-            return {
-                "warning": "過去統計データが見つかりませんでした",
-                "race_id": race_id,
-                "conditions": {
-                    "track_type": track_type,
-                    "distance": distance,
-                    "grade_class": grade_class,
-                },
-            }
-
-        response.raise_for_status()
-        stats = response.json()
-
-        # 人気別勝率の分析
-        popularity_stats = stats.get("popularity_stats", [])
-        first_pop_stats = next(
-            (s for s in popularity_stats if s["popularity"] == 1),
-            None
-        )
-
-        # レース傾向判定
-        tendency = _analyze_race_tendency(first_pop_stats)
+        # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+        logger.info("past race statistics data not available in DynamoDB, returning empty")
 
         return {
+            "warning": "過去統計データが見つかりませんでした",
             "race_id": race_id,
-            "total_races_analyzed": stats.get("total_races", 0),
             "conditions": {
                 "track_type": track_type,
                 "distance": distance,
                 "grade_class": grade_class,
             },
-            "first_popularity": {
-                "win_rate": f"{first_pop_stats['win_rate']:.1f}%" if first_pop_stats else "データなし",
-                "place_rate": f"{first_pop_stats['place_rate']:.1f}%" if first_pop_stats else "データなし",
-            },
-            "race_tendency": tendency,
-            "popularity_trends": [
-                {
-                    "popularity": stat["popularity"],
-                    "win_rate": f"{stat['win_rate']:.1f}%",
-                    "place_rate": f"{stat['place_rate']:.1f}%",
-                    "sample_size": stat["total_runs"],
-                }
-                for stat in popularity_stats[:TOP_POPULARITY_DISPLAY_COUNT]
-            ],
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze past trends: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze past trends: {e}")
         return {"error": str(e)}
@@ -224,71 +126,18 @@ def analyze_jockey_course_stats(
         分析結果（成績、評価、コメント）
     """
     try:
-        # トラック種別をコードに変換
-        track_code = _to_track_code(track_type)
-
-        # 競馬場名をコードに変換
-        keibajo_code = VENUE_NAME_TO_CODE.get(venue) if venue else None
-
-        params = {
-            "jockey_id": jockey_id,
-            "track_code": track_code,
-            "distance": distance,
-            "limit": DEFAULT_PAST_RACES_LIMIT,
-        }
-        if keibajo_code:
-            params["keibajo_code"] = keibajo_code
-
-        response = requests.get(
-            f"{get_api_url()}/statistics/jockey-course",
-            params=params,
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 404:
-            return {
-                "warning": "騎手成績データが見つかりませんでした",
-                "jockey_name": jockey_name,
-                "conditions": {
-                    "track_type": track_type,
-                    "distance": distance,
-                    "venue": venue,
-                },
-            }
-
-        response.raise_for_status()
-        stats = response.json()
-
-        # 成績評価
-        win_rate = stats.get("win_rate", 0)
-        assessment = _assess_jockey_performance(win_rate)
-
-        # コメント生成
-        venue_text = f"{venue}" if venue else "全場"
-        comment = _generate_jockey_comment(
-            jockey_name, venue_text, track_type, distance,
-            win_rate, stats.get("place_rate", 0), assessment
-        )
+        # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+        logger.info("jockey course statistics data not available in DynamoDB, returning empty")
 
         return {
+            "warning": "騎手成績データが見つかりませんでした",
             "jockey_name": jockey_name,
-            "total_rides": stats.get("total_rides", 0),
-            "wins": stats.get("wins", 0),
-            "places": stats.get("places", 0),
-            "win_rate": f"{win_rate:.1f}%",
-            "place_rate": f"{stats.get('place_rate', 0):.1f}%",
-            "assessment": assessment,
-            "comment": comment,
             "conditions": {
                 "track_type": track_type,
                 "distance": distance,
                 "venue": venue,
             },
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze jockey course stats: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze jockey course stats: {e}")
         return {"error": str(e)}
@@ -343,56 +192,17 @@ def analyze_bet_roi(
         分析結果（回収率、推奨コメント）
     """
     try:
-        # トラック種別をコードに変換
-        track_code = _to_track_code(track_type)
-
-        response = requests.get(
-            f"{get_api_url()}/statistics/popularity-payout",
-            params={
-                "track_code": track_code,
-                "distance": distance,
-                "popularity": popularity,
-                "limit": DEFAULT_PAST_RACES_LIMIT,
-            },
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 404:
-            return {
-                "warning": "配当統計データが見つかりませんでした",
-                "conditions": {
-                    "track_type": track_type,
-                    "distance": distance,
-                    "popularity": popularity,
-                },
-            }
-
-        response.raise_for_status()
-        stats = response.json()
-
-        win_roi = stats.get("estimated_roi_win", 0)
-        place_roi = stats.get("estimated_roi_place", 0)
-
-        # 推奨コメント生成
-        recommendation = _generate_roi_recommendation(win_roi, place_roi, popularity)
+        # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+        logger.info("popularity payout statistics data not available in DynamoDB, returning empty")
 
         return {
-            "popularity": popularity,
-            "total_races": stats.get("total_races", 0),
-            "win_roi": f"{win_roi:.1f}%",
-            "place_roi": f"{place_roi:.1f}%",
-            "avg_win_payout": stats.get("avg_win_payout"),
-            "avg_place_payout": stats.get("avg_place_payout"),
-            "recommendation": recommendation,
+            "warning": "配当統計データが見つかりませんでした",
             "conditions": {
                 "track_type": track_type,
                 "distance": distance,
+                "popularity": popularity,
             },
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze bet ROI: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze bet ROI: {e}")
         return {"error": str(e)}

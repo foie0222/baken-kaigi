@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 
 @tool
@@ -49,30 +45,16 @@ def analyze_sire_offspring(
         # 血統情報を取得（父のIDを特定）
         sire_stats = None
         if horse_id:
-            try:
-                pedigree_response = requests.get(
-                    f"{get_api_url()}/horses/{horse_id}/pedigree/extended",
-                    headers=get_headers(),
-                    timeout=API_TIMEOUT_SECONDS,
-                )
-                if pedigree_response.status_code == 200:
-                    pedigree_data = pedigree_response.json()
-                    if not sire_name:
-                        sire_name = pedigree_data.get("sire", {}).get("name", "")
-                    if not broodmare_sire:
-                        broodmare_sire = pedigree_data.get("dam", {}).get("sire", "")
+            horse_data = dynamodb_client.get_horse(horse_id)
+            if horse_data:
+                if not sire_name:
+                    sire_name = horse_data.get("sire_name", "")
+                if not broodmare_sire:
+                    broodmare_sire = horse_data.get("dam_sire_name", "")
 
-                    # 種牡馬の産駒成績を取得
-                    # Note: 実際にはsire_idが必要だが、簡易的にhorse_idの一部を使用
-                    stallion_response = requests.get(
-                        f"{get_api_url()}/stallions/{horse_id[:8]}00/offspring-stats",
-                        headers=get_headers(),
-                        timeout=API_TIMEOUT_SECONDS,
-                    )
-                    if stallion_response.status_code == 200:
-                        sire_stats = stallion_response.json()
-            except requests.RequestException:
-                pass
+            # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+            logger.info("stallion stats data not available in DynamoDB, returning empty")
+            sire_stats = None
 
         # 父馬分析
         sire_analysis = _analyze_sire(sire_name, sire_stats)
@@ -107,9 +89,6 @@ def analyze_sire_offspring(
             "growth_analysis": growth_analysis,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze sire offspring: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze sire offspring: {e}")
         return {"error": str(e)}

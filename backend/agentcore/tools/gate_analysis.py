@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 
 @tool
@@ -95,9 +91,6 @@ def analyze_gate_position(
             "field_analysis": field_analysis,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze gate position: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze gate position: {e}")
         return {"error": str(e)}
@@ -136,67 +129,9 @@ def _analyze_course_gate_tendency(
     Returns:
         コース別枠順傾向分析結果
     """
-    try:
-        # 枠順別成績統計を取得
-        response = requests.get(
-            f"{get_api_url()}/statistics/gate-position",
-            params={"venue": venue, "track_type": track_type, "distance": distance},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            by_gate = data.get("by_gate", [])
-            analysis = data.get("analysis", {})
-
-            # 有利/不利な枠を特定
-            favorable_gates = []
-            unfavorable_gates = []
-            current_gate_data = None
-
-            for g in by_gate:
-                gate_num = g.get("gate", 0)
-                win_rate = g.get("win_rate", 0.0)
-
-                if gate_num == gate:
-                    current_gate_data = g
-
-                if win_rate >= 12.0:
-                    favorable_gates.append(gate_num)
-                elif win_rate <= 6.0:
-                    unfavorable_gates.append(gate_num)
-
-            # 平均勝率を計算
-            all_win_rates = [g.get("win_rate", 0) for g in by_gate if g.get("win_rate", 0) > 0]
-            avg_win_rate = sum(all_win_rates) / len(all_win_rates) if all_win_rates else 10.0
-
-            # 現在枠の評価
-            current_win_rate = current_gate_data.get("win_rate", 0) if current_gate_data else avg_win_rate
-            if current_win_rate >= avg_win_rate + 3:
-                rating = "有利"
-            elif current_win_rate >= avg_win_rate:
-                rating = "やや有利"
-            elif current_win_rate >= avg_win_rate - 3:
-                rating = "普通"
-            else:
-                rating = "不利"
-
-            comment = analysis.get("summary", f"{venue}{track_type}{distance}mでの枠傾向")
-
-            return {
-                "venue": venue,
-                "track_type": track_type,
-                "distance": distance,
-                "favorable_gates": favorable_gates[:3],
-                "unfavorable_gates": unfavorable_gates[:3],
-                "current_gate_win_rate": current_win_rate,
-                "avg_win_rate": avg_win_rate,
-                "rating": rating,
-                "comment": comment,
-            }
-    except requests.RequestException as e:
-        logger.warning(f"枠順傾向データ取得失敗: {e}")
+    # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+    logger.info("gate statistics data not available in DynamoDB, returning empty")
+    gate_stats = []
 
     # データ取得失敗時のデフォルト
     return {
@@ -232,75 +167,8 @@ def _analyze_horse_gate_aptitude(horse_id: str, position_type: str) -> dict[str,
             "comment": "馬情報がないため分析不可",
         }
 
-    try:
-        # コース適性データを取得
-        response = requests.get(
-            f"{get_api_url()}/horses/{horse_id}/course-aptitude",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            by_position = data.get("by_running_position", [])
-            summary = data.get("aptitude_summary", {})
-
-            # 位置別成績を集計
-            inner_wins, inner_starts = 0, 0
-            middle_wins, middle_starts = 0, 0
-            outer_wins, outer_starts = 0, 0
-
-            for p in by_position:
-                pos = str(p.get("position", ""))
-                starts = p.get("starts", 0)
-                wins = p.get("wins", 0)
-
-                if "内" in pos:
-                    inner_starts += starts
-                    inner_wins += wins
-                elif "外" in pos:
-                    outer_starts += starts
-                    outer_wins += wins
-                else:
-                    middle_starts += starts
-                    middle_wins += wins
-
-            # レコード文字列生成
-            inner_record = f"{inner_wins}-{inner_starts - inner_wins}" if inner_starts else "データなし"
-            middle_record = f"{middle_wins}-{middle_starts - middle_wins}" if middle_starts else "データなし"
-            outer_record = f"{outer_wins}-{outer_starts - outer_wins}" if outer_starts else "データなし"
-
-            # ベスト位置判定
-            inner_rate = (inner_wins / inner_starts * 100) if inner_starts > 0 else 0
-            middle_rate = (middle_wins / middle_starts * 100) if middle_starts > 0 else 0
-            outer_rate = (outer_wins / outer_starts * 100) if outer_starts > 0 else 0
-
-            rates = {"内枠": inner_rate, "中枠": middle_rate, "外枠": outer_rate}
-            best_position = max(rates, key=rates.get) if any(rates.values()) else "不明"
-
-            # 現在位置の評価
-            current_rate = rates.get(position_type, 0)
-            if current_rate >= 20.0:
-                current_rating = "A"
-            elif current_rate >= 10.0:
-                current_rating = "B"
-            elif current_rate >= 5.0:
-                current_rating = "C"
-            else:
-                current_rating = "D"
-
-            comment = f"{best_position}が得意。今回{position_type}は{'得意パターン' if best_position == position_type else '普通'}"
-
-            return {
-                "inner_gate_record": inner_record,
-                "middle_gate_record": middle_record,
-                "outer_gate_record": outer_record,
-                "best_position": best_position,
-                "current_position_rating": current_rating,
-                "comment": comment,
-            }
-    except requests.RequestException as e:
-        logger.warning(f"枠順適性データ取得失敗: {e}")
+    # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+    logger.info("course aptitude data not available in DynamoDB, returning empty")
 
     return {
         "inner_gate_record": "データなし",
