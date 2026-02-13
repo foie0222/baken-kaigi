@@ -192,7 +192,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       betType: bet.bet_type,
       horseNumbers: bet.horse_numbers,
       betDisplay: bet.bet_display,
-      betCount: bet.bet_count,
+      betCount: bet.bet_count ?? 1,
       amount: bet.amount ?? 0,
       runnersData: race.horses.map((h) => ({
         horse_number: h.number,
@@ -231,7 +231,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
         betType: bet.bet_type,
         horseNumbers: bet.horse_numbers,
         betDisplay: bet.bet_display,
-        betCount: bet.bet_count,
+        betCount: bet.bet_count ?? 1,
         amount: bet.amount ?? 0,
         runnersData: race.horses.map((h) => ({
           horse_number: h.number,

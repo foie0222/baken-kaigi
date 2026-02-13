@@ -671,6 +671,33 @@ describe('ApiClient', () => {
       expect(result.data?.proposed_bets).toHaveLength(1)
     })
 
+    it('bet_countが欠落していても1に補完される', async () => {
+      const proposalWithoutBetCount = {
+        ...mockProposal,
+        proposed_bets: [{
+          bet_type: 'quinella',
+          horse_numbers: [1, 2],
+          bet_display: '1-2',
+          amount: 1000,
+          confidence: 'high',
+          expected_value: 1.2,
+          composite_odds: 5.0,
+          reasoning: 'テスト根拠',
+        }],
+      }
+      const message = `分析結果です。\n\n---BET_PROPOSALS_JSON---\n${JSON.stringify(proposalWithoutBetCount)}`
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message, session_id: 'session_1' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.proposed_bets[0].bet_count).toBe(1)
+    })
+
     it('セパレータ欠落時にエラーを返す', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
