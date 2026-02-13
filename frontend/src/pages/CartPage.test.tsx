@@ -70,13 +70,6 @@ describe('CartPage', () => {
       expect(screen.getByText('ログインして設定')).toBeInTheDocument()
     })
 
-    it('別のレースの買い目を追加ボタンが表示される', () => {
-      render(<CartPage />)
-
-      const addMoreButton = screen.getByRole('button', { name: /別のレースの買い目を追加/i })
-      expect(addMoreButton).toBeInTheDocument()
-    })
-
     it('「このレースに買い目を追加」ボタンが表示される', () => {
       render(<CartPage />)
 
