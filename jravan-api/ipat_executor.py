@@ -114,9 +114,12 @@ class IpatExecutor:
             }
 
         stat = config["stat"]
+        limit = int(stat.get("limit_vote_amount", 0))
+        voted = int(stat.get("total_vote_amount", 0))
+        repayment = int(stat.get("total_repayment", 0))
         return {
-            "bet_dedicated_balance": int(stat.get("total_vote_amount", 0)),
-            "settle_possible_balance": int(stat.get("total_repayment", 0)),
-            "bet_balance": int(stat.get("daily_vote_amount", 0)),
-            "limit_vote_amount": int(stat.get("limit_vote_amount", 0)),
+            "bet_dedicated_balance": limit - voted,
+            "settle_possible_balance": repayment,
+            "bet_balance": limit - voted + repayment,
+            "limit_vote_amount": limit,
         }
