@@ -1,9 +1,35 @@
 ---
 name: verification
 description: 本番環境（bakenkaigi.com）での動作確認ワークフロー。PRマージ後やコード修正後に「動作確認して」「本番確認して」「デプロイ確認して」と言われた時に使用する。ブラウザ自動操作でログイン→PR変更の反映確認→全体チェック→不具合があればIssue起票→修正まで行う。baken-kaigiリポジトリ専用。
+version: 1.0.0
+tools:
+  - Bash
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - Grep
+  - browser
+  - gh
+skill_type: workflow
+auto_invoke: false
 ---
 
 # 本番環境 動作確認スキル
+
+## 入力形式
+
+```
+/verification
+```
+
+または PR番号を指定：
+
+```
+/verification <PR番号>
+```
+
+「動作確認して」「本番確認して」「デプロイ確認して」でも発動する。
 
 ## 安全ルール
 
@@ -14,7 +40,7 @@ description: 本番環境（bakenkaigi.com）での動作確認ワークフロ�
 
 ## 認証情報
 
-テストアカウント情報は `.claude/verification.local.json`（gitignore済み）に保存する。
+テストアカウント情報は `.claude/verification.local.json` に平文JSONで保存する（gitignore済みだがファイル自体は暗号化されない）。
 
 ```json
 {
@@ -23,7 +49,7 @@ description: 本番環境（bakenkaigi.com）での動作確認ワークフロ�
 }
 ```
 
-初回実行時にファイルが存在しない場合、ユーザーに認証情報を確認して保存する。
+初回実行時にファイルが存在しない場合、ユーザーに認証情報を確認して保存する。保存後、ファイル権限を `chmod 600` で制限する。
 
 ## ワークフロー
 
