@@ -151,6 +151,21 @@ describe('RaceDetailPage', () => {
       // betCount=3なので上限は floor(MAX_BET_AMOUNT / 3) = 33333
       expect(amountInput).toHaveValue(Math.floor(MAX_BET_AMOUNT / 3))
     })
+
+    it('金額に0を入力してフォーカスを外すと100に補正される', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
+
+      const amountInput = await screen.findByRole('spinbutton')
+      // 全選択して0で置き換え → blur
+      await user.click(amountInput)
+      await user.keyboard('{Control>}a{/Control}0')
+      await user.tab()
+
+      expect(amountInput).toHaveValue(100)
+    })
   })
 
   describe('手動モード - 案内テキスト', () => {

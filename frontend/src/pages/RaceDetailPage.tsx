@@ -413,6 +413,9 @@ export function RaceDetailPage() {
                       const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
                       setBetAmount(Math.min(maxPerBet, Math.max(100, parseInt(e.target.value, 10) || 100)));
                     }}
+                    onBlur={(e) => {
+                      e.target.value = String(betAmount);
+                    }}
                   />
                 </div>
                 <button className="amount-stepper-btn" onClick={handleAmountPlus}>＋</button>
