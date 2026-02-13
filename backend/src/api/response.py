@@ -8,6 +8,9 @@ ALLOWED_ORIGINS = [
     "https://www.bakenkaigi.com",
 ]
 
+CORS_ALLOW_HEADERS = "Content-Type,Authorization,x-api-key,X-Guest-Id"
+CORS_ALLOW_METHODS = "GET,POST,PUT,DELETE,OPTIONS"
+
 if os.environ.get("ALLOW_DEV_ORIGINS") == "true":
     ALLOWED_ORIGINS.extend([
         "http://localhost:5173",
@@ -43,8 +46,8 @@ def success_response(body: Any, status_code: int = 200, event: dict | None = Non
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": get_cors_origin(event),
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Guest-Id",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+            "Access-Control-Allow-Headers": CORS_ALLOW_HEADERS,
+            "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
         },
         "body": json.dumps(body, ensure_ascii=False, default=str),
     }
@@ -73,8 +76,8 @@ def error_response(
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": get_cors_origin(event),
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Guest-Id",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+            "Access-Control-Allow-Headers": CORS_ALLOW_HEADERS,
+            "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
         },
         "body": json.dumps(body, ensure_ascii=False),
     }
