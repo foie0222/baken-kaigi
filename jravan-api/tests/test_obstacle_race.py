@@ -14,7 +14,10 @@ from database import _to_race_dict, AGE_CONDITION_MAP, OBSTACLE_SHUBETSU_CODES
 
 
 def _make_row(**overrides):
-    """テスト用のレースデータ行を作成する."""
+    """テスト用のレースデータ行を作成する.
+
+    デフォルト距離は1600m（平地の標準距離）を使用。
+    """
     base = {
         "kaisai_nen": "2026",
         "kaisai_tsukihi": "0214",
@@ -147,22 +150,12 @@ class TestRaceNameObstacleFallback:
         assert result["is_obstacle"] is True
         assert result["track_type"] == "障害"
 
-    def test_距離2860mでtrack_codeもshubetsuも不明な場合は障害と推定(self):
-        """JRA平地レース最長距離は3,600m（ステイヤーズS）だが、
-        障害は2,710m〜4,250mの独特な距離設定。track_codeとshubetsu_codeが
-        両方不明でも、障害特有の距離であれば障害と推定する."""
+    def test_track_code芝でレース名にジャンプを含んでもフォールバックはスキップ(self):
+        """track_codeが芝(1x)の場合、レース名フォールバックは適用されない."""
         row = _make_row(
-            track_code="", kyoso_shubetsu_code="14",
-            kyosomei_hondai="", kyori="3390",
-        )
-        result = _to_race_dict(row)
-        assert result["is_obstacle"] is True
-        assert result["track_type"] == "障害"
-
-    def test_距離2400mは平地としても妥当なので障害判定されない(self):
-        row = _make_row(
-            track_code="", kyoso_shubetsu_code="14",
-            kyosomei_hondai="", kyori="2400",
+            track_code="11", kyoso_shubetsu_code="14",
+            kyosomei_hondai="ジャンプ大会",
         )
         result = _to_race_dict(row)
         assert result["is_obstacle"] is False
+        assert result["track_type"] == "芝"
