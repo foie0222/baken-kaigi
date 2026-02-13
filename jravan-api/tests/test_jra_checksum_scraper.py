@@ -15,6 +15,7 @@ from jra_checksum_scraper import (
     parse_cname,
     calculate_base_value,
     scrape_jra_checksums,
+    _discover_venues_from_nav,
 )
 
 
@@ -192,19 +193,67 @@ class TestCalculateBaseValue:
         assert calculate_base_value(checksum_1r, nichime) == base_value
 
 
+class TestDiscoverVenuesFromNav:
+    """ナビゲーションからの会場自動検出テスト."""
+
+    def test_1Rリンクから会場を検出(self):
+        """正常系: 1Rリンクから会場情報を抽出."""
+        nav_checksums = {
+            "pw01dde0105202601030120260207": 196,  # 東京1回3日目1R
+            "pw01dde0105202601030220260207": 100,  # 東京1回3日目2R（無視）
+            "pw01dde0108202602030120260207": 40,   # 京都2回3日目1R
+        }
+
+        result = _discover_venues_from_nav(nav_checksums, "20260207")
+
+        assert len(result) == 2
+        assert result[0]["venue_code"] == "05"
+        assert result[0]["kaisai_kai"] == "01"
+        assert result[0]["kaisai_nichime"] == 3
+        assert result[1]["venue_code"] == "08"
+        assert result[1]["kaisai_kai"] == "02"
+
+    def test_異なる日付のリンクは除外(self):
+        """正常系: target_dateと異なる日付のリンクは無視."""
+        nav_checksums = {
+            "pw01dde0105202601030120260207": 196,  # 2/7
+            "pw01dde0108202602030120260208": 40,   # 2/8（異なる日付）
+        }
+
+        result = _discover_venues_from_nav(nav_checksums, "20260207")
+
+        assert len(result) == 1
+        assert result[0]["venue_code"] == "05"
+
+    def test_空の場合は空リスト(self):
+        """正常系: ナビゲーションが空の場合."""
+        result = _discover_venues_from_nav({}, "20260207")
+        assert result == []
+
+    def test_不正なCNAMEは無視(self):
+        """正常系: パースできないCNAMEは無視."""
+        nav_checksums = {
+            "invalid_cname": 100,
+            "pw01dde0105202601030120260207": 196,
+        }
+
+        result = _discover_venues_from_nav(nav_checksums, "20260207")
+        assert len(result) == 1
+
+
 class TestScrapeJraChecksums:
     """メインスクレイピング関数のテスト."""
 
     @patch("jra_checksum_scraper.db")
     @patch("jra_checksum_scraper.find_valid_checksum")
-    def test_開催なしの場合は空リスト(self, mock_find, mock_db):
-        """正常系: 開催情報がない場合は空リストを返す."""
+    def test_DB情報なしかつブルートフォースも失敗時は空リスト(self, mock_find, mock_db):
+        """異常系: DB開催情報なし・ブルートフォースでもページが見つからない."""
         mock_db.get_current_kaisai_info.return_value = []
+        mock_find.return_value = None
 
         result = scrape_jra_checksums("20260207")
 
         assert result == []
-        mock_find.assert_not_called()
 
     @patch("jra_checksum_scraper.db")
     @patch("jra_checksum_scraper.find_valid_checksum")
@@ -244,7 +293,7 @@ class TestScrapeJraChecksums:
     @patch("jra_checksum_scraper.db")
     @patch("jra_checksum_scraper.find_valid_checksum")
     def test_有効なチェックサムが見つからない場合(self, mock_find, mock_db):
-        """異常系: ブルートフォースで有効なページが見つからない."""
+        """異常系: DB情報あり・ブルートフォースで有効なページが見つからない."""
         mock_db.get_current_kaisai_info.return_value = [
             {"venue_code": "05", "kaisai_kai": "01", "kaisai_nichime": 1, "date": "20260207"},
         ]
@@ -298,3 +347,31 @@ class TestScrapeJraChecksums:
         assert len(result) == 1
         assert result[0]["base_value"] == 100
         assert "error" in result[0]["status"]
+
+    @patch("jra_checksum_scraper.db")
+    @patch("jra_checksum_scraper.find_valid_checksum")
+    @patch("jra_checksum_scraper.extract_checksums_from_nav")
+    def test_DB情報なしでもナビから会場を検出して保存(self, mock_extract, mock_find, mock_db):
+        """正常系: DB開催情報なしでもナビゲーションから会場を自動検出."""
+        mock_db.get_current_kaisai_info.return_value = []
+
+        # ブルートフォースで東京05/01/nichime=3 で見つかる想定
+        mock_find.return_value = ("<html>valid page</html>", 0xAB)
+
+        mock_extract.return_value = {
+            "pw01dde0105202601030120260207": 196,  # 東京1R
+            "pw01dde0105202601030220260207": 100,  # 東京2R（1R以外は無視）
+            "pw01dde0108202602030120260207": 40,   # 京都1R
+        }
+
+        mock_db.save_jra_checksum.return_value = True
+
+        result = scrape_jra_checksums("20260207")
+
+        assert len(result) == 2
+        assert result[0]["venue_code"] == "05"
+        assert result[0]["base_value"] == 100
+        assert result[0]["status"] == "saved"
+        assert result[1]["venue_code"] == "08"
+        assert result[1]["base_value"] == 200
+        assert result[1]["status"] == "saved"
