@@ -75,7 +75,7 @@ body {
     color: #1a1a1a;
     line-height: 1.5;
     font-size: 14px;
-    padding-bottom: 70px;
+    padding-bottom: var(--bottom-nav-height);
 }
 
 /* Alert Banner */
