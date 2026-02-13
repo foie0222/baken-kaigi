@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from batch.jra_checksum_updater import handler, MAX_RETRIES
+from batch.jra_checksum_updater import handler, MAX_RETRIES, RETRYABLE_STATUS_CODES
 
 
 class TestHandler:
@@ -15,6 +15,11 @@ class TestHandler:
     @patch("batch.jra_checksum_updater.requests")
     def test_正常終了時は200を返す(self, mock_requests):
         """正常系: API呼び出し成功時はstatusCode 200."""
+        import requests as real_requests
+        mock_requests.ConnectionError = real_requests.ConnectionError
+        mock_requests.Timeout = real_requests.Timeout
+        mock_requests.RequestException = real_requests.RequestException
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -33,11 +38,12 @@ class TestHandler:
     @patch.dict("os.environ", {"JRAVAN_API_URL": "http://10.0.1.100:8000"})
     @patch("batch.jra_checksum_updater.requests")
     def test_API呼び出し失敗時は500を返す(self, mock_requests):
-        """異常系: API呼び出し失敗（非接続エラー）時はstatusCode 500."""
+        """異常系: API呼び出し失敗（非リトライ対象エラー）時はstatusCode 500."""
         import requests as real_requests
         mock_requests.post.side_effect = real_requests.RequestException("Bad request")
         mock_requests.RequestException = real_requests.RequestException
         mock_requests.ConnectionError = real_requests.ConnectionError
+        mock_requests.Timeout = real_requests.Timeout
 
         result = handler({}, None)
 
@@ -60,6 +66,7 @@ class TestHandler:
         """正常系: 接続エラー後のリトライで成功."""
         import requests as real_requests
         mock_requests.ConnectionError = real_requests.ConnectionError
+        mock_requests.Timeout = real_requests.Timeout
         mock_requests.RequestException = real_requests.RequestException
 
         mock_response = MagicMock()
@@ -86,6 +93,7 @@ class TestHandler:
         """異常系: 全リトライが接続エラーで失敗."""
         import requests as real_requests
         mock_requests.ConnectionError = real_requests.ConnectionError
+        mock_requests.Timeout = real_requests.Timeout
         mock_requests.RequestException = real_requests.RequestException
 
         mock_requests.post.side_effect = real_requests.ConnectionError("Connection refused")
@@ -97,3 +105,55 @@ class TestHandler:
         assert "retries" in result["body"]["error"]
         assert mock_requests.post.call_count == MAX_RETRIES
         assert mock_sleep.call_count == MAX_RETRIES - 1
+
+    @patch.dict("os.environ", {"JRAVAN_API_URL": "http://10.0.1.100:8000"})
+    @patch("batch.jra_checksum_updater.time.sleep")
+    @patch("batch.jra_checksum_updater.requests")
+    def test_HTTP502時にリトライして成功(self, mock_requests, mock_sleep):
+        """正常系: HTTP 502後のリトライで成功."""
+        import requests as real_requests
+        mock_requests.ConnectionError = real_requests.ConnectionError
+        mock_requests.Timeout = real_requests.Timeout
+        mock_requests.RequestException = real_requests.RequestException
+
+        mock_502 = MagicMock()
+        mock_502.status_code = 502
+
+        mock_ok = MagicMock()
+        mock_ok.status_code = 200
+        mock_ok.json.return_value = {"status": "ok"}
+
+        mock_requests.post.side_effect = [mock_502, mock_ok]
+
+        result = handler({}, None)
+
+        assert result["statusCode"] == 200
+        assert result["body"]["success"] is True
+        assert mock_requests.post.call_count == 2
+        mock_sleep.assert_called_once()
+
+    @patch.dict("os.environ", {"JRAVAN_API_URL": "http://10.0.1.100:8000"})
+    @patch("batch.jra_checksum_updater.time.sleep")
+    @patch("batch.jra_checksum_updater.requests")
+    def test_タイムアウト時にリトライして成功(self, mock_requests, mock_sleep):
+        """正常系: タイムアウト後のリトライで成功."""
+        import requests as real_requests
+        mock_requests.ConnectionError = real_requests.ConnectionError
+        mock_requests.Timeout = real_requests.Timeout
+        mock_requests.RequestException = real_requests.RequestException
+
+        mock_ok = MagicMock()
+        mock_ok.status_code = 200
+        mock_ok.json.return_value = {"status": "ok"}
+
+        mock_requests.post.side_effect = [
+            real_requests.Timeout("Read timed out"),
+            mock_ok,
+        ]
+
+        result = handler({}, None)
+
+        assert result["statusCode"] == 200
+        assert result["body"]["success"] is True
+        assert mock_requests.post.call_count == 2
+        mock_sleep.assert_called_once()

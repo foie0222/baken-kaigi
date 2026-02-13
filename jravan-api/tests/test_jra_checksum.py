@@ -1,13 +1,15 @@
 """JRAチェックサム計算のテスト."""
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 # テスト対象モジュールへのパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database import calculate_jra_checksum
+from database import calculate_jra_checksum, get_jra_checksum, CHECKSUM_STALENESS_DAYS
 
 
 class TestCalculateJraChecksum:
@@ -126,3 +128,79 @@ class TestCalculateJraChecksum:
         # base = 243 - 336 + 256 = 163
         result = calculate_jra_checksum(base_value=163, kaisai_nichime=8, race_number=1)
         assert result == 243  # 0xF3
+
+
+JST = timezone(timedelta(hours=9))
+
+
+class TestGetJraChecksumStaleness:
+    """get_jra_checksum の staleness check テスト."""
+
+    def _make_mock_cursor(self, base_value: int, updated_at):
+        """DBカーソルのモックを生成する."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = (base_value, updated_at)
+        mock_conn.cursor.return_value = mock_cursor
+        return mock_conn
+
+    @patch("database.get_db")
+    def test_updated_atが7日以内なら正常に返す(self, mock_get_db) -> None:
+        """正常系: updated_atが閾値以内ならチェックサムを返す."""
+        now = datetime.now(JST)
+        recent = now - timedelta(days=3)
+        mock_get_db.return_value.__enter__ = lambda s: self._make_mock_cursor(243, recent)
+        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = get_jra_checksum("05", "01", 1, 1)
+
+        assert result == 243
+
+    @patch("database.get_db")
+    def test_updated_atが7日超なら古いデータとしてNone(self, mock_get_db) -> None:
+        """異常系: updated_atが閾値を超えていればNoneを返す."""
+        now = datetime.now(JST)
+        old = now - timedelta(days=CHECKSUM_STALENESS_DAYS + 1)
+        mock_get_db.return_value.__enter__ = lambda s: self._make_mock_cursor(243, old)
+        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = get_jra_checksum("05", "01", 1, 1)
+
+        assert result is None
+
+    @patch("database.get_db")
+    def test_updated_atがNoneならチェックサムを返す(self, mock_get_db) -> None:
+        """正常系: updated_atがNullでもチェックサムを返す（後方互換）."""
+        mock_get_db.return_value.__enter__ = lambda s: self._make_mock_cursor(243, None)
+        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = get_jra_checksum("05", "01", 1, 1)
+
+        assert result == 243
+
+    @patch("database.get_db")
+    def test_naive_datetimeでもJSTとして比較(self, mock_get_db) -> None:
+        """正常系: tzinfo無しのdatetimeはJSTとして扱いstaleness判定."""
+        now = datetime.now(JST)
+        # naive datetime（3日前）→ JSTとして扱うので有効
+        recent_naive = (now - timedelta(days=3)).replace(tzinfo=None)
+        mock_get_db.return_value.__enter__ = lambda s: self._make_mock_cursor(243, recent_naive)
+        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = get_jra_checksum("05", "01", 1, 1)
+
+        assert result == 243
+
+    @patch("database.get_db")
+    def test_レコードなしの場合はNone(self, mock_get_db) -> None:
+        """異常系: DBにレコードがない場合はNoneを返す."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = None
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value.__enter__ = lambda s: mock_conn
+        mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = get_jra_checksum("05", "01", 1, 1)
+
+        assert result is None

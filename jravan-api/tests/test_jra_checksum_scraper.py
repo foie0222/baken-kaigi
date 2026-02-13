@@ -356,11 +356,12 @@ class TestScrapeJraChecksums:
         mock_db.get_current_kaisai_info.return_value = []
 
         # ブルートフォースで東京05/01/nichime=3 で見つかる想定
+        # 第2要素のチェックサム値は本テストでは使用しないダミー値
         mock_find.return_value = ("<html>valid page</html>", 0xAB)
 
         mock_extract.return_value = {
             "pw01dde0105202601030120260207": 196,  # 東京1R
-            "pw01dde0105202601030220260207": 100,  # 東京2R（1R以外は無視）
+            "pw01dde0105202601030220260207": 100,  # 東京2R（_discover_venues_from_navで除外される）
             "pw01dde0108202602030120260207": 40,   # 京都1R
         }
 

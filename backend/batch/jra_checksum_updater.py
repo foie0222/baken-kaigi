@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 JST = timezone(timedelta(hours=9))
-REQUEST_TIMEOUT = 90
+REQUEST_TIMEOUT = 290  # スクレイピング処理は最大数分かかるため余裕を持たせる
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 5
+RETRYABLE_STATUS_CODES = {502, 503, 504}
 
 
 def handler(event: dict, context: Any) -> dict:
@@ -54,6 +55,10 @@ def handler(event: dict, context: Any) -> dict:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = requests.post(url, timeout=REQUEST_TIMEOUT)
+            if response.status_code in RETRYABLE_STATUS_CODES:
+                raise requests.ConnectionError(
+                    f"Server returned {response.status_code}"
+                )
             response.raise_for_status()
 
             result = response.json()
@@ -67,18 +72,18 @@ def handler(event: dict, context: Any) -> dict:
                     "result": result,
                 },
             }
-        except requests.ConnectionError as e:
+        except (requests.ConnectionError, requests.Timeout) as e:
             last_error = e
             if attempt < MAX_RETRIES:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 logger.warning(
-                    f"Connection failed (attempt {attempt}/{MAX_RETRIES}): {e}. "
+                    f"Retryable error (attempt {attempt}/{MAX_RETRIES}): {e}. "
                     f"Retrying in {delay}s..."
                 )
                 time.sleep(delay)
             else:
                 logger.error(
-                    f"Connection failed after {MAX_RETRIES} attempts: {e}"
+                    f"Failed after {MAX_RETRIES} attempts: {e}"
                 )
         except requests.RequestException as e:
             logger.exception(f"Failed to call jravan-api: {e}")
@@ -94,6 +99,6 @@ def handler(event: dict, context: Any) -> dict:
         "statusCode": 500,
         "body": {
             "success": False,
-            "error": f"Connection failed after {MAX_RETRIES} retries: {last_error}",
+            "error": f"Failed after {MAX_RETRIES} retries: {last_error}",
         },
     }

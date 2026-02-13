@@ -6,7 +6,7 @@ pg8000 (pure Python PostgreSQL driver) を使用。
 import logging
 import os
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -1270,10 +1270,10 @@ def get_jra_checksum(venue_code: str, kaisai_kai: str, kaisai_nichime: int, race
         updated_at = row[1]
 
         if updated_at is not None:
-            from datetime import datetime, timedelta, timezone as tz
-            now = datetime.now(tz(timedelta(hours=9)))
+            jst = timezone(timedelta(hours=9))
+            now = datetime.now(jst)
             if updated_at.tzinfo is None:
-                updated_at = updated_at.replace(tzinfo=tz(timedelta(hours=9)))
+                updated_at = updated_at.replace(tzinfo=jst)
             age = now - updated_at
             if age > timedelta(days=CHECKSUM_STALENESS_DAYS):
                 logger.warning(

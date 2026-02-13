@@ -20,6 +20,7 @@ JRA_BASE_URL = "https://www.jra.go.jp/JRADB/accessD.html"
 REQUEST_DELAY_SECONDS = 0.1
 REQUEST_TIMEOUT = 30
 USER_AGENT = "Mozilla/5.0 (compatible; BakenKaigiBot/1.0; +https://bakenkaigi.com)"
+MAX_BRUTE_FORCE_VENUES = 5  # ブルートフォース探索で試す会場数の上限
 
 JST = timezone(timedelta(hours=9))
 
@@ -289,12 +290,14 @@ def scrape_jra_checksums(target_date: str) -> list[dict]:
                     "Trying standalone discovery from JRA site.")
 
     # 2b. DBに情報がない、またはDBの情報で見つからない場合は
-    #     主要会場をブルートフォースで試す
+    #     主要会場をブルートフォースで試す（上位会場のみ）
     if html is None:
-        logger.info("Trying brute-force discovery with common venue codes")
-        for venue_code in ["05", "06", "08", "09", "10", "01", "02", "03", "04", "07"]:
-            for kaisai_kai in ["01", "02", "03", "04", "05"]:
-                for nichime in range(1, 13):
+        common_venues = ["05", "06", "08", "09", "10", "01", "02", "03", "04", "07"]
+        venues_to_try = common_venues[:MAX_BRUTE_FORCE_VENUES]
+        logger.info(f"Trying brute-force discovery with {len(venues_to_try)} venues")
+        for venue_code in venues_to_try:
+            for kaisai_kai in ["01", "02", "03"]:
+                for nichime in range(1, 9):
                     found = find_valid_checksum(
                         venue_code=venue_code,
                         year=year,
