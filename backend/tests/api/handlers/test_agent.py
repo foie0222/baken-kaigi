@@ -101,21 +101,29 @@ class TestGetAgent:
 class TestUpdateAgent:
     """PUT /agents/me のテスト."""
 
-    def test_名前を更新できる(self):
+    def test_スタイルを更新できる(self):
         create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
         agent_handler(create_event, None)
 
-        event = _make_event(method="PUT", path="/agents/me", body={"name": "カゼ"})
+        event = _make_event(method="PUT", path="/agents/me", body={"base_style": "data"})
         response = agent_handler(event, None)
         assert response["statusCode"] == 200
 
         body = json.loads(response["body"])
-        assert body["name"] == "カゼ"
+        assert body["base_style"] == "data"
 
     def test_未作成は404(self):
-        event = _make_event(method="PUT", path="/agents/me", body={"name": "カゼ"})
+        event = _make_event(method="PUT", path="/agents/me", body={"base_style": "data"})
         response = agent_handler(event, None)
         assert response["statusCode"] == 404
+
+    def test_不正なスタイルは400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(method="PUT", path="/agents/me", body={"base_style": "invalid"})
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
 
 
 class TestCreateReview:
