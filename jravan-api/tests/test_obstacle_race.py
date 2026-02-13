@@ -1,4 +1,15 @@
 """障害レースの判定ロジックのテスト."""
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock
+
+# pg8000 のモックを追加（Linuxテスト環境用）
+mock_pg8000 = MagicMock()
+sys.modules['pg8000'] = mock_pg8000
+
+# テスト対象モジュールへのパスを追加
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from database import _to_race_dict, AGE_CONDITION_MAP, OBSTACLE_SHUBETSU_CODES
 
 
@@ -27,7 +38,7 @@ def _make_row(**overrides):
     return base
 
 
-class Test_track_codeによる障害判定:
+class TestTrackCodeObstacleDetection:
     def test_track_code_3xで障害レースと判定される(self):
         row = _make_row(track_code="31")
         result = _to_race_dict(row)
@@ -47,7 +58,7 @@ class Test_track_codeによる障害判定:
         assert result["track_type"] == "ダート"
 
 
-class Test_競走種別コードによる障害フォールバック:
+class TestShubetsuCodeObstacleFallback:
     def test_track_code空でshubetsu_21なら障害と判定(self):
         row = _make_row(track_code="", kyoso_shubetsu_code="21")
         result = _to_race_dict(row)
@@ -66,16 +77,15 @@ class Test_競走種別コードによる障害フォールバック:
         assert result["is_obstacle"] is False
         assert result["track_type"] == ""
 
-    def test_track_code_1xならshubetsu_21でも芝が優先(self):
-        """track_codeが設定されている場合はtrack_codeが優先される."""
+    def test_track_code芝でもshubetsu_21ならis_obstacleはTrue(self):
+        """track_typeはtrack_codeから決定されるが、is_obstacleはshubetsu_codeでも判定される."""
         row = _make_row(track_code="11", kyoso_shubetsu_code="21")
         result = _to_race_dict(row)
         assert result["track_type"] == "芝"
-        # ただしis_obstacleはshubetsu_codeで判定される
         assert result["is_obstacle"] is True
 
 
-class Test_障害レースの年齢条件:
+class TestObstacleRaceAgeCondition:
     def test_shubetsu_21は3歳以上(self):
         assert AGE_CONDITION_MAP["21"] == "3歳以上"
 
@@ -89,7 +99,7 @@ class Test_障害レースの年齢条件:
         assert result["is_obstacle"] is True
 
 
-class Test_OBSTACLE_SHUBETSU_CODES:
+class TestObstacleShuhetsuCodes:
     def test_21から29まで含まれる(self):
         for code in ["21", "22", "23", "24", "25", "26", "27", "28", "29"]:
             assert code in OBSTACLE_SHUBETSU_CODES
