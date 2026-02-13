@@ -76,5 +76,77 @@ describe('CartPage', () => {
       const addMoreBtn = screen.getByRole('button', { name: /このレースに買い目を追加/ })
       expect(addMoreBtn).toBeInTheDocument()
     })
+
+    it('買い目数サマリーがbetCountの合計を表示する', () => {
+      render(<CartPage />)
+
+      // betCount=1のアイテム1つ → 合計1点
+      expect(screen.getByText('1点')).toBeInTheDocument()
+    })
+  })
+
+  describe('複数の買い目がある場合', () => {
+    beforeEach(() => {
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'trifecta',
+        betMethod: 'box',
+        horseNumbers: [1, 3, 7],
+        betDisplay: '1-3-7',
+        betCount: 6,
+        amount: 600,
+      })
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'quinella',
+        betMethod: 'box',
+        horseNumbers: [2, 4, 6],
+        betDisplay: '2-4-6',
+        betCount: 3,
+        amount: 300,
+      })
+    })
+
+    it('買い目数サマリーがbetCountの合計を表示する', () => {
+      render(<CartPage />)
+
+      // betCount=6 + betCount=3 = 合計9点
+      expect(screen.getByText('9点')).toBeInTheDocument()
+    })
+
+    it('合計金額が正しく表示される', () => {
+      render(<CartPage />)
+
+      const summary = document.querySelector('.cart-summary')
+      expect(summary?.textContent).toContain('¥900')
+    })
+  })
+
+  describe('betCountが未設定のアイテムがある場合', () => {
+    beforeEach(() => {
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        amount: 100,
+      })
+    })
+
+    it('betCountが未設定の場合は1点として計算される', () => {
+      render(<CartPage />)
+
+      expect(screen.getByText('1点')).toBeInTheDocument()
+    })
   })
 })
