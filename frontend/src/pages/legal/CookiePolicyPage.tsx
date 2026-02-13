@@ -59,7 +59,8 @@ export function CookiePolicyPage() {
           <p style={{ fontSize: 14, lineHeight: 1.8, color: '#333' }}>
             ブラウザの設定からCookieを管理・削除することができます。
             また、本サービスの設定ページからCookieの同意設定を変更することもできます。
-          </p>        </section>
+          </p>
+        </section>
       </div>
     </div>
   );
