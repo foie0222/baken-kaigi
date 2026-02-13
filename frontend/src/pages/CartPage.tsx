@@ -143,8 +143,8 @@ export function CartPage() {
             </div>
           )}
 
-          <button className="add-more-btn" onClick={() => navigate('/')}>
-            ＋ 別のレースの買い目を追加
+          <button className="add-more-btn" onClick={() => navigate(`/races/${items[0].raceId}`)}>
+            ＋ このレースに買い目を追加
           </button>
           <button
             className="btn-ai-confirm"
