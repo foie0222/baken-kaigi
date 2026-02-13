@@ -2,7 +2,6 @@
 
 import base64
 import json
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +17,8 @@ def _set_env(monkeypatch):
     import agentcore_handler
     monkeypatch.setattr(agentcore_handler, "AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:ap-northeast-1:123456789012:runtime/test-agent")
     monkeypatch.setattr(agentcore_handler, "USAGE_TRACKING_TABLE_NAME", "baken-kaigi-usage-tracking")
+    # グローバルDynamoDBリソースをリセット（テスト間の分離）
+    monkeypatch.setattr(agentcore_handler, "_dynamodb_resource", None)
 
 
 def _make_jwt(sub: str, tier: str = "free") -> str:
@@ -74,13 +75,23 @@ class TestIdentifyUser:
         assert user_key == "user:user-premium"
         assert tier == "premium"
 
-    def test_GuestIdからゲストを特定できる(self):
+    def test_UUID形式のGuestIdからゲストを特定できる(self):
         from agentcore_handler import _identify_user
 
-        event = {"headers": {"X-Guest-Id": "guest-abc-123"}}
+        event = {"headers": {"X-Guest-Id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}}
         user_key, tier = _identify_user(event)
 
-        assert user_key == "guest:guest-abc-123"
+        assert user_key == "guest:a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        assert tier == "anonymous"
+
+    def test_不正な形式のGuestIdは拒否される(self):
+        from agentcore_handler import _identify_user
+
+        event = {"headers": {"X-Guest-Id": "malicious-string-<script>alert(1)</script>"}}
+        user_key, tier = _identify_user(event)
+
+        # 不正な形式は匿名扱い（guest:unknown）
+        assert user_key == "guest:unknown"
         assert tier == "anonymous"
 
     def test_ヘッダーなしは匿名扱い(self):
@@ -246,7 +257,7 @@ class TestInvokeAgentcoreUsageLimit:
 
         event = _make_event(
             _make_bet_proposal_body("202502011201"),
-            headers={"X-Guest-Id": "guest-abc"},
+            headers={"X-Guest-Id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
         )
 
         result = invoke_agentcore(event, None)
@@ -269,7 +280,7 @@ class TestInvokeAgentcoreUsageLimit:
 
         event = _make_event(
             _make_bet_proposal_body("202502011202"),
-            headers={"X-Guest-Id": "guest-abc"},
+            headers={"X-Guest-Id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
         )
 
         result = invoke_agentcore(event, None)
@@ -302,7 +313,7 @@ class TestInvokeAgentcoreUsageLimit:
 
         event = _make_event(
             _make_bet_proposal_body("202502011202", session_id="existing-session"),
-            headers={"X-Guest-Id": "guest-abc"},
+            headers={"X-Guest-Id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
         )
 
         result = invoke_agentcore(event, None)

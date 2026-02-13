@@ -119,6 +119,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     setError(null);
     setResult(null);
     setAddedIndices(new Set());
+    setRateLimited(false);
 
     try {
       const runnersData = race.horses.map((h) => ({

@@ -7,13 +7,13 @@ import base64
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import boto3
-from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -41,6 +41,20 @@ _TIER_LIMITS = {
 
 # JST タイムゾーン
 _JST = timezone(timedelta(hours=9))
+
+# ゲストID のバリデーションパターン（UUID形式）
+_GUEST_ID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
+# DynamoDB リソース（Lambda 実行間で再利用）
+_dynamodb_resource = None
+
+
+def _get_dynamodb_table():
+    """利用制限追跡テーブルのDynamoDBリソースを取得（コネクション再利用）."""
+    global _dynamodb_resource
+    if _dynamodb_resource is None:
+        _dynamodb_resource = boto3.resource("dynamodb", region_name=AWS_REGION)
+    return _dynamodb_resource.Table(USAGE_TRACKING_TABLE_NAME)
 
 # CORS 許可オリジン
 _ALLOWED_ORIGINS = [
@@ -123,9 +137,9 @@ def _identify_user(event: dict) -> tuple[str, str]:
         except (json.JSONDecodeError, UnicodeDecodeError, IndexError):
             logger.warning("Failed to decode JWT payload")
 
-    # X-Guest-Id ヘッダーからゲストIDを取得
+    # X-Guest-Id ヘッダーからゲストIDを取得（UUID形式のみ受け入れ）
     guest_id = headers.get("X-Guest-Id") or headers.get("x-guest-id") or ""
-    if guest_id:
+    if guest_id and _GUEST_ID_PATTERN.match(guest_id):
         return f"guest:{guest_id}", "anonymous"
 
     # どちらもない場合は匿名扱い
@@ -146,14 +160,10 @@ def _extract_race_ids(body: dict) -> set[str]:
         if isinstance(item, dict) and "raceId" in item:
             race_ids.add(item["raceId"])
 
-    # prompt からレースIDを抽出（"レースID XXX" パターン）
+    # prompt からレースIDを抽出（12桁数字パターン: YYYYMMDDVVRR）
     prompt = body.get("prompt", "")
-    if "レースID " in prompt:
-        for part in prompt.split("レースID "):
-            if part:
-                race_id = part.split(" ")[0].split("について")[0].strip()
-                if race_id:
-                    race_ids.add(race_id)
+    for match in re.findall(r"\d{12}", prompt):
+        race_ids.add(match)
 
     return race_ids
 
@@ -178,8 +188,7 @@ def _check_and_record_usage(
         # 無制限（premium）
         return None
 
-    dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-    table = dynamodb.Table(USAGE_TRACKING_TABLE_NAME)
+    table = _get_dynamodb_table()
 
     # 既存の利用状況を取得
     try:
@@ -243,8 +252,7 @@ def _make_usage_info(user_key: str, tier: str, date: str) -> dict | None:
     if max_races is None:
         return {"consulted_races": 0, "max_races": 0, "remaining_races": 0, "tier": "premium"}
 
-    dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-    table = dynamodb.Table(USAGE_TRACKING_TABLE_NAME)
+    table = _get_dynamodb_table()
 
     try:
         resp = table.get_item(Key={"user_key": user_key, "date": date})
