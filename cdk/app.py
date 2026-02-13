@@ -56,6 +56,7 @@ if use_jravan:
     jravan_stack = JraVanServerStack(
         app,
         "JraVanServerStack",
+        instance_type="t3.nano",
         env=env,
         termination_protection=True,
     )

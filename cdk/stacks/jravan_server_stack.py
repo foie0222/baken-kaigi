@@ -25,7 +25,7 @@ class JraVanServerStack(Stack):
         scope: Construct,
         construct_id: str,
         vpc: ec2.IVpc | None = None,
-        instance_type: str = "t3.nano",
+        instance_type: str = "t3.small",
         volume_size: int = 50,
         **kwargs,
     ) -> None:
@@ -154,8 +154,15 @@ class JraVanServerStack(Stack):
         # ========================================
         # Windows Server 2022 AMI
         # ========================================
+        # Windows Server 2022 Japanese Full Base
+        # 固定理由: latest_windows() は SSM パラメータで最新 AMI を動的参照するため、
+        # AWS 側の AMI 更新で EC2 が置換され PrivateIP が変わり、
+        # クロススタック Export（BakenKaigiApiStack, BakenKaigiBatchStack）が破損する。
+        # AMI 更新時は手動でこの ID を変更し、cdk diff で置換影響を確認すること。
+        # 取得元: aws ec2 describe-instances (2026-02-13 稼働中インスタンスから取得)
+        PINNED_AMI_ID = "ami-0a85b31fbd5b1ae65"
         windows_ami = ec2.MachineImage.generic_windows(
-            {"ap-northeast-1": "ami-0a85b31fbd5b1ae65"}
+            {"ap-northeast-1": PINNED_AMI_ID}
         )
 
         # ========================================
