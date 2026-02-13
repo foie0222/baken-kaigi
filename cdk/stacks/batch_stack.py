@@ -7,9 +7,9 @@ from pathlib import Path
 
 from aws_cdk import BundlingOptions, Duration, Stack
 from aws_cdk import aws_dynamodb as dynamodb
-from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -25,8 +25,6 @@ class BakenKaigiBatchStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        vpc: ec2.IVpc | None = None,
-        jravan_api_url: str | None = None,
         **kwargs,
     ) -> None:
         """スタックを初期化する.
@@ -34,14 +32,11 @@ class BakenKaigiBatchStack(Stack):
         Args:
             scope: CDK スコープ
             construct_id: コンストラクト ID
-            vpc: VPC（JRA-VAN 連携時に必要）
-            jravan_api_url: JRA-VAN API の URL（例: http://10.0.1.100:8000）
             **kwargs: その他のスタックパラメータ
         """
         super().__init__(scope, construct_id, **kwargs)
 
         project_root = Path(__file__).parent.parent.parent
-        use_jravan = jravan_api_url is not None
 
         # ========================================
         # DynamoDB テーブル参照（既存テーブルを名前で参照）
@@ -52,10 +47,6 @@ class BakenKaigiBatchStack(Stack):
         speed_indices_table = dynamodb.Table.from_table_name(
             self, "SpeedIndicesTable", "baken-kaigi-speed-indices"
         )
-        past_performances_table = dynamodb.Table.from_table_name(
-            self, "PastPerformancesTable", "baken-kaigi-past-performances"
-        )
-
         # ========================================
         # Lambda Layer（バッチ処理用依存関係）
         # ========================================
@@ -82,9 +73,6 @@ class BakenKaigiBatchStack(Stack):
             str(project_root / "backend"),
             exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
         )
-
-        # NOTE: スクレイパー Lambda は外部サイトにHTTPアクセスするためVPC外に配置。
-        # VPC設定はEC2にアクセスが必要な jra_checksum_updater にのみ適用する。
 
         # ========================================
         # AI予想スクレイパー Lambda
@@ -245,29 +233,6 @@ class BakenKaigiBatchStack(Stack):
             },
         )
         speed_indices_table.grant_write_data(daily_speed_scraper_fn)
-
-        # ========================================
-        # 馬柱スクレイパー Lambda
-        # ========================================
-
-        # 競馬グラント スクレイパー
-        keibagrant_scraper_fn = lambda_.Function(
-            self,
-            "KeibagrantScraperFunction",
-            handler="batch.keibagrant_scraper.handler",
-            code=backend_code,
-            function_name="baken-kaigi-keibagrant-scraper",
-            description="競馬グラント 馬柱スクレイピング（keibagrant.jp / 土日朝）",
-            timeout=Duration.seconds(300),
-            memory_size=512,
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            layers=[batch_deps_layer],
-            environment={
-                "PYTHONPATH": "/var/task:/opt/python",
-                "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
-            },
-        )
-        past_performances_table.grant_write_data(keibagrant_scraper_fn)
 
         # ========================================
         # EventBridge ルール（AI予想スクレイパー）
@@ -459,26 +424,6 @@ class BakenKaigiBatchStack(Stack):
         daily_speed_rule.add_target(targets.LambdaFunction(daily_speed_scraper_fn))
 
         # ========================================
-        # EventBridge ルール（馬柱スクレイパー）
-        # ========================================
-
-        # 競馬グラント（土日 6:20 JST = 金土 21:20 UTC）
-        keibagrant_rule = events.Rule(
-            self,
-            "KeibagrantScraperRule",
-            rule_name="baken-kaigi-keibagrant-scraper-rule",
-            description="競馬グラント馬柱スクレイピングを土日6:20 JSTに実行",
-            schedule=events.Schedule.cron(
-                minute="20",
-                hour="21",
-                month="*",
-                week_day="FRI,SAT",
-                year="*",
-            ),
-        )
-        keibagrant_rule.add_target(targets.LambdaFunction(keibagrant_scraper_fn))
-
-        # ========================================
         # JRAチェックサム自動更新バッチ
         # ========================================
 
@@ -491,16 +436,6 @@ class BakenKaigiBatchStack(Stack):
                 "PYTHONPATH": "/var/task:/opt/python",
             },
         }
-
-        # VPC設定（EC2にアクセスするためVPC内に配置）
-        if vpc is not None:
-            jra_checksum_updater_props["vpc"] = vpc
-            jra_checksum_updater_props["vpc_subnets"] = ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
-            )
-
-        if use_jravan and jravan_api_url is not None:
-            jra_checksum_updater_props["environment"]["JRAVAN_API_URL"] = jravan_api_url
 
         jra_checksum_updater_fn = lambda_.Function(
             self,
@@ -527,3 +462,284 @@ class BakenKaigiBatchStack(Stack):
             ),
         )
         checksum_rule.add_target(targets.LambdaFunction(jra_checksum_updater_fn))
+
+        # ========================================
+        # HRDB-API バッチ Lambda
+        # ========================================
+
+        # HRDB用 DynamoDB テーブル参照
+        hrdb_races_table = dynamodb.Table.from_table_name(
+            self, "HrdbRacesTable", "baken-kaigi-races"
+        )
+        hrdb_runners_table = dynamodb.Table.from_table_name(
+            self, "HrdbRunnersTable", "baken-kaigi-runners"
+        )
+        hrdb_horses_table = dynamodb.Table.from_table_name(
+            self, "HrdbHorsesTable", "baken-kaigi-horses"
+        )
+        hrdb_jockeys_table = dynamodb.Table.from_table_name(
+            self, "HrdbJockeysTable", "baken-kaigi-jockeys"
+        )
+        hrdb_trainers_table = dynamodb.Table.from_table_name(
+            self, "HrdbTrainersTable", "baken-kaigi-trainers"
+        )
+
+        # Secrets Manager 読み取り権限用ポリシー
+        gamble_os_secret_policy = iam.PolicyStatement(
+            actions=["secretsmanager:GetSecretValue"],
+            resources=[
+                f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:gamble-os-credentials*"
+            ],
+        )
+
+        # HRDB共通環境変数
+        hrdb_common_env = {
+            "PYTHONPATH": "/var/task:/opt/python",
+            "GAMBLE_OS_SECRET_ID": "gamble-os-credentials",
+        }
+
+        # --- HRDB レース取得 Lambda ---
+        hrdb_races_scraper_fn = lambda_.Function(
+            self,
+            "HrdbRacesScraperFunction",
+            handler="batch.hrdb_races_scraper.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-races-scraper",
+            description="HRDB-APIからレース情報を取得（毎晩21:00+当日朝8:00 JST）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                **hrdb_common_env,
+                "RACES_TABLE_NAME": hrdb_races_table.table_name,
+            },
+        )
+        hrdb_races_table.grant_write_data(hrdb_races_scraper_fn)
+        hrdb_races_scraper_fn.add_to_role_policy(gamble_os_secret_policy)
+
+        # --- HRDB 出走馬取得 Lambda ---
+        hrdb_runners_scraper_fn = lambda_.Function(
+            self,
+            "HrdbRunnersScraperFunction",
+            handler="batch.hrdb_runners_scraper.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-runners-scraper",
+            description="HRDB-APIから出走馬情報を取得（毎晩21:00+当日朝8:00 JST）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                **hrdb_common_env,
+                "RUNNERS_TABLE_NAME": hrdb_runners_table.table_name,
+            },
+        )
+        hrdb_runners_table.grant_write_data(hrdb_runners_scraper_fn)
+        hrdb_runners_scraper_fn.add_to_role_policy(gamble_os_secret_policy)
+
+        # --- HRDB 馬マスタ同期 Lambda ---
+        hrdb_horses_sync_fn = lambda_.Function(
+            self,
+            "HrdbHorsesSyncFunction",
+            handler="batch.hrdb_horses_sync.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-horses-sync",
+            description="HRDB-APIから馬マスタを差分同期（毎晩22:00 JST）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                **hrdb_common_env,
+                "RUNNERS_TABLE_NAME": hrdb_runners_table.table_name,
+                "HORSES_TABLE_NAME": hrdb_horses_table.table_name,
+            },
+        )
+        hrdb_runners_table.grant_read_data(hrdb_horses_sync_fn)
+        hrdb_horses_table.grant_read_write_data(hrdb_horses_sync_fn)
+        hrdb_horses_sync_fn.add_to_role_policy(gamble_os_secret_policy)
+
+        # --- HRDB 騎手マスタ同期 Lambda ---
+        hrdb_jockeys_sync_fn = lambda_.Function(
+            self,
+            "HrdbJockeysSyncFunction",
+            handler="batch.hrdb_jockeys_sync.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-jockeys-sync",
+            description="HRDB-APIから騎手マスタを差分同期（毎晩22:10 JST）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                **hrdb_common_env,
+                "RUNNERS_TABLE_NAME": hrdb_runners_table.table_name,
+                "JOCKEYS_TABLE_NAME": hrdb_jockeys_table.table_name,
+            },
+        )
+        hrdb_runners_table.grant_read_data(hrdb_jockeys_sync_fn)
+        hrdb_jockeys_table.grant_read_write_data(hrdb_jockeys_sync_fn)
+        hrdb_jockeys_sync_fn.add_to_role_policy(gamble_os_secret_policy)
+
+        # --- HRDB 調教師マスタ同期 Lambda ---
+        hrdb_trainers_sync_fn = lambda_.Function(
+            self,
+            "HrdbTrainersSyncFunction",
+            handler="batch.hrdb_trainers_sync.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-trainers-sync",
+            description="HRDB-APIから調教師マスタを差分同期（毎晩22:20 JST）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                **hrdb_common_env,
+                "RUNNERS_TABLE_NAME": hrdb_runners_table.table_name,
+                "TRAINERS_TABLE_NAME": hrdb_trainers_table.table_name,
+            },
+        )
+        hrdb_runners_table.grant_read_data(hrdb_trainers_sync_fn)
+        hrdb_trainers_table.grant_read_write_data(hrdb_trainers_sync_fn)
+        hrdb_trainers_sync_fn.add_to_role_policy(gamble_os_secret_policy)
+
+        # --- HRDB レース結果更新 Lambda ---
+        hrdb_results_sync_fn = lambda_.Function(
+            self,
+            "HrdbResultsSyncFunction",
+            handler="batch.hrdb_results_sync.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-results-sync",
+            description="HRDB-APIからレース結果を週次同期（毎週月曜6:00 JST）",
+            timeout=Duration.seconds(300),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                **hrdb_common_env,
+                "RUNNERS_TABLE_NAME": hrdb_runners_table.table_name,
+            },
+        )
+        hrdb_runners_table.grant_write_data(hrdb_results_sync_fn)
+        hrdb_results_sync_fn.add_to_role_policy(gamble_os_secret_policy)
+
+        # ========================================
+        # EventBridge ルール（HRDB バッチ）
+        # ========================================
+
+        # HRDB レース取得・夜（毎晩 21:00 JST = 12:00 UTC）
+        hrdb_races_evening_rule = events.Rule(
+            self,
+            "HrdbRacesScraperEveningRule",
+            rule_name="baken-kaigi-hrdb-races-scraper-evening-rule",
+            description="HRDBレース取得を毎晩21:00 JSTに実行（翌日分）",
+            schedule=events.Schedule.cron(
+                minute="0", hour="12", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_races_evening_rule.add_target(
+            targets.LambdaFunction(
+                hrdb_races_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 1}),
+            )
+        )
+
+        # HRDB レース取得・朝（当日朝 8:00 JST = 23:00 UTC 前日）
+        hrdb_races_morning_rule = events.Rule(
+            self,
+            "HrdbRacesScraperMorningRule",
+            rule_name="baken-kaigi-hrdb-races-scraper-morning-rule",
+            description="HRDBレース取得を当日朝8:00 JSTに実行（当日分再取得）",
+            schedule=events.Schedule.cron(
+                minute="0", hour="23", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_races_morning_rule.add_target(
+            targets.LambdaFunction(
+                hrdb_races_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
+
+        # HRDB 出走馬取得・夜（毎晩 21:05 JST = 12:05 UTC）
+        hrdb_runners_evening_rule = events.Rule(
+            self,
+            "HrdbRunnersScraperEveningRule",
+            rule_name="baken-kaigi-hrdb-runners-scraper-evening-rule",
+            description="HRDB出走馬取得を毎晩21:05 JSTに実行（翌日分）",
+            schedule=events.Schedule.cron(
+                minute="5", hour="12", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_runners_evening_rule.add_target(
+            targets.LambdaFunction(
+                hrdb_runners_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 1}),
+            )
+        )
+
+        # HRDB 出走馬取得・朝（当日朝 8:05 JST = 23:05 UTC 前日）
+        hrdb_runners_morning_rule = events.Rule(
+            self,
+            "HrdbRunnersScraperMorningRule",
+            rule_name="baken-kaigi-hrdb-runners-scraper-morning-rule",
+            description="HRDB出走馬取得を当日朝8:05 JSTに実行（当日分再取得）",
+            schedule=events.Schedule.cron(
+                minute="5", hour="23", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_runners_morning_rule.add_target(
+            targets.LambdaFunction(
+                hrdb_runners_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
+
+        # HRDB 馬マスタ同期（毎晩 22:00 JST = 13:00 UTC）
+        hrdb_horses_sync_rule = events.Rule(
+            self,
+            "HrdbHorsesSyncRule",
+            rule_name="baken-kaigi-hrdb-horses-sync-rule",
+            description="HRDB馬マスタ同期を毎晩22:00 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="0", hour="13", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_horses_sync_rule.add_target(targets.LambdaFunction(hrdb_horses_sync_fn))
+
+        # HRDB 騎手マスタ同期（毎晩 22:10 JST = 13:10 UTC）
+        hrdb_jockeys_sync_rule = events.Rule(
+            self,
+            "HrdbJockeysSyncRule",
+            rule_name="baken-kaigi-hrdb-jockeys-sync-rule",
+            description="HRDB騎手マスタ同期を毎晩22:10 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="10", hour="13", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_jockeys_sync_rule.add_target(targets.LambdaFunction(hrdb_jockeys_sync_fn))
+
+        # HRDB 調教師マスタ同期（毎晩 22:20 JST = 13:20 UTC）
+        hrdb_trainers_sync_rule = events.Rule(
+            self,
+            "HrdbTrainersSyncRule",
+            rule_name="baken-kaigi-hrdb-trainers-sync-rule",
+            description="HRDB調教師マスタ同期を毎晩22:20 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="20", hour="13", month="*", week_day="*", year="*",
+            ),
+        )
+        hrdb_trainers_sync_rule.add_target(targets.LambdaFunction(hrdb_trainers_sync_fn))
+
+        # HRDB レース結果更新（毎週月曜 6:00 JST = 日曜 21:00 UTC）
+        hrdb_results_sync_rule = events.Rule(
+            self,
+            "HrdbResultsSyncRule",
+            rule_name="baken-kaigi-hrdb-results-sync-rule",
+            description="HRDBレース結果更新を毎週月曜6:00 JSTに実行",
+            schedule=events.Schedule.cron(
+                minute="0", hour="21", month="*", week_day="SUN", year="*",
+            ),
+        )
+        hrdb_results_sync_rule.add_target(targets.LambdaFunction(hrdb_results_sync_fn))

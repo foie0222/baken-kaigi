@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 
 @tool
@@ -72,9 +68,6 @@ def analyze_bet_probability(
             "recommendation": recommendation,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze bet probability: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze bet probability: {e}")
         return {"error": str(e)}
@@ -83,42 +76,20 @@ def analyze_bet_probability(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 404:
-            return {"error": "レース情報が見つかりませんでした", "race_id": race_id}
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
+        return dynamodb_client.get_race(race_id) or {}
+    except Exception as e:
         logger.error(f"Failed to get race info: {e}")
         return {"error": f"レース情報取得エラー: {str(e)}"}
 
 
 def _get_past_statistics(race_info: dict, bet_type: str) -> dict | None:
-    """過去の統計情報を取得する."""
-    try:
-        track_code = {"芝": "1", "ダート": "2", "障害": "3"}.get(
-            race_info.get("track_type", "芝"), "1"
-        )
-        response = requests.get(
-            f"{get_api_url()}/statistics/past-races",
-            params={
-                "track_code": track_code,
-                "distance": race_info.get("distance", 1600),
-                "limit": 100,
-            },
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            return response.json()
-        return None
-    except requests.RequestException as e:
-        logger.error(f"Failed to get past statistics: {e}")
-        return None
+    """過去の統計情報を取得する.
+
+    NOTE: 統計データはDynamoDBに移行済みのレース・出走馬データから
+    算出する設計だが、現時点では統計テーブルが未整備のためNoneを返す。
+    """
+    # DynamoDBベースの統計テーブル整備後に実装予定
+    return None
 
 
 def _analyze_probability(stats: dict, scope: str) -> dict:

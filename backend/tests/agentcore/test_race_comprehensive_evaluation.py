@@ -23,11 +23,15 @@ pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module no
 
 
 @pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.race_comprehensive_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.race_comprehensive_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
+def mock_dynamodb_client():
+    """DynamoDBクライアントをモック化."""
+    with patch("tools.race_comprehensive_analysis.dynamodb_client") as mock_client:
+        mock_client.get_race.return_value = {}
+        mock_client.get_runners.return_value = []
+        mock_client.get_horse_performances.return_value = []
+        mock_client.get_jockey.return_value = None
+        mock_client.get_trainer.return_value = None
+        yield mock_client
 
 
 # =============================================================================
@@ -229,26 +233,11 @@ class TestEvaluateWeightChange:
 class TestEvaluateHorseFactorsWithNewFields:
     """_evaluate_horse_factorsの騎手/調教師/馬体重評価統合テスト."""
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_騎手と調教師のstatsがAPIから取得される(self, mock_get):
-        """rider情報がrunnerデータから引き継がれ、APIで詳細を取得する."""
-        from unittest.mock import MagicMock
-
-        # 各APIエンドポイントの応答を設定
-        def side_effect(url, **kwargs):
-            response = MagicMock()
-            response.status_code = 200
-            if "/performances" in url:
-                response.json.return_value = {"performances": []}
-            elif "/course-aptitude" in url:
-                response.json.return_value = {"venue_stats": {}}
-            elif "/jockeys/" in url and "/stats" in url:
-                response.json.return_value = {"win_rate": 20.0, "place_rate": 50.0}
-            elif "/trainers/" in url and "/stats" in url:
-                response.json.return_value = {"win_rate": 16.0, "place_rate": 45.0}
-            return response
-
-        mock_get.side_effect = side_effect
+    def test_騎手と調教師のデータがDynamoDBから取得される(self, mock_dynamodb_client):
+        """騎手・調教師情報がDynamoDBから取得される."""
+        mock_dynamodb_client.get_horse_performances.return_value = []
+        mock_dynamodb_client.get_jockey.return_value = {"win_rate": 20.0, "place_rate": 50.0}
+        mock_dynamodb_client.get_trainer.return_value = {"win_rate": 16.0, "place_rate": 45.0}
 
         runner = {
             "horse_id": "horse_001",
@@ -264,26 +253,11 @@ class TestEvaluateHorseFactorsWithNewFields:
         assert factors["trainer"] == "A"  # 勝率16% → A
         assert factors["weight"] == "A"  # +2kg → A
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_騎手APIが404の場合デフォルトB(self, mock_get):
-        """騎手APIが404を返す場合、デフォルトのBになる."""
-        from unittest.mock import MagicMock
-
-        def side_effect(url, **kwargs):
-            response = MagicMock()
-            if "/jockeys/" in url:
-                response.status_code = 404
-            elif "/trainers/" in url:
-                response.status_code = 404
-            else:
-                response.status_code = 200
-                if "/performances" in url:
-                    response.json.return_value = {"performances": []}
-                elif "/course-aptitude" in url:
-                    response.json.return_value = {"venue_stats": {}}
-            return response
-
-        mock_get.side_effect = side_effect
+    def test_騎手データがNoneの場合デフォルトB(self, mock_dynamodb_client):
+        """騎手データがNoneの場合、デフォルトのBになる."""
+        mock_dynamodb_client.get_horse_performances.return_value = []
+        mock_dynamodb_client.get_jockey.return_value = None
+        mock_dynamodb_client.get_trainer.return_value = None
 
         runner = {
             "horse_id": "horse_001",
@@ -299,21 +273,9 @@ class TestEvaluateHorseFactorsWithNewFields:
         assert factors["trainer"] == "B"
         assert factors["weight"] == "B"
 
-    @patch("tools.race_comprehensive_analysis.requests.get")
-    def test_runner情報にjockey_idがない場合デフォルトB(self, mock_get):
+    def test_runner情報にjockey_idがない場合デフォルトB(self, mock_dynamodb_client):
         """runnerにjockey_idがない場合、騎手評価はデフォルトB."""
-        from unittest.mock import MagicMock
-
-        def side_effect(url, **kwargs):
-            response = MagicMock()
-            response.status_code = 200
-            if "/performances" in url:
-                response.json.return_value = {"performances": []}
-            elif "/course-aptitude" in url:
-                response.json.return_value = {"venue_stats": {}}
-            return response
-
-        mock_get.side_effect = side_effect
+        mock_dynamodb_client.get_horse_performances.return_value = []
 
         runner = {"horse_id": "horse_001"}
         race_info = {"venue": "東京"}

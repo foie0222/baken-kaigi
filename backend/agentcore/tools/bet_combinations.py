@@ -6,15 +6,11 @@
 import logging
 from itertools import combinations, permutations
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 # スコア閾値
 SCORE_HIGH_CONFIDENCE = 75
@@ -155,9 +151,6 @@ def suggest_bet_combinations(
             "budget_allocation": budget_allocation,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to suggest bet combinations: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to suggest bet combinations: {e}")
         return {"error": str(e)}
@@ -166,45 +159,48 @@ def suggest_bet_combinations(
 def _get_runners(race_id: str) -> list[dict]:
     """出走馬リストを取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}/runners",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json().get("runners", [])
-    except requests.RequestException as e:
+        return dynamodb_client.get_runners(race_id)
+    except Exception as e:
         logger.error(f"Failed to get runners for race {race_id}: {e}")
         return []
 
 
 def _get_current_odds(race_id: str) -> dict:
-    """現在のオッズを取得する."""
+    """現在のオッズを取得する.
+
+    DynamoDBにオッズ専用データがないため、runnersのoddsフィールドで代替する。
+    """
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}/odds/win",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return {o.get("horse_number"): o.get("odds", 0) for o in data.get("odds", [])}
-    except requests.RequestException as e:
+        runners = dynamodb_client.get_runners(race_id)
+        odds_map: dict = {}
+        for r in runners:
+            odds_val = r.get("odds")
+            if odds_val is not None:
+                try:
+                    odds_map[r.get("horse_number")] = float(odds_val)
+                except (TypeError, ValueError):
+                    pass
+        return odds_map
+    except Exception as e:
         logger.error(f"Failed to get odds for race {race_id}: {e}")
         return {}
 
 
 def _get_running_styles(race_id: str) -> list[dict]:
-    """脚質データを取得する."""
+    """脚質データを取得する.
+
+    DynamoDBに脚質専用データがないため、runnersのrunning_styleフィールドで代替する。
+    """
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}/running-styles",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json().get("running_styles", [])
-    except requests.RequestException as e:
+        runners = dynamodb_client.get_runners(race_id)
+        return [
+            {
+                "horse_number": r.get("horse_number"),
+                "running_style": r.get("running_style", "不明"),
+            }
+            for r in runners
+        ]
+    except Exception as e:
         logger.error(f"Failed to get running styles for race {race_id}: {e}")
         return []
 
@@ -264,35 +260,27 @@ def _evaluate_form(horse_id: str) -> tuple[int, list[str], list[str]]:
     risk_reasons = []
 
     try:
-        response = requests.get(
-            f"{get_api_url()}/horses/{horse_id}/performances",
-            params={"limit": PERFORMANCE_LIMIT},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            performances = data.get("performances", [])
-            if performances:
-                finishes = [p.get("finish_position", 0) for p in performances if p.get("finish_position", 0) > 0]
-                if finishes:
-                    avg = sum(finishes) / len(finishes)
-                    in_money = sum(1 for f in finishes if f <= 3)
+        performances = dynamodb_client.get_horse_performances(horse_id, limit=PERFORMANCE_LIMIT)
+        if performances:
+            finishes = [p.get("finish_position", 0) for p in performances if p.get("finish_position", 0) > 0]
+            if finishes:
+                avg = sum(finishes) / len(finishes)
+                in_money = sum(1 for f in finishes if f <= 3)
 
-                    if avg <= FORM_AVG_EXCELLENT:
-                        score_delta += FORM_SCORE_EXCELLENT
-                        reasons.append("好成績継続")
-                    elif avg <= FORM_AVG_GOOD:
-                        score_delta += FORM_SCORE_GOOD
-                        reasons.append("安定した成績")
-                    else:
-                        score_delta += FORM_SCORE_POOR
-                        risk_reasons.append("成績不振")
+                if avg <= FORM_AVG_EXCELLENT:
+                    score_delta += FORM_SCORE_EXCELLENT
+                    reasons.append("好成績継続")
+                elif avg <= FORM_AVG_GOOD:
+                    score_delta += FORM_SCORE_GOOD
+                    reasons.append("安定した成績")
+                else:
+                    score_delta += FORM_SCORE_POOR
+                    risk_reasons.append("成績不振")
 
-                    if in_money >= IN_MONEY_THRESHOLD:
-                        score_delta += SCORE_DELTA_STYLE
-                        reasons.append("馬券圏内率高い")
-    except requests.RequestException as e:
+                if in_money >= IN_MONEY_THRESHOLD:
+                    score_delta += SCORE_DELTA_STYLE
+                    reasons.append("馬券圏内率高い")
+    except Exception as e:
         logger.debug(f"Failed to get performances for horse {horse_id}: {e}")
 
     return score_delta, reasons, risk_reasons

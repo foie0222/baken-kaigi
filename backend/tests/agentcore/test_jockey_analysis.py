@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -17,45 +16,54 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.jockey_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.jockey_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
-
-
 class TestAnalyzeJockeyFactor:
     """騎手分析統合テスト."""
 
-    @patch("tools.jockey_analysis.requests.get")
-    def test_正常系_騎手を分析(self, mock_get):
+    @patch("tools.dynamodb_client.get_horse_performances")
+    @patch("tools.dynamodb_client.get_jockey")
+    def test_正常系_騎手を分析(self, mock_get_jockey, mock_get_performances):
         """正常系: 騎手データを正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        mock_get_jockey.return_value = {
+            "jockey_id": "jockey_001",
             "jockey_name": "テスト騎手",
-            "win_rate": 18.5,
-            "place_rate": 45.0,
-            "recent_form": "好調",
+            "stats": {"win_rate": 18.5, "place_rate": 45.0},
+            "by_venue": [],
+            "by_track_type": [],
+            "by_popularity": [],
         }
-        mock_get.return_value = mock_response
+        mock_get_performances.return_value = []
 
         result = analyze_jockey_factor(
             jockey_id="jockey_001",
             jockey_name="テスト騎手",
             horse_id="horse_001",
+            horse_name="テスト馬",
             track_type="芝",
             distance=1600,
         )
 
-        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
+        assert result["jockey_name"] == "テスト騎手"
+        assert "jockey_overview" in result
+        assert "course_performance" in result
+        assert "horse_compatibility" in result
 
-    @patch("tools.jockey_analysis.requests.get")
-    def test_RequestException時にエラーを返す(self, mock_get):
-        """異常系: RequestException発生時はerrorを返す."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
+    @patch("tools.dynamodb_client.get_jockey")
+    def test_騎手データなしで警告を返す(self, mock_get_jockey):
+        """異常系: 騎手データがない場合はwarningを返す."""
+        mock_get_jockey.return_value = None
+
+        result = analyze_jockey_factor(
+            jockey_id="jockey_999",
+            jockey_name="不明騎手",
+        )
+
+        assert "warning" in result
+
+    @patch("tools.dynamodb_client.get_jockey")
+    def test_DynamoDB例外時にエラーを返す(self, mock_get_jockey):
+        """異常系: DynamoDB例外発生時はerrorを返す."""
+        mock_get_jockey.side_effect = Exception("Connection failed")
 
         result = analyze_jockey_factor(
             jockey_id="jockey_001",

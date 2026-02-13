@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -17,35 +16,18 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.pedigree_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.pedigree_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
-
-
 class TestAnalyzePedigreeAptitude:
     """血統適性分析統合テスト."""
 
-    @patch("tools.pedigree_analysis.requests.get")
-    def test_正常系_血統を分析(self, mock_get):
+    @patch("tools.dynamodb_client.get_horse")
+    def test_正常系_血統を分析(self, mock_get_horse):
         """正常系: 血統データを正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "sire": {
-                "name": "ディープインパクト",
-                "sire_line": "サンデーサイレンス系",
-            },
-            "dam_sire": {
-                "name": "キングカメハメハ",
-            },
-            "inbreeding": [
-                {"name": "サンデーサイレンス", "cross": "3x4"},
-            ],
+        mock_get_horse.return_value = {
+            "horse_id": "horse_001",
+            "horse_name": "テスト馬",
+            "sire_name": "ディープインパクト",
+            "dam_sire_name": "キングカメハメハ",
         }
-        mock_get.return_value = mock_response
 
         result = analyze_pedigree_aptitude(
             "horse_001", "テスト馬",
@@ -53,27 +35,25 @@ class TestAnalyzePedigreeAptitude:
             track_type="芝",
         )
 
-        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
+        assert result["horse_name"] == "テスト馬"
+        assert "pedigree_summary" in result
+        assert "distance_aptitude" in result
+        assert "track_aptitude" in result
 
-    @patch("tools.pedigree_analysis.requests.get")
-    def test_404エラーで警告を返す(self, mock_get):
-        """異常系: 404の場合は警告を返す."""
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_get.return_value = mock_response
+    @patch("tools.dynamodb_client.get_horse")
+    def test_馬データなしで警告を返す(self, mock_get_horse):
+        """異常系: 馬データがない場合はwarningを返す."""
+        mock_get_horse.return_value = None
 
         result = analyze_pedigree_aptitude("horse_999", "不明馬")
 
-        # 404の場合はwarningを返すべき
-        has_warning = "warning" in result
-        has_error = "error" in result
-        assert has_warning or has_error, "Expected 'warning' or 'error' for 404 response"
+        assert "warning" in result
 
-    @patch("tools.pedigree_analysis.requests.get")
-    def test_RequestException時にエラーを返す(self, mock_get):
-        """異常系: RequestException発生時はerrorを返す."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
+    @patch("tools.dynamodb_client.get_horse")
+    def test_DynamoDB例外時にエラーを返す(self, mock_get_horse):
+        """異常系: DynamoDB例外発生時はerrorを返す."""
+        mock_get_horse.side_effect = Exception("Connection failed")
 
         result = analyze_pedigree_aptitude("horse_001", "テスト馬")
 

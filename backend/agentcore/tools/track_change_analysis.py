@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 # 馬場状態の重さ順序
 CONDITION_WEIGHT = {
@@ -93,9 +89,6 @@ def track_course_condition_change(
             "gate_impact": gate_impact,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to track course condition change: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to track course condition change: {e}")
         return {"error": str(e)}
@@ -104,39 +97,22 @@ def track_course_condition_change(
 def _get_race_info(race_id: str) -> dict:
     """レース基本情報を取得する."""
     try:
-        response = requests.get(
-            f"{get_api_url()}/races/{race_id}",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 404:
+        result = dynamodb_client.get_race(race_id)
+        if result is None:
             return {"error": "レース情報が見つかりませんでした", "race_id": race_id}
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
+        return result
+    except Exception as e:
         logger.error(f"Failed to get race info: {e}")
         return {"error": f"レース情報取得エラー: {str(e)}"}
 
 
 def _get_daily_races(race_date: str, venue: str) -> list[dict]:
-    """当日の全レース情報を取得する."""
-    try:
-        # race_dateをYYYYMMDD形式に変換
-        if "-" in race_date:
-            race_date = race_date.replace("-", "")
+    """当日の全レース情報を取得する.
 
-        response = requests.get(
-            f"{get_api_url()}/races",
-            params={"date": race_date, "venue": venue},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 200:
-            return response.json()
-        return []
-    except requests.RequestException as e:
-        logger.error(f"Failed to get daily races: {e}")
-        return []
+    DynamoDBに日付+会場ベースのレース一覧クエリがないため、空リストを返す。
+    """
+    # DynamoDBにrace_dateベースのGSI追加後に実装予定
+    return []
 
 
 def _analyze_condition_change(daily_races: list[dict], current_race: dict) -> dict:

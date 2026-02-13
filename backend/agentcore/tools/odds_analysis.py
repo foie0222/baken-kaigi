@@ -5,16 +5,13 @@ AI指数ベースの妙味分析、時間帯別変動分析、単複比分析を
 """
 
 import math
-from datetime import datetime, timedelta
 
-import requests
 from strands import tool
 
 from .common import get_tool_logger, log_tool_execution
 from .constants import (
     AI_VALUE_HIGH,
     AI_VALUE_LOW,
-    API_TIMEOUT_SECONDS,
     ODDS_DROP,
     ODDS_RISE,
     ODDS_SHARP_DROP,
@@ -22,7 +19,7 @@ from .constants import (
     WIN_PLACE_RATIO_HIGH,
     WIN_PLACE_RATIO_LOW,
 )
-from .jravan_client import cached_get, get_api_url
+from . import odds_client
 
 logger = get_tool_logger("odds_analysis")
 
@@ -56,21 +53,7 @@ def analyze_odds_movement(
         - betting_patterns: 投票パターン分析
     """
     try:
-        # 単勝オッズ履歴を取得
-        win_response = cached_get(
-            f"{get_api_url()}/races/{race_id}/odds-history",
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if win_response.status_code == 404:
-            return {
-                "warning": "オッズデータが見つかりませんでした",
-                "race_id": race_id,
-            }
-
-        win_response.raise_for_status()
-        win_odds_data = win_response.json()
-        odds_history = win_odds_data.get("odds_history", [])
+        odds_history = odds_client.get_odds_history(race_id)
 
         if not odds_history:
             return {
@@ -78,6 +61,7 @@ def analyze_odds_movement(
                 "race_id": race_id,
             }
 
+        # 以下のコードは odds_history がある場合のみ到達
         # 複勝オッズを取得（単複比分析用）
         place_odds = _fetch_place_odds(race_id)
 
@@ -123,9 +107,6 @@ def analyze_odds_movement(
             "betting_patterns": betting_patterns,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze odds movement: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze odds movement: {e}")
         return {"error": str(e)}
@@ -140,21 +121,8 @@ def _fetch_place_odds(race_id: str) -> list[dict]:
     Returns:
         複勝オッズリスト
     """
-    try:
-        response = cached_get(
-            f"{get_api_url()}/races/{race_id}/odds",
-            params={"bet_type": "place"},
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code != 200:
-            return []
-
-        data = response.json()
-        return data.get("odds", [])
-    except Exception as e:
-        logger.warning(f"Failed to fetch place odds: {e}")
-        return []
+    win_odds = odds_client.get_win_odds(race_id)
+    return [o for o in win_odds if o.get("type") == "place"]
 
 
 def _analyze_market_overview(

@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -17,57 +16,74 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.odds_analysis.get_api_url", return_value="https://api.example.com"):
-        yield
+def _make_odds_history():
+    """テスト用オッズ履歴データ."""
+    return [
+        {
+            "timestamp": "2026-01-25T10:00:00",
+            "odds": [
+                {"horse_number": 1, "horse_name": "テスト馬A", "odds": 3.5},
+                {"horse_number": 2, "horse_name": "テスト馬B", "odds": 5.0},
+                {"horse_number": 3, "horse_name": "テスト馬C", "odds": 10.0},
+            ],
+        },
+        {
+            "timestamp": "2026-01-25T11:00:00",
+            "odds": [
+                {"horse_number": 1, "horse_name": "テスト馬A", "odds": 2.5},
+                {"horse_number": 2, "horse_name": "テスト馬B", "odds": 8.0},
+                {"horse_number": 3, "horse_name": "テスト馬C", "odds": 9.0},
+            ],
+        },
+        {
+            "timestamp": "2026-01-25T12:00:00",
+            "odds": [
+                {"horse_number": 1, "horse_name": "テスト馬A", "odds": 2.0},
+                {"horse_number": 2, "horse_name": "テスト馬B", "odds": 12.0},
+                {"horse_number": 3, "horse_name": "テスト馬C", "odds": 8.0},
+            ],
+        },
+    ]
 
 
 class TestAnalyzeOddsMovement:
     """オッズ分析統合テスト."""
 
-    @patch("tools.odds_analysis.cached_get")
-    def test_正常系_オッズを分析(self, mock_get):
-        """正常系: オッズデータを正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "odds_history": [
-                {
-                    "timestamp": "10:00",
-                    "odds": [
-                        {"horse_number": 1, "horse_name": "馬1", "odds": 5.5, "popularity": 1},
-                    ],
-                    "total_pool": 1000000,
-                },
-                {
-                    "timestamp": "11:00",
-                    "odds": [
-                        {"horse_number": 1, "horse_name": "馬1", "odds": 4.5, "popularity": 1},
-                    ],
-                    "total_pool": 2000000,
-                },
-            ],
-        }
-        mock_get.return_value = mock_response
+    @patch("tools.odds_client.get_win_odds")
+    @patch("tools.odds_client.get_odds_history")
+    def test_正常系_オッズを分析(self, mock_history, mock_win_odds):
+        """正常系: オッズ履歴データがある場合、分析結果を返す."""
+        mock_history.return_value = _make_odds_history()
+        mock_win_odds.return_value = []
 
         result = analyze_odds_movement(
             race_id="20260125_06_11",
-            horse_numbers=[1],
         )
 
-        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
+        assert result["race_id"] == "20260125_06_11"
+        assert "market_overview" in result
+        assert "movements" in result
 
-    @patch("tools.odds_analysis.cached_get")
-    def test_RequestException時にエラーを返す(self, mock_get):
-        """異常系: RequestException発生時はerrorを返す."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
+    @patch("tools.odds_client.get_odds_history")
+    def test_オッズ履歴なしで警告を返す(self, mock_history):
+        """オッズ履歴が空の場合、警告を返す."""
+        mock_history.return_value = []
 
         result = analyze_odds_movement(
             race_id="20260125_06_11",
-            horse_numbers=[1],
+        )
+
+        assert "warning" in result
+        assert result["race_id"] == "20260125_06_11"
+
+    @patch("tools.odds_client.get_odds_history")
+    def test_例外時にエラーを返す(self, mock_history):
+        """異常系: Exception発生時はerrorを返す."""
+        mock_history.side_effect = Exception("API error")
+
+        result = analyze_odds_movement(
+            race_id="20260125_06_11",
         )
 
         assert "error" in result

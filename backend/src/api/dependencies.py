@@ -22,7 +22,6 @@ from src.infrastructure import (
     InMemoryLossLimitChangeRepository,
     InMemoryUserRepository,
     MockAIClient,
-    MockRaceDataProvider,
 )
 
 
@@ -31,10 +30,6 @@ def _use_dynamodb() -> bool:
     # CART_TABLE_NAME が設定されていればDynamoDBを使用
     return os.environ.get("CART_TABLE_NAME") is not None
 
-
-def _use_jravan() -> bool:
-    """JRA-VAN Data Lab.を使用するか判定する."""
-    return os.environ.get("RACE_DATA_PROVIDER") == "jravan"
 
 
 class Dependencies:
@@ -86,12 +81,11 @@ class Dependencies:
     def get_race_data_provider(cls) -> RaceDataProvider:
         """レースデータプロバイダを取得する."""
         if cls._race_data_provider is None:
-            if _use_jravan():
-                from src.infrastructure.providers import JraVanRaceDataProvider
+            from src.infrastructure.providers.race_data_provider_factory import (
+                create_race_data_provider,
+            )
 
-                cls._race_data_provider = JraVanRaceDataProvider()
-            else:
-                cls._race_data_provider = MockRaceDataProvider()
+            cls._race_data_provider = create_race_data_provider()
         return cls._race_data_provider
 
     @classmethod
@@ -168,16 +162,11 @@ class Dependencies:
     def get_ipat_gateway(cls) -> IpatGateway:
         """IPATゲートウェイを取得する."""
         if cls._ipat_gateway is None:
-            if os.environ.get("JRAVAN_API_URL") is not None:
-                from src.infrastructure.providers.jravan_ipat_gateway import (
-                    JraVanIpatGateway,
-                )
+            from src.infrastructure.providers.ipat_gateway_factory import (
+                create_ipat_gateway,
+            )
 
-                cls._ipat_gateway = JraVanIpatGateway()
-            else:
-                from src.infrastructure.providers.mock_ipat_gateway import MockIpatGateway
-
-                cls._ipat_gateway = MockIpatGateway()
+            cls._ipat_gateway = create_ipat_gateway()
         return cls._ipat_gateway
 
     @classmethod

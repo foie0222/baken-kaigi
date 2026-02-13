@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-import requests
 
 try:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -17,28 +16,28 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not STRANDS_AVAILABLE, reason="strands module not available")
 
 
-@pytest.fixture(autouse=True)
-def mock_jravan_client():
-    """JRA-VANクライアントをモック化."""
-    with patch("tools.time_analysis.get_headers", return_value={"x-api-key": "test-key"}):
-        with patch("tools.time_analysis.get_api_url", return_value="https://api.example.com"):
-            yield
-
-
 class TestAnalyzeTimePerformance:
     """タイム分析統合テスト."""
 
-    @patch("tools.time_analysis.requests.get")
-    def test_正常系_タイムを分析(self, mock_get):
+    @patch("tools.dynamodb_client.get_horse_performances")
+    @patch("tools.dynamodb_client.get_race")
+    def test_正常系_タイムを分析(self, mock_get_race, mock_get_perfs):
         """正常系: タイムを正しく分析できる."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "performances": [
-                {"distance": 1600, "time": "1:33.5", "last_3f": "34.0", "track_condition": "良", "race_name": "テストレース", "race_date": "2026-01-01"},
-            ]
+        mock_get_race.return_value = {
+            "distance": 1600,
+            "track_type": "芝",
+            "track_condition": "良",
         }
-        mock_get.return_value = mock_response
+        mock_get_perfs.return_value = [
+            {
+                "distance": 1600,
+                "time": "1:33.5",
+                "last_3f": "34.0",
+                "track_condition": "良",
+                "race_name": "テストレース",
+                "race_date": "2026-01-01",
+            },
+        ]
 
         result = analyze_time_performance(
             horse_id="horse_001",
@@ -46,20 +45,18 @@ class TestAnalyzeTimePerformance:
             race_id="20260125_06_11",
         )
 
-        # 正常系では明示的にerrorがないことを確認
         assert "error" not in result, f"Unexpected error: {result.get('error')}"
 
-    @patch("tools.time_analysis.requests.get")
-    def test_RequestException時にwarningが返る(self, mock_get):
-        """異常系: RequestException発生時はerrorではなくwarningで処理される."""
-        mock_get.side_effect = requests.RequestException("Connection failed")
+    @patch("tools.dynamodb_client.get_horse_performances")
+    def test_例外時にwarningまたはerrorが返る(self, mock_get_perfs):
+        """異常系: 例外発生時はwarningまたはerrorで処理される."""
+        mock_get_perfs.side_effect = Exception("Connection failed")
 
         result = analyze_time_performance(
             horse_id="horse_001",
             horse_name="テスト馬",
         )
 
-        # time_analysis は内部でエラーをハンドリングし、warningまたはerrorを設定する
         has_warning = "warning" in result
         has_error = "error" in result
         assert has_warning or has_error, "Expected either 'warning' or 'error' key in result"

@@ -94,7 +94,7 @@ def get_past_performance(race_id: str, source: str | None = None) -> dict:
     Args:
         race_id: レースID (例: "20260131_05_11")
         source: データソース名。Noneの場合は全ソースを取得。
-                利用可能ソース: "keibagrant"
+                利用可能ソース: "hrdb"
 
     Returns:
         dict: 馬柱データ

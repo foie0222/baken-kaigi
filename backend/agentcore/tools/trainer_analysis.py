@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import get_api_url, get_headers
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 # 勝率評価基準
 WIN_RATE_EXCELLENT = 15.0  # 15%以上: 非常に好調
@@ -54,31 +50,17 @@ def analyze_trainer_tendency(
         分析結果（厩舎概要、条件適合度、パターン分析、騎手相性など）
     """
     try:
-        # 厩舎基本情報を取得
-        info_response = requests.get(
-            f"{get_api_url()}/trainers/{trainer_id}/info",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
+        # 調教師情報をDynamoDBから取得
+        trainer_data = dynamodb_client.get_trainer(trainer_id)
 
-        if info_response.status_code == 404:
+        if not trainer_data:
             return {
                 "warning": "厩舎データが見つかりませんでした",
                 "trainer_name": trainer_name,
             }
 
-        info_response.raise_for_status()
-        info_data = info_response.json()
-
-        # 厩舎成績を取得（直近）
-        stats_response = requests.get(
-            f"{get_api_url()}/trainers/{trainer_id}/stats",
-            params={"period": "recent"},
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
-        stats_response.raise_for_status()
-        stats_data = stats_response.json()
+        info_data = trainer_data
+        stats_data = trainer_data
 
         # 厩舎概要
         stable_overview = _create_stable_overview(info_data, stats_data)
@@ -120,24 +102,13 @@ def analyze_trainer_tendency(
             "target_race_signal": target_race_signal,
             "overall_comment": overall_comment,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze trainer tendency: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze trainer tendency: {e}")
         return {"error": str(e)}
 
 
 def _create_stable_overview(info_data: dict, stats_data: dict) -> dict[str, str | float]:
-    """厩舎概要を作成する.
-
-    Args:
-        info_data: 厩舎基本情報
-        stats_data: 厩舎成績データ
-
-    Returns:
-        厩舎概要（所属、調子、勝率、複勝率）
-    """
+    """厩舎概要を作成する."""
     affiliation = info_data.get("affiliation", "")
     if not affiliation:
         stable_location = info_data.get("stable_location", "")
@@ -147,7 +118,6 @@ def _create_stable_overview(info_data: dict, stats_data: dict) -> dict[str, str 
     win_rate = stats.get("win_rate", 0.0)
     place_rate = stats.get("place_rate", 0.0)
 
-    # 調子判定
     if win_rate >= WIN_RATE_EXCELLENT:
         recent_form = "絶好調"
     elif win_rate >= WIN_RATE_GOOD:
@@ -168,21 +138,10 @@ def _create_stable_overview(info_data: dict, stats_data: dict) -> dict[str, str 
 def _analyze_race_condition_fit(
     stats_data: dict, track_type: str, distance: int, grade_class: str
 ) -> dict[str, str]:
-    """条件適合度を分析する.
-
-    Args:
-        stats_data: 厩舎成績データ
-        track_type: コース種別（芝/ダート）
-        distance: レース距離
-        grade_class: クラス
-
-    Returns:
-        条件適合度（トラック評価、距離評価、クラス評価、コメント）
-    """
+    """条件適合度を分析する."""
     by_track = stats_data.get("by_track_type", [])
     by_class = stats_data.get("by_class", [])
 
-    # トラック適性
     track_rating = "B"
     for t in by_track:
         if t.get("track_type") == track_type:
@@ -190,7 +149,6 @@ def _analyze_race_condition_fit(
             track_rating = _win_rate_to_rating(win_rate)
             break
 
-    # クラス適性
     class_rating = "B"
     for c in by_class:
         if c.get("class") == grade_class:
@@ -198,16 +156,11 @@ def _analyze_race_condition_fit(
             class_rating = _win_rate_to_rating(win_rate)
             break
 
-    # 距離適性（簡易判定）
     if distance > 0:
-        if 1600 <= distance <= 2000:
-            distance_rating = "B"  # 中距離はデフォルトで普通
-        else:
-            distance_rating = "B"
+        distance_rating = "B"
     else:
         distance_rating = "B"
 
-    # コメント生成
     comments = []
     if track_rating == "A":
         comments.append(f"{track_type}で好成績")
@@ -223,14 +176,7 @@ def _analyze_race_condition_fit(
 
 
 def _win_rate_to_rating(win_rate: float) -> str:
-    """勝率から評価を算出.
-
-    Args:
-        win_rate: 勝率（%）
-
-    Returns:
-        評価（A/B/C/D）
-    """
+    """勝率から評価を算出."""
     if win_rate >= WIN_RATE_EXCELLENT:
         return "A"
     elif win_rate >= WIN_RATE_GOOD:
@@ -242,16 +188,7 @@ def _win_rate_to_rating(win_rate: float) -> str:
 
 
 def _analyze_patterns(stats_data: dict) -> dict[str, dict[str, str | float | int]]:
-    """パターン分析を行う.
-
-    Args:
-        stats_data: 厩舎成績データ
-
-    Returns:
-        パターン分析結果（休み明け傾向、出走間隔）
-    """
-    # 現時点では簡易的なデータ
-    # 将来的にはより詳細な休み明け・間隔データを分析
+    """パターン分析を行う."""
     return {
         "rest_pattern": {
             "after_layoff": "普通",
@@ -267,16 +204,7 @@ def _analyze_patterns(stats_data: dict) -> dict[str, dict[str, str | float | int
 def _analyze_jockey_compatibility(
     trainer_id: str, jockey_id: str, trainer_name: str
 ) -> dict[str, str | int | float]:
-    """騎手との相性を分析する.
-
-    Args:
-        trainer_id: 調教師コード
-        jockey_id: 騎手コード
-        trainer_name: 調教師名（表示用）
-
-    Returns:
-        騎手相性分析結果
-    """
+    """騎手との相性を分析する."""
     if not jockey_id:
         return {
             "combination_starts": 0,
@@ -287,24 +215,15 @@ def _analyze_jockey_compatibility(
         }
 
     try:
-        # 騎手詳細情報を取得
-        jockey_response = requests.get(
-            f"{get_api_url()}/jockeys/{jockey_id}/stats",
-            headers=get_headers(),
-            timeout=API_TIMEOUT_SECONDS,
-        )
+        # 騎手情報をDynamoDBから取得
+        jockey_data = dynamodb_client.get_jockey(jockey_id)
 
-        if jockey_response.status_code == 200:
-            jockey_data = jockey_response.json()
+        if jockey_data:
             jockey_name = jockey_data.get("jockey_name", "")
-
-            # 本来はトレーナー×騎手の成績を取得するAPIが必要
-            # ここでは簡易的な評価を行う
             jockey_win_rate = jockey_data.get("stats", {}).get("win_rate", 0.0)
 
-            # 騎手の勝率から推定
             if jockey_win_rate >= 15.0:
-                combination_win_rate = jockey_win_rate * 1.1  # 相乗効果を仮定
+                combination_win_rate = jockey_win_rate * 1.1
                 rating = "相性良好"
                 comment = f"{jockey_name}騎手は高勝率で期待できる"
             elif jockey_win_rate >= 10.0:
@@ -317,13 +236,13 @@ def _analyze_jockey_compatibility(
                 comment = f"{jockey_name}騎手との相性は不明"
 
             return {
-                "combination_starts": 0,  # 実データなし
+                "combination_starts": 0,
                 "combination_wins": 0,
                 "combination_win_rate": combination_win_rate,
                 "rating": rating,
                 "comment": comment,
             }
-    except requests.RequestException as e:
+    except Exception as e:
         logger.warning(f"騎手情報の取得に失敗: {e}")
 
     return {
@@ -340,25 +259,14 @@ def _analyze_target_race_signal(
     race_condition_fit: dict,
     jockey_compatibility: dict,
 ) -> dict[str, bool | list[str] | str]:
-    """勝負気配を判定する.
-
-    Args:
-        stable_overview: 厩舎概要
-        race_condition_fit: 条件適合度
-        jockey_compatibility: 騎手相性
-
-    Returns:
-        勝負気配判定結果
-    """
+    """勝負気配を判定する."""
     signals: list[str] = []
     score = 0
 
-    # 厩舎の調子
     if stable_overview.get("recent_form") in ("絶好調", "好調"):
         signals.append("厩舎好調")
         score += 2
 
-    # 条件適合度
     if race_condition_fit.get("track_type_rating") == "A":
         signals.append("得意コース")
         score += 2
@@ -366,12 +274,10 @@ def _analyze_target_race_signal(
         signals.append("得意クラス")
         score += 2
 
-    # 騎手相性
     if jockey_compatibility.get("rating") == "相性良好":
         signals.append("好相性騎手")
         score += 2
 
-    # 総合判定
     is_likely_target = score >= 4
     if is_likely_target:
         comment = "勝負気配を感じる出走パターン"
@@ -395,27 +301,13 @@ def _generate_trainer_comment(
     track_type: str,
     grade_class: str,
 ) -> str:
-    """総合コメントを生成する.
-
-    Args:
-        trainer_name: 調教師名
-        stable_overview: 厩舎概要
-        race_condition_fit: 条件適合度
-        jockey_compatibility: 騎手相性
-        track_type: コース種別
-        grade_class: クラス
-
-    Returns:
-        総合コメント
-    """
+    """総合コメントを生成する."""
     parts: list[str] = []
 
-    # 厩舎名と調子
     affiliation = stable_overview.get("affiliation", "")
     recent_form = stable_overview.get("recent_form", "")
     parts.append(f"{trainer_name}厩舎（{affiliation}）は{recent_form}")
 
-    # 条件適性
     track_rating = race_condition_fit.get("track_type_rating", "")
     if track_rating == "A" and track_type:
         parts.append(f"{track_type}で好成績")
@@ -424,7 +316,6 @@ def _generate_trainer_comment(
         if class_rating == "A":
             parts.append(f"{grade_class}での勝率高い")
 
-    # 騎手相性
     jockey_rating = jockey_compatibility.get("rating", "")
     if jockey_rating == "相性良好":
         parts.append("騎手との相性も良く期待できる")

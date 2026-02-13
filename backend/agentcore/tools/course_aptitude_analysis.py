@@ -5,15 +5,11 @@
 
 import logging
 
-import requests
 from strands import tool
 
-from .jravan_client import cached_get, get_api_url
+from . import dynamodb_client
 
 logger = logging.getLogger(__name__)
-
-# 定数定義
-API_TIMEOUT_SECONDS = 30
 
 # 評価基準
 WIN_RATE_EXCELLENT = 30.0  # 30%以上: A
@@ -49,20 +45,9 @@ def analyze_course_aptitude(
         分析結果（競馬場適性、距離適性、馬場状態適性、枠順適性、総合評価）
     """
     try:
-        # コース適性データを取得
-        response = cached_get(
-            f"{get_api_url()}/horses/{horse_id}/course-aptitude",
-            timeout=API_TIMEOUT_SECONDS,
-        )
-
-        if response.status_code == 404:
-            return {
-                "warning": "コース適性データが見つかりませんでした",
-                "horse_name": horse_name,
-            }
-
-        response.raise_for_status()
-        aptitude_data = response.json()
+        # DynamoDBに対応テーブルなし（将来HRDB-API経由で取得予定）
+        logger.info("course aptitude data not available in DynamoDB, returning empty")
+        aptitude_data = {}
 
         # 競馬場別適性
         venue_aptitude = _analyze_venue_aptitude(aptitude_data, venue)
@@ -102,9 +87,6 @@ def analyze_course_aptitude(
             "gate_position_aptitude": gate_position_aptitude,
             "overall_aptitude": overall_aptitude,
         }
-    except requests.RequestException as e:
-        logger.error(f"Failed to analyze course aptitude: {e}")
-        return {"error": f"API呼び出しに失敗しました: {str(e)}"}
     except Exception as e:
         logger.error(f"Failed to analyze course aptitude: {e}")
         return {"error": str(e)}
@@ -367,10 +349,8 @@ def _analyze_gate_position_aptitude(
     by_position = aptitude_data.get("by_running_position", [])
 
     # 馬番から枠番と内/中/外枠を判定
-    # JRAの枠番は1-8（フルゲート18頭の場合、馬番1-2が1枠、3-4が2枠、...）
     if horse_number > 0:
-        current_gate = min((horse_number - 1) // 2 + 1, 8)  # 枠番は最大8
-        # 枠番1-4が内枠、5-6が中枠、7-8が外枠
+        current_gate = min((horse_number - 1) // 2 + 1, 8)
         if current_gate <= 4:
             current_position = "内枠(1-4)"
         elif current_gate <= 6:
@@ -381,7 +361,7 @@ def _analyze_gate_position_aptitude(
         current_position = "不明"
         current_gate = 0
 
-    # 内枠と外枠の成績を集計（枠順データのみ参照、脚質データは除外）
+    # 内枠と外枠の成績を集計
     inner_wins = 0
     inner_starts = 0
     inner_places = 0
@@ -394,7 +374,6 @@ def _analyze_gate_position_aptitude(
 
     for p in by_position:
         pos = p.get("position", "")
-        # 枠順データのみを参照（「内枠」「外枠」等）、脚質データ（「先行」「追込」）は除外
         if "枠" not in pos:
             continue
         if "内枠" in pos:
@@ -432,10 +411,9 @@ def _analyze_gate_position_aptitude(
     elif "外枠" in current_position:
         rating = _calculate_rating(outer_rate, outer_starts)
     elif "中枠" in current_position:
-        # 中枠の場合もAPIデータから評価
         rating = _calculate_rating(middle_rate, middle_starts)
     else:
-        rating = "D"  # 枠不明の場合
+        rating = "D"
 
     # コメント生成
     if inner_rate > outer_rate and "内枠" in current_position:
