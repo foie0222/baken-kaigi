@@ -14,6 +14,7 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any
 
 import boto3
@@ -236,6 +237,17 @@ def generate_race_id(date_str: str, venue: str, race_number: int) -> str:
     return f"{date_str}_{venue_code}_{race_number:02d}"
 
 
+def _convert_floats(obj: Any) -> Any:
+    """DynamoDB用にfloatをDecimalに変換."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _convert_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_convert_floats(i) for i in obj]
+    return obj
+
+
 def save_predictions(
     table,
     race_id: str,
@@ -253,7 +265,7 @@ def save_predictions(
         "source": SOURCE_NAME,
         "venue": venue,
         "race_number": race_number,
-        "predictions": predictions,
+        "predictions": _convert_floats(predictions),
         "scraped_at": scraped_at.isoformat(),
         "ttl": ttl,
     }

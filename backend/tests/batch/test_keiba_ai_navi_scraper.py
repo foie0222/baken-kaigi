@@ -254,7 +254,7 @@ class TestSavePredictions:
         assert item["source"] == "keiba-ai-navi"
         assert item["venue"] == "東京"
         assert item["race_number"] == 11
-        assert item["predictions"] == predictions
+        assert len(item["predictions"]) == 1
         assert "ttl" in item
         expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
         assert item["ttl"] == expected_ttl
@@ -277,6 +277,45 @@ class TestSavePredictions:
 
         item = mock_table.put_item.call_args.kwargs["Item"]
         assert item["scraped_at"] == scraped_at.isoformat()
+
+    def test_floatがDecimalに変換されてDynamoDBに保存される(self):
+        """正常系: predictionsのfloat値がDecimalに変換されてDynamoDBに保存される."""
+        from decimal import Decimal
+
+        mock_table = MagicMock()
+        JST = timezone(timedelta(hours=9))
+        scraped_at = datetime(2026, 2, 8, 6, 0, 0, tzinfo=JST)
+        predictions = [
+            {
+                "rank": 1,
+                "score": 17.1,
+                "horse_number": 1,
+                "horse_name": "馬A",
+                "fukusho_index": 30.5,
+                "kitaichi_index": -10,
+            },
+        ]
+
+        save_predictions(
+            table=mock_table,
+            race_id="20260208_05_11",
+            venue="東京",
+            race_number=11,
+            predictions=predictions,
+            scraped_at=scraped_at,
+        )
+
+        item = mock_table.put_item.call_args.kwargs["Item"]
+        saved_pred = item["predictions"][0]
+
+        # float値がDecimalに変換されていること
+        assert isinstance(saved_pred["score"], Decimal)
+        assert saved_pred["score"] == Decimal("17.1")
+        assert isinstance(saved_pred["fukusho_index"], Decimal)
+        assert saved_pred["fukusho_index"] == Decimal("30.5")
+        # int値はそのまま
+        assert saved_pred["kitaichi_index"] == -10
+        assert saved_pred["horse_name"] == "馬A"
 
 
 class TestHandler:
