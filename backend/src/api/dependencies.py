@@ -162,16 +162,11 @@ class Dependencies:
     def get_ipat_gateway(cls) -> IpatGateway:
         """IPATゲートウェイを取得する."""
         if cls._ipat_gateway is None:
-            if os.environ.get("JRAVAN_API_URL") is not None:
-                from src.infrastructure.providers.jravan_ipat_gateway import (
-                    JraVanIpatGateway,
-                )
+            from src.infrastructure.providers.ipat_gateway_factory import (
+                create_ipat_gateway,
+            )
 
-                cls._ipat_gateway = JraVanIpatGateway()
-            else:
-                from src.infrastructure.providers.mock_ipat_gateway import MockIpatGateway
-
-                cls._ipat_gateway = MockIpatGateway()
+            cls._ipat_gateway = create_ipat_gateway()
         return cls._ipat_gateway
 
     @classmethod
