@@ -415,7 +415,7 @@ class BakenKaigiBatchStack(Stack):
             self,
             "Jiro8ScraperRule",
             rule_name="baken-kaigi-jiro8-speed-index-scraper-rule",
-            description="競馬新聞＆スピード指数スクレイピングを土日6:00 JSTに実行",
+            description="競馬新聞＆スピード指数スクレイピングを土日6:00 JSTに実行（当日分）",
             schedule=events.Schedule.cron(
                 minute="0",
                 hour="21",
@@ -424,14 +424,19 @@ class BakenKaigiBatchStack(Stack):
                 year="*",
             ),
         )
-        jiro8_rule.add_target(targets.LambdaFunction(jiro8_scraper_fn))
+        jiro8_rule.add_target(
+            targets.LambdaFunction(
+                jiro8_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
 
         # 吉馬（土日 6:10 JST = 金土 21:10 UTC）
         kichiuma_rule = events.Rule(
             self,
             "KichiumaScraperRule",
             rule_name="baken-kaigi-kichiuma-scraper-rule",
-            description="吉馬スクレイピングを土日6:10 JSTに実行",
+            description="吉馬スクレイピングを土日6:10 JSTに実行（当日分）",
             schedule=events.Schedule.cron(
                 minute="10",
                 hour="21",
@@ -440,7 +445,12 @@ class BakenKaigiBatchStack(Stack):
                 year="*",
             ),
         )
-        kichiuma_rule.add_target(targets.LambdaFunction(kichiuma_scraper_fn))
+        kichiuma_rule.add_target(
+            targets.LambdaFunction(
+                kichiuma_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
 
         # デイリースポーツ（水曜 18:00 JST = 水曜 9:00 UTC）
         daily_speed_rule = events.Rule(
@@ -467,7 +477,7 @@ class BakenKaigiBatchStack(Stack):
             self,
             "KeibagrantScraperRule",
             rule_name="baken-kaigi-keibagrant-scraper-rule",
-            description="競馬グラント馬柱スクレイピングを土日6:20 JSTに実行",
+            description="競馬グラント馬柱スクレイピングを土日6:20 JSTに実行（当日分）",
             schedule=events.Schedule.cron(
                 minute="20",
                 hour="21",
@@ -476,7 +486,12 @@ class BakenKaigiBatchStack(Stack):
                 year="*",
             ),
         )
-        keibagrant_rule.add_target(targets.LambdaFunction(keibagrant_scraper_fn))
+        keibagrant_rule.add_target(
+            targets.LambdaFunction(
+                keibagrant_scraper_fn,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
 
         # ========================================
         # JRAチェックサム自動更新バッチ

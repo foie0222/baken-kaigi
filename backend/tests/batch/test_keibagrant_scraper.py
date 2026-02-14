@@ -299,3 +299,78 @@ class TestHandler:
 
         assert result["statusCode"] == 500
         assert "error" in result["body"]
+
+    @patch("batch.keibagrant_scraper.scrape_races")
+    def test_offset_days_0を渡すと当日分を取得(self, mock_scrape_races):
+        """正常系: offset_days=0 でscrape_racesに0を渡す."""
+        from batch.keibagrant_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": 0}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=0)
+
+    @patch("batch.keibagrant_scraper.scrape_races")
+    def test_offset_days_1を渡すと翌日分を取得(self, mock_scrape_races):
+        """正常系: offset_days=1 でscrape_racesに1を渡す."""
+        from batch.keibagrant_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": 1}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.keibagrant_scraper.scrape_races")
+    def test_offset_days省略時はデフォルト1(self, mock_scrape_races):
+        """正常系: offset_daysが省略された場合はデフォルト1."""
+        from batch.keibagrant_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.keibagrant_scraper.scrape_races")
+    def test_offset_days不正値はデフォルト1にフォールバック(self, mock_scrape_races):
+        """正常系: offset_daysが不正値の場合はデフォルト1."""
+        from batch.keibagrant_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": 5}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)
+
+    @patch("batch.keibagrant_scraper.scrape_races")
+    def test_offset_days文字列はデフォルト1にフォールバック(self, mock_scrape_races):
+        """正常系: offset_daysが文字列の場合はデフォルト1."""
+        from batch.keibagrant_scraper import handler
+
+        mock_scrape_races.return_value = {
+            "success": True,
+            "races_scraped": 12,
+            "errors": [],
+        }
+
+        handler({"offset_days": "invalid"}, None)
+
+        mock_scrape_races.assert_called_once_with(offset_days=1)

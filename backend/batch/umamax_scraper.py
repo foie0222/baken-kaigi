@@ -314,24 +314,23 @@ def save_predictions(
     logger.info(f"Saved predictions for {race_id}: {len(predictions)} horses")
 
 
-def scrape_races() -> dict[str, Any]:
+def scrape_races(offset_days: int = 1) -> dict[str, Any]:
     """メインのスクレイピング処理.
 
-    前日夜に翌日分のUM指数を取得する。
-    umamax.com は前日にデータを配信するため、毎晩21:00 JST に翌日分を取り込む。
+    UM指数を取得してDynamoDBに保存する。
 
-    フロー:
-    1. トップページから翌日の予想記事URL一覧を取得
-    2. 各記事ページからUM指数をスクレイピング
-    3. DynamoDBに保存
+    Args:
+        offset_days: 何日後のレースを取得するか。
+            0 = 当日（レース当日の再取得用）
+            1 = 翌日（前日夜の早期取得用、デフォルト）
 
     Returns:
         dict: {"success": bool, "races_scraped": int, "errors": list}
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
-    tomorrow = scraped_at + timedelta(days=1)
-    date_str = tomorrow.strftime("%Y%m%d")
+    target = scraped_at + timedelta(days=offset_days)
+    date_str = target.strftime("%Y%m%d")
 
     results = {
         "success": True,
@@ -415,7 +414,14 @@ def handler(event: dict, context: Any) -> dict:
     logger.info(f"Starting umamax scraper: event={event}")
 
     try:
-        results = scrape_races()
+        offset_days = int(event.get("offset_days", 1))
+    except (TypeError, ValueError):
+        offset_days = 1
+    if offset_days not in (0, 1):
+        offset_days = 1
+
+    try:
+        results = scrape_races(offset_days=offset_days)
         logger.info(f"Scraping completed: {results}")
 
         return {
