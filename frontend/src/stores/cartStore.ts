@@ -51,6 +51,8 @@ export const useCartStore = create<CartState>()(
         // 同一券種・同一組み合わせの重複チェック
         const duplicate = state.items.find((existing) => {
           if (existing.betType !== item.betType) return false;
+          // betMethod が異なれば別アイテム（BOXと通常を区別）
+          if ((existing.betMethod || 'normal') !== (item.betMethod || 'normal')) return false;
           if (existing.betDisplay && item.betDisplay) {
             return existing.betDisplay === item.betDisplay;
           }

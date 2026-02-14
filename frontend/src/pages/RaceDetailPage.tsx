@@ -140,6 +140,7 @@ export function RaceDetailPage() {
       horseNumbers: horseNumbersDisplay,
       betDisplay,
       betCount,
+      columnSelections: { ...selections },  // 列選択状態をディープコピーして保持
       amount: betAmount * betCount,
       runnersData: race.horses.map((h) => ({
         horse_number: h.number,

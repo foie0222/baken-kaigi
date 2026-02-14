@@ -71,18 +71,9 @@ export const usePurchaseStore = create<PurchaseState>()((set) => ({
     try {
       set({ isLoading: true, error: null, purchaseResult: null });
 
-      // カートアイテムをDynamoDBに同期してサーバー側cartIdを取得
-      let serverCartId = cartId;
-      if (items && items.length > 0) {
-        const syncResult = await syncCartToDynamo(items);
-        if (!syncResult.success) {
-          set({ isLoading: false, error: toJapaneseError(syncResult.error, 'カートの同期に失敗しました') });
-          return;
-        }
-        serverCartId = syncResult.cartId;
-      }
-
-      const response = await apiClient.submitPurchase(serverCartId, raceDate, courseCode, raceNumber, items);
+      // syncCartToDynamo をスキップ - items をそのまま submitPurchase に送信
+      // バックエンドが items から直接カートを作成し、bet_method に基づいて展開する
+      const response = await apiClient.submitPurchase(cartId, raceDate, courseCode, raceNumber, items);
       if (!response.success || !response.data) {
         set({ isLoading: false, error: toJapaneseError(response.error, '購入に失敗しました') });
         return;
