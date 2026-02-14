@@ -33,6 +33,7 @@ from src.domain.ports import (
     RaceData,
     RaceDataProvider,
     RunnerData,
+    RunningStyleData,
     StallionConditionStatsData,
     StallionDistanceStatsData,
     StallionOffspringStatsData,
@@ -892,6 +893,26 @@ class MockRaceDataProvider(RaceDataProvider):
             inbreeding=inbreeding,
             lineage_type=lineage_type,
         )
+
+    def get_running_styles(self, race_id: RaceId) -> list[RunningStyleData]:
+        """レースの出走馬の脚質データを取得する（モック実装）."""
+        import random
+
+        race_id_str = str(race_id)
+        random.seed(_stable_hash(race_id_str + "_styles") % (2**32))
+
+        runners = self.get_runners(race_id)
+        styles = ["逃げ", "先行", "差し", "追込"]
+
+        return [
+            RunningStyleData(
+                horse_number=r.horse_number,
+                horse_name=r.horse_name,
+                running_style=random.choice(styles),
+                running_style_tendency=random.choice(styles),
+            )
+            for r in runners
+        ]
 
     def get_odds_history(self, race_id: RaceId) -> OddsHistoryData | None:
         """レースのオッズ履歴を取得する（モック実装）."""

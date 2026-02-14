@@ -266,6 +266,40 @@ def get_odds_history(event: dict, context: Any) -> dict:
     return success_response(response, event=event)
 
 
+def get_running_styles(event: dict, context: Any) -> dict:
+    """レースの出走馬の脚質データを取得する.
+
+    GET /races/{race_id}/running-styles
+
+    Path Parameters:
+        race_id: レースID
+
+    Returns:
+        脚質データのリスト
+    """
+    race_id_str = get_path_parameter(event, "race_id")
+    if not race_id_str:
+        return bad_request_response("race_id is required", event=event)
+
+    # プロバイダから取得
+    provider = Dependencies.get_race_data_provider()
+    race_id = RaceId(race_id_str)
+    result = provider.get_running_styles(race_id)
+
+    # レスポンス構築
+    response = [
+        {
+            "horse_number": s.horse_number,
+            "horse_name": s.horse_name,
+            "running_style": s.running_style,
+            "running_style_tendency": s.running_style_tendency,
+        }
+        for s in result
+    ]
+
+    return success_response(response, event=event)
+
+
 def get_race_results(event: dict, context: Any) -> dict:
     """レース結果・払戻金を取得する.
 

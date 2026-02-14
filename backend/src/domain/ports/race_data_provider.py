@@ -273,6 +273,16 @@ class OddsHistoryData:
 
 
 @dataclass(frozen=True)
+class RunningStyleData:
+    """脚質データ."""
+
+    horse_number: int
+    horse_name: str
+    running_style: str  # 逃げ/先行/差し/追込
+    running_style_tendency: str  # 主な脚質傾向
+
+
+@dataclass(frozen=True)
 class VenueAptitudeData:
     """競馬場別適性データ."""
 
@@ -661,6 +671,18 @@ class RaceDataProvider(ABC):
 
         Returns:
             オッズ履歴データ、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_running_styles(self, race_id: RaceId) -> list[RunningStyleData]:
+        """レースの出走馬の脚質データを取得する.
+
+        Args:
+            race_id: レースID
+
+        Returns:
+            脚質データのリスト
         """
         pass
 

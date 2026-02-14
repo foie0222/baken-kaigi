@@ -315,6 +315,16 @@ class TestApiStack:
             },
         )
 
+    def test_running_styles_endpoint(self, template):
+        """GET /races/{race_id}/running-styles エンドポイントが存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-running-styles",
+                "Handler": "src.api.handlers.races.get_running_styles",
+            },
+        )
+
     def test_owner_endpoints(self, template):
         """馬主APIのLambda関数が存在すること."""
         template.has_resource_properties(

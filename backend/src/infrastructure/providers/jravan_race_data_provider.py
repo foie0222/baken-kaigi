@@ -48,6 +48,7 @@ from src.domain.ports import (
     RaceResultData,
     RaceResultsData,
     RunnerData,
+    RunningStyleData,
     StallionConditionStatsData,
     StallionDistanceStatsData,
     StallionOffspringStatsData,
@@ -712,6 +713,31 @@ class JraVanRaceDataProvider(RaceDataProvider):
         except requests.RequestException as e:
             logger.warning(f"Could not get odds history for race {race_id}: {e}")
             return None
+
+    def get_running_styles(self, race_id: RaceId) -> list[RunningStyleData]:
+        """レースの出走馬の脚質データを取得する."""
+        try:
+            response = self._session.get(
+                f"{self._base_url}/races/{race_id.value}/running-styles",
+                timeout=self._timeout,
+            )
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+
+            styles_data = response.json()
+            return [
+                RunningStyleData(
+                    horse_number=s["horse_number"],
+                    horse_name=s["horse_name"],
+                    running_style=s["running_style"],
+                    running_style_tendency=s["running_style_tendency"],
+                )
+                for s in styles_data
+            ]
+        except requests.RequestException as e:
+            logger.warning(f"Could not get running styles for race {race_id}: {e}")
+            return []
 
     def _to_odds_history_data(self, data: dict) -> OddsHistoryData:
         """APIレスポンスをOddsHistoryDataに変換する."""
