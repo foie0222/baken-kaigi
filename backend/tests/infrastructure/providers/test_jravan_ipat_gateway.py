@@ -133,6 +133,70 @@ class TestJraVanIpatGateway(unittest.TestCase):
             self.gateway.get_balance(self.credentials)
 
     @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_投票送信_競馬場コードが英語名で送信される(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """ipatgo.exeはrcoursecdに英語名（TOKYO等）を期待する."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"success": True}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        self.gateway.submit_bets(self.credentials, self.bet_lines)
+
+        call_args = mock_session.post.call_args
+        payload = call_args[1]["json"]
+        assert payload["bet_lines"][0]["rcoursecd"] == "TOKYO"
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_投票送信_馬券式が大文字名で送信される(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """ipatgo.exeはdenominationに大文字名（TANSYO等）を期待する."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"success": True}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        self.gateway.submit_bets(self.credentials, self.bet_lines)
+
+        call_args = mock_session.post.call_args
+        payload = call_args[1]["json"]
+        assert payload["bet_lines"][0]["denomination"] == "TANSYO"
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_投票送信_全券種が正しい形式で送信される(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """全券種のdenominationがipatgo.exe期待形式であること."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"success": True}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        for bet_type in IpatBetType:
+            bet_line = IpatBetLine(
+                opdt="20260207",
+                venue_code=IpatVenueCode.TOKYO,
+                race_number=11,
+                bet_type=bet_type,
+                number="01",
+                amount=100,
+            )
+            self.gateway.submit_bets(self.credentials, [bet_line])
+            call_args = mock_session.post.call_args
+            denomination = call_args[1]["json"]["bet_lines"][0]["denomination"]
+            assert denomination == bet_type.name, (
+                f"{bet_type.name}: denomination '{denomination}' does not match enum name"
+            )
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
     def test_HTTPエラーで例外(self, mock_session_cls: MagicMock) -> None:
         import requests
 

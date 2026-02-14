@@ -27,4 +27,4 @@ class IpatBetLine:
     def to_csv_line(self) -> str:
         """CSV行に変換する."""
         rno = f"{self.race_number:02d}"
-        return f"{self.opdt},{self.venue_code.value},{rno},{self.bet_type.value},NORMAL,,{self.number},{self.amount}"
+        return f"{self.opdt},{self.venue_code.name},{rno},{self.bet_type.name},NORMAL,,{self.number},{self.amount}"

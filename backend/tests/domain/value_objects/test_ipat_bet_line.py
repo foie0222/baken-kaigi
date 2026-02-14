@@ -84,7 +84,7 @@ class TestIpatBetLine:
             amount=100,
         )
         csv = line.to_csv_line()
-        assert csv == "20260201,05,11,tansyo,NORMAL,,03,100"
+        assert csv == "20260201,TOKYO,11,TANSYO,NORMAL,,03,100"
 
     def test_馬連のCSV行を生成できる(self) -> None:
         """馬連のCSV行を正しく生成できることを確認."""
@@ -97,7 +97,7 @@ class TestIpatBetLine:
             amount=500,
         )
         csv = line.to_csv_line()
-        assert csv == "20260201,06,01,umaren,NORMAL,,01-03,500"
+        assert csv == "20260201,NAKAYAMA,01,UMAREN,NORMAL,,01-03,500"
 
     def test_三連単のCSV行を生成できる(self) -> None:
         """三連単のCSV行を正しく生成できることを確認."""
@@ -110,7 +110,7 @@ class TestIpatBetLine:
             amount=1000,
         )
         csv = line.to_csv_line()
-        assert csv == "20260201,09,12,sanrentan,NORMAL,,01-03-07,1000"
+        assert csv == "20260201,HANSHIN,12,SANRENTAN,NORMAL,,01-03-07,1000"
 
     def test_不変オブジェクトである(self) -> None:
         """IpatBetLineは不変（frozen）であることを確認."""
