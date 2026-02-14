@@ -36,6 +36,8 @@ def _agent_to_dict(agent) -> dict:
         "win_rate": round(agent.performance.win_rate * 100, 1),
         "roi": round(agent.performance.roi * 100, 1),
         "profit": agent.performance.profit,
+        "betting_preference": agent.betting_preference.to_dict(),
+        "custom_instructions": agent.custom_instructions,
         "created_at": agent.created_at.isoformat(),
         "updated_at": agent.updated_at.isoformat(),
     }
@@ -126,13 +128,20 @@ def _get_agent(event: dict) -> dict:
     return success_response(_agent_to_dict(result.agent), event=event)
 
 
+_VALID_BET_TYPE_PREFERENCES = ("trio_focused", "exacta_focused", "quinella_focused", "wide_focused", "auto")
+_VALID_TARGET_STYLES = ("honmei", "medium_longshot", "big_longshot")
+_VALID_BETTING_PRIORITIES = ("hit_rate", "roi", "balanced")
+
+
 def _update_agent(event: dict) -> dict:
-    """エージェントのスタイルを更新する.
+    """エージェントを更新する.
 
     PUT /agents/me
 
     Request Body:
-        base_style: 新しいスタイル (solid/longshot/data/pace)
+        base_style: 新しいスタイル (solid/longshot/data/pace) [任意]
+        betting_preference: 好み設定 [任意]
+        custom_instructions: 追加指示 (200文字以内) [任意]
     """
     try:
         user_id = require_authenticated_user_id(event)
@@ -145,21 +154,63 @@ def _update_agent(event: dict) -> dict:
         return bad_request_response(str(e), event=event)
 
     base_style = body.get("base_style")
+    betting_preference = body.get("betting_preference")
+    custom_instructions_specified = "custom_instructions" in body
+    custom_instructions = body.get("custom_instructions") if custom_instructions_specified else None
 
-    if base_style is None:
-        return bad_request_response("base_style is required for update", event=event)
-    if not isinstance(base_style, str):
-        return bad_request_response("base_style must be a string", event=event)
-    if base_style not in ("solid", "longshot", "data", "pace"):
-        return bad_request_response(
-            "base_style must be one of: solid, longshot, data, pace", event=event
-        )
+    # base_style バリデーション
+    if base_style is not None:
+        if not isinstance(base_style, str):
+            return bad_request_response("base_style must be a string", event=event)
+        if base_style not in ("solid", "longshot", "data", "pace"):
+            return bad_request_response(
+                "base_style must be one of: solid, longshot, data, pace", event=event
+            )
+
+    # betting_preference バリデーション
+    if betting_preference is not None:
+        if not isinstance(betting_preference, dict):
+            return bad_request_response("betting_preference must be an object", event=event)
+        btp = betting_preference.get("bet_type_preference")
+        if btp is not None and btp not in _VALID_BET_TYPE_PREFERENCES:
+            return bad_request_response(
+                f"bet_type_preference must be one of: {', '.join(_VALID_BET_TYPE_PREFERENCES)}", event=event
+            )
+        ts = betting_preference.get("target_style")
+        if ts is not None and ts not in _VALID_TARGET_STYLES:
+            return bad_request_response(
+                f"target_style must be one of: {', '.join(_VALID_TARGET_STYLES)}", event=event
+            )
+        bp = betting_preference.get("priority")
+        if bp is not None and bp not in _VALID_BETTING_PRIORITIES:
+            return bad_request_response(
+                f"priority must be one of: {', '.join(_VALID_BETTING_PRIORITIES)}", event=event
+            )
+
+    # custom_instructions バリデーション
+    if custom_instructions is not None:
+        if not isinstance(custom_instructions, str):
+            return bad_request_response("custom_instructions must be a string", event=event)
+        if len(custom_instructions) > 200:
+            return bad_request_response("custom_instructions must be 200 characters or less", event=event)
+
+    # 何も更新するものがない場合
+    if base_style is None and betting_preference is None and not custom_instructions_specified:
+        return bad_request_response("At least one of base_style, betting_preference, or custom_instructions is required", event=event)
 
     repository = Dependencies.get_agent_repository()
     use_case = UpdateAgentUseCase(repository)
 
+    kwargs: dict = {"user_id": user_id}
+    if base_style is not None:
+        kwargs["base_style"] = base_style
+    if betting_preference is not None:
+        kwargs["betting_preference"] = betting_preference
+    if custom_instructions_specified:
+        kwargs["custom_instructions"] = custom_instructions
+
     try:
-        result = use_case.execute(user_id, base_style=base_style)
+        result = use_case.execute(**kwargs)
     except AgentNotFoundError:
         return not_found_response("Agent", event=event)
     except ValueError as e:

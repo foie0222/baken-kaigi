@@ -25,6 +25,7 @@ import type {
   AgentStyleId,
   AgentData,
   AgentReview,
+  BettingPreference,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -756,10 +757,24 @@ class ApiClient {
     return this.request<Agent>('/agents/me');
   }
 
-  async updateAgent(baseStyle: AgentStyleId): Promise<ApiResponse<Agent>> {
+  async updateAgent(
+    baseStyle?: AgentStyleId,
+    bettingPreference?: BettingPreference,
+    customInstructions?: string | null,
+  ): Promise<ApiResponse<Agent>> {
+    const payload: Record<string, unknown> = {};
+    if (baseStyle !== undefined) {
+      payload.base_style = baseStyle;
+    }
+    if (bettingPreference !== undefined) {
+      payload.betting_preference = bettingPreference;
+    }
+    if (customInstructions !== undefined) {
+      payload.custom_instructions = customInstructions;
+    }
     return this.request<Agent>('/agents/me', {
       method: 'PUT',
-      body: JSON.stringify({ base_style: baseStyle }),
+      body: JSON.stringify(payload),
     });
   }
 

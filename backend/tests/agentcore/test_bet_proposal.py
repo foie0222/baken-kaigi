@@ -26,11 +26,13 @@ from tools.bet_proposal import (
     _generate_bet_proposal_impl,
     _generate_proposal_reasoning,
     _get_character_config,
+    _get_preference_config,
     _compute_unified_win_probabilities,
     _calculate_ev_from_unified_prob,
     _calculate_combination_ev,
     CHARACTER_PROFILES,
     _DEFAULT_CONFIG,
+    MAX_PARTNERS,
     SKIP_GATE_THRESHOLD,
     TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
 )
@@ -2584,6 +2586,126 @@ class TestBankrollMode:
         )
         if result["proposed_bets"]:
             assert "dutching_composite_odds" in result["proposed_bets"][0]
+
+
+# =============================================================================
+# 好み設定反映テスト
+# =============================================================================
+
+
+class TestGetPreferenceConfig:
+    """_get_preference_config のテスト."""
+
+    def test_好み設定なしの場合はデフォルト(self):
+        config = _get_preference_config(character_type="analyst", betting_preference=None)
+        assert config["max_partners"] == MAX_PARTNERS
+
+    def test_好み設定が空辞書の場合はデフォルト(self):
+        config = _get_preference_config(character_type="analyst", betting_preference={})
+        assert config["max_partners"] == MAX_PARTNERS
+
+    def test_priorityがhit_rateの場合はmax_partnersが多い(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"priority": "hit_rate"},
+        )
+        assert config["max_partners"] >= 5
+
+    def test_priorityがroiの場合はmax_partnersが少ない(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"priority": "roi"},
+        )
+        assert config["max_partners"] <= 3
+
+    def test_priorityがbalancedの場合はデフォルト(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"priority": "balanced"},
+        )
+        assert config["max_partners"] == MAX_PARTNERS
+
+    def test_bet_type_preferenceがtrio_focusedの場合は三連系が含まれる(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"bet_type_preference": "trio_focused"},
+        )
+        for level, bet_types in config["difficulty_bet_types"].items():
+            assert any("trio" in bt or "trifecta" in bt for bt in bet_types)
+
+    def test_bet_type_preferenceがwide_focusedの場合はワイド系が含まれる(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"bet_type_preference": "wide_focused"},
+        )
+        for level, bet_types in config["difficulty_bet_types"].items():
+            assert any("quinella_place" in bt for bt in bet_types)
+
+    def test_bet_type_preferenceがautoの場合は変更なし(self):
+        config_auto = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"bet_type_preference": "auto"},
+        )
+        config_default = _get_preference_config(
+            character_type="analyst",
+            betting_preference=None,
+        )
+        assert config_auto["difficulty_bet_types"] == config_default["difficulty_bet_types"]
+
+    def test_target_styleがhonmeiの場合は低難易度寄り(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"target_style": "honmei"},
+        )
+        # 本命狙いは安い券種が多い
+        low_diff_types = config["difficulty_bet_types"][1]
+        assert any(bt in ("quinella", "quinella_place", "exacta") for bt in low_diff_types)
+
+    def test_target_styleがbig_longshotの場合は高難易度寄り(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"target_style": "big_longshot"},
+        )
+        # 大穴狙いは三連系が出やすい
+        high_diff_types = config["difficulty_bet_types"]
+        has_trio = False
+        for level, bet_types in high_diff_types.items():
+            if any("trio" in bt or "trifecta" in bt for bt in bet_types):
+                has_trio = True
+                break
+        assert has_trio
+
+    def test_ペルソナ設定と好み設定の組み合わせ(self):
+        config = _get_preference_config(
+            character_type="conservative",
+            betting_preference={"priority": "roi"},
+        )
+        # conservativeベース + roi → max_partners は roi の値
+        assert config["max_partners"] <= 3
+
+    def test_generate_bet_proposal_implで好み設定が使われる(self):
+        runners = _make_runners(10)
+        preds = _make_ai_predictions(10)
+        # hit_rate: max_partners >= 5 → 相手馬が多い → 買い目が多くなりうる
+        result_hit = _generate_bet_proposal_impl(
+            race_id="test_pref",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=10,
+            betting_preference={"priority": "hit_rate"},
+        )
+        # roi: max_partners <= 3 → 相手馬が少ない → 買い目が少なくなりうる
+        result_roi = _generate_bet_proposal_impl(
+            race_id="test_pref",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=10,
+            betting_preference={"priority": "roi"},
+        )
+        # ROI重視は買い目が少なくなる傾向
+        assert len(result_roi["proposed_bets"]) <= len(result_hit["proposed_bets"])
 
 
 # =============================================================================
