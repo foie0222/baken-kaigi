@@ -7,9 +7,11 @@
 import json
 import logging
 import math
+import os
 
 import boto3
 import requests
+from botocore.exceptions import BotoCoreError, ClientError
 from strands import tool
 
 from .bet_analysis import (
@@ -95,8 +97,12 @@ MAX_RACE_BUDGET_RATIO = 0.10
 # デフォルト基本投入率
 DEFAULT_BASE_RATE = 0.03
 
-# LLMナレーション: モデルID
-NARRATOR_MODEL_ID = "jp.anthropic.claude-haiku-4-5-20251001-v1:0"
+# LLMナレーション: モデルID・リージョン（環境変数で上書き可能）
+NARRATOR_MODEL_ID = os.environ.get(
+    "BEDROCK_NARRATOR_MODEL_ID",
+    "jp.anthropic.claude-haiku-4-5-20251001-v1:0",
+)
+NARRATOR_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 
 # LLMナレーション: システムプロンプト
 NARRATOR_SYSTEM_PROMPT = """あなたは競馬データアナリストです。
@@ -1736,9 +1742,20 @@ def _build_narration_context(
     return ctx
 
 
+_bedrock_runtime_client = None
+
+
+def _get_bedrock_runtime_client():
+    """Bedrock Runtime クライアントを遅延初期化で取得する."""
+    global _bedrock_runtime_client
+    if _bedrock_runtime_client is None:
+        _bedrock_runtime_client = boto3.client("bedrock-runtime", region_name=NARRATOR_REGION)
+    return _bedrock_runtime_client
+
+
 def _call_bedrock_haiku(system_prompt: str, user_message: str) -> str:
     """Bedrock Converse API で Haiku を呼び出す."""
-    client = boto3.client("bedrock-runtime", region_name="ap-northeast-1")
+    client = _get_bedrock_runtime_client()
     response = client.converse(
         modelId=NARRATOR_MODEL_ID,
         system=[{"text": system_prompt}],
@@ -1762,8 +1779,8 @@ def _invoke_haiku_narrator(context: dict) -> str | None:
             return text.strip()
         logger.warning("LLMナレーション: 4セクション不足。フォールバックへ。")
         return None
-    except Exception:
-        logger.exception("LLMナレーション: Bedrock呼び出し失敗。フォールバックへ。")
+    except (BotoCoreError, ClientError, KeyError, TypeError) as e:
+        logger.warning("LLMナレーション: Bedrock呼び出し失敗（%s）。フォールバックへ。", type(e).__name__)
         return None
 
 

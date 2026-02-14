@@ -1,7 +1,5 @@
 # LLMナレーション実装計画: 買い目提案の根拠テキスト生成
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** 買い目提案の根拠テキスト（proposal_reasoning）を、テンプレート生成からHaiku 4.5によるLLM自然言語生成に置換する
 
 **Architecture:** `_generate_proposal_reasoning()` の内部を3層に分割。`_build_narration_context()` でデータ整理 → `_invoke_haiku_narrator()` でBedrock API呼び出し → 失敗時は既存テンプレートにフォールバック。Phase 0-6のロジック、フロントエンド、エージェントプロンプトは一切変更しない。
