@@ -174,11 +174,10 @@ limit_vote_amount=100000
             result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
 
         assert result["success"] is True
-        # limit(100000) - voted(10000) = 90000
-        assert result["bet_dedicated_balance"] == 90000
+        # limit_vote_amount がそのまま bet_balance
+        assert result["bet_dedicated_balance"] == 100000
         assert result["settle_possible_balance"] == 5000
-        # (limit - voted) + repayment = 90000 + 5000 = 95000
-        assert result["bet_balance"] == 95000
+        assert result["bet_balance"] == 100000
         assert result["limit_vote_amount"] == 100000
 
     @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
@@ -202,11 +201,10 @@ limit_vote_amount=100000
         with patch("builtins.open", mock_open(read_data=ini_content)):
             result = self.executor._parse_stat_ini()
 
-        # limit(100000) - voted(10000) = 90000
-        assert result["bet_dedicated_balance"] == 90000
+        # limit_vote_amount がそのまま bet_balance
+        assert result["bet_dedicated_balance"] == 100000
         assert result["settle_possible_balance"] == 5000
-        # (limit - voted) + repayment = 90000 + 5000 = 95000
-        assert result["bet_balance"] == 95000
+        assert result["bet_balance"] == 100000
         assert result["limit_vote_amount"] == 100000
 
     def test_parse_stat_iniでstatセクションがない場合全て0を返す(self) -> None:
@@ -231,9 +229,8 @@ limit_vote_amount=200000
         with patch("builtins.open", mock_open(read_data=ini_content)):
             result = self.executor._parse_stat_ini()
 
-        # limit(200000) - voted(5000) = 195000
-        assert result["bet_dedicated_balance"] == 195000
+        # limit_vote_amount がそのまま bet_balance
+        assert result["bet_dedicated_balance"] == 200000
         assert result["settle_possible_balance"] == 0
-        # (limit - voted) + repayment = 195000 + 0 = 195000
-        assert result["bet_balance"] == 195000
+        assert result["bet_balance"] == 200000
         assert result["limit_vote_amount"] == 200000
