@@ -1,10 +1,8 @@
 """ポートモジュール."""
 from .agent_repository import AgentRepository
 from .agent_review_repository import AgentReviewRepository
-from .ai_client import AIClient, AmountFeedbackContext, BetFeedbackContext, ConsultationContext
 from .betting_record_repository import BettingRecordRepository
 from .cart_repository import CartRepository
-from .consultation_session_repository import ConsultationSessionRepository
 from .ipat_credentials_provider import IpatCredentialsProvider
 from .ipat_gateway import IpatGateway, IpatGatewayError
 from .loss_limit_change_repository import LossLimitChangeRepository
@@ -69,19 +67,14 @@ from .race_data_provider import (
 __all__ = [
     "AgentRepository",
     "AgentReviewRepository",
-    "AIClient",
-    "AmountFeedbackContext",
     "AncestorData",
     "BettingRecordRepository",
     "AptitudeSummaryData",
-    "BetFeedbackContext",
     "BetOddsData",
     "BreederInfoData",
     "BreederStatsData",
     "ConditionAptitudeData",
-    "ConsultationContext",
     "CartRepository",
-    "ConsultationSessionRepository",
     "IpatCredentialsProvider",
     "IpatGateway",
     "IpatGatewayError",

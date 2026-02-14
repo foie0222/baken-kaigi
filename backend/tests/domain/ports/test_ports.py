@@ -1,7 +1,6 @@
-"""ポート（AIClient, RaceDataProvider）のテスト."""
+"""ポート（RaceDataProvider）のテスト."""
 from abc import ABC
 
-from src.domain.ports import AIClient, AmountFeedbackContext, BetFeedbackContext, ConsultationContext
 from src.domain.ports import (
     JockeyStatsData,
     PerformanceData,
@@ -9,46 +8,6 @@ from src.domain.ports import (
     RaceDataProvider,
     RunnerData,
 )
-
-
-class TestAIClient:
-    """AIClientの単体テスト."""
-
-    def test_AIClientは抽象基底クラスである(self) -> None:
-        """AIClientがABCを継承していることを確認."""
-        assert issubclass(AIClient, ABC)
-
-    def test_BetFeedbackContextを生成できる(self) -> None:
-        """BetFeedbackContextを生成できることを確認."""
-        context = BetFeedbackContext(
-            race_name="日本ダービー",
-            horse_numbers=[1, 2, 3],
-            horse_names=["馬A", "馬B", "馬C"],
-            recent_results=["1-1-1", "2-2-2", "3-3-3"],
-            jockey_stats=["勝率20%", "勝率30%", "勝率10%"],
-            track_suitability=["良馬場得意", "重馬場得意", "万能"],
-            current_odds=["2.5", "5.0", "10.0"],
-        )
-        assert context.race_name == "日本ダービー"
-
-    def test_AmountFeedbackContextを生成できる(self) -> None:
-        """AmountFeedbackContextを生成できることを確認."""
-        context = AmountFeedbackContext(
-            total_amount=5000,
-            remaining_loss_limit=10000,
-            average_amount=3000,
-            is_limit_exceeded=False,
-        )
-        assert context.total_amount == 5000
-
-    def test_ConsultationContextを生成できる(self) -> None:
-        """ConsultationContextを生成できることを確認."""
-        context = ConsultationContext(
-            cart_summary="単勝5番 1000円",
-            data_feedback_summary="好調な馬です",
-            amount_feedback_summary="限度額内です",
-        )
-        assert context.cart_summary == "単勝5番 1000円"
 
 
 class TestRaceDataProvider:

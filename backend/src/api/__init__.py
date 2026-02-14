@@ -4,12 +4,9 @@ from .handlers import (
     add_to_cart,
     clear_cart,
     get_cart,
-    get_consultation,
     get_race_detail,
     get_races,
     remove_from_cart,
-    send_message,
-    start_consultation,
 )
 from .request import get_body, get_header, get_path_parameter, get_query_parameter
 from .response import (
@@ -41,7 +38,4 @@ __all__ = [
     "get_cart",
     "remove_from_cart",
     "clear_cart",
-    "start_consultation",
-    "send_message",
-    "get_consultation",
 ]

@@ -71,28 +71,6 @@ class BakenKaigiApiStack(Stack):
             ),
         )
 
-        # ConsultationSession テーブル
-        session_table = dynamodb.Table(
-            self,
-            "ConsultationSessionTable",
-            table_name="baken-kaigi-consultation-session",
-            partition_key=dynamodb.Attribute(
-                name="session_id",
-                type=dynamodb.AttributeType.STRING,
-            ),
-            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY,  # 開発環境用
-            time_to_live_attribute="ttl",
-        )
-        # user_id での検索用 GSI
-        session_table.add_global_secondary_index(
-            index_name="user_id-index",
-            partition_key=dynamodb.Attribute(
-                name="user_id",
-                type=dynamodb.AttributeType.STRING,
-            ),
-        )
-
         # AI予想データテーブル
         ai_predictions_table = dynamodb.Table(
             self,
@@ -538,7 +516,6 @@ class BakenKaigiApiStack(Stack):
         lambda_environment = {
             "PYTHONPATH": "/var/task:/opt/python",
             "CART_TABLE_NAME": cart_table.table_name,
-            "SESSION_TABLE_NAME": session_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
             "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
@@ -686,46 +663,6 @@ class BakenKaigiApiStack(Stack):
             ),
             function_name="baken-kaigi-clear-cart",
             description="カートクリア",
-            **lambda_no_vpc_props,
-        )
-
-        # 相談API
-        start_consultation_fn = lambda_.Function(
-            self,
-            "StartConsultationFunction",
-            handler="src.api.handlers.consultation.start_consultation",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-start-consultation",
-            description="AI相談開始",
-            **lambda_no_vpc_props,
-        )
-
-        send_message_fn = lambda_.Function(
-            self,
-            "SendMessageFunction",
-            handler="src.api.handlers.consultation.send_message",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-send-message",
-            description="メッセージ送信",
-            **lambda_no_vpc_props,
-        )
-
-        get_consultation_fn = lambda_.Function(
-            self,
-            "GetConsultationFunction",
-            handler="src.api.handlers.consultation.get_consultation",
-            code=lambda_.Code.from_asset(
-                str(project_root / "backend"),
-                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
-            ),
-            function_name="baken-kaigi-get-consultation",
-            description="相談セッション取得",
             **lambda_no_vpc_props,
         )
 
@@ -1528,24 +1465,6 @@ class BakenKaigiApiStack(Stack):
             "DELETE", apigw.LambdaIntegration(remove_from_cart_fn), api_key_required=True
         )
 
-        # /consultations
-        consultations = api.root.add_resource("consultations")
-        consultations.add_method(
-            "POST", apigw.LambdaIntegration(start_consultation_fn), api_key_required=True
-        )
-
-        # /consultations/{session_id}
-        consultation = consultations.add_resource("{session_id}")
-        consultation.add_method(
-            "GET", apigw.LambdaIntegration(get_consultation_fn), api_key_required=True
-        )
-
-        # /consultations/{session_id}/messages
-        messages = consultation.add_resource("messages")
-        messages.add_method(
-            "POST", apigw.LambdaIntegration(send_message_fn), api_key_required=True
-        )
-
         # /users
         users = api.root.add_resource("users")
 
@@ -1833,13 +1752,6 @@ class BakenKaigiApiStack(Stack):
         user_functions = [get_user_profile_fn, update_user_profile_fn, delete_account_fn, cognito_post_confirmation_fn]
         for fn in user_functions:
             user_table.grant_read_write_data(fn)
-
-        # 相談関連 Lambda に両テーブルへのアクセス権限を付与
-        # （相談開始時にカートを参照するため）
-        consultation_functions = [start_consultation_fn, send_message_fn, get_consultation_fn]
-        for fn in consultation_functions:
-            cart_table.grant_read_data(fn)
-            session_table.grant_read_write_data(fn)
 
         # 損失制限関連 Lambda に User テーブルと LossLimitChange テーブルへのアクセス権限を付与
         user_table.grant_read_write_data(loss_limit_fn)

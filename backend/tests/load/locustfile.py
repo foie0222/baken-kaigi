@@ -16,25 +16,12 @@ SAMPLE_RACE_IDS = [
     "20260126_05_12",
 ]
 
-# サンプルのメッセージ
-SAMPLE_MESSAGES = [
-    "今日のおすすめレースを教えて",
-    "穴馬を探して",
-    "展開予想をお願いします",
-    "三連単のおすすめは？",
-    "このレースの本命は？",
-]
-
 
 class BakenKaigiUser(HttpUser):
     """馬券会議アプリケーションの負荷テストユーザー."""
 
     # リクエスト間の待機時間（1-3秒）
     wait_time = between(1, 3)
-
-    def on_start(self):
-        """ユーザー開始時の処理."""
-        self.consultation_id = None
 
     @task(3)
     def get_race_list(self):
@@ -65,59 +52,6 @@ class BakenKaigiUser(HttpUser):
                 response.success()
             else:
                 response.failure(f"Failed: {response.status_code}")
-
-    @task(2)
-    def start_consultation(self):
-        """コンサルテーションを開始."""
-        race_id = random.choice(SAMPLE_RACE_IDS)
-        payload = {"race_id": race_id}
-        with self.client.post(
-            "/api/consultation/start",
-            json=payload,
-            catch_response=True,
-            name="/api/consultation/start"
-        ) as response:
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    self.consultation_id = data.get("consultation_id")
-                except json.JSONDecodeError:
-                    # JSONパースに失敗してもconsultation_idはNoneのまま継続
-                    # 後続のsend_messageでデフォルトIDが使用される
-                    pass
-                response.success()
-            elif response.status_code == 404:
-                # APIエンドポイントが存在しない場合は許容（開発環境）
-                response.success()
-            elif response.status_code >= 500:
-                # サーバーエラーは失敗として記録
-                response.failure(f"Server error: {response.status_code}")
-            else:
-                response.failure(f"Failed: {response.status_code}")
-
-    @task(4)
-    def send_message(self):
-        """メッセージを送信."""
-        if not self.consultation_id:
-            self.consultation_id = "test-consultation-id"
-
-        payload = {
-            "consultation_id": self.consultation_id,
-            "message": random.choice(SAMPLE_MESSAGES),
-        }
-        with self.client.post(
-            "/api/consultation/message",
-            json=payload,
-            catch_response=True,
-            name="/api/consultation/message"
-        ) as response:
-            if response.status_code in [200, 404]:
-                response.success()
-            elif response.status_code >= 500:
-                # サーバーエラーは失敗として記録
-                response.failure(f"Server error: {response.status_code}")
-            else:
-                response.failure(f"Client error: {response.status_code}")
 
     @task(1)
     def get_cart(self):

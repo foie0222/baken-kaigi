@@ -24,7 +24,6 @@ describe('appStore', () => {
       selectedHorses: [],
       betType: 'quinella',
       betAmount: 1000,
-      consultationSessionId: null,
       toastMessage: null,
       toastType: null,
     })
@@ -137,24 +136,6 @@ describe('appStore', () => {
     it('金額を変更できる', () => {
       useAppStore.getState().setBetAmount(5000)
       expect(useAppStore.getState().betAmount).toBe(5000)
-    })
-  })
-
-  describe('相談セッション', () => {
-    it('デフォルトでnull', () => {
-      const state = useAppStore.getState()
-      expect(state.consultationSessionId).toBeNull()
-    })
-
-    it('セッションIDを設定できる', () => {
-      useAppStore.getState().setConsultationSessionId('session_123')
-      expect(useAppStore.getState().consultationSessionId).toBe('session_123')
-    })
-
-    it('セッションIDをクリアできる', () => {
-      useAppStore.getState().setConsultationSessionId('session_123')
-      useAppStore.getState().setConsultationSessionId(null)
-      expect(useAppStore.getState().consultationSessionId).toBeNull()
     })
   })
 

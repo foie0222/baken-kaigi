@@ -61,8 +61,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が47個作成されること（API 35 + IPAT 7 + 賭け履歴 1 + 損失制限 1 + エージェント 2 + オッズ 1）."""
-        template.resource_count_is("AWS::Lambda::Function", 47)
+        """Lambda関数が44個作成されること（API 32 + IPAT 7 + 賭け履歴 1 + 損失制限 1 + エージェント 2 + オッズ 1）."""
+        template.resource_count_is("AWS::Lambda::Function", 44)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること（API用）."""
@@ -171,21 +171,6 @@ class TestApiStack:
         template.has_resource_properties(
             "AWS::Lambda::Function",
             {"FunctionName": "baken-kaigi-clear-cart"},
-        )
-
-    def test_consultation_endpoints(self, template):
-        """相談APIのLambda関数が存在すること."""
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {"FunctionName": "baken-kaigi-start-consultation"},
-        )
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {"FunctionName": "baken-kaigi-send-message"},
-        )
-        template.has_resource_properties(
-            "AWS::Lambda::Function",
-            {"FunctionName": "baken-kaigi-get-consultation"},
         )
 
     def test_agentcore_consultation_lambda(self, template):

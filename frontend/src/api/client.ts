@@ -3,7 +3,6 @@ import type {
   RaceDetail,
   Cart,
   CartItem,
-  ConsultationSession,
   BetType,
   ApiResponse,
   ApiRacesResponse,
@@ -284,35 +283,6 @@ class ApiClient {
     return this.request<void>(`/cart/${cartId}`, {
       method: 'DELETE',
     });
-  }
-
-  // 相談 API
-  async startConsultation(
-    cartId: string
-  ): Promise<ApiResponse<ConsultationSession>> {
-    return this.request<ConsultationSession>('/consultations', {
-      method: 'POST',
-      body: JSON.stringify({ cart_id: cartId }),
-    });
-  }
-
-  async sendMessage(
-    sessionId: string,
-    content: string
-  ): Promise<ApiResponse<ConsultationSession>> {
-    return this.request<ConsultationSession>(
-      `/consultations/${sessionId}/messages`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-      }
-    );
-  }
-
-  async getConsultation(
-    sessionId: string
-  ): Promise<ApiResponse<ConsultationSession>> {
-    return this.request<ConsultationSession>(`/consultations/${sessionId}`);
   }
 
   // AgentCore 相談 API

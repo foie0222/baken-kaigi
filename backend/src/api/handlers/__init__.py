@@ -1,6 +1,5 @@
 """Lambdaハンドラーモジュール."""
 from .cart import add_to_cart, clear_cart, get_cart, remove_from_cart
-from .consultation import get_consultation, send_message, start_consultation
 from .horses import get_horse_performances
 from .jockeys import get_jockey_info, get_jockey_stats
 from .races import get_race_detail, get_races
@@ -20,10 +19,6 @@ __all__ = [
     "get_cart",
     "remove_from_cart",
     "clear_cart",
-    # Consultation
-    "start_consultation",
-    "send_message",
-    "get_consultation",
     # Statistics
     "get_gate_position_stats",
 ]
