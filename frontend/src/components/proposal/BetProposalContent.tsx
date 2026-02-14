@@ -138,7 +138,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       const options: {
         preferredBetTypes?: BetType[];
         axisHorses?: number[];
-        characterType?: string;
         maxBets?: number;
         agentData?: AgentData;
       } = {};
