@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { useLossLimitStore } from '../stores/lossLimitStore';
 import { BetTypeLabels, getVenueName, type CartItem } from '../types';
-import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT, BET_AMOUNT_STEP } from '../constants/betting';
 
 function formatOdds(item: CartItem): string | null {
   if (item.oddsMin != null && item.oddsMax != null) {
@@ -30,12 +30,12 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
   }, [amount]);
 
   const handleDecrement = () => {
-    const next = Math.max(MIN_BET_AMOUNT, amount - 100);
+    const next = Math.max(MIN_BET_AMOUNT, amount - BET_AMOUNT_STEP);
     onUpdate(itemId, next);
   };
 
   const handleIncrement = () => {
-    const next = Math.min(MAX_BET_AMOUNT, amount + 100);
+    const next = Math.min(MAX_BET_AMOUNT, amount + BET_AMOUNT_STEP);
     onUpdate(itemId, next);
   };
 
@@ -51,7 +51,7 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
     } else if (parsed > MAX_BET_AMOUNT) {
       parsed = MAX_BET_AMOUNT;
     }
-    parsed = Math.round(parsed / 100) * 100;
+    parsed = Math.round(parsed / BET_AMOUNT_STEP) * BET_AMOUNT_STEP;
     onUpdate(itemId, parsed);
     setIsEditing(false);
   };
@@ -87,7 +87,7 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
           autoFocus
           min={MIN_BET_AMOUNT}
           max={MAX_BET_AMOUNT}
-          step={100}
+          step={BET_AMOUNT_STEP}
         />
       ) : (
         <button
@@ -176,6 +176,7 @@ export function CartPage() {
                       {getVenueName(item.raceVenue)} {item.raceNumber} {item.raceName}
                     </span>
                     <button
+                      type="button"
                       className="cart-item-delete"
                       onClick={() => removeItem(item.id)}
                       aria-label="削除"
