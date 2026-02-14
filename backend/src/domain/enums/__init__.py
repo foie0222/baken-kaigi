@@ -9,9 +9,7 @@ from .ipat_bet_type import IpatBetType
 from .ipat_venue_code import IpatVenueCode
 from .loss_limit_change_status import LossLimitChangeStatus
 from .loss_limit_change_type import LossLimitChangeType
-from .message_type import MessageType
 from .purchase_status import PurchaseStatus
-from .session_status import SessionStatus
 from .target_style import TargetStyle
 from .user_status import UserStatus
 from .warning_level import WarningLevel
@@ -27,9 +25,7 @@ __all__ = [
     "IpatVenueCode",
     "LossLimitChangeStatus",
     "LossLimitChangeType",
-    "MessageType",
     "PurchaseStatus",
-    "SessionStatus",
     "TargetStyle",
     "UserStatus",
     "WarningLevel",

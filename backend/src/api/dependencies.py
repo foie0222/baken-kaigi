@@ -2,12 +2,10 @@
 import os
 
 from src.domain.ports import (
-    AIClient,
     AgentRepository,
     AgentReviewRepository,
     BettingRecordRepository,
     CartRepository,
-    ConsultationSessionRepository,
     IpatCredentialsProvider,
     IpatGateway,
     LossLimitChangeRepository,
@@ -18,10 +16,8 @@ from src.domain.ports import (
 from src.domain.ports.user_repository import UserRepository
 from src.infrastructure import (
     InMemoryCartRepository,
-    InMemoryConsultationSessionRepository,
     InMemoryLossLimitChangeRepository,
     InMemoryUserRepository,
-    MockAIClient,
     MockRaceDataProvider,
 )
 
@@ -45,9 +41,7 @@ class Dependencies:
     """
 
     _cart_repository: CartRepository | None = None
-    _session_repository: ConsultationSessionRepository | None = None
     _race_data_provider: RaceDataProvider | None = None
-    _ai_client: AIClient | None = None
     _user_repository: UserRepository | None = None
     _purchase_order_repository: PurchaseOrderRepository | None = None
     _ipat_gateway: IpatGateway | None = None
@@ -71,18 +65,6 @@ class Dependencies:
         return cls._cart_repository
 
     @classmethod
-    def get_session_repository(cls) -> ConsultationSessionRepository:
-        """セッションリポジトリを取得する."""
-        if cls._session_repository is None:
-            if _use_dynamodb():
-                from src.infrastructure import DynamoDBConsultationSessionRepository
-
-                cls._session_repository = DynamoDBConsultationSessionRepository()
-            else:
-                cls._session_repository = InMemoryConsultationSessionRepository()
-        return cls._session_repository
-
-    @classmethod
     def get_race_data_provider(cls) -> RaceDataProvider:
         """レースデータプロバイダを取得する."""
         if cls._race_data_provider is None:
@@ -93,16 +75,6 @@ class Dependencies:
             else:
                 cls._race_data_provider = MockRaceDataProvider()
         return cls._race_data_provider
-
-    @classmethod
-    def get_ai_client(cls) -> AIClient:
-        """AIクライアントを取得する.
-
-        Note: AI相談は AgentCore 経由（/api/consultation）で行う。
-        """
-        if cls._ai_client is None:
-            cls._ai_client = MockAIClient()
-        return cls._ai_client
 
     @classmethod
     def get_user_repository(cls) -> UserRepository:
@@ -127,19 +99,9 @@ class Dependencies:
         cls._cart_repository = repository
 
     @classmethod
-    def set_session_repository(cls, repository: ConsultationSessionRepository) -> None:
-        """セッションリポジトリを設定する（テスト用）."""
-        cls._session_repository = repository
-
-    @classmethod
     def set_race_data_provider(cls, provider: RaceDataProvider) -> None:
         """レースデータプロバイダを設定する（テスト用）."""
         cls._race_data_provider = provider
-
-    @classmethod
-    def set_ai_client(cls, client: AIClient) -> None:
-        """AIクライアントを設定する（テスト用）."""
-        cls._ai_client = client
 
     @classmethod
     def get_purchase_order_repository(cls) -> PurchaseOrderRepository:
@@ -316,9 +278,7 @@ class Dependencies:
     def reset(cls) -> None:
         """全ての依存性をリセットする（テスト用）."""
         cls._cart_repository = None
-        cls._session_repository = None
         cls._race_data_provider = None
-        cls._ai_client = None
         cls._user_repository = None
         cls._purchase_order_repository = None
         cls._ipat_gateway = None

@@ -354,22 +354,6 @@ export interface Cart {
   totalAmount: number;
 }
 
-// 相談セッション
-export type MessageType = 'user' | 'ai' | 'system';
-
-export interface Message {
-  id: string;
-  type: MessageType;
-  content: string;
-  timestamp: string;
-}
-
-export interface ConsultationSession {
-  id: string;
-  status: 'active' | 'completed' | 'cancelled';
-  messages: Message[];
-}
-
 // API レスポンス
 export interface ApiResponse<T> {
   success: boolean;

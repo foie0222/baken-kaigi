@@ -6,11 +6,8 @@ from .use_cases import (
     CartNotFoundError,
     ClearCartResult,
     ClearCartUseCase,
-    EmptyCartError,
     GetCartResult,
     GetCartUseCase,
-    GetConsultationResult,
-    GetConsultationUseCase,
     GetRaceDetailUseCase,
     GetRaceListUseCase,
     ItemNotFoundError,
@@ -18,12 +15,6 @@ from .use_cases import (
     RaceListResult,
     RemoveFromCartResult,
     RemoveFromCartUseCase,
-    SendMessageResult,
-    SendMessageUseCase,
-    SessionNotFoundError,
-    SessionNotInProgressError,
-    StartConsultationResult,
-    StartConsultationUseCase,
 )
 
 __all__ = [
@@ -42,17 +33,7 @@ __all__ = [
     "RemoveFromCartResult",
     "ClearCartUseCase",
     "ClearCartResult",
-    # Consultation Use Cases
-    "StartConsultationUseCase",
-    "StartConsultationResult",
-    "SendMessageUseCase",
-    "SendMessageResult",
-    "GetConsultationUseCase",
-    "GetConsultationResult",
     # Errors
     "CartNotFoundError",
     "ItemNotFoundError",
-    "EmptyCartError",
-    "SessionNotFoundError",
-    "SessionNotInProgressError",
 ]

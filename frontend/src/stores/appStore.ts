@@ -23,10 +23,6 @@ interface AppState {
   betAmount: number;
   setBetAmount: (amount: number) => void;
 
-  // 相談セッション
-  consultationSessionId: string | null;
-  setConsultationSessionId: (id: string | null) => void;
-
   // トースト
   toastMessage: string | null;
   toastType: 'success' | 'error' | null;
@@ -66,10 +62,6 @@ export const useAppStore = create<AppState>((set) => {
     setBetType: (type) => set({ betType: type }),
     betAmount: 1000,
     setBetAmount: (amount) => set({ betAmount: amount }),
-
-    // 相談セッション
-    consultationSessionId: null,
-    setConsultationSessionId: (id) => set({ consultationSessionId: id }),
 
     // トースト
     toastMessage: null,

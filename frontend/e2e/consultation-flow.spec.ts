@@ -30,39 +30,6 @@ test.describe("コンサルテーションフロー", () => {
     }
   });
 
-  test("コンサルテーションページでメッセージ送信", async ({ page }) => {
-    // コンサルテーションページに直接移動
-    await page.goto("/consultation");
-
-    // ページが表示されることを確認
-    await expect(page.locator("main")).toBeVisible();
-
-    // メッセージ入力欄を探す
-    const messageInput = page.locator(
-      'textarea[placeholder*="メッセージ"], input[type="text"][placeholder*="メッセージ"], [data-testid="message-input"]'
-    );
-
-    // メッセージ入力欄の存在確認
-    const inputCount = await messageInput.count();
-    if (inputCount > 0) {
-      await expect(messageInput.first()).toBeVisible();
-      // メッセージを入力
-      await messageInput.first().fill("テストメッセージです");
-
-      // 送信ボタンを探してクリック
-      const sendButton = page.locator(
-        'button[type="submit"], [data-testid="send-button"]'
-      );
-      const buttonCount = await sendButton.count();
-      if (buttonCount > 0 && (await sendButton.first().isEnabled())) {
-        await sendButton.first().click();
-      }
-    } else {
-      // メッセージ入力欄がない場合（UIが異なる可能性）
-      console.log("No message input found - UI may differ from expected");
-    }
-  });
-
   test("カートページへの遷移と表示", async ({ page }) => {
     // カートページに移動
     await page.goto("/cart");
@@ -141,7 +108,6 @@ test.describe("ナビゲーションフロー", () => {
     const routes = [
       { path: "/", name: "ホーム（レース一覧）" },
       { path: "/cart", name: "カート" },
-      { path: "/consultation", name: "コンサルテーション" },
       { path: "/dashboard", name: "ダッシュボード" },
       { path: "/history", name: "履歴" },
       { path: "/settings", name: "設定" },

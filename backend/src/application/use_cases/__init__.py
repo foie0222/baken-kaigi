@@ -3,23 +3,10 @@ from .add_to_cart import AddToCartResult, AddToCartUseCase, CartNotFoundError
 from .clear_cart import ClearCartResult, ClearCartUseCase
 from .clear_cart import CartNotFoundError as ClearCartNotFoundError
 from .get_cart import CartItemDTO, GetCartResult, GetCartUseCase
-from .get_consultation import GetConsultationResult, GetConsultationUseCase
 from .get_race_detail import GetRaceDetailUseCase, RaceDetailResult
 from .get_race_list import GetRaceListUseCase, RaceListResult
 from .remove_from_cart import ItemNotFoundError, RemoveFromCartResult, RemoveFromCartUseCase
 from .remove_from_cart import CartNotFoundError as RemoveCartNotFoundError
-from .send_message import (
-    SendMessageResult,
-    SendMessageUseCase,
-    SessionNotFoundError,
-    SessionNotInProgressError,
-)
-from .start_consultation import (
-    EmptyCartError,
-    StartConsultationResult,
-    StartConsultationUseCase,
-)
-from .start_consultation import CartNotFoundError as StartConsultationCartNotFoundError
 from .get_user_profile import GetUserProfileUseCase, UserNotFoundError, UserProfileResult
 from .register_user import RegisterUserUseCase, RegisterUserResult, UserAlreadyExistsError
 from .request_account_deletion import AccountDeletionResult, RequestAccountDeletionUseCase
@@ -60,19 +47,9 @@ __all__ = [
     "RemoveFromCartResult",
     "ClearCartUseCase",
     "ClearCartResult",
-    # Consultation Use Cases
-    "StartConsultationUseCase",
-    "StartConsultationResult",
-    "SendMessageUseCase",
-    "SendMessageResult",
-    "GetConsultationUseCase",
-    "GetConsultationResult",
     # Errors
     "CartNotFoundError",
     "ItemNotFoundError",
-    "EmptyCartError",
-    "SessionNotFoundError",
-    "SessionNotInProgressError",
     # User Use Cases
     "AccountDeletionResult",
     "GetUserProfileUseCase",

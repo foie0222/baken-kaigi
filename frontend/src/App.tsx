@@ -49,7 +49,6 @@ function App() {
           <Route path="races/:raceId" element={<RaceDetailPage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="bet-review" element={<Navigate to="/" replace />} />
-          <Route path="consultation" element={<Navigate to="/" replace />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPolicyPage />} />
