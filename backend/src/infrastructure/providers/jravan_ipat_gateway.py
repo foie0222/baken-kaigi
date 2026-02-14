@@ -45,7 +45,7 @@ class JraVanIpatGateway(IpatGateway):
             bet_line_dicts = [
                 {
                     "opdt": line.opdt,
-                    "rcoursecd": line.venue_code.value,
+                    "rcoursecd": line.venue_code.name,
                     "rno": f"{line.race_number:02d}",
                     "denomination": line.bet_type.value,
                     "method": "NORMAL",

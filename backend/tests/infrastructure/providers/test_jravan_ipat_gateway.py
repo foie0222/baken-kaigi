@@ -44,6 +44,23 @@ class TestJraVanIpatGateway(unittest.TestCase):
         assert result is True
 
     @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_投票送信_競馬場コードが英語名で送信される(self, mock_session_cls: MagicMock) -> None:
+        """ipatgo.exeはrcoursecdに英語名（TOKYO等）を期待する."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"success": True}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        self.gateway.submit_bets(self.credentials, self.bet_lines)
+
+        call_args = mock_session.post.call_args
+        payload = call_args[1]["json"]
+        assert payload["bet_lines"][0]["rcoursecd"] == "TOKYO"
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
     def test_投票送信_失敗(self, mock_session_cls: MagicMock) -> None:
         mock_session = MagicMock()
         mock_response = MagicMock()
