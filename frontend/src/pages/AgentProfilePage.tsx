@@ -4,7 +4,7 @@ import { useAgentStore } from '../stores/agentStore';
 import { AGENT_STYLES, AGENT_STYLE_MAP } from '../constants/agentStyles';
 import { BET_TYPE_PREFERENCE_OPTIONS, TARGET_STYLE_OPTIONS, BETTING_PRIORITY_OPTIONS } from '../constants/bettingPreferences';
 import { apiClient } from '../api/client';
-import type { AgentReview, BetTypePreference, TargetStyle, BettingPriorityType } from '../types';
+import type { Agent, AgentReview, BetTypePreference, TargetStyle, BettingPriorityType } from '../types';
 
 const LEVEL_TITLES: Record<number, string> = {
   1: '駆け出し',
@@ -80,27 +80,9 @@ export function AgentProfilePage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [styleError, setStyleError] = useState<string | null>(null);
 
-  // 好み設定
-  const [betTypePref, setBetTypePref] = useState<BetTypePreference>(agent?.betting_preference?.bet_type_preference ?? 'auto');
-  const [targetStyle, setTargetStyle] = useState<TargetStyle>(agent?.betting_preference?.target_style ?? 'medium_longshot');
-  const [bettingPriority, setBettingPriority] = useState<BettingPriorityType>(agent?.betting_preference?.priority ?? 'balanced');
-  const [customInstructions, setCustomInstructions] = useState<string>(agent?.custom_instructions ?? '');
-  const [isSavingPreference, setIsSavingPreference] = useState(false);
-  const [preferenceError, setPreferenceError] = useState<string | null>(null);
-  const [preferenceSaved, setPreferenceSaved] = useState(false);
-
   useEffect(() => {
     fetchAgent();
   }, [fetchAgent]);
-
-  useEffect(() => {
-    if (agent) {
-      setBetTypePref(agent.betting_preference?.bet_type_preference ?? 'auto');
-      setTargetStyle(agent.betting_preference?.target_style ?? 'medium_longshot');
-      setBettingPriority(agent.betting_preference?.priority ?? 'balanced');
-      setCustomInstructions(agent.custom_instructions ?? '');
-    }
-  }, [agent]);
 
   useEffect(() => {
     const loadReviews = async () => {
@@ -270,193 +252,10 @@ export function AgentProfilePage() {
         )}
       </div>
 
-      {/* 好み設定 */}
-      <div style={{
-        background: 'white',
-        borderRadius: 14,
-        padding: '20px 16px',
-        marginBottom: 16,
-      }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 16px' }}>
-          好み設定
-        </h3>
-
-        {/* 券種の好み */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>券種の好み</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {BET_TYPE_PREFERENCE_OPTIONS.map((opt) => {
-              const isSelected = betTypePref === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setBetTypePref(opt.value)}
-                  aria-pressed={isSelected}
-                  style={{
-                    fontSize: 13,
-                    fontWeight: isSelected ? 600 : 400,
-                    color: isSelected ? '#1a73e8' : '#555',
-                    background: isSelected ? '#e8f0fe' : '#f5f5f5',
-                    border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
-                    borderRadius: 20,
-                    padding: '6px 14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 狙い方 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>狙い方</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {TARGET_STYLE_OPTIONS.map((opt) => {
-              const isSelected = targetStyle === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setTargetStyle(opt.value)}
-                  aria-pressed={isSelected}
-                  style={{
-                    fontSize: 13,
-                    fontWeight: isSelected ? 600 : 400,
-                    color: isSelected ? '#1a73e8' : '#555',
-                    background: isSelected ? '#e8f0fe' : '#f5f5f5',
-                    border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
-                    borderRadius: 20,
-                    padding: '6px 14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 重視ポイント */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>重視ポイント</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {BETTING_PRIORITY_OPTIONS.map((opt) => {
-              const isSelected = bettingPriority === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setBettingPriority(opt.value)}
-                  aria-pressed={isSelected}
-                  style={{
-                    fontSize: 13,
-                    fontWeight: isSelected ? 600 : 400,
-                    color: isSelected ? '#1a73e8' : '#555',
-                    background: isSelected ? '#e8f0fe' : '#f5f5f5',
-                    border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
-                    borderRadius: 20,
-                    padding: '6px 14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 追加指示 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: '#666' }}>追加指示</div>
-            <div style={{ fontSize: 11, color: customInstructions.length > 200 ? '#dc2626' : '#999' }}>
-              {customInstructions.length}/200
-            </div>
-          </div>
-          <textarea
-            value={customInstructions}
-            onChange={(e) => {
-              if (e.target.value.length <= 200) {
-                setCustomInstructions(e.target.value);
-              }
-            }}
-            placeholder="例: 三連単の1着固定が好き、逃げ馬を軸にしたい"
-            style={{
-              width: '100%',
-              minHeight: 80,
-              padding: '10px 12px',
-              fontSize: 13,
-              border: '1px solid #e5e7eb',
-              borderRadius: 8,
-              resize: 'vertical',
-              fontFamily: 'inherit',
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* 保存ボタン */}
-        <button
-          type="button"
-          disabled={isSavingPreference}
-          onClick={async () => {
-            setPreferenceError(null);
-            setPreferenceSaved(false);
-            setIsSavingPreference(true);
-            const success = await updateAgent(
-              undefined,
-              {
-                bet_type_preference: betTypePref,
-                target_style: targetStyle,
-                priority: bettingPriority,
-              },
-              customInstructions === '' ? null : (customInstructions ?? null),
-            );
-            if (success) {
-              setPreferenceSaved(true);
-              setTimeout(() => setPreferenceSaved(false), 2000);
-            } else {
-              const { error } = useAgentStore.getState();
-              setPreferenceError(error || '好み設定の保存に失敗しました');
-            }
-            setIsSavingPreference(false);
-          }}
-          style={{
-            width: '100%',
-            padding: '10px 0',
-            fontSize: 14,
-            fontWeight: 600,
-            color: 'white',
-            background: isSavingPreference ? '#93c5fd' : '#1a73e8',
-            border: 'none',
-            borderRadius: 10,
-            cursor: isSavingPreference ? 'default' : 'pointer',
-            transition: 'background 0.15s',
-          }}
-        >
-          {isSavingPreference ? '保存中...' : '好み設定を保存'}
-        </button>
-
-        {preferenceError && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#dc2626', textAlign: 'center' }}>
-            {preferenceError}
-          </div>
-        )}
-        {preferenceSaved && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#059669', textAlign: 'center' }}>
-            保存しました
-          </div>
-        )}
-      </div>
+      {/* 好み設定 - keyでagent変更時に再マウントし初期値をリセット */}
+      {agent && (
+        <BettingPreferenceForm key={agent.agent_id} agent={agent} />
+      )}
 
       {/* 振り返り履歴 */}
       <div style={{ marginBottom: 16 }}>
@@ -484,6 +283,208 @@ export function AgentProfilePage() {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+
+function BettingPreferenceForm({ agent }: { agent: Agent }) {
+  const { updateAgent } = useAgentStore();
+
+  const [betTypePref, setBetTypePref] = useState<BetTypePreference>(agent.betting_preference?.bet_type_preference ?? 'auto');
+  const [targetStyle, setTargetStyle] = useState<TargetStyle>(agent.betting_preference?.target_style ?? 'medium_longshot');
+  const [bettingPriority, setBettingPriority] = useState<BettingPriorityType>(agent.betting_preference?.priority ?? 'balanced');
+  const [customInstructions, setCustomInstructions] = useState<string>(agent.custom_instructions ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  return (
+    <div style={{
+      background: 'white',
+      borderRadius: 14,
+      padding: '20px 16px',
+      marginBottom: 16,
+    }}>
+      <h3 style={{ fontSize: 14, fontWeight: 600, color: '#333', margin: '0 0 16px' }}>
+        好み設定
+      </h3>
+
+      {/* 券種の好み */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>券種の好み</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {BET_TYPE_PREFERENCE_OPTIONS.map((opt) => {
+            const isSelected = betTypePref === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setBetTypePref(opt.value)}
+                aria-pressed={isSelected}
+                style={{
+                  fontSize: 13,
+                  fontWeight: isSelected ? 600 : 400,
+                  color: isSelected ? '#1a73e8' : '#555',
+                  background: isSelected ? '#e8f0fe' : '#f5f5f5',
+                  border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
+                  borderRadius: 20,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 狙い方 */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>狙い方</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {TARGET_STYLE_OPTIONS.map((opt) => {
+            const isSelected = targetStyle === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setTargetStyle(opt.value)}
+                aria-pressed={isSelected}
+                style={{
+                  fontSize: 13,
+                  fontWeight: isSelected ? 600 : 400,
+                  color: isSelected ? '#1a73e8' : '#555',
+                  background: isSelected ? '#e8f0fe' : '#f5f5f5',
+                  border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
+                  borderRadius: 20,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 重視ポイント */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>重視ポイント</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {BETTING_PRIORITY_OPTIONS.map((opt) => {
+            const isSelected = bettingPriority === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setBettingPriority(opt.value)}
+                aria-pressed={isSelected}
+                style={{
+                  fontSize: 13,
+                  fontWeight: isSelected ? 600 : 400,
+                  color: isSelected ? '#1a73e8' : '#555',
+                  background: isSelected ? '#e8f0fe' : '#f5f5f5',
+                  border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
+                  borderRadius: 20,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 追加指示 */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: '#666' }}>追加指示</div>
+          <div style={{ fontSize: 11, color: customInstructions.length > 200 ? '#dc2626' : '#999' }}>
+            {customInstructions.length}/200
+          </div>
+        </div>
+        <textarea
+          value={customInstructions}
+          onChange={(e) => {
+            if (e.target.value.length <= 200) {
+              setCustomInstructions(e.target.value);
+            }
+          }}
+          placeholder="例: 三連単の1着固定が好き、逃げ馬を軸にしたい"
+          style={{
+            width: '100%',
+            minHeight: 80,
+            padding: '10px 12px',
+            fontSize: 13,
+            border: '1px solid #e5e7eb',
+            borderRadius: 8,
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+
+      {/* 保存ボタン */}
+      <button
+        type="button"
+        disabled={isSaving}
+        onClick={async () => {
+          setError(null);
+          setSaved(false);
+          setIsSaving(true);
+          const success = await updateAgent(
+            undefined,
+            {
+              bet_type_preference: betTypePref,
+              target_style: targetStyle,
+              priority: bettingPriority,
+            },
+            customInstructions === '' ? null : (customInstructions ?? null),
+          );
+          if (success) {
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+          } else {
+            const { error: storeError } = useAgentStore.getState();
+            setError(storeError || '好み設定の保存に失敗しました');
+          }
+          setIsSaving(false);
+        }}
+        style={{
+          width: '100%',
+          padding: '10px 0',
+          fontSize: 14,
+          fontWeight: 600,
+          color: 'white',
+          background: isSaving ? '#93c5fd' : '#1a73e8',
+          border: 'none',
+          borderRadius: 10,
+          cursor: isSaving ? 'default' : 'pointer',
+          transition: 'background 0.15s',
+        }}
+      >
+        {isSaving ? '保存中...' : '好み設定を保存'}
+      </button>
+
+      {error && (
+        <div style={{ marginTop: 10, fontSize: 12, color: '#dc2626', textAlign: 'center' }}>
+          {error}
+        </div>
+      )}
+      {saved && (
+        <div style={{ marginTop: 10, fontSize: 12, color: '#059669', textAlign: 'center' }}>
+          保存しました
+        </div>
+      )}
     </div>
   );
 }
