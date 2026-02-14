@@ -233,6 +233,26 @@ export const BetTypeRequiredHorses: Record<BetType, number> = {
   trifecta: 3,
 };
 
+// 券種 → APIオッズ名マッピング
+export const BetTypeToApiName: Record<BetType, string> = {
+  win: 'win',
+  place: 'place',
+  quinella: 'quinella',
+  quinella_place: 'wide',
+  exacta: 'exacta',
+  trio: 'trio',
+  trifecta: 'trifecta',
+};
+
+// オッズ取得APIレスポンス
+export interface BetOddsResponse {
+  bet_type: string;
+  horse_numbers: number[];
+  odds: number | null;
+  odds_min: number | null;
+  odds_max: number | null;
+}
+
 // 券種が着順を考慮するかどうか
 export const BetTypeOrdered: Record<BetType, boolean> = {
   win: false,
@@ -321,6 +341,9 @@ export interface CartItem {
   betDisplay?: string;  // 買い目の表示文字列（例: "1着軸:3 → 2着:1,5"）
   betCount?: number;    // 点数
   amount: number;
+  odds?: number;        // 単一オッズ値（単勝、馬連、馬単、三連複、三連単）
+  oddsMin?: number;     // 幅のあるオッズ下限（複勝、ワイド）
+  oddsMax?: number;     // 幅のあるオッズ上限（複勝、ワイド）
 }
 
 export interface Cart {
