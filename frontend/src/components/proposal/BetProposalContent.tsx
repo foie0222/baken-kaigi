@@ -7,7 +7,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../../constants/characters';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../../constants/betting';
-import { BetTypeLabels, type BetType } from '../../types';
+import { BetTypeLabels, BetTypeToApiName, type BetType } from '../../types';
 import type { RaceDetail, BetProposalResponse } from '../../types';
 import './BetProposalSheet.css';
 
@@ -185,9 +185,25 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     }
   };
 
-  const handleAddSingle = (index: number) => {
+  const handleAddSingle = async (index: number) => {
     if (!result) return;
     const bet = result.proposed_bets[index];
+
+    // オッズ取得（失敗してもカート追加はブロックしない）
+    let odds: number | undefined;
+    let oddsMin: number | undefined;
+    let oddsMax: number | undefined;
+    try {
+      const apiName = BetTypeToApiName[bet.bet_type];
+      const oddsResult = await apiClient.getBetOdds(race.id, apiName, bet.horse_numbers);
+      if (oddsResult.success && oddsResult.data) {
+        odds = oddsResult.data.odds ?? undefined;
+        oddsMin = oddsResult.data.odds_min ?? undefined;
+        oddsMax = oddsResult.data.odds_max ?? undefined;
+      }
+    } catch {
+      // オッズ取得失敗はカート追加をブロックしない
+    }
 
     const addResult = addItem({
       raceId: race.id,
@@ -199,6 +215,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       betDisplay: bet.bet_display,
       betCount: bet.bet_count ?? 1,
       amount: bet.amount ?? 0,
+      odds,
+      oddsMin,
+      oddsMax,
       runnersData: race.horses.map((h) => ({
         horse_number: h.number,
         horse_name: h.name,
@@ -219,14 +238,41 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     }
   };
 
-  const handleAddAll = () => {
+  const handleAddAll = async () => {
     if (!result) return;
     let addedCount = 0;
     let firstError: AddItemResult | null = null;
     const newIndices = new Set(addedIndices);
 
-    result.proposed_bets.forEach((bet, index) => {
-      if (newIndices.has(index)) return;
+    // 未追加の買い目のみ処理
+    const betsToAdd = result.proposed_bets
+      .map((bet, index) => ({ bet, index }))
+      .filter(({ index }) => !newIndices.has(index));
+
+    // 全買い目のオッズを並列取得（失敗してもカート追加はブロックしない）
+    const oddsResults = await Promise.allSettled(
+      betsToAdd.map(async ({ bet }) => {
+        try {
+          const apiName = BetTypeToApiName[bet.bet_type];
+          const oddsResult = await apiClient.getBetOdds(race.id, apiName, bet.horse_numbers);
+          if (oddsResult.success && oddsResult.data) {
+            return {
+              odds: oddsResult.data.odds ?? undefined,
+              oddsMin: oddsResult.data.odds_min ?? undefined,
+              oddsMax: oddsResult.data.odds_max ?? undefined,
+            };
+          }
+        } catch {
+          // オッズ取得失敗はカート追加をブロックしない
+        }
+        return { odds: undefined, oddsMin: undefined, oddsMax: undefined };
+      })
+    );
+
+    betsToAdd.forEach(({ bet, index }, i) => {
+      const oddsData = oddsResults[i].status === 'fulfilled'
+        ? oddsResults[i].value
+        : { odds: undefined, oddsMin: undefined, oddsMax: undefined };
 
       const addResult = addItem({
         raceId: race.id,
@@ -238,6 +284,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
         betDisplay: bet.bet_display,
         betCount: bet.bet_count ?? 1,
         amount: bet.amount ?? 0,
+        odds: oddsData.odds,
+        oddsMin: oddsData.oddsMin,
+        oddsMax: oddsData.oddsMax,
         runnersData: race.horses.map((h) => ({
           horse_number: h.number,
           horse_name: h.name,
