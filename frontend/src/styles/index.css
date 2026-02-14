@@ -22,6 +22,9 @@
     --color-neutral-700: #374151;
     --color-neutral-800: #1f2937;
 
+    /* データハイライト: オッズ表示 */
+    --color-data-highlight: #e65100;
+
     /* AI: 寄り添い・信頼 */
     --color-ai-primary: #6366f1;
     --color-ai-background: #eef2ff;
@@ -450,7 +453,7 @@ main {
 
 .track-badge.dirt {
     background: #fff3e0;
-    color: #e65100;
+    color: var(--color-data-highlight);
 }
 
 .distance-text {
@@ -529,7 +532,7 @@ main {
 
 .condition-chip.handicap {
     background: #fff3e0;
-    color: #e65100;
+    color: var(--color-data-highlight);
 }
 
 /* Race Detail */
@@ -1296,7 +1299,7 @@ main {
 
 .cart-item-odds {
     font-size: var(--font-size-sm);
-    color: #e65100;
+    color: var(--color-data-highlight);
     font-weight: 600;
 }
 
@@ -1351,6 +1354,11 @@ main {
     transform: scale(0.92);
 }
 
+.cart-stepper-btn:focus-visible {
+    outline: 2px solid var(--color-calm-green);
+    outline-offset: 2px;
+}
+
 .cart-stepper-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
@@ -1374,6 +1382,11 @@ main {
     background: var(--color-neutral-100);
 }
 
+.cart-stepper-value:focus-visible {
+    outline: 2px solid var(--color-calm-green);
+    outline-offset: 2px;
+}
+
 .cart-stepper-input {
     width: 76px;
     text-align: center;
@@ -1384,6 +1397,11 @@ main {
     font-weight: 700;
     color: var(--color-neutral-800);
     outline: none;
+}
+
+.cart-stepper-input:focus-visible {
+    outline: 2px solid var(--color-calm-green);
+    outline-offset: 2px;
 }
 
 /* number input spinners 非表示 */

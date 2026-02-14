@@ -225,5 +225,19 @@ describe('CartPage', () => {
       // 更新後の金額表示ボタンが表示される
       expect(screen.getByRole('button', { name: '金額 2000円 タップで編集' })).toBeInTheDocument()
     })
+
+    it('Escapeキーで編集をキャンセルして元の金額に戻る', () => {
+      render(<CartPage />)
+
+      const amountBtn = screen.getByRole('button', { name: '金額 1000円 タップで編集' })
+      fireEvent.click(amountBtn)
+
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '5000' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+
+      // 元の金額のボタンに戻る（5000ではなく1000）
+      expect(screen.getByRole('button', { name: '金額 1000円 タップで編集' })).toBeInTheDocument()
+    })
   })
 })

@@ -612,6 +612,68 @@ describe('ApiClient', () => {
     })
   })
 
+  describe('getBetOdds', () => {
+    it('オッズを正常に取得できる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ odds: 15.3 }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getBetOdds('race_001', 'quinella', [1, 2])
+
+      expect(result.success).toBe(true)
+      expect(result.data?.odds).toBe(15.3)
+    })
+
+    it('馬番が空の場合エラーを返す', async () => {
+      const client = await getApiClient()
+      const result = await client.getBetOdds('race_001', 'win', [])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Horse numbers must not be empty')
+    })
+
+    it('APIエラー時にエラーを返す', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'Race not found' }),
+      })
+
+      const client = await getApiClient()
+      const result = await client.getBetOdds('invalid_race', 'win', [1])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Race not found')
+    })
+
+    it('ネットワークエラー時にエラーを返す', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network Error'))
+
+      const client = await getApiClient()
+      const result = await client.getBetOdds('race_001', 'win', [1])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Network Error')
+    })
+
+    it('URLパラメータが正しくエンコードされる', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ odds: 5.2 }),
+      })
+
+      const client = await getApiClient()
+      await client.getBetOdds('race/001', 'trifecta', [3, 5, 7])
+
+      const calledUrl = mockFetch.mock.calls[0][0]
+      expect(calledUrl).toContain('race%2F001')
+      expect(calledUrl).toContain('bet_type=trifecta')
+      expect(calledUrl).toContain('horses=3%2C5%2C7')
+    })
+  })
+
   describe('AI買い目提案 (requestBetProposal)', () => {
     const mockRunners = [
       { horse_number: 1, horse_name: 'テスト馬1', odds: 3.5, popularity: 1, frame_number: 1 },

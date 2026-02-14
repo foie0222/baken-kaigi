@@ -78,6 +78,10 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
             if (e.key === 'Enter') {
               e.preventDefault();
               e.currentTarget.blur();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setValue(String(amount));
+              setIsEditing(false);
             }
           }}
           autoFocus
