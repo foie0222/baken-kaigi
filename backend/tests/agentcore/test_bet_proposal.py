@@ -2580,3 +2580,62 @@ class TestBankrollMode:
         )
         if result["proposed_bets"]:
             assert "dutching_composite_odds" in result["proposed_bets"][0]
+
+
+# =============================================================================
+# LLMナレーション統合テスト
+# =============================================================================
+
+
+class TestLlmNarrationIntegration:
+    """LLMナレーション→テンプレートフォールバックの統合テスト."""
+
+    def _make_reasoning_args(self):
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        return dict(
+            axis_horses=[
+                {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
+            ],
+            difficulty={"difficulty_stars": 3, "difficulty_label": "標準"},
+            predicted_pace="ミドル",
+            ai_consensus="概ね合意",
+            skip={"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
+            bets=[
+                {
+                    "bet_type": "quinella", "bet_type_name": "馬連",
+                    "horse_numbers": [1, 3], "expected_value": 1.8,
+                    "composite_odds": 8.5, "confidence": "high",
+                },
+            ],
+            preferred_bet_types=None,
+            ai_predictions=ai_preds,
+            runners_data=runners,
+        )
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLM成功時はLLM生成テキストが使われる(self, mock_call):
+        llm_text = (
+            "【軸馬選定】1番テスト馬1（AI指数1位）を軸に据えた。前走の走りが安定\n\n"
+            "【券種】難易度★3の標準レース。馬連で勝負\n\n"
+            "【組み合わせ】相手は3番テスト馬3。期待値1.8と高い\n\n"
+            "【リスク】AI合議「概ね合意」。積極参戦レベル"
+        )
+        mock_call.return_value = llm_text
+        result = _generate_proposal_reasoning(**self._make_reasoning_args())
+        assert "前走の走りが安定" in result
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLM失敗時はテンプレートにフォールバックする(self, mock_call):
+        mock_call.side_effect = Exception("ServiceUnavailable")
+        result = _generate_proposal_reasoning(**self._make_reasoning_args())
+        assert "【軸馬選定】" in result
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLMが不完全な出力をした場合はテンプレートにフォールバック(self, mock_call):
+        mock_call.return_value = "中途半端な回答"
+        result = _generate_proposal_reasoning(**self._make_reasoning_args())
+        assert "【軸馬選定】" in result
+        assert "【リスク】" in result
