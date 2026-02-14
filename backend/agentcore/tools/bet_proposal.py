@@ -12,6 +12,8 @@ from strands import tool
 from .bet_analysis import (
     BET_TYPE_NAMES,
     _calculate_expected_value,
+    _harville_exacta,
+    _harville_trifecta,
 )
 from .pace_analysis import (
     _assess_race_difficulty,
@@ -317,6 +319,7 @@ def _calculate_composite_score(
     past_performance_data: dict | None = None,
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
     weight_form: float = WEIGHT_FORM,
+    unified_probs: dict[int, float] | None = None,
 ) -> float:
     """AI指数順位 x オッズ乖離 x 展開相性 (+ スピード指数 + 近走フォーム) の複合スコアを計算する.
 
@@ -340,12 +343,18 @@ def _calculate_composite_score(
     # AI順位スコア（1位=100, 2位=90, ...）
     ai_score = 0.0
     ai_rank = 99
-    for pred in ai_predictions:
-        if int(pred.get("horse_number", 0)) == horse_number:
-            ai_rank = int(pred.get("rank", 99))
-            # 順位ベースのスコア（1位=100, 18位=15）
-            ai_score = max(0.0, 100.0 - (ai_rank - 1) * 5.0)
-            break
+    if unified_probs:
+        # 統合確率から順位を再計算
+        sorted_probs = sorted(unified_probs.items(), key=lambda x: x[1], reverse=True)
+        rank_map = {hn: i + 1 for i, (hn, _) in enumerate(sorted_probs)}
+        ai_rank = rank_map.get(horse_number, 99)
+        ai_score = max(0.0, 100.0 - (ai_rank - 1) * 5.0)
+    else:
+        for pred in ai_predictions:
+            if int(pred.get("horse_number", 0)) == horse_number:
+                ai_rank = int(pred.get("rank", 99))
+                ai_score = max(0.0, 100.0 - (ai_rank - 1) * 5.0)
+                break
 
     # オッズ乖離スコア
     odds_gap_score = 50.0  # デフォルト（データ不足時）
@@ -405,6 +414,7 @@ def _select_axis_horses(
     past_performance_data: dict | None = None,
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
     weight_form: float = WEIGHT_FORM,
+    unified_probs: dict[int, float] | None = None,
 ) -> list[dict]:
     """軸馬を自動選定する.
 
@@ -438,6 +448,7 @@ def _select_axis_horses(
                     past_performance_data=past_performance_data,
                     weight_speed_index=weight_speed_index,
                     weight_form=weight_form,
+                    unified_probs=unified_probs,
                 )
                 result.append({
                     "horse_number": hn,
@@ -459,6 +470,7 @@ def _select_axis_horses(
             past_performance_data=past_performance_data,
             weight_speed_index=weight_speed_index,
             weight_form=weight_form,
+            unified_probs=unified_probs,
         )
         scored.append({
             "horse_number": hn,
@@ -619,6 +631,7 @@ def _generate_bet_candidates(
     past_performance_data: dict | None = None,
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
     weight_form: float = WEIGHT_FORM,
+    unified_probs: dict[int, float] | None = None,
 ) -> list[dict]:
     """買い目候補を生成し、トリガミチェックを行う.
 
@@ -655,6 +668,7 @@ def _generate_bet_candidates(
             past_performance_data=past_performance_data,
             weight_speed_index=weight_speed_index,
             weight_form=weight_form,
+            unified_probs=unified_probs,
         )
         partner_scores.append({
             "horse_number": hn,
@@ -673,9 +687,16 @@ def _generate_bet_candidates(
                 axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
-                ev = _calculate_expected_value(
-                    axis_odds, axis_pop, bet_type, total_runners, race_conditions
-                )
+                if unified_probs:
+                    ev = _calculate_combination_ev(
+                        [axis_hn], bet_type, axis_odds,
+                        unified_probs, total_runners,
+                    )
+                    ev["expected_return"] = ev.pop("expected_return", 0)
+                else:
+                    ev = _calculate_expected_value(
+                        axis_odds, axis_pop, bet_type, total_runners, race_conditions
+                    )
 
                 bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
                 axis_name = axis_runner.get("horse_name", "")
@@ -743,13 +764,19 @@ def _generate_bet_candidates(
                     [axis_odds, partner_odds], bet_type
                 )
 
-                # 期待値計算（推定オッズと代表人気で計算）
-                # 人気は既知の馬のみで平均（未取得を人気上位扱いしない）
-                known_pops = [p for p in [axis_pop, partner_pop] if p > 0]
-                avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
-                ev = _calculate_expected_value(
-                    estimated_odds, avg_pop, bet_type, total_runners, race_conditions
-                )
+                # 期待値計算
+                if unified_probs:
+                    ev = _calculate_combination_ev(
+                        horse_numbers, bet_type, estimated_odds,
+                        unified_probs, total_runners,
+                    )
+                    ev["expected_return"] = ev.pop("expected_return", 0)
+                else:
+                    known_pops = [p for p in [axis_pop, partner_pop] if p > 0]
+                    avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
+                    ev = _calculate_expected_value(
+                        estimated_odds, avg_pop, bet_type, total_runners, race_conditions
+                    )
 
                 # トリガミチェック（推定オッズが閾値未満なら除外）
                 if 0 < estimated_odds < torigami_threshold:
@@ -812,12 +839,19 @@ def _generate_bet_candidates(
                         [axis_odds, p1_odds, p2_odds], bet_type
                     )
 
-                    # 期待値（既知人気のみで平均、未取得を人気上位扱いしない）
-                    known_pops = [p for p in [axis_pop, p1_pop, p2_pop] if p > 0]
-                    avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
-                    ev = _calculate_expected_value(
-                        estimated_odds, avg_pop, bet_type, total_runners, race_conditions
-                    )
+                    # 期待値計算
+                    if unified_probs:
+                        ev = _calculate_combination_ev(
+                            horse_numbers, bet_type, estimated_odds,
+                            unified_probs, total_runners,
+                        )
+                        ev["expected_return"] = ev.pop("expected_return", 0)
+                    else:
+                        known_pops = [p for p in [axis_pop, p1_pop, p2_pop] if p > 0]
+                        avg_pop = sum(known_pops) // len(known_pops) if known_pops else 0
+                        ev = _calculate_expected_value(
+                            estimated_odds, avg_pop, bet_type, total_runners, race_conditions
+                        )
 
                     # トリガミチェック
                     if 0 < estimated_odds < TORIGAMI_COMPOSITE_ODDS_THRESHOLD:
@@ -1048,17 +1082,35 @@ def _allocate_budget(
 # =============================================================================
 
 
-def _assess_ai_consensus(ai_predictions: list[dict]) -> str:
+def _assess_ai_consensus(
+    ai_predictions: list[dict],
+    unified_probs: dict[int, float] | None = None,
+) -> str:
     """AI予想の合議レベルを判定する.
 
-    単一ソースなので、上位2頭のスコア差で判定する。
+    unified_probsがある場合は統合確率の上位2頭の確率差で判定し、
+    ない場合は単一ソースのスコア差で判定する。
 
     Args:
         ai_predictions: AI予想データ
+        unified_probs: 統合単勝率（Noneなら従来ロジック）
 
     Returns:
         合議レベル文字列
     """
+    if unified_probs and len(unified_probs) >= 2:
+        sorted_probs = sorted(unified_probs.values(), reverse=True)
+        gap = sorted_probs[0] - sorted_probs[1]
+        # 確率差ベースの閾値（スコア差50pt相当≈確率差0.15程度）
+        if gap >= 0.15:
+            return "明確な上位"
+        elif gap >= 0.08:
+            return "概ね合意"
+        elif gap >= 0.04:
+            return "やや接戦"
+        else:
+            return "混戦"
+
     if not ai_predictions or len(ai_predictions) < 2:
         return "データ不足"
 
@@ -1075,6 +1127,193 @@ def _assess_ai_consensus(ai_predictions: list[dict]) -> str:
         return "やや接戦"
     else:
         return "混戦"
+
+
+# =============================================================================
+# Phase 7: 統合単勝率・期待値計算
+# =============================================================================
+
+
+def _compute_unified_win_probabilities(ai_result: dict) -> dict[int, float]:
+    """全AIソースのスコアを統合して馬ごとの単勝率を算出する.
+
+    各ソース内でスコアを正規化（score_i / Σscores → 確率）し、
+    利用可能なソース間で平均を取り、再正規化して合計1.0にする。
+
+    Returns:
+        {horse_number: win_probability} （合計 ≈ 1.0）
+    """
+    sources = ai_result.get("sources", [])
+    if not sources:
+        return {}
+
+    # 馬番ごとに各ソースの正規化確率を蓄積
+    horse_probs: dict[int, list[float]] = {}
+
+    for source in sources:
+        predictions = source.get("predictions", [])
+        if not predictions:
+            continue
+
+        # ソース内の合計スコア
+        scores = {}
+        for pred in predictions:
+            hn = int(pred.get("horse_number", 0))
+            score = float(pred.get("score", 0))
+            if hn > 0:
+                scores[hn] = score
+
+        total_score = sum(scores.values())
+        if total_score <= 0:
+            continue  # スコアが全て0のソースはスキップ
+
+        # ソース内正規化
+        for hn, score in scores.items():
+            prob = score / total_score
+            if hn not in horse_probs:
+                horse_probs[hn] = []
+            horse_probs[hn].append(prob)
+
+    if not horse_probs:
+        return {}
+
+    # ソース間平均
+    avg_probs = {hn: sum(ps) / len(ps) for hn, ps in horse_probs.items()}
+
+    # 最終正規化（合計=1.0を保証）
+    total = sum(avg_probs.values())
+    if total <= 0:
+        return {}
+
+    return {hn: p / total for hn, p in avg_probs.items()}
+
+
+def _calculate_ev_from_unified_prob(
+    odds: float,
+    win_probability: float,
+) -> dict:
+    """統合単勝率とオッズから期待値を計算する.
+
+    Args:
+        odds: オッズ
+        win_probability: 統合単勝率
+
+    Returns:
+        期待値情報（estimated_probability, expected_return, value_rating, probability_source）
+    """
+    expected_return = round(odds * win_probability, 2)
+
+    if expected_return >= 1.2:
+        value_rating = "妙味あり"
+    elif expected_return >= 0.9:
+        value_rating = "適正"
+    elif expected_return >= 0.7:
+        value_rating = "やや割高"
+    else:
+        value_rating = "割高"
+
+    return {
+        "estimated_probability": win_probability,
+        "expected_return": expected_return,
+        "value_rating": value_rating,
+        "probability_source": "AI統合予想",
+    }
+
+
+def _calculate_combination_ev(
+    horse_numbers: list[int],
+    bet_type: str,
+    estimated_odds: float,
+    unified_probs: dict[int, float],
+    total_runners: int,
+) -> dict:
+    """統合単勝率からHarvilleモデルで組合せ確率を算出し期待値を返す.
+
+    Args:
+        horse_numbers: 馬番リスト
+        bet_type: 券種
+        estimated_odds: 推定オッズ
+        unified_probs: 統合単勝率 {horse_number: probability}
+        total_runners: 出走頭数
+
+    Returns:
+        期待値情報（combination_probability, expected_return, value_rating）
+    """
+    prob = 0.0
+
+    if bet_type == "win":
+        hn = horse_numbers[0]
+        prob = unified_probs.get(hn, 0.0)
+
+    elif bet_type == "place":
+        hn = horse_numbers[0]
+        # 複勝は近似として単勝率の3倍（3着内）
+        prob = min(1.0, unified_probs.get(hn, 0.0) * 3)
+
+    elif bet_type == "quinella":
+        # 馬連: exacta(A,B) + exacta(B,A)
+        p_a = unified_probs.get(horse_numbers[0], 0.0)
+        p_b = unified_probs.get(horse_numbers[1], 0.0)
+        prob = _harville_exacta(p_a, p_b) + _harville_exacta(p_b, p_a)
+
+    elif bet_type == "exacta":
+        # 馬単: exacta(A,B)
+        p_a = unified_probs.get(horse_numbers[0], 0.0)
+        p_b = unified_probs.get(horse_numbers[1], 0.0)
+        prob = _harville_exacta(p_a, p_b)
+
+    elif bet_type == "quinella_place":
+        # ワイド: 全非選択馬Cの6順列trifecta合算
+        p_a = unified_probs.get(horse_numbers[0], 0.0)
+        p_b = unified_probs.get(horse_numbers[1], 0.0)
+        selected = set(horse_numbers)
+        for hn_c, p_c in unified_probs.items():
+            if hn_c in selected:
+                continue
+            prob += _harville_trifecta(p_a, p_b, p_c)
+            prob += _harville_trifecta(p_a, p_c, p_b)
+            prob += _harville_trifecta(p_b, p_a, p_c)
+            prob += _harville_trifecta(p_b, p_c, p_a)
+            prob += _harville_trifecta(p_c, p_a, p_b)
+            prob += _harville_trifecta(p_c, p_b, p_a)
+
+    elif bet_type == "trio":
+        # 三連複: 6順列trifecta合算
+        p_a = unified_probs.get(horse_numbers[0], 0.0)
+        p_b = unified_probs.get(horse_numbers[1], 0.0)
+        p_c = unified_probs.get(horse_numbers[2], 0.0)
+        prob = (
+            _harville_trifecta(p_a, p_b, p_c)
+            + _harville_trifecta(p_a, p_c, p_b)
+            + _harville_trifecta(p_b, p_a, p_c)
+            + _harville_trifecta(p_b, p_c, p_a)
+            + _harville_trifecta(p_c, p_a, p_b)
+            + _harville_trifecta(p_c, p_b, p_a)
+        )
+
+    elif bet_type == "trifecta":
+        # 三連単: trifecta(A,B,C)
+        p_a = unified_probs.get(horse_numbers[0], 0.0)
+        p_b = unified_probs.get(horse_numbers[1], 0.0)
+        p_c = unified_probs.get(horse_numbers[2], 0.0)
+        prob = _harville_trifecta(p_a, p_b, p_c)
+
+    expected_return = round(estimated_odds * prob, 2)
+
+    if expected_return >= 1.2:
+        value_rating = "妙味あり"
+    elif expected_return >= 0.9:
+        value_rating = "適正"
+    elif expected_return >= 0.7:
+        value_rating = "やや割高"
+    else:
+        value_rating = "割高"
+
+    return {
+        "combination_probability": prob,
+        "expected_return": expected_return,
+        "value_rating": value_rating,
+    }
 
 
 # =============================================================================
@@ -1098,6 +1337,7 @@ def _generate_bet_proposal_impl(
     max_bets: int | None = None,
     speed_index_data: dict | None = None,
     past_performance_data: dict | None = None,
+    unified_probs: dict[int, float] | None = None,
 ) -> dict:
     """買い目提案の統合実装（テスト用に公開）.
 
@@ -1145,6 +1385,7 @@ def _generate_bet_proposal_impl(
         past_performance_data=past_performance_data,
         weight_speed_index=config["weight_speed_index"],
         weight_form=config["weight_form"],
+        unified_probs=unified_probs,
     )
 
     # Phase 3: レース難易度判定 + 券種選定
@@ -1189,6 +1430,7 @@ def _generate_bet_proposal_impl(
         past_performance_data=past_performance_data,
         weight_speed_index=config["weight_speed_index"],
         weight_form=config["weight_form"],
+        unified_probs=unified_probs,
     )
 
     # Phase 5: 予算配分
@@ -1203,7 +1445,7 @@ def _generate_bet_proposal_impl(
     total_amount = sum(b.get("amount", 0) for b in bets)
 
     # AI合議レベル
-    ai_consensus = _assess_ai_consensus(ai_predictions)
+    ai_consensus = _assess_ai_consensus(ai_predictions, unified_probs=unified_probs)
 
     # 提案根拠テキスト生成
     proposal_reasoning = _generate_proposal_reasoning(
@@ -1526,10 +1768,12 @@ def generate_bet_proposal(
         # AI予想取得
         ai_result = get_ai_prediction(race_id)
         ai_predictions = []
+        unified_probs = {}
         if isinstance(ai_result, dict):
             sources = ai_result.get("sources", [])
             if sources:
                 ai_predictions = sources[0].get("predictions", [])
+                unified_probs = _compute_unified_win_probabilities(ai_result)
             elif ai_result.get("predictions"):
                 ai_predictions = ai_result["predictions"]
 
@@ -1566,6 +1810,7 @@ def generate_bet_proposal(
             max_bets=max_bets,
             speed_index_data=speed_index_data,
             past_performance_data=past_performance_data,
+            unified_probs=unified_probs or None,
         )
         if "error" not in result:
             _last_proposal_result = result
