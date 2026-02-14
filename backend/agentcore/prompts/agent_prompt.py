@@ -87,6 +87,7 @@ def get_agent_prompt_addition(agent_data: dict) -> str:
 
     performance_section = _build_performance_section(total_bets, wins, total_invested, total_return)
     stat_emphasis = _build_stat_emphasis(data_analysis, pace_reading, risk_management, intuition)
+    custom_section = _build_custom_instructions_section(agent_data.get("custom_instructions"))
 
     return f"""
 ## あなたのアイデンティティ: {name}（Lv.{level} {level_title}）
@@ -114,7 +115,7 @@ def get_agent_prompt_addition(agent_data: dict) -> str:
 - 分析結果を伝える際、得意分野の分析をより詳しく掘り下げる
 - 苦手分野については率直に「まだ成長途中」と認める
 - ユーザーと一緒にレースを通じて成長していく姿勢を見せる
-"""
+{custom_section}"""
 
 
 def _build_performance_section(total_bets: int, wins: int, total_invested: int, total_return: int) -> str:
@@ -134,6 +135,15 @@ def _build_performance_section(total_bets: int, wins: int, total_invested: int, 
 - 回収率: {roi:.1f}%
 - 収支: {profit_str}円
 - この実績を踏まえた分析を心がける
+"""
+
+
+def _build_custom_instructions_section(custom_instructions: str | None) -> str:
+    """ユーザーの追加指示セクションを生成する."""
+    if not custom_instructions:
+        return ""
+    return f"""### ユーザーの追加指示
+- {custom_instructions}
 """
 
 

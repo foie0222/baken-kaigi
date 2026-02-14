@@ -213,3 +213,29 @@ class TestGetAgentSystemPrompt:
         # ベースプロンプトの末尾付近とエージェントプロンプトの先頭付近が含まれる
         assert "## あなたのアイデンティティ" in result
         assert "あなたのステータス" in result
+
+
+class TestCustomInstructions:
+    """custom_instructionsのプロンプト反映テスト."""
+
+    def test_custom_instructionsがプロンプトに含まれる(self):
+        agent_data = _make_agent_data(custom_instructions="三連単の1着固定が好き")
+        prompt = get_agent_prompt_addition(agent_data)
+        assert "ユーザーの追加指示" in prompt
+        assert "三連単の1着固定が好き" in prompt
+
+    def test_custom_instructionsがNoneの場合はセクションなし(self):
+        agent_data = _make_agent_data()
+        prompt = get_agent_prompt_addition(agent_data)
+        assert "ユーザーの追加指示" not in prompt
+
+    def test_custom_instructionsが空文字の場合はセクションなし(self):
+        agent_data = _make_agent_data(custom_instructions="")
+        prompt = get_agent_prompt_addition(agent_data)
+        assert "ユーザーの追加指示" not in prompt
+
+    def test_custom_instructionsがシステムプロンプトにも反映される(self):
+        agent_data = _make_agent_data(custom_instructions="ワイドの保険馬券を入れて")
+        result = get_agent_system_prompt(agent_data)
+        assert "ユーザーの追加指示" in result
+        assert "ワイドの保険馬券を入れて" in result
