@@ -1292,6 +1292,31 @@ main {
     font-size: 14px;
     color: #1a5f2a;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cart-amount-input {
+    width: 80px;
+    text-align: right;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.cart-amount-input:focus {
+    border-color: #1a73e8;
+    outline: none;
+}
+
+.cart-item-odds {
+    font-size: 13px;
+    color: #e65100;
+    font-weight: 600;
+    margin-top: 2px;
 }
 
 .cart-item-delete {

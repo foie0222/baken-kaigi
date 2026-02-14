@@ -221,6 +221,9 @@ class MockRaceDataProvider(RaceDataProvider):
     def get_running_styles(self, race_id):
         return []
 
+    def get_bet_odds(self, race_id, bet_type, horse_numbers):
+        return None
+
 
 class TestGetRaceDetailUseCase:
     """GetRaceDetailUseCaseの単体テスト."""

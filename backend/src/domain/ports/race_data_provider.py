@@ -465,6 +465,17 @@ class TopOffspringData:
     g1_wins: int
 
 
+@dataclass(frozen=True)
+class BetOddsData:
+    """券種別オッズデータ."""
+
+    bet_type: str
+    horse_numbers: list[int]
+    odds: float | None = None
+    odds_min: float | None = None
+    odds_max: float | None = None
+
+
 class RaceDataProvider(ABC):
     """レースデータ取得インターフェース（外部システム）."""
 
@@ -849,6 +860,22 @@ class RaceDataProvider(ABC):
 
         Returns:
             生産者成績統計、見つからない場合はNone
+        """
+        pass
+
+    @abstractmethod
+    def get_bet_odds(self, race_id: RaceId, bet_type: str, horse_numbers: list[int]) -> BetOddsData | None:
+        """指定した買い目のオッズを取得する.
+
+        Args:
+            race_id: レースID
+            bet_type: 券種。バックエンドでは wide を正準名として使用する
+                (win/place/quinella/wide/exacta/trio/trifecta)。
+                フロントエンドでは quinella_place を wide にマッピングしている。
+            horse_numbers: 馬番リスト
+
+        Returns:
+            オッズデータ、見つからない場合はNone
         """
         pass
 

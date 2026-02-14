@@ -1,14 +1,72 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { useLossLimitStore } from '../stores/lossLimitStore';
-import { BetTypeLabels, getVenueName } from '../types';
+import { BetTypeLabels, getVenueName, type CartItem } from '../types';
+import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
+
+function formatOdds(item: CartItem): string | null {
+  if (item.oddsMin != null && item.oddsMax != null) {
+    return `${item.oddsMin.toFixed(1)}〜${item.oddsMax.toFixed(1)}倍`;
+  }
+  if (item.odds != null) {
+    return `${item.odds.toFixed(1)}倍`;
+  }
+  return null;
+}
+
+function CartItemAmountInput({ itemId, amount, onUpdate }: {
+  itemId: string;
+  amount: number;
+  onUpdate: (itemId: string, amount: number) => void;
+}) {
+  const [value, setValue] = useState(String(amount));
+
+  useEffect(() => {
+    setValue(String(amount));
+  }, [amount]);
+
+  const handleBlur = () => {
+    let parsed = parseInt(value, 10);
+    if (isNaN(parsed) || parsed < MIN_BET_AMOUNT) {
+      parsed = MIN_BET_AMOUNT;
+    } else if (parsed > MAX_BET_AMOUNT) {
+      parsed = MAX_BET_AMOUNT;
+    }
+    // 100円単位に丸める
+    parsed = Math.round(parsed / 100) * 100;
+    setValue(String(parsed));
+    onUpdate(itemId, parsed);
+  };
+
+  return (
+    <div className="cart-item-amount">
+      <span>¥</span>
+      <input
+        type="number"
+        className="cart-amount-input"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+        min={MIN_BET_AMOUNT}
+        max={MAX_BET_AMOUNT}
+        step={100}
+      />
+    </div>
+  );
+}
 
 export function CartPage() {
   const navigate = useNavigate();
-  const { items, removeItem, clearCart, getTotalAmount } = useCartStore();
+  const { items, removeItem, updateItemAmount, clearCart, getTotalAmount } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
   const { lossLimit, totalLossThisMonth, remainingLossLimit, isLoading: isLossLimitLoading, error: lossLimitError } = useLossLimitStore();
@@ -76,9 +134,15 @@ export function CartPage() {
                       <span className="cart-item-bet-count">{item.betCount}点</span>
                     )}
                   </div>
-                  <div className="cart-item-amount">
-                    ¥{item.amount.toLocaleString()}
-                  </div>
+                  {(() => {
+                    const oddsText = formatOdds(item);
+                    return oddsText && <div className="cart-item-odds">{oddsText}</div>;
+                  })()}
+                  <CartItemAmountInput
+                    itemId={item.id}
+                    amount={item.amount}
+                    onUpdate={updateItemAmount}
+                  />
                 </div>
                 <button
                   className="cart-item-delete"

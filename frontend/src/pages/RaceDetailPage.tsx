@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
 import type { RaceDetail, BetType, BetMethod, ColumnSelections } from '../types';
-import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered, getVenueName } from '../types';
+import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered, BetTypeToApiName, getVenueName } from '../types';
 import { apiClient } from '../api/client';
 import { toJapaneseError } from '../stores/purchaseStore';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
@@ -114,7 +114,7 @@ export function RaceDetailPage() {
     });
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!race || betCount === 0) return;
 
     // 馬番表示を生成
@@ -130,6 +130,22 @@ export function RaceDetailPage() {
     // 表示用文字列を生成
     const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
 
+    // オッズ取得（失敗してもカート追加はブロックしない）
+    let odds: number | undefined;
+    let oddsMin: number | undefined;
+    let oddsMax: number | undefined;
+    try {
+      const apiName = BetTypeToApiName[betType];
+      const oddsResult = await apiClient.getBetOdds(race.id, apiName, horseNumbersDisplay);
+      if (oddsResult.success && oddsResult.data) {
+        odds = oddsResult.data.odds ?? undefined;
+        oddsMin = oddsResult.data.odds_min ?? undefined;
+        oddsMax = oddsResult.data.odds_max ?? undefined;
+      }
+    } catch (error: unknown) {
+      console.warn('Failed to fetch odds when adding item to cart:', error);
+    }
+
     const result = addItem({
       raceId: race.id,
       raceName: race.name,
@@ -142,6 +158,9 @@ export function RaceDetailPage() {
       betCount,
       columnSelections: { ...selections },  // 列選択状態をディープコピーして保持
       amount: betAmount * betCount,
+      odds,
+      oddsMin,
+      oddsMax,
       runnersData: race.horses.map((h) => ({
         horse_number: h.number,
         horse_name: h.name,

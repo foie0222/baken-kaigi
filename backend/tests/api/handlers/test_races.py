@@ -7,6 +7,7 @@ import pytest
 from src.api.dependencies import Dependencies
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
+    BetOddsData,
     BreederInfoData,
     BreederStatsData,
     CourseAptitudeData,
@@ -54,6 +55,7 @@ class MockRaceDataProvider(RaceDataProvider):
         self._runners: dict[str, list[RunnerData]] = {}
         self._race_weights: dict[str, dict[int, WeightData]] = {}
         self._odds_history: dict[str, OddsHistoryData] = {}
+        self._bet_odds: dict[str, BetOddsData] = {}
 
     def add_race(self, race: RaceData) -> None:
         self._races[race.race_id] = race
@@ -70,6 +72,10 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def add_odds_history(self, race_id: str, odds_history: OddsHistoryData) -> None:
         self._odds_history[race_id] = odds_history
+
+    def add_bet_odds(self, race_id: str, bet_type: str, horse_numbers: list[int], bet_odds: BetOddsData) -> None:
+        key = f"{race_id}:{bet_type}:{','.join(str(h) for h in horse_numbers)}"
+        self._bet_odds[key] = bet_odds
 
     def get_race(self, race_id: RaceId) -> RaceData | None:
         return self._races.get(str(race_id))
@@ -245,6 +251,10 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def get_running_styles(self, race_id):
         return []
+
+    def get_bet_odds(self, race_id, bet_type, horse_numbers):
+        key = f"{race_id}:{bet_type}:{','.join(str(h) for h in horse_numbers)}"
+        return self._bet_odds.get(key)
 
 
 @pytest.fixture(autouse=True)
@@ -1029,3 +1039,219 @@ class TestGetOddsHistoryHandler:
         assert "final_odds" in movement
         assert "change_rate" in movement
         assert "trend" in movement
+
+
+class TestGetBetOddsHandler:
+    """GET /races/{race_id}/bet-odds ハンドラーのテスト."""
+
+    def test_単勝オッズを取得できる(self) -> None:
+        """単勝オッズを取得できることを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        provider.add_bet_odds(
+            "2024060111",
+            "win",
+            [3],
+            BetOddsData(
+                bet_type="win",
+                horse_numbers=[3],
+                odds=5.5,
+                odds_min=None,
+                odds_max=None,
+            ),
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "win", "horses": "3"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["bet_type"] == "win"
+        assert body["horse_numbers"] == [3]
+        assert body["odds"] == 5.5
+        assert body["odds_min"] is None
+        assert body["odds_max"] is None
+
+    def test_馬連オッズを取得できる(self) -> None:
+        """馬連（複数馬番）のオッズを取得できることを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        provider.add_bet_odds(
+            "2024060111",
+            "quinella",
+            [3, 7],
+            BetOddsData(
+                bet_type="quinella",
+                horse_numbers=[3, 7],
+                odds=15.2,
+            ),
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "quinella", "horses": "3,7"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["bet_type"] == "quinella"
+        assert body["horse_numbers"] == [3, 7]
+        assert body["odds"] == 15.2
+
+    def test_ワイドオッズの幅を取得できる(self) -> None:
+        """ワイドなどオッズ幅がある買い目を取得できることを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        provider.add_bet_odds(
+            "2024060111",
+            "quinella_place",
+            [3, 7],
+            BetOddsData(
+                bet_type="quinella_place",
+                horse_numbers=[3, 7],
+                odds=None,
+                odds_min=5.0,
+                odds_max=12.5,
+            ),
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "quinella_place", "horses": "3,7"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["odds"] is None
+        assert body["odds_min"] == 5.0
+        assert body["odds_max"] == 12.5
+
+    def test_オッズが見つからない場合は404(self) -> None:
+        """オッズデータがない場合は404を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "win", "horses": "99"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 404
+
+    def test_race_idが指定されていない場合は400(self) -> None:
+        """race_idが指定されていない場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {},
+            "queryStringParameters": {"bet_type": "win", "horses": "3"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_bet_typeが指定されていない場合は400(self) -> None:
+        """bet_typeが指定されていない場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"horses": "3"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_horsesが指定されていない場合は400(self) -> None:
+        """horsesが指定されていない場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "win"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_クエリパラメータがない場合は400(self) -> None:
+        """クエリパラメータが全くない場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": None,
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+
+    def test_無効なbet_typeの場合は400(self) -> None:
+        """無効な券種名の場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "invalid", "horses": "3"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "Invalid bet_type" in body["error"]["message"]
+
+    def test_horsesに数値以外が含まれる場合は400(self) -> None:
+        """horsesに数値以外の文字列が含まれる場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "win", "horses": "abc"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "valid integers" in body["error"]["message"]
