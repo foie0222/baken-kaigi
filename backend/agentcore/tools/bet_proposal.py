@@ -1829,7 +1829,8 @@ def _generate_analysis_comment(
 @tool
 def generate_bet_proposal(
     race_id: str,
-    budget: int,
+    budget: int = 0,
+    bankroll: int = 0,
     preferred_bet_types: list[str] | None = None,
     axis_horses: list[int] | None = None,
     character_type: str | None = None,
@@ -1839,11 +1840,14 @@ def generate_bet_proposal(
 
     AI指数・レース難易度・展開予想を統合し、
     軸馬選定 → 券種選定 → 買い目生成 → 予算配分を自動で行う。
-    見送りスコアが高い場合は予算を50%削減して提案する。
+
+    bankroll指定時はダッチング方式（均等払い戻し配分）で配分する。
+    budget指定時は従来の信頼度別配分を使用する。
 
     Args:
         race_id: レースID (例: "20260201_05_11")
-        budget: 予算（円）
+        budget: 予算（円）。従来モード。
+        bankroll: 1日の総資金（円）。ダッチング配分モード。
         preferred_bet_types: 券種の指定リスト (省略時はレース難易度から自動選定)
             "win", "place", "quinella", "quinella_place", "exacta", "trio", "trifecta"
         axis_horses: 軸馬の馬番リスト (省略時はAI指数上位から自動選定)
@@ -1858,6 +1862,7 @@ def generate_bet_proposal(
         - budget_remaining: 残り予算
         - analysis_comment: 分析ナラティブ
         - disclaimer: 免責事項
+        (bankrollモード時は追加: race_budget, confidence_factor, bankroll_usage_pct)
     """
     global _last_proposal_result
     _last_proposal_result = None  # 呼び出し単位でキャッシュをリセット
@@ -1922,6 +1927,7 @@ def generate_bet_proposal(
             speed_index_data=speed_index_data,
             past_performance_data=past_performance_data,
             unified_probs=unified_probs or None,
+            bankroll=bankroll,
         )
         if "error" not in result:
             _last_proposal_result = result
