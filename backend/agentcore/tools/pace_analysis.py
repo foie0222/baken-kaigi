@@ -340,24 +340,26 @@ def _assess_race_difficulty(
 ) -> dict:
     """レースの荒れ度を★1〜★5で判定する.
 
+    ベースラインの難易度を算出する。頭数・レース条件・会場から機械的に判定し、
+    AI予想の分散・ペース・馬場状態などの総合判断はエージェント（LLM）に委ねる。
+
     Args:
         total_runners: 出走頭数
         race_conditions: レース条件リスト（"handicap", "maiden_new"等）
         venue: 競馬場名
-        runners_data: 出走馬データ（オッズ情報を含む）
+        runners_data: 出走馬データ（互換性のため受け取るが難易度判定には使用しない）
 
     Returns:
         難易度判定結果（difficulty_stars, upset_score, factors）
     """
     race_conditions = race_conditions or []
-    runners_data = runners_data or []
 
     upset_score = 0
     factors = []
 
     # 1. 頭数による補正
     if total_runners >= 16:
-        upset_score += 2
+        upset_score += 1
         factors.append(f"{total_runners}頭立ての多頭数レース（荒れやすい）")
     elif total_runners >= 13:
         upset_score += 1
@@ -396,15 +398,8 @@ def _assess_race_difficulty(
         else:
             factors.append(f"{venue}開催（堅い傾向）")
 
-    # 4. オッズ断層分析
-    if runners_data:
-        odds_gap = _analyze_odds_gap(runners_data)
-        if odds_gap:
-            upset_score += odds_gap["adjustment"]
-            factors.append(odds_gap["comment"])
-
-    # スコアを★1〜★5に変換（-3以下=★1、4以上=★5）
-    difficulty_stars = max(1, min(5, upset_score + 3))
+    # スコアを★1〜★5に変換（-2以下=★1、3以上=★5）
+    difficulty_stars = max(1, min(5, upset_score + 2))
 
     star_labels = {
         1: "堅いレース",
