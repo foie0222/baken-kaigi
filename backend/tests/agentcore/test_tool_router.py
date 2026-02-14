@@ -169,9 +169,9 @@ class TestClassifyQuestion:
 class TestGetToolsForCategory:
     """get_tools_for_category のテスト."""
 
-    def test_full_analysisは全10ツール(self):
+    def test_full_analysisは全12ツール(self):
         tools = get_tools_for_category("full_analysis")
-        assert len(tools) == 10
+        assert len(tools) == 12
 
     def test_followupはツールなし(self):
         tools = get_tools_for_category("followup")
@@ -181,9 +181,9 @@ class TestGetToolsForCategory:
         tools = get_tools_for_category("horse_focused")
         assert len(tools) == 5
 
-    def test_bet_focusedは5ツール(self):
+    def test_bet_focusedは7ツール(self):
         tools = get_tools_for_category("bet_focused")
-        assert len(tools) == 5
+        assert len(tools) == 7
 
     def test_race_focusedは5ツール(self):
         tools = get_tools_for_category("race_focused")
@@ -195,7 +195,7 @@ class TestGetToolsForCategory:
 
     def test_未知のカテゴリは全ツール(self):
         tools = get_tools_for_category("unknown_category")
-        assert len(tools) == 10
+        assert len(tools) == 12
 
     def test_full_analysisのツールはユニーク(self):
         tools = get_tools_for_category("full_analysis")

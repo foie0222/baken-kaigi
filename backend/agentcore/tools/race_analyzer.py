@@ -6,6 +6,8 @@ LLMが買い目判断に使う分析データを提供する。
 
 import logging
 
+from strands import tool
+
 logger = logging.getLogger(__name__)
 
 # ソースごとのデフォルト重み
@@ -77,6 +79,75 @@ def _compute_weighted_probabilities(
         return {}
 
     return {hn: p / total for hn, p in horse_weighted_sum.items()}
+
+
+@tool
+def analyze_race_for_betting(race_id: str) -> dict:
+    """レースを分析し、各馬のベース勝率と分析データを返す。
+
+    AI指数（3ソース重み付き統合）、脚質、スピード指数、過去成績を取得し、
+    各馬のベース勝率を算出する。LLMはこの結果を見て勝率を調整し、
+    propose_bets に渡す。
+
+    Args:
+        race_id: レースID (例: "20260201_05_11")
+
+    Returns:
+        dict: レース分析結果
+            - race_info: レース基本情報（難易度、ペース予想、見送りスコア等）
+            - horses: 各馬の情報（ベース勝率、AI指数、脚質、スピード指数、近走成績）
+            - source_weights: AI予想ソースの重み
+    """
+    try:
+        from .race_data import _fetch_race_detail, _extract_race_conditions
+        from .ai_prediction import get_ai_prediction
+        from .pace_analysis import _get_running_styles
+        from .speed_index import get_speed_index
+        from .past_performance import get_past_performance
+
+        # レースデータ取得
+        race_detail = _fetch_race_detail(race_id)
+        race = race_detail.get("race", {})
+        runners_data = race_detail.get("runners", [])
+        race_conditions = _extract_race_conditions(race)
+
+        # AI予想取得
+        ai_result = get_ai_prediction(race_id)
+        if not isinstance(ai_result, dict) or "error" in ai_result:
+            return {"error": f"AI予想の取得に失敗: {ai_result}"}
+
+        # 脚質データ取得
+        running_styles = _get_running_styles(race_id)
+
+        # スピード指数取得
+        speed_index_data = None
+        si_result = get_speed_index(race_id)
+        if isinstance(si_result, dict) and "error" not in si_result:
+            speed_index_data = si_result
+
+        # 過去成績取得
+        past_performance_data = None
+        pp_result = get_past_performance(race_id)
+        if isinstance(pp_result, dict) and "error" not in pp_result:
+            past_performance_data = pp_result
+
+        return _analyze_race_impl(
+            race_id=race_id,
+            race_name=race.get("race_name", ""),
+            venue=race.get("venue", ""),
+            distance=race.get("distance", ""),
+            surface=race.get("surface", ""),
+            total_runners=race.get("horse_count", len(runners_data)),
+            race_conditions=race_conditions,
+            runners_data=runners_data,
+            ai_result=ai_result,
+            running_styles=running_styles,
+            speed_index_data=speed_index_data,
+            past_performance_data=past_performance_data,
+        )
+    except Exception as e:
+        logger.exception("analyze_race_for_betting failed")
+        return {"error": f"レース分析に失敗しました: {e}"}
 
 
 # ペース相性マッピング

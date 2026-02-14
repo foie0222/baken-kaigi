@@ -220,12 +220,13 @@ class TestBetProposalSystemPromptの基本構造:
         assert isinstance(BET_PROPOSAL_SYSTEM_PROMPT, str)
         assert len(BET_PROPOSAL_SYSTEM_PROMPT) > 0
 
-    def test_generate_bet_proposalツール名が記載されている(self):
-        assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
+    def test_EVベースのツール名が記載されている(self):
+        assert "analyze_race_for_betting" in BET_PROPOSAL_SYSTEM_PROMPT
+        assert "propose_bets" in BET_PROPOSAL_SYSTEM_PROMPT
 
     def test_ツール呼び出し必須指示が含まれる(self):
         assert "必ず" in BET_PROPOSAL_SYSTEM_PROMPT
-        assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
+        assert "analyze_race_for_betting" in BET_PROPOSAL_SYSTEM_PROMPT
 
     def test_フォールバック分析禁止指示が含まれる(self):
         assert "テキストで代替分析を行ってはならない" in BET_PROPOSAL_SYSTEM_PROMPT

@@ -8,6 +8,8 @@ import logging
 import math
 from itertools import combinations, permutations
 
+from strands import tool
+
 from .bet_analysis import (
     BET_TYPE_NAMES,
     _harville_exacta,
@@ -26,6 +28,20 @@ from .bet_proposal import (
 from .pace_analysis import _assess_race_difficulty
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# ツール結果キャッシュ（セパレータ復元用）
+# =============================================================================
+_last_ev_proposal_result: dict | None = None
+
+
+def get_last_ev_proposal_result() -> dict | None:
+    """キャッシュされた最新のEV提案結果を取得し、キャッシュをクリアする."""
+    global _last_ev_proposal_result
+    result = _last_ev_proposal_result
+    _last_ev_proposal_result = None
+    return result
+
 
 # EV閾値: これ以上の期待値がある組合せのみ提案
 EV_THRESHOLD = 1.0
@@ -325,6 +341,92 @@ def _propose_bets_impl(
         result["bankroll_usage_pct"] = round(total_amount / bankroll * 100, 2) if bankroll > 0 else 0
 
     return result
+
+
+@tool
+def propose_bets(
+    race_id: str,
+    win_probabilities: dict[str, float],
+    budget: int = 0,
+    bankroll: int = 0,
+    preferred_bet_types: list[str] | None = None,
+    max_bets: int | None = None,
+    race_name: str = "",
+    race_conditions: list[str] | None = None,
+    venue: str = "",
+    skip_score: int = 0,
+    predicted_pace: str = "",
+    ai_consensus: str = "",
+    runners_data: list[dict] | None = None,
+    total_runners: int = 0,
+) -> dict:
+    """LLMが判断した勝率から期待値を計算し、買い目を提案する。
+
+    analyze_race_for_betting の結果を見てLLMが各馬の勝率を判断した後、
+    この関数に勝率を渡す。確率×オッズで期待値(EV)を計算し、
+    EV > 1.0 の組合せを買い目として選定・予算配分する。
+
+    Args:
+        race_id: レースID
+        win_probabilities: LLMが判断した勝率 {"1": 0.25, "3": 0.18, ...} 馬番→勝率
+        budget: 従来モード予算（円）
+        bankroll: bankrollモード総資金（円）
+        preferred_bet_types: 券種フィルタ (例: ["quinella", "trio"])
+        max_bets: 買い目上限
+        race_name: レース名（表示用）
+        race_conditions: レース条件リスト
+        venue: 競馬場名
+        skip_score: 見送りスコア（0-10）
+        predicted_pace: ペース予想
+        ai_consensus: AI合議レベル
+        runners_data: 出走馬データ（馬名・オッズ表示用）
+        total_runners: 出走頭数
+
+    Returns:
+        dict: 買い目提案（race_summary, proposed_bets, total_amount等）
+    """
+    global _last_ev_proposal_result
+    _last_ev_proposal_result = None
+
+    try:
+        # win_probabilities のキーを int に変換（LLMが文字列で渡す場合の対応）
+        int_probs = {int(k): float(v) for k, v in win_probabilities.items()}
+
+        # runners_data が渡されない場合はレースデータから取得
+        if not runners_data:
+            from .race_data import _fetch_race_detail
+            race_detail = _fetch_race_detail(race_id)
+            runners_data = race_detail.get("runners", [])
+            if total_runners == 0:
+                total_runners = race_detail.get("race", {}).get(
+                    "horse_count", len(runners_data),
+                )
+
+        if total_runners == 0:
+            total_runners = len(runners_data)
+
+        result = _propose_bets_impl(
+            race_id=race_id,
+            win_probabilities=int_probs,
+            runners_data=runners_data,
+            total_runners=total_runners,
+            budget=budget,
+            bankroll=bankroll,
+            preferred_bet_types=preferred_bet_types,
+            max_bets=max_bets,
+            race_name=race_name,
+            race_conditions=race_conditions,
+            venue=venue,
+            skip_score=skip_score,
+            predicted_pace=predicted_pace,
+            ai_consensus=ai_consensus,
+        )
+
+        _last_ev_proposal_result = result
+        return result
+    except Exception as e:
+        logger.exception("propose_bets failed")
+        return {"error": f"買い目提案に失敗しました: {e}"}
 
 
 def _build_skip_result(
