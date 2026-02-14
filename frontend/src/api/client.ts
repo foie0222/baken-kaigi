@@ -15,6 +15,7 @@ import type {
   IpatStatus,
   IpatBalance,
   BetProposalResponse,
+  BetOddsResponse,
   BettingRecord,
   BettingSummary,
   BettingRecordFilter,
@@ -221,6 +222,21 @@ class ApiClient {
       success: true,
       data: response.data.dates,
     };
+  }
+
+  // オッズ取得
+  async getBetOdds(
+    raceId: string,
+    betType: string,
+    horseNumbers: number[],
+  ): Promise<ApiResponse<BetOddsResponse>> {
+    const params = new URLSearchParams({
+      bet_type: betType,
+      horses: horseNumbers.join(','),
+    });
+    return this.request<BetOddsResponse>(
+      `/races/${encodeURIComponent(raceId)}/bet-odds?${params}`
+    );
   }
 
   // カート API
