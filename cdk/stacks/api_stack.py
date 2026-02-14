@@ -850,6 +850,20 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # 脚質データAPI
+        get_running_styles_fn = lambda_.Function(
+            self,
+            "GetRunningStylesFunction",
+            handler="src.api.handlers.races.get_running_styles",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-running-styles",
+            description="脚質データ取得",
+            **lambda_common_props,
+        )
+
         # レース結果API
         get_race_results_fn = lambda_.Function(
             self,
@@ -1320,6 +1334,12 @@ class BakenKaigiApiStack(Stack):
         race_odds_history = race.add_resource("odds-history")
         race_odds_history.add_method(
             "GET", apigw.LambdaIntegration(get_odds_history_fn), api_key_required=True
+        )
+
+        # /races/{race_id}/running-styles
+        race_running_styles = race.add_resource("running-styles")
+        race_running_styles.add_method(
+            "GET", apigw.LambdaIntegration(get_running_styles_fn), api_key_required=True
         )
 
         # /races/{race_id}/results

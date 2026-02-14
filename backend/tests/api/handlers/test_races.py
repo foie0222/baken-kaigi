@@ -243,6 +243,9 @@ class MockRaceDataProvider(RaceDataProvider):
         """生産者成績統計を取得する（モック実装）."""
         return None
 
+    def get_running_styles(self, race_id):
+        return []
+
 
 @pytest.fixture(autouse=True)
 def reset_dependencies():
