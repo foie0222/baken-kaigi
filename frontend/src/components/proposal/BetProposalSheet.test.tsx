@@ -25,6 +25,20 @@ vi.mock('../../stores/appStore', () => ({
     selector({ showToast: mockShowToast }),
 }))
 
+// authStoreモック
+vi.mock('../../stores/authStore', () => ({
+  useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
+    selector({ isAuthenticated: false }),
+}))
+
+// agentStoreモック
+const mockGetAgentData = vi.fn().mockReturnValue(null)
+const mockFetchAgent = vi.fn()
+vi.mock('../../stores/agentStore', () => ({
+  useAgentStore: (selector: (s: { agent: null; hasFetched: boolean; fetchAgent: typeof mockFetchAgent; getAgentData: typeof mockGetAgentData }) => unknown) =>
+    selector({ agent: null, hasFetched: true, fetchAgent: mockFetchAgent, getAgentData: mockGetAgentData }),
+}))
+
 const mockRace: RaceDetail = {
   id: 'race_001',
   name: 'テストレース',
@@ -175,7 +189,7 @@ describe('BetProposalSheet', () => {
       'race_001',
       3000,
       expect.any(Array),
-      expect.objectContaining({ characterType: 'analyst' })
+      {}
     )
   })
 })

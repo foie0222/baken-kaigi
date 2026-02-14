@@ -167,6 +167,9 @@
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .proposal-generate-btn:active {
