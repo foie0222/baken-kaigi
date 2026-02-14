@@ -21,6 +21,9 @@ from tools.bet_proposal import (
     _generate_bet_proposal_impl,
     _generate_proposal_reasoning,
     _get_character_config,
+    _compute_unified_win_probabilities,
+    _calculate_ev_from_unified_prob,
+    _calculate_combination_ev,
     CHARACTER_PROFILES,
     _DEFAULT_CONFIG,
     SKIP_GATE_THRESHOLD,
@@ -1777,3 +1780,389 @@ class TestCallChainPropagation:
         )
         reasoning = result.get("proposal_reasoning", "")
         assert "スピード指数" in reasoning or "近走" in reasoning
+
+
+# =============================================================================
+# 統合単勝率テスト
+# =============================================================================
+
+
+class TestComputeUnifiedWinProbabilities:
+    """_compute_unified_win_probabilities のテスト."""
+
+    def test_単一ソースで確率合計が1になる(self):
+        ai_result = {
+            "sources": [
+                {
+                    "source_name": "ai-shisu",
+                    "predictions": [
+                        {"horse_number": 1, "score": 100},
+                        {"horse_number": 2, "score": 50},
+                        {"horse_number": 3, "score": 50},
+                    ],
+                }
+            ]
+        }
+        probs = _compute_unified_win_probabilities(ai_result)
+        assert len(probs) == 3
+        assert abs(sum(probs.values()) - 1.0) < 1e-9
+        # 1番馬はスコア100/(100+50+50)=0.5
+        assert abs(probs[1] - 0.5) < 1e-9
+        assert abs(probs[2] - 0.25) < 1e-9
+
+    def test_複数ソースの平均で確率合計が1になる(self):
+        ai_result = {
+            "sources": [
+                {
+                    "source_name": "source-a",
+                    "predictions": [
+                        {"horse_number": 1, "score": 100},
+                        {"horse_number": 2, "score": 100},
+                    ],
+                },
+                {
+                    "source_name": "source-b",
+                    "predictions": [
+                        {"horse_number": 1, "score": 300},
+                        {"horse_number": 2, "score": 100},
+                    ],
+                },
+            ]
+        }
+        probs = _compute_unified_win_probabilities(ai_result)
+        assert len(probs) == 2
+        assert abs(sum(probs.values()) - 1.0) < 1e-9
+        # source-a: 1番=0.5, 2番=0.5
+        # source-b: 1番=0.75, 2番=0.25
+        # 平均: 1番=0.625, 2番=0.375
+        assert abs(probs[1] - 0.625) < 1e-9
+        assert abs(probs[2] - 0.375) < 1e-9
+
+    def test_ソースが取得できない場合は空辞書を返す(self):
+        assert _compute_unified_win_probabilities({}) == {}
+        assert _compute_unified_win_probabilities({"sources": []}) == {}
+
+    def test_一部ソースに馬が欠落しても合計が1になる(self):
+        ai_result = {
+            "sources": [
+                {
+                    "source_name": "source-a",
+                    "predictions": [
+                        {"horse_number": 1, "score": 100},
+                        {"horse_number": 2, "score": 100},
+                        {"horse_number": 3, "score": 100},
+                    ],
+                },
+                {
+                    "source_name": "source-b",
+                    "predictions": [
+                        {"horse_number": 1, "score": 200},
+                        {"horse_number": 3, "score": 200},
+                        # 2番馬がない
+                    ],
+                },
+            ]
+        }
+        probs = _compute_unified_win_probabilities(ai_result)
+        assert len(probs) == 3
+        assert abs(sum(probs.values()) - 1.0) < 1e-9
+        # 2番馬はsource-aのみ(1ソース分)で平均されるべき
+
+    def test_スコアが全て0のソースはスキップされる(self):
+        ai_result = {
+            "sources": [
+                {
+                    "source_name": "good-source",
+                    "predictions": [
+                        {"horse_number": 1, "score": 100},
+                        {"horse_number": 2, "score": 100},
+                    ],
+                },
+                {
+                    "source_name": "bad-source",
+                    "predictions": [
+                        {"horse_number": 1, "score": 0},
+                        {"horse_number": 2, "score": 0},
+                    ],
+                },
+            ]
+        }
+        probs = _compute_unified_win_probabilities(ai_result)
+        assert abs(sum(probs.values()) - 1.0) < 1e-9
+        # bad-sourceはスキップなので、good-sourceのみ → 各0.5
+        assert abs(probs[1] - 0.5) < 1e-9
+
+    def test_Decimal型のスコアも正しく処理される(self):
+        ai_result = {
+            "sources": [
+                {
+                    "source_name": "dynamo-source",
+                    "predictions": [
+                        {"horse_number": 1, "score": Decimal("100")},
+                        {"horse_number": 2, "score": Decimal("50")},
+                    ],
+                }
+            ]
+        }
+        probs = _compute_unified_win_probabilities(ai_result)
+        assert abs(sum(probs.values()) - 1.0) < 1e-9
+        assert abs(probs[1] - 2 / 3) < 1e-9
+
+
+# =============================================================================
+# 統合EV計算テスト
+# =============================================================================
+
+
+class TestCalculateEvFromUnifiedProb:
+    """_calculate_ev_from_unified_prob のテスト."""
+
+    def test_期待値が正しく計算される(self):
+        result = _calculate_ev_from_unified_prob(odds=3.0, win_probability=0.33)
+        assert abs(result["expected_return"] - 0.99) < 0.01
+        assert result["estimated_probability"] == 0.33
+
+    def test_妙味ありの判定(self):
+        result = _calculate_ev_from_unified_prob(odds=3.0, win_probability=0.5)
+        assert result["expected_return"] == 1.5
+        assert result["value_rating"] == "妙味あり"
+
+    def test_適正の判定(self):
+        result = _calculate_ev_from_unified_prob(odds=3.0, win_probability=0.33)
+        assert result["value_rating"] == "適正"
+
+    def test_やや割高の判定(self):
+        result = _calculate_ev_from_unified_prob(odds=3.0, win_probability=0.25)
+        assert result["value_rating"] == "やや割高"
+
+    def test_割高の判定(self):
+        result = _calculate_ev_from_unified_prob(odds=3.0, win_probability=0.1)
+        assert result["value_rating"] == "割高"
+
+    def test_オッズ0の場合(self):
+        result = _calculate_ev_from_unified_prob(odds=0, win_probability=0.5)
+        assert result["expected_return"] == 0
+
+    def test_probability_sourceにソース数が含まれる(self):
+        result = _calculate_ev_from_unified_prob(odds=3.0, win_probability=0.5)
+        assert "AI統合予想" in result["probability_source"]
+
+
+# =============================================================================
+# 組合せ馬券EV計算テスト
+# =============================================================================
+
+
+class TestCombinationEv:
+    """_calculate_combination_ev のテスト."""
+
+    def _make_unified_probs(self, count: int) -> dict[int, float]:
+        """テスト用統合確率を生成する（合計1.0）."""
+        # 人気順に確率を付与
+        raw = [1.0 / (i + 1) for i in range(count)]
+        total = sum(raw)
+        return {i + 1: r / total for i, r in enumerate(raw)}
+
+    def test_単勝の期待値計算(self):
+        probs = self._make_unified_probs(5)
+        result = _calculate_combination_ev(
+            horse_numbers=[1],
+            bet_type="win",
+            estimated_odds=5.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        expected_return = 5.0 * probs[1]
+        assert abs(result["expected_return"] - expected_return) < 0.01
+        assert result["combination_probability"] == probs[1]
+
+    def test_馬連の期待値計算(self):
+        probs = self._make_unified_probs(5)
+        result = _calculate_combination_ev(
+            horse_numbers=[1, 2],
+            bet_type="quinella",
+            estimated_odds=10.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] > 0
+        assert result["expected_return"] > 0
+
+    def test_馬単の期待値計算(self):
+        probs = self._make_unified_probs(5)
+        result = _calculate_combination_ev(
+            horse_numbers=[1, 2],
+            bet_type="exacta",
+            estimated_odds=20.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        # 馬単は馬連より確率が低い
+        quinella_result = _calculate_combination_ev(
+            horse_numbers=[1, 2],
+            bet_type="quinella",
+            estimated_odds=20.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] < quinella_result["combination_probability"]
+
+    def test_三連複の期待値計算(self):
+        probs = self._make_unified_probs(5)
+        result = _calculate_combination_ev(
+            horse_numbers=[1, 2, 3],
+            bet_type="trio",
+            estimated_odds=30.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] > 0
+        assert result["expected_return"] > 0
+
+    def test_三連単の期待値計算(self):
+        probs = self._make_unified_probs(5)
+        result = _calculate_combination_ev(
+            horse_numbers=[1, 2, 3],
+            bet_type="trifecta",
+            estimated_odds=100.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        # 三連単は三連複より確率が低い
+        trio_result = _calculate_combination_ev(
+            horse_numbers=[1, 2, 3],
+            bet_type="trio",
+            estimated_odds=100.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] < trio_result["combination_probability"]
+
+    def test_ワイドの期待値計算(self):
+        probs = self._make_unified_probs(5)
+        result = _calculate_combination_ev(
+            horse_numbers=[1, 2],
+            bet_type="quinella_place",
+            estimated_odds=3.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] > 0
+        # ワイドは馬連より確率が高い
+        quinella_result = _calculate_combination_ev(
+            horse_numbers=[1, 2],
+            bet_type="quinella",
+            estimated_odds=3.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] > quinella_result["combination_probability"]
+
+    def test_unified_probsに馬番がない場合は確率0(self):
+        probs = {1: 0.5, 2: 0.5}
+        result = _calculate_combination_ev(
+            horse_numbers=[3],
+            bet_type="win",
+            estimated_odds=10.0,
+            unified_probs=probs,
+            total_runners=5,
+        )
+        assert result["combination_probability"] == 0.0
+        assert result["expected_return"] == 0.0
+
+
+# =============================================================================
+# 統合テスト: unified_probs付きの_generate_bet_proposal_impl
+# =============================================================================
+
+
+class TestGenerateBetProposalImplWithUnifiedProbs:
+    """unified_probsを渡した場合の統合テスト."""
+
+    def test_unified_probs付きで提案が生成される(self):
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        unified_probs = {i: (7 - i) / 21.0 for i in range(1, 7)}
+
+        result = _generate_bet_proposal_impl(
+            race_id="test_unified_001",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=6,
+            unified_probs=unified_probs,
+        )
+        assert "error" not in result
+        assert len(result["proposed_bets"]) > 0
+        assert result["total_amount"] > 0
+
+    def test_unified_probs_Noneでフォールバックする(self):
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+
+        result = _generate_bet_proposal_impl(
+            race_id="test_fallback_001",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=6,
+            unified_probs=None,
+        )
+        assert "error" not in result
+        assert len(result["proposed_bets"]) > 0
+
+    def test_unified_probsがcomposite_scoreに影響する(self):
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        # 6番馬の確率を圧倒的に高くする
+        unified_probs = {1: 0.05, 2: 0.05, 3: 0.05, 4: 0.05, 5: 0.05, 6: 0.75}
+
+        result = _generate_bet_proposal_impl(
+            race_id="test_score_001",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=6,
+            unified_probs=unified_probs,
+        )
+        # 6番馬が軸馬に選ばれるべき（unified_probsで1位）
+        axis_numbers = set()
+        for bet in result["proposed_bets"]:
+            for hn in bet["horse_numbers"]:
+                axis_numbers.add(hn)
+        assert 6 in axis_numbers
+
+
+# =============================================================================
+# AI合議レベル判定テスト（unified_probs対応）
+# =============================================================================
+
+
+class TestAssessAiConsensusWithUnifiedProbs:
+    """unified_probs対応の_assess_ai_consensusテスト."""
+
+    def test_unified_probsで明確な上位(self):
+        probs = {1: 0.5, 2: 0.2, 3: 0.15, 4: 0.15}
+        result = _assess_ai_consensus([], unified_probs=probs)
+        assert result == "明確な上位"
+
+    def test_unified_probsで概ね合意(self):
+        probs = {1: 0.35, 2: 0.25, 3: 0.2, 4: 0.2}
+        result = _assess_ai_consensus([], unified_probs=probs)
+        assert result == "概ね合意"
+
+    def test_unified_probsでやや接戦(self):
+        probs = {1: 0.30, 2: 0.25, 3: 0.25, 4: 0.20}
+        result = _assess_ai_consensus([], unified_probs=probs)
+        assert result == "やや接戦"
+
+    def test_unified_probsで混戦(self):
+        probs = {1: 0.26, 2: 0.25, 3: 0.25, 4: 0.24}
+        result = _assess_ai_consensus([], unified_probs=probs)
+        assert result == "混戦"
+
+    def test_unified_probs_Noneで従来ロジック(self):
+        preds = _make_ai_predictions(6)
+        result = _assess_ai_consensus(preds, unified_probs=None)
+        # 30pt刻みなので gap=30 → "概ね合意"
+        assert result == "概ね合意"
