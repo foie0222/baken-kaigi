@@ -77,7 +77,7 @@ SKIP_BUDGET_REDUCTION = 0.5
 # 相手馬の最大数
 MAX_PARTNERS = 4
 
-# 買い目の最大数
+# 買い目のデフォルト最大数（budgetモード用。bankrollモードでは使用しない）
 MAX_BETS = 8
 
 # 最低掛け金
