@@ -1196,61 +1196,61 @@ main {
 /* Cart Page */
 .cart-container {
     background: white;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
 }
 
 .cart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
-    background: #f8f8f8;
-    border-bottom: 1px solid #eee;
+    padding: var(--space-4);
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--color-neutral-200);
 }
 
 .cart-header h3 {
-    font-size: 16px;
+    font-size: var(--font-size-lg);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
 }
 
 .cart-clear-btn {
     background: none;
     border: none;
-    color: #c62828;
-    font-size: 13px;
+    color: var(--color-alert-red);
+    font-size: var(--font-size-sm);
     cursor: pointer;
 }
 
 .cart-empty {
-    padding: 40px 20px;
+    padding: 40px var(--space-5);
     text-align: center;
-    color: #999;
+    color: var(--color-neutral-400);
 }
 
 .cart-empty-icon {
     font-size: 48px;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
 }
 
 .cart-item {
-    display: flex;
-    padding: 16px;
-    border-bottom: 1px solid #f0f0f0;
-    gap: 12px;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--color-neutral-100);
 }
 
-.cart-item-info {
-    flex: 1;
+.cart-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
 }
 
 .cart-item-race {
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 4px;
+    font-size: var(--font-size-xs);
+    color: var(--color-neutral-500);
 }
 
 .cart-item-bet {
@@ -1258,98 +1258,162 @@ main {
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin-bottom: 4px;
+    margin-bottom: var(--space-2);
 }
 
 .cart-item-bet-type {
     font-weight: 600;
-    font-size: 12px;
-    background: #1a5f2a;
+    font-size: var(--font-size-xs);
+    background: var(--color-calm-green);
     color: white;
-    padding: 2px 8px;
-    border-radius: 4px;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
 }
 
 .cart-item-bet-display {
     font-weight: 600;
-    font-size: 13px;
-    color: #333;
+    font-size: var(--font-size-sm);
+    color: var(--color-neutral-800);
     word-break: break-all;
 }
 
 .cart-item-bet-count {
     font-size: 11px;
     font-weight: 600;
-    color: #1a5f2a;
-    background: rgba(26, 95, 42, 0.1);
-    padding: 2px 8px;
+    color: var(--color-calm-green);
+    background: var(--color-calm-green-light);
+    padding: 2px var(--space-2);
     border-radius: 10px;
     flex-shrink: 0;
 }
 
-.cart-item-amount {
-    font-size: 14px;
-    color: #1a5f2a;
-    font-weight: 600;
+.cart-item-footer {
     display: flex;
     align-items: center;
-    gap: 4px;
-}
-
-.cart-amount-input {
-    width: 80px;
-    text-align: right;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.cart-amount-input:focus {
-    border-color: #1a73e8;
-    outline: none;
+    margin-top: var(--space-1);
 }
 
 .cart-item-odds {
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     color: #e65100;
     font-weight: 600;
-    margin-top: 2px;
 }
 
 .cart-item-delete {
     background: none;
     border: none;
-    color: #999;
-    font-size: 20px;
+    color: var(--color-neutral-400);
+    font-size: var(--font-size-lg);
     cursor: pointer;
-    padding: 0 8px;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.15s;
 }
 
 .cart-item-delete:hover {
-    color: #c62828;
+    color: var(--color-alert-red);
+}
+
+/* ステッパー金額入力 */
+.cart-amount-stepper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+}
+
+.cart-stepper-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-neutral-300);
+    background: white;
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    color: var(--color-neutral-600);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.cart-stepper-btn:hover:not(:disabled) {
+    border-color: var(--color-calm-green);
+    color: var(--color-calm-green);
+    background: var(--color-calm-green-light);
+}
+
+.cart-stepper-btn:active:not(:disabled) {
+    transform: scale(0.92);
+}
+
+.cart-stepper-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.cart-stepper-value {
+    min-width: 76px;
+    text-align: center;
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    color: var(--color-neutral-800);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    transition: background 0.15s;
+}
+
+.cart-stepper-value:hover {
+    background: var(--color-neutral-100);
+}
+
+.cart-stepper-input {
+    width: 76px;
+    text-align: center;
+    border: 1.5px solid var(--color-calm-green);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    color: var(--color-neutral-800);
+    outline: none;
+}
+
+/* number input spinners 非表示 */
+.cart-stepper-input::-webkit-outer-spin-button,
+.cart-stepper-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.cart-stepper-input[type=number] {
+    -moz-appearance: textfield;
 }
 
 .cart-summary {
-    background: #f8f9fa;
-    padding: 16px;
-    border-top: 1px solid #eee;
+    background: var(--color-neutral-50);
+    padding: var(--space-4);
+    border-top: 1px solid var(--color-neutral-200);
 }
 
 .cart-summary-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 14px;
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-base);
 }
 
 .cart-summary-row.total {
-    font-size: 18px;
+    font-size: var(--font-size-xl);
     font-weight: 700;
-    padding-top: 8px;
-    border-top: 1px solid #ddd;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-neutral-200);
 }
 
 .add-more-btn {
