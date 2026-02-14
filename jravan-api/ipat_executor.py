@@ -103,14 +103,14 @@ class IpatExecutor:
         """stat.iniをパースし残高情報を返す.
 
         ipatgo.exe stat が出力する stat.ini の値をそのまま返す。
-        limit_vote_amount が投票可能残高（bet_balance）に相当する。
+        stat.ini の limit_vote_amount は投票可能残高を表す。
 
         Returns:
             dict: 残高情報
                 - bet_dedicated_balance: 投票専用残高（= limit_vote_amount）
                 - settle_possible_balance: 精算可能残高（= total_repayment）
                 - bet_balance: 投票可能残高（= limit_vote_amount）
-                - limit_vote_amount: 購入限度額
+                - limit_vote_amount: 投票可能残高（stat.ini原値）
         """
         config = configparser.ConfigParser()
         with open(self.stat_ini_path) as f:
