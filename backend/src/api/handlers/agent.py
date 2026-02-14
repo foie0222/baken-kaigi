@@ -155,7 +155,8 @@ def _update_agent(event: dict) -> dict:
 
     base_style = body.get("base_style")
     betting_preference = body.get("betting_preference")
-    custom_instructions = body.get("custom_instructions")
+    custom_instructions_specified = "custom_instructions" in body
+    custom_instructions = body.get("custom_instructions") if custom_instructions_specified else None
 
     # base_style バリデーション
     if base_style is not None:
@@ -194,7 +195,7 @@ def _update_agent(event: dict) -> dict:
             return bad_request_response("custom_instructions must be 200 characters or less", event=event)
 
     # 何も更新するものがない場合
-    if base_style is None and betting_preference is None and custom_instructions is None:
+    if base_style is None and betting_preference is None and not custom_instructions_specified:
         return bad_request_response("At least one of base_style, betting_preference, or custom_instructions is required", event=event)
 
     repository = Dependencies.get_agent_repository()
@@ -205,7 +206,7 @@ def _update_agent(event: dict) -> dict:
         kwargs["base_style"] = base_style
     if betting_preference is not None:
         kwargs["betting_preference"] = betting_preference
-    if custom_instructions is not None:
+    if custom_instructions_specified:
         kwargs["custom_instructions"] = custom_instructions
 
     try:

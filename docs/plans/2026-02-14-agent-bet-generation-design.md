@@ -86,9 +86,9 @@ PRIORITY_WEIGHTS = {
 PUT /agents/me  ← 既存エンドポイント拡張
 body: {
   betting_preference: {
-    bet_type_preference: "TRIO_FOCUSED",
-    target_style: "MEDIUM_LONGSHOT",
-    priority: "ROI"
+    bet_type_preference: "trio_focused",
+    target_style: "medium_longshot",
+    priority: "roi"
   },
   custom_instructions: "三連単の1着固定が好き"
 }

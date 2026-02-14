@@ -292,6 +292,7 @@ export function AgentProfilePage() {
                   key={opt.value}
                   type="button"
                   onClick={() => setBetTypePref(opt.value)}
+                  aria-pressed={isSelected}
                   style={{
                     fontSize: 13,
                     fontWeight: isSelected ? 600 : 400,
@@ -322,6 +323,7 @@ export function AgentProfilePage() {
                   key={opt.value}
                   type="button"
                   onClick={() => setTargetStyle(opt.value)}
+                  aria-pressed={isSelected}
                   style={{
                     fontSize: 13,
                     fontWeight: isSelected ? 600 : 400,
@@ -352,6 +354,7 @@ export function AgentProfilePage() {
                   key={opt.value}
                   type="button"
                   onClick={() => setBettingPriority(opt.value)}
+                  aria-pressed={isSelected}
                   style={{
                     fontSize: 13,
                     fontWeight: isSelected ? 600 : 400,
@@ -416,7 +419,7 @@ export function AgentProfilePage() {
                 target_style: targetStyle,
                 priority: bettingPriority,
               },
-              customInstructions || null,
+              customInstructions === '' ? null : (customInstructions ?? null),
             );
             if (success) {
               setPreferenceSaved(true);

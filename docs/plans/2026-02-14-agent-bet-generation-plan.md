@@ -1,16 +1,12 @@
 # エージェント買い目生成 + ユーザー好み設定 実装計画
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** エージェントに好み設定（券種・狙い方・重視ポイント＋自由記述）を追加し、買い目生成に反映する
 
 **Architecture:** Agentエンティティに `BettingPreference` 値オブジェクトと `custom_instructions` フィールドを追加。`PUT /agents/me` APIを拡張して好み設定を受け付け、AgentCoreの `bet_proposal.py` と `agent_prompt.py` に反映する。フロントエンドではAgentProfilePageに好み設定UIを追加。
 
 **Tech Stack:** Python (backend domain/API/AgentCore), TypeScript/React (frontend), DynamoDB, TDD
 
-**作業ディレクトリ:** `/home/inoue-d/dev/baken-kaigi/feat-agent-preference/`
-
-**テスト実行:** `cd /home/inoue-d/dev/baken-kaigi/feat-agent-preference/backend && uv run pytest`
+**テスト実行:** `cd backend && uv run pytest`
 
 **設計ドキュメント:** `docs/plans/2026-02-14-agent-bet-generation-design.md`
 
