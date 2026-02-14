@@ -77,3 +77,152 @@ def _compute_weighted_probabilities(
         return {}
 
     return {hn: p / total for hn, p in horse_weighted_sum.items()}
+
+
+# ペース相性マッピング
+PACE_STYLE_COMPAT = {
+    "ハイ": {"差し": 1.0, "追込": 1.0, "自在": 0.5, "先行": -0.5, "逃げ": -1.0},
+    "ミドル": {"先行": 0.5, "差し": 0.5, "自在": 0.5, "逃げ": 0.0, "追込": 0.0},
+    "スロー": {"逃げ": 1.0, "先行": 1.0, "自在": 0.5, "差し": -0.5, "追込": -1.0},
+}
+
+
+def _analyze_race_impl(
+    race_id: str,
+    race_name: str,
+    venue: str,
+    distance: str,
+    surface: str,
+    total_runners: int,
+    race_conditions: list[str],
+    runners_data: list[dict],
+    ai_result: dict,
+    running_styles: list[dict] | None = None,
+    speed_index_data: dict | None = None,
+    past_performance_data: dict | None = None,
+    source_weights: dict[str, float] | None = None,
+) -> dict:
+    """レース分析の実装（テスト用に公開）.
+
+    Args:
+        race_id: レースID
+        race_name: レース名
+        venue: 競馬場名
+        distance: 距離
+        surface: 馬場
+        total_runners: 出走頭数
+        race_conditions: レース条件リスト
+        runners_data: 出走馬データ
+        ai_result: AI予想結果 (sources配列)
+        running_styles: 脚質データ
+        speed_index_data: スピード指数データ
+        past_performance_data: 過去成績データ
+        source_weights: AI予想ソース重み
+
+    Returns:
+        レース分析結果 (race_info, horses, source_weights)
+    """
+    from .pace_analysis import _assess_race_difficulty, _predict_pace
+    from .risk_analysis import _assess_skip_recommendation
+    from .bet_proposal import _calculate_confidence_factor, _assess_ai_consensus
+
+    running_styles = running_styles or []
+    weights = source_weights or DEFAULT_SOURCE_WEIGHTS
+
+    # ベース確率算出
+    base_probs = _compute_weighted_probabilities(ai_result, weights)
+
+    # ペース予想
+    front_runners = sum(1 for rs in running_styles if rs.get("running_style") == "逃げ")
+    predicted_pace = _predict_pace(front_runners, total_runners) if running_styles else ""
+
+    # レース難易度
+    difficulty = _assess_race_difficulty(total_runners, race_conditions, venue, runners_data)
+
+    # 見送りスコア
+    ai_predictions = []
+    sources = ai_result.get("sources", [])
+    if sources:
+        ai_predictions = sources[0].get("predictions", [])
+    skip = _assess_skip_recommendation(
+        total_runners, race_conditions, venue, runners_data,
+        ai_predictions, predicted_pace,
+    )
+    skip_score = skip.get("skip_score", 0)
+    confidence_factor = _calculate_confidence_factor(skip_score)
+
+    # AI合議
+    ai_consensus = _assess_ai_consensus(ai_predictions) if ai_predictions else "データなし"
+
+    # 脚質マップ
+    style_map = {rs.get("horse_number"): rs.get("running_style", "") for rs in running_styles}
+
+    # スピード指数マップ
+    si_map = {}
+    if speed_index_data and "horses" in speed_index_data:
+        for h in speed_index_data["horses"]:
+            hn = h.get("horse_number")
+            indices = h.get("indices", [])
+            if hn and indices:
+                latest = float(indices[0].get("value", 0))
+                avg = sum(float(idx.get("value", 0)) for idx in indices) / len(indices)
+                si_map[hn] = {"latest": latest, "avg": round(avg, 1)}
+
+    # 過去成績マップ
+    pp_map = {}
+    if past_performance_data and "horses" in past_performance_data:
+        for h in past_performance_data["horses"]:
+            hn = h.get("horse_number")
+            perfs = h.get("performances", [])
+            if hn and perfs:
+                form = [int(p.get("finish_position", 99)) for p in perfs[:5]]
+                pp_map[hn] = form
+
+    # AI予想スコアマップ（全ソース）
+    ai_scores_map: dict[int, dict] = {}
+    for source in sources:
+        source_name = source.get("source", "")
+        for pred in source.get("predictions", []):
+            hn = int(pred.get("horse_number", 0))
+            score = float(pred.get("score", 0))
+            if hn > 0:
+                if hn not in ai_scores_map:
+                    ai_scores_map[hn] = {}
+                ai_scores_map[hn][source_name] = score
+
+    # 各馬の情報を構築
+    horses = []
+    for runner in runners_data:
+        hn = runner.get("horse_number")
+        style = style_map.get(hn, "")
+        pace_compat = PACE_STYLE_COMPAT.get(predicted_pace, {}).get(style, 0.0)
+
+        horses.append({
+            "number": hn,
+            "name": runner.get("horse_name", ""),
+            "odds": float(runner.get("odds", 0)),
+            "base_win_probability": base_probs.get(hn, 0.0),
+            "ai_scores": ai_scores_map.get(hn, {}),
+            "running_style": style or None,
+            "pace_compatibility": pace_compat,
+            "speed_index": si_map.get(hn),
+            "recent_form": pp_map.get(hn),
+        })
+
+    return {
+        "race_info": {
+            "race_id": race_id,
+            "race_name": race_name,
+            "venue": venue,
+            "distance": distance,
+            "surface": surface,
+            "total_runners": total_runners,
+            "difficulty": difficulty,
+            "predicted_pace": predicted_pace,
+            "skip_score": skip_score,
+            "ai_consensus": ai_consensus,
+            "confidence_factor": confidence_factor,
+        },
+        "horses": horses,
+        "source_weights": weights,
+    }
