@@ -485,6 +485,7 @@ class ApiClient {
       axisHorses?: number[];
       characterType?: string;
       maxBets?: number;
+      agentData?: AgentData;
     }
   ): Promise<ApiResponse<BetProposalResponse>> {
     const optionParts: string[] = [];
@@ -494,7 +495,7 @@ class ApiClient {
     if (options?.axisHorses?.length) {
       optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
     }
-    if (options?.characterType) {
+    if (!options?.agentData && options?.characterType) {
       optionParts.push(`ペルソナ(character_type): ${options.characterType}`);
     }
     if (options?.maxBets) {
@@ -503,12 +504,16 @@ class ApiClient {
     const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
 
     const prompt = `レースID ${raceId} について、予算${budget}円でgenerate_bet_proposalツールを使って買い目提案を生成してください。${optionText}`;
-    const result = await this.consultWithAgent({
+    const request: AgentCoreConsultationRequest = {
       prompt,
       cart_items: [],
       runners_data: runnersData,
       type: 'bet_proposal',
-    });
+    };
+    if (options?.agentData) {
+      request.agent_data = options.agentData;
+    }
+    const result = await this.consultWithAgent(request);
 
     if (!result.success || !result.data) {
       return { success: false, error: result.error };
