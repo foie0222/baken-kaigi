@@ -60,12 +60,12 @@ class TestComputeWeightedProbabilities:
         assert abs(sum(probs.values()) - 1.0) < 1e-9
 
     def test_重みが反映される(self):
-        """jiro8の重みが高い -> jiro8で1位のhorse1の確率が高くなる."""
+        """jiro8の重みが高い → jiro8で1位のhorse1の確率が高くなる."""
         ai_result = _make_ai_result_multi_source()
-        # jiro8偏重: horse1=100, horse2=80 -> horse1有利
+        # jiro8偏重: horse1=100, horse2=80 → horse1有利
         heavy_jiro8 = {"jiro8": 0.8, "kichiuma": 0.1, "daily": 0.1}
         probs_heavy = _compute_weighted_probabilities(ai_result, heavy_jiro8)
-        # kichiuma偏重: horse1=90, horse2=90 -> horse1とhorse2が接近
+        # kichiuma偏重: horse1=90, horse2=90 → horse1とhorse2が接近
         heavy_kichiuma = {"jiro8": 0.1, "kichiuma": 0.8, "daily": 0.1}
         probs_kichiuma = _compute_weighted_probabilities(ai_result, heavy_kichiuma)
         # jiro8偏重のほうがhorse1とhorse2の差が大きい
