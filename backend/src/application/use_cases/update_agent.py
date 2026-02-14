@@ -30,7 +30,7 @@ class UpdateAgentUseCase:
 
         Args:
             user_id: ユーザーID
-            base_style: 新しいスタイル（Noneなら変更なし）
+            base_style: 新しいスタイル（solid/longshot/data/pace）
 
         Returns:
             更新結果

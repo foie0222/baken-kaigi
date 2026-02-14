@@ -146,10 +146,10 @@ def _update_agent(event: dict) -> dict:
 
     base_style = body.get("base_style")
 
-    if base_style is not None and not isinstance(base_style, str):
-        return bad_request_response("base_style must be a string", event=event)
     if base_style is None:
         return bad_request_response("base_style is required for update", event=event)
+    if not isinstance(base_style, str):
+        return bad_request_response("base_style must be a string", event=event)
     if base_style not in ("solid", "longshot", "data", "pace"):
         return bad_request_response(
             "base_style must be one of: solid, longshot, data, pace", event=event
@@ -217,7 +217,6 @@ def _get_reviews(event: dict) -> dict:
                     "has_win": r.has_win,
                     "review_text": r.review_text,
                     "learnings": r.learnings,
-                    "stats_change": r.stats_change,
                     "created_at": r.created_at.isoformat(),
                 }
                 for r in reviews
@@ -287,7 +286,6 @@ def _create_review(event: dict) -> dict:
             "has_win": review.has_win,
             "review_text": review.review_text,
             "learnings": review.learnings,
-            "stats_change": review.stats_change,
             "created_at": review.created_at.isoformat(),
         },
         event=event,

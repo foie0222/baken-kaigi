@@ -77,6 +77,7 @@ export function AgentProfilePage() {
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isEditingStyle, setIsEditingStyle] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [styleError, setStyleError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAgent();
@@ -176,13 +177,17 @@ export function AgentProfilePage() {
                   key={style.id}
                   type="button"
                   disabled={isUpdating}
+                  aria-label={`${style.label}スタイルを選択${isSelected ? '（選択中）' : ''}`}
                   onClick={async () => {
                     if (style.id === agent.base_style) return;
+                    setStyleError(null);
                     setIsUpdating(true);
                     const success = await updateAgent(style.id);
                     if (success) {
                       setIsEditingStyle(false);
-                      await fetchAgent();
+                    } else {
+                      const { error } = useAgentStore.getState();
+                      setStyleError(error || 'スタイルの変更に失敗しました');
                     }
                     setIsUpdating(false);
                   }}
@@ -205,6 +210,12 @@ export function AgentProfilePage() {
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {styleError && (
+          <div style={{ marginTop: 10, fontSize: 12, color: '#dc2626' }}>
+            {styleError}
           </div>
         )}
 
