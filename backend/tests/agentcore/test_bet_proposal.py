@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
 from tools.bet_proposal import (
     _calculate_composite_score,
+    _calculate_form_score,
+    _calculate_speed_index_score,
     _select_axis_horses,
     _select_bet_types_by_difficulty,
     _generate_bet_candidates,
@@ -1454,3 +1456,324 @@ class TestProposalReasoningInImpl:
         # 両方が異なる内容（proposal_reasoningはセクション付き）
         assert "【軸馬選定】" in result["proposal_reasoning"]
         assert "【軸馬選定】" not in result["analysis_comment"]
+
+
+# =============================================================================
+# テスト用データ（スピード指数・過去成績）
+# =============================================================================
+
+
+def _make_speed_index_data(indices_by_source: dict) -> dict:
+    """テスト用スピード指数データを生成する.
+
+    Args:
+        indices_by_source: {source_name: {horse_number: speed_index_value}}
+    """
+    sources = []
+    for source_name, indices in indices_by_source.items():
+        sorted_indices = sorted(indices.items(), key=lambda x: -x[1])
+        sources.append({
+            "source": source_name,
+            "indices": [
+                {"horse_number": hn, "speed_index": si, "rank": rank}
+                for rank, (hn, si) in enumerate(sorted_indices, 1)
+            ],
+        })
+    return {"sources": sources}
+
+
+def _make_past_performance_data(horses: dict) -> dict:
+    """テスト用過去成績データを生成する.
+
+    Args:
+        horses: {horse_number: [finish_position_1, finish_position_2, ...]}
+                リストの先頭が最新走。
+    """
+    horse_list = []
+    for hn, positions in horses.items():
+        past_races = [{"finish_position": pos} for pos in positions]
+        horse_list.append({
+            "horse_number": hn,
+            "horse_name": f"テスト馬{hn}",
+            "past_races": past_races,
+        })
+    return {
+        "sources": [{
+            "source": "keibagrant",
+            "horses": horse_list,
+        }]
+    }
+
+
+# =============================================================================
+# スピード指数スコアテスト
+# =============================================================================
+
+
+class TestCalculateSpeedIndexScore:
+    """_calculate_speed_index_score のテスト."""
+
+    def test_単一ソースで正しいスコア(self):
+        data = _make_speed_index_data({
+            "jiro8-speed": {1: 90, 2: 80, 3: 70},
+        })
+        score = _calculate_speed_index_score(1, data)
+        assert score == 100.0  # 1位 → 100
+
+    def test_複数ソースで平均スコア(self):
+        data = _make_speed_index_data({
+            "jiro8-speed": {1: 90, 2: 70, 3: 60},
+            "kichiuma-speed": {1: 80, 2: 90, 3: 50},
+        })
+        # 馬1: avg=85, 馬2: avg=80, 馬3: avg=55 → 馬1が1位
+        score1 = _calculate_speed_index_score(1, data)
+        score2 = _calculate_speed_index_score(2, data)
+        score3 = _calculate_speed_index_score(3, data)
+        assert score1 == 100.0  # 1位
+        assert score2 > score3  # 2位 > 3位
+
+    def test_データなしでNone(self):
+        assert _calculate_speed_index_score(1, None) is None
+
+    def test_該当馬番なしでNone(self):
+        data = _make_speed_index_data({
+            "jiro8-speed": {2: 90, 3: 80},
+        })
+        assert _calculate_speed_index_score(1, data) is None
+
+    def test_Decimal型でも計算可能(self):
+        data = {
+            "sources": [{
+                "source": "jiro8-speed",
+                "indices": [
+                    {"horse_number": Decimal("1"), "speed_index": Decimal("90"), "rank": 1},
+                    {"horse_number": Decimal("2"), "speed_index": Decimal("80"), "rank": 2},
+                ],
+            }]
+        }
+        score = _calculate_speed_index_score(1, data)
+        assert score is not None
+        assert isinstance(score, float)
+
+    def test_1位の馬は100(self):
+        data = _make_speed_index_data({
+            "jiro8-speed": {1: 90, 2: 80, 3: 70, 4: 60, 5: 50},
+        })
+        assert _calculate_speed_index_score(1, data) == 100.0
+
+    def test_最下位でも約15で0にならない(self):
+        data = _make_speed_index_data({
+            "jiro8-speed": {1: 90, 2: 80, 3: 70, 4: 60, 5: 50},
+        })
+        score = _calculate_speed_index_score(5, data)
+        assert score == 15.0
+        assert score > 0
+
+
+# =============================================================================
+# 近走フォームスコアテスト
+# =============================================================================
+
+
+class TestCalculateFormScore:
+    """_calculate_form_score のテスト."""
+
+    def test_全1着で100(self):
+        data = _make_past_performance_data({1: [1, 1, 1, 1, 1]})
+        score = _calculate_form_score(1, data)
+        assert score == 100.0
+
+    def test_混合着順で加重平均(self):
+        data = _make_past_performance_data({1: [1, 3, 5, 2, 10]})
+        score = _calculate_form_score(1, data)
+        assert score is not None
+        assert 0 < score < 100
+
+    def test_近走ほど重みが大きい(self):
+        # 最新1着+古い10着 vs 最新10着+古い1着
+        data_recent_good = _make_past_performance_data({1: [1, 10]})
+        data_recent_bad = _make_past_performance_data({2: [10, 1]})
+        score_good = _calculate_form_score(1, data_recent_good)
+        score_bad = _calculate_form_score(2, data_recent_bad)
+        assert score_good > score_bad  # 最新が良い方が高い
+
+    def test_5走未満でも計算可能(self):
+        data = _make_past_performance_data({1: [2, 3]})
+        score = _calculate_form_score(1, data)
+        assert score is not None
+        assert 0 < score < 100
+
+    def test_データなしでNone(self):
+        assert _calculate_form_score(1, None) is None
+
+    def test_該当馬番なしでNone(self):
+        data = _make_past_performance_data({2: [1, 2, 3]})
+        assert _calculate_form_score(1, data) is None
+
+    def test_Decimal型でも計算可能(self):
+        data = {
+            "sources": [{
+                "source": "keibagrant",
+                "horses": [{
+                    "horse_number": Decimal("1"),
+                    "horse_name": "テスト馬1",
+                    "past_races": [
+                        {"finish_position": Decimal("1")},
+                        {"finish_position": Decimal("3")},
+                    ],
+                }],
+            }]
+        }
+        score = _calculate_form_score(1, data)
+        assert score is not None
+        assert isinstance(score, float)
+
+
+# =============================================================================
+# composite_score拡張テスト
+# =============================================================================
+
+
+class TestCompositeScoreWithNewData:
+    """スピード指数・近走フォーム統合後のcomposite_scoreテスト."""
+
+    def test_全5成分でスコア計算(self):
+        runners = _make_runners(5)
+        ai_preds = _make_ai_predictions(5)
+        si_data = _make_speed_index_data({
+            "jiro8-speed": {1: 90, 2: 80, 3: 70, 4: 60, 5: 50},
+        })
+        pp_data = _make_past_performance_data({
+            1: [1, 1, 2], 2: [3, 4, 5], 3: [5, 6, 7],
+            4: [8, 9, 10], 5: [10, 12, 15],
+        })
+        score = _calculate_composite_score(
+            1, runners, ai_preds,
+            speed_index_data=si_data, past_performance_data=pp_data,
+        )
+        assert isinstance(score, float)
+        assert 0 <= score <= 100
+
+    def test_speed_indexなしで4成分フォールバック(self):
+        runners = _make_runners(5)
+        ai_preds = _make_ai_predictions(5)
+        pp_data = _make_past_performance_data({1: [1, 2, 3]})
+        score_with = _calculate_composite_score(
+            1, runners, ai_preds, past_performance_data=pp_data,
+        )
+        score_without = _calculate_composite_score(1, runners, ai_preds)
+        # formデータがある場合とない場合でスコアが異なる
+        assert score_with != score_without
+
+    def test_両方なしで既存3成分と完全同一スコア(self):
+        """speed_index_data=None, past_performance_data=Noneで既存と同一."""
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        score_new = _calculate_composite_score(
+            1, runners, ai_preds,
+            speed_index_data=None, past_performance_data=None,
+        )
+        score_old = _calculate_composite_score(1, runners, ai_preds)
+        assert score_new == score_old
+
+    def test_speed_indexのみで4成分(self):
+        runners = _make_runners(5)
+        ai_preds = _make_ai_predictions(5)
+        si_data = _make_speed_index_data({
+            "jiro8-speed": {1: 90, 2: 80, 3: 70, 4: 60, 5: 50},
+        })
+        score = _calculate_composite_score(
+            1, runners, ai_preds, speed_index_data=si_data,
+        )
+        assert isinstance(score, float)
+        assert 0 <= score <= 100
+
+    def test_Decimal型データで全5成分正常(self):
+        runners = _make_runners(3)
+        ai_preds = _make_ai_predictions(3)
+        si_data = {
+            "sources": [{
+                "source": "jiro8-speed",
+                "indices": [
+                    {"horse_number": Decimal("1"), "speed_index": Decimal("90"), "rank": 1},
+                    {"horse_number": Decimal("2"), "speed_index": Decimal("80"), "rank": 2},
+                    {"horse_number": Decimal("3"), "speed_index": Decimal("70"), "rank": 3},
+                ],
+            }]
+        }
+        pp_data = {
+            "sources": [{
+                "source": "keibagrant",
+                "horses": [{
+                    "horse_number": Decimal("1"),
+                    "horse_name": "テスト馬1",
+                    "past_races": [
+                        {"finish_position": Decimal("1")},
+                        {"finish_position": Decimal("2")},
+                    ],
+                }],
+            }]
+        }
+        score = _calculate_composite_score(
+            1, runners, ai_preds,
+            speed_index_data=si_data, past_performance_data=pp_data,
+        )
+        assert isinstance(score, float)
+        assert 0 <= score <= 100
+
+
+# =============================================================================
+# 呼び出しチェーン更新テスト
+# =============================================================================
+
+
+class TestCallChainPropagation:
+    """speed_index_data/past_performance_dataの伝播テスト."""
+
+    def test_軸馬選定にスピード指数が影響(self):
+        runners = _make_runners(5)
+        ai_preds = _make_ai_predictions(5)
+        # 馬5のスピード指数を最高にする
+        si_data = _make_speed_index_data({
+            "jiro8-speed": {1: 50, 2: 60, 3: 70, 4: 80, 5: 90},
+        })
+        result_with = _select_axis_horses(
+            runners, ai_preds, speed_index_data=si_data,
+        )
+        result_without = _select_axis_horses(runners, ai_preds)
+        scores_with = {a["horse_number"]: a["composite_score"] for a in result_with}
+        scores_without = {a["horse_number"]: a["composite_score"] for a in result_without}
+        assert scores_with != scores_without
+
+    def test_データなしでも軸馬選定が既存動作互換(self):
+        runners = _make_runners(12)
+        ai_preds = _make_ai_predictions(12)
+        result_new = _select_axis_horses(
+            runners, ai_preds,
+            speed_index_data=None, past_performance_data=None,
+        )
+        result_old = _select_axis_horses(runners, ai_preds)
+        assert [a["horse_number"] for a in result_new] == [a["horse_number"] for a in result_old]
+        for new, old in zip(result_new, result_old):
+            assert new["composite_score"] == old["composite_score"]
+
+    def test_提案根拠にスピード指数情報が含まれる(self):
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        si_data = _make_speed_index_data({
+            "jiro8-speed": {i: 100 - i * 10 for i in range(1, 7)},
+        })
+        pp_data = _make_past_performance_data({
+            i: [i, i + 1, i + 2] for i in range(1, 7)
+        })
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+            total_runners=6,
+            speed_index_data=si_data,
+            past_performance_data=pp_data,
+        )
+        reasoning = result.get("proposal_reasoning", "")
+        assert "スピード指数" in reasoning or "近走" in reasoning
