@@ -35,6 +35,40 @@ from src.domain.ports import IpatGatewayError
 from src.domain.value_objects import BetSelection, HorseNumbers, Money
 
 
+def _expand_nagashi(item: dict) -> list[BetSelection]:
+    """流し形式の買い目を個別のBetSelectionに展開する.
+
+    軸馬（先頭）と各相手馬のペアに分割する。
+    例: ワイド [1, 8, 14] → [1,8], [1,14] の2点
+    """
+    bet_type: BetType = item["bet_type"]
+    horse_numbers: list[int] = item["horse_numbers"]
+    amount: int = item["amount"]
+    required = bet_type.get_required_count()
+
+    if len(horse_numbers) <= required:
+        return [
+            BetSelection(
+                bet_type=bet_type,
+                horse_numbers=HorseNumbers.from_list(horse_numbers),
+                amount=Money(amount),
+            )
+        ]
+
+    axis = horse_numbers[0]
+    partners = horse_numbers[1:]
+    per_amount = amount // len(partners)
+
+    return [
+        BetSelection(
+            bet_type=bet_type,
+            horse_numbers=HorseNumbers.from_list([axis, partner]),
+            amount=Money(per_amount),
+        )
+        for partner in partners
+    ]
+
+
 def submit_purchase_handler(event: dict, context: Any) -> dict:
     """購入を実行する.
 
@@ -162,15 +196,13 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         )
         try:
             for item in normalized_items:
-                cart.add_item(
-                    race_id=RaceId(item["race_id"]),
-                    race_name=item["race_name"],
-                    bet_selection=BetSelection(
-                        bet_type=item["bet_type"],
-                        horse_numbers=HorseNumbers.from_list(item["horse_numbers"]),
-                        amount=Money(item["amount"]),
-                    ),
-                )
+                expanded = _expand_nagashi(item)
+                for sel in expanded:
+                    cart.add_item(
+                        race_id=RaceId(item["race_id"]),
+                        race_name=item["race_name"],
+                        bet_selection=sel,
+                    )
         except ValueError as e:
             return bad_request_response(str(e), event=event)
         cart_repository.save(cart)

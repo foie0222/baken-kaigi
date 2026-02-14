@@ -598,3 +598,112 @@ class TestGetPurchaseDetailHandler:
         event = _auth_event(path_params={"purchase_id": "nonexistent"})
         result = get_purchase_detail_handler(event, None)
         assert result["statusCode"] == 404
+
+
+class TestNagashiExpansion:
+    """流し（軸→相手）形式の買い目展開テスト."""
+
+    def test_ワイド流しが個別の買い目に展開されて購入成功(self) -> None:
+        """ワイド 軸:1 → 相手:8,14 が2点に展開される."""
+        cart_repo, order_repo, cred_provider, _, _ = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-nagashi-001",
+            "race_date": "20260207",
+            "course_code": "09",
+            "race_number": 11,
+            "items": [
+                {
+                    "race_id": "202609091111",
+                    "race_name": "京都11R 洛陽ステークス",
+                    "bet_type": "quinella_place",
+                    "horse_numbers": [1, 8, 14],
+                    "amount": 6000,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi-001"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_馬連流しが個別の買い目に展開される(self) -> None:
+        """馬連 軸:3 → 相手:1,5,7 が3点に展開される."""
+        cart_repo, _, cred_provider, _, _ = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-nagashi-002",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 5,
+            "items": [
+                {
+                    "race_id": "202605050505",
+                    "race_name": "東京5R",
+                    "bet_type": "quinella",
+                    "horse_numbers": [3, 1, 5, 7],
+                    "amount": 3000,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi-002"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 3
+
+    def test_通常の2頭ワイドは展開されない(self) -> None:
+        """通常選択の2頭ワイドはそのまま1点."""
+        cart_repo, _, cred_provider, _, _ = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-normal-001",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 1,
+            "items": [
+                {
+                    "race_id": "202605050101",
+                    "race_name": "東京1R",
+                    "bet_type": "quinella_place",
+                    "horse_numbers": [1, 8],
+                    "amount": 1000,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+
+        saved_cart = cart_repo.find_by_id(CartId("cart-normal-001"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 1
