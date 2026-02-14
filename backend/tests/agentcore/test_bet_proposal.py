@@ -2224,18 +2224,18 @@ class TestAllocateBudgetDutching:
     def test_均等払い戻しになる(self):
         """どの買い目が的中しても同額の払い戻しになる."""
         bets = [
-            {"estimated_odds": 5.0, "expected_value": 1.5},
-            {"estimated_odds": 10.0, "expected_value": 1.2},
-            {"estimated_odds": 20.0, "expected_value": 1.1},
+            {"composite_odds": 5.0, "expected_value": 1.5},
+            {"composite_odds": 10.0, "expected_value": 1.2},
+            {"composite_odds": 20.0, "expected_value": 1.1},
         ]
         result = _allocate_budget_dutching(bets, 3000)
-        payouts = [b["amount"] * b["estimated_odds"] for b in result]
-        assert max(payouts) - min(payouts) <= max(b["estimated_odds"] for b in result) * 100
+        payouts = [b["amount"] * b["composite_odds"] for b in result]
+        assert max(payouts) - min(payouts) <= max(b["composite_odds"] for b in result) * 100
 
     def test_EV1以下の買い目は除外される(self):
         bets = [
-            {"estimated_odds": 5.0, "expected_value": 1.5},
-            {"estimated_odds": 10.0, "expected_value": 0.8},
+            {"composite_odds": 5.0, "expected_value": 1.5},
+            {"composite_odds": 10.0, "expected_value": 0.8},
         ]
         result = _allocate_budget_dutching(bets, 3000)
         assert len(result) == 1
@@ -2243,16 +2243,16 @@ class TestAllocateBudgetDutching:
 
     def test_全買い目EV1以下なら空リスト(self):
         bets = [
-            {"estimated_odds": 5.0, "expected_value": 0.9},
-            {"estimated_odds": 10.0, "expected_value": 0.5},
+            {"composite_odds": 5.0, "expected_value": 0.9},
+            {"composite_odds": 10.0, "expected_value": 0.5},
         ]
         result = _allocate_budget_dutching(bets, 3000)
         assert result == []
 
     def test_100円単位に丸められる(self):
         bets = [
-            {"estimated_odds": 5.0, "expected_value": 1.5},
-            {"estimated_odds": 8.0, "expected_value": 1.2},
+            {"composite_odds": 5.0, "expected_value": 1.5},
+            {"composite_odds": 8.0, "expected_value": 1.2},
         ]
         result = _allocate_budget_dutching(bets, 3000)
         for b in result:
@@ -2260,9 +2260,9 @@ class TestAllocateBudgetDutching:
 
     def test_合計がbudgetを超えない(self):
         bets = [
-            {"estimated_odds": 3.0, "expected_value": 1.3},
-            {"estimated_odds": 5.0, "expected_value": 1.2},
-            {"estimated_odds": 8.0, "expected_value": 1.1},
+            {"composite_odds": 3.0, "expected_value": 1.3},
+            {"composite_odds": 5.0, "expected_value": 1.2},
+            {"composite_odds": 8.0, "expected_value": 1.1},
         ]
         result = _allocate_budget_dutching(bets, 2000)
         total = sum(b["amount"] for b in result)
@@ -2273,35 +2273,35 @@ class TestAllocateBudgetDutching:
         assert result == []
 
     def test_予算ゼロ(self):
-        bets = [{"estimated_odds": 5.0, "expected_value": 1.5}]
+        bets = [{"composite_odds": 5.0, "expected_value": 1.5}]
         result = _allocate_budget_dutching(bets, 0)
         assert all(b.get("amount", 0) == 0 for b in result) or result == bets
 
     def test_composite_oddsが結果に含まれる(self):
         bets = [
-            {"estimated_odds": 5.0, "expected_value": 1.5},
-            {"estimated_odds": 10.0, "expected_value": 1.2},
+            {"composite_odds": 5.0, "expected_value": 1.5},
+            {"composite_odds": 10.0, "expected_value": 1.2},
         ]
         result = _allocate_budget_dutching(bets, 3000)
         for b in result:
-            assert "composite_odds" in b
+            assert "dutching_composite_odds" in b
 
     def test_最低賭け金未満の買い目が除外される(self):
         bets = [
-            {"estimated_odds": 3.0, "expected_value": 1.5},
-            {"estimated_odds": 100.0, "expected_value": 1.1},
+            {"composite_odds": 3.0, "expected_value": 1.5},
+            {"composite_odds": 100.0, "expected_value": 1.1},
         ]
         result = _allocate_budget_dutching(bets, 300)
         assert all(b["amount"] >= 100 for b in result)
 
     def test_低オッズの買い目に多く配分される(self):
         bets = [
-            {"estimated_odds": 3.0, "expected_value": 1.5},
-            {"estimated_odds": 10.0, "expected_value": 1.2},
+            {"composite_odds": 3.0, "expected_value": 1.5},
+            {"composite_odds": 10.0, "expected_value": 1.2},
         ]
         result = _allocate_budget_dutching(bets, 3000)
-        low_odds = next(b for b in result if b["estimated_odds"] == 3.0)
-        high_odds = next(b for b in result if b["estimated_odds"] == 10.0)
+        low_odds = next(b for b in result if b["composite_odds"] == 3.0)
+        high_odds = next(b for b in result if b["composite_odds"] == 10.0)
         assert low_odds["amount"] > high_odds["amount"]
 
 
@@ -2325,3 +2325,75 @@ class TestGenerateBetCandidatesNoMaxBets:
         )
         # 旧仕様では8点が上限だったが、新仕様ではmax_bets=Noneで全件返される
         assert isinstance(result, list)
+
+
+class TestBankrollMode:
+    """bankrollモードの統合テスト."""
+
+    def test_bankroll指定でrace_budgetが自動算出される(self):
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=30000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert result["race_budget"] > 0
+        assert result["confidence_factor"] > 0
+
+    def test_budget指定で従来動作(self):
+        """budget指定時は従来の信頼度別配分が使われる."""
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=5000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert result["total_amount"] <= 5000
+
+    def test_bankrollの10パーセントを超えない(self):
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=10000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert result["total_amount"] <= 10000 * 0.10
+
+    def test_見送りスコアが高いとrace_budgetが小さくなる(self):
+        """見送りスコアが高い場合、予算が少なくなる."""
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=30000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert "bankroll_usage_pct" in result
+
+    def test_bankrollモードでcomposite_oddsが出力される(self):
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=30000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        if result["proposed_bets"]:
+            assert "dutching_composite_odds" in result["proposed_bets"][0]

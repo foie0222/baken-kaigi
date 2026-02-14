@@ -1127,27 +1127,33 @@ def _allocate_budget_dutching(bets: list[dict], budget: int) -> list[dict]:
     if not eligible:
         return []
 
-    inv_odds_sum = sum(1.0 / float(b["estimated_odds"]) for b in eligible)
+    inv_odds_sum = sum(1.0 / float(b["composite_odds"]) for b in eligible)
     composite_odds = 1.0 / inv_odds_sum
 
     unit = MIN_BET_AMOUNT
     for bet in eligible:
-        raw = budget * composite_odds / float(bet["estimated_odds"])
+        raw = budget * composite_odds / float(bet["composite_odds"])
         bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
 
     funded = [b for b in eligible if b.get("amount", 0) >= unit]
+
+    # 合計が予算を超える場合、配分額が最小の買い目を除外して再帰
+    total = sum(b["amount"] for b in funded)
+    if total > budget and len(funded) > 1:
+        funded.sort(key=lambda x: x["amount"])
+        return _allocate_budget_dutching(funded[1:], budget)
+
     if len(funded) < len(eligible):
         return _allocate_budget_dutching(funded, budget)
 
-    total = sum(b["amount"] for b in funded)
     remaining = budget - total
     if remaining >= unit and funded:
         funded[0]["amount"] += int(remaining // unit) * unit
 
-    final_inv_sum = sum(1.0 / float(b["estimated_odds"]) for b in funded)
+    final_inv_sum = sum(1.0 / float(b["composite_odds"]) for b in funded)
     final_composite = round(1.0 / final_inv_sum, 2) if final_inv_sum > 0 else 0
     for bet in funded:
-        bet["composite_odds"] = final_composite
+        bet["dutching_composite_odds"] = final_composite
 
     return funded
 
@@ -1413,12 +1419,13 @@ def _generate_bet_proposal_impl(
     speed_index_data: dict | None = None,
     past_performance_data: dict | None = None,
     unified_probs: dict[int, float] | None = None,
+    bankroll: int = 0,
 ) -> dict:
     """買い目提案の統合実装（テスト用に公開）.
 
     Args:
         race_id: レースID
-        budget: 予算
+        budget: 予算（従来モード）
         runners_data: 出走馬データ
         ai_predictions: AI予想データ
         race_name: レース名
@@ -1432,6 +1439,7 @@ def _generate_bet_proposal_impl(
             未指定またはNoneの場合はデフォルト（analyst相当）を使用。
         max_bets: 買い目点数上限。未指定の場合はペルソナのデフォルト値
             （analystは8、conservativeは5など）。指定時はペルソナのデフォルトより優先。
+        bankroll: 1日の総資金（bankrollモード）。0より大きい場合はダッチング配分を使用。
 
     Returns:
         統合提案結果
@@ -1441,7 +1449,11 @@ def _generate_bet_proposal_impl(
 
     # ペルソナ設定の解決
     config = _get_character_config(character_type)
-    effective_max_bets = max_bets if max_bets is not None else config["max_bets"]
+    use_bankroll = bankroll > 0
+    if use_bankroll:
+        effective_max_bets = max_bets  # bankrollモード: max_bets未指定なら全件
+    else:
+        effective_max_bets = max_bets if max_bets is not None else config["max_bets"]
 
     # Phase 2: ペース予想
     front_runners = 0
@@ -1482,9 +1494,21 @@ def _generate_bet_proposal_impl(
         predicted_pace=predicted_pace,
     )
 
-    effective_budget = budget
-    if skip["skip_score"] >= config["skip_gate_threshold"]:
-        effective_budget = int(budget * SKIP_BUDGET_REDUCTION)
+    # bankrollモード: confidence_factorでレース予算を算出
+    confidence_factor = 0.0
+    race_budget = 0
+    if use_bankroll:
+        confidence_factor = _calculate_confidence_factor(skip["skip_score"])
+        raw_budget = bankroll * config["base_rate"] * confidence_factor
+        race_budget = min(
+            int(math.floor(raw_budget / MIN_BET_AMOUNT) * MIN_BET_AMOUNT),
+            int(bankroll * MAX_RACE_BUDGET_RATIO),
+        )
+        effective_budget = race_budget
+    else:
+        effective_budget = budget
+        if skip["skip_score"] >= config["skip_gate_threshold"]:
+            effective_budget = int(budget * SKIP_BUDGET_REDUCTION)
 
     # Phase 4: 買い目生成
     bets = _generate_bet_candidates(
@@ -1509,12 +1533,15 @@ def _generate_bet_proposal_impl(
     )
 
     # Phase 5: 予算配分
-    bets = _allocate_budget(
-        bets, effective_budget,
-        allocation_high=config["allocation_high"],
-        allocation_medium=config["allocation_medium"],
-        allocation_low=config["allocation_low"],
-    )
+    if use_bankroll:
+        bets = _allocate_budget_dutching(bets, effective_budget)
+    else:
+        bets = _allocate_budget(
+            bets, effective_budget,
+            allocation_high=config["allocation_high"],
+            allocation_medium=config["allocation_medium"],
+            allocation_low=config["allocation_low"],
+        )
 
     # 合計金額
     total_amount = sum(b.get("amount", 0) for b in bets)
@@ -1544,7 +1571,7 @@ def _generate_bet_proposal_impl(
         skip_gate_threshold=config["skip_gate_threshold"],
     )
 
-    return {
+    result = {
         "race_id": race_id,
         "race_summary": {
             "race_name": race_name,
@@ -1561,6 +1588,15 @@ def _generate_bet_proposal_impl(
         "analysis_comment": analysis_comment,
         "disclaimer": "データ分析に基づく情報提供です。最終判断はご自身でお願いします。",
     }
+
+    if use_bankroll:
+        result["race_budget"] = race_budget
+        result["confidence_factor"] = confidence_factor
+        result["bankroll_usage_pct"] = round(
+            total_amount / bankroll * 100, 2
+        ) if bankroll > 0 else 0
+
+    return result
 
 
 def _generate_proposal_reasoning(
