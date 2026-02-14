@@ -13,6 +13,7 @@ from urllib3.util.retry import Retry
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     AncestorData,
+    BetOddsData,
     AptitudeSummaryData,
     BreederInfoData,
     BreederStatsData,
@@ -1316,6 +1317,10 @@ class JraVanRaceDataProvider(RaceDataProvider):
         except requests.RequestException as e:
             logger.warning(f"Could not get breeder stats for {breeder_id}: {e}")
             return None
+
+    def get_bet_odds(self, race_id: RaceId, bet_type: str, horse_numbers: list[int]) -> BetOddsData | None:
+        """指定した買い目のオッズを取得する (未実装)."""
+        return None
 
 
 class JraVanApiError(Exception):

@@ -13,6 +13,7 @@ from .spending_limit_provider import SpendingLimitProvider
 from .user_repository import UserRepository
 from .race_data_provider import (
     AncestorData,
+    BetOddsData,
     AptitudeSummaryData,
     BreederInfoData,
     BreederStatsData,
@@ -74,6 +75,7 @@ __all__ = [
     "BettingRecordRepository",
     "AptitudeSummaryData",
     "BetFeedbackContext",
+    "BetOddsData",
     "BreederInfoData",
     "BreederStatsData",
     "ConditionAptitudeData",
