@@ -257,6 +257,9 @@ def scrape_races(offset_days: int = 1) -> dict[str, Any]:
         offset_days: 何日後のレースを取得するか。
             0 = 当日（レース当日の再取得用）
             1 = 翌日（前日夜の早期取得用、デフォルト）
+
+    Returns:
+        dict: {"success": bool, "races_scraped": int, "errors": list}
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
