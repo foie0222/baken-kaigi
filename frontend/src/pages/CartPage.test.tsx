@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '../test/utils'
-import { fireEvent, act } from '@testing-library/react'
+import { fireEvent } from '@testing-library/react'
 import { CartPage } from './CartPage'
 import { useCartStore } from '../stores/cartStore'
 
