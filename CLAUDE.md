@@ -69,6 +69,10 @@ cd backend && pytest
 - `/copilot-review` - GitHub Copilot PRレビュー対応
 - `/verification` - 本番環境（bakenkaigi.com）動作確認
 
+## 作業方針
+
+- 実装タスクには専門家チームを編成し、役割分担と並列作業で対応する
+
 ## 注意事項
 
 - セキュリティ最優先（IAM最小権限、シークレット管理）
