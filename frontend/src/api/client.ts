@@ -363,6 +363,9 @@ class ApiClient {
         bet_type: item.betType,
         horse_numbers: item.horseNumbers,
         amount: item.amount,
+        bet_method: item.betMethod || 'normal',
+        ...(item.betCount != null ? { bet_count: item.betCount } : {}),
+        ...(item.columnSelections ? { column_selections: item.columnSelections } : {}),
       }));
     }
     const res = await this.request<Record<string, unknown>>('/purchases', {

@@ -800,3 +800,443 @@ class TestNagashiExpansion:
         })
         result = submit_purchase_handler(event, None)
         assert result["statusCode"] == 400
+
+
+class TestExpandBet:
+    """_expand_bet による各種買い方展開のE2Eテスト."""
+
+    def _make_event(self, items: list[dict], cart_id: str = "cart-expand") -> dict:
+        """テスト用イベントを生成する."""
+        return _auth_event(body={
+            "cart_id": cart_id,
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 11,
+            "items": items,
+        })
+
+    def _setup_and_get_creds(self):
+        """依存関係セットアップとクレデンシャル登録."""
+        cart_repo, order_repo, cred_provider, gateway, spending = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+        return cart_repo
+
+    def test_馬連BOX_3頭が3点に展開される(self) -> None:
+        """quinella box [1,2,3] → C(3,2)=3点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "quinella",
+                "horse_numbers": [1, 2, 3],
+                "amount": 300,
+                "bet_method": "box",
+                "bet_count": 3,
+                "column_selections": {"col1": [1, 2, 3], "col2": [], "col3": []},
+            }],
+            cart_id="cart-box-quinella",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-box-quinella"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 3
+
+    def test_馬単BOX_2頭が2点に展開される(self) -> None:
+        """exacta box [1,2] → P(2,2)=2点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "exacta",
+                "horse_numbers": [1, 2],
+                "amount": 200,
+                "bet_method": "box",
+                "bet_count": 2,
+                "column_selections": {"col1": [1, 2], "col2": [], "col3": []},
+            }],
+            cart_id="cart-box-exacta-2",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-box-exacta-2"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_馬単BOX_3頭が6点に展開される(self) -> None:
+        """exacta box [1,2,3] → P(3,2)=6点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "exacta",
+                "horse_numbers": [1, 2, 3],
+                "amount": 600,
+                "bet_method": "box",
+                "bet_count": 6,
+                "column_selections": {"col1": [1, 2, 3], "col2": [], "col3": []},
+            }],
+            cart_id="cart-box-exacta-3",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-box-exacta-3"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 6
+
+    def test_三連複BOX_4頭が4点に展開される(self) -> None:
+        """trio box [1,2,3,4] → C(4,3)=4点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trio",
+                "horse_numbers": [1, 2, 3, 4],
+                "amount": 400,
+                "bet_method": "box",
+                "bet_count": 4,
+                "column_selections": {"col1": [1, 2, 3, 4], "col2": [], "col3": []},
+            }],
+            cart_id="cart-box-trio",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-box-trio"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 4
+
+    def test_三連単BOX_3頭が6点に展開される(self) -> None:
+        """trifecta box [1,2,3] → P(3,3)=6点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trifecta",
+                "horse_numbers": [1, 2, 3],
+                "amount": 600,
+                "bet_method": "box",
+                "bet_count": 6,
+                "column_selections": {"col1": [1, 2, 3], "col2": [], "col3": []},
+            }],
+            cart_id="cart-box-trifecta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-box-trifecta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 6
+
+    def test_馬単1着流しが正しい順序で展開される(self) -> None:
+        """exacta nagashi_1, axis=3, partners=[1,5] → (3,1),(3,5)."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "exacta",
+                "horse_numbers": [3, 1, 5],
+                "amount": 200,
+                "bet_method": "nagashi_1",
+                "bet_count": 2,
+                "column_selections": {"col1": [3], "col2": [1, 5], "col3": []},
+            }],
+            cart_id="cart-nagashi1-exacta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi1-exacta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_馬単2着流しが正しい順序で展開される(self) -> None:
+        """exacta nagashi_2, axis=5, partners=[1,3] → (1,5),(3,5)."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "exacta",
+                "horse_numbers": [5, 1, 3],
+                "amount": 200,
+                "bet_method": "nagashi_2",
+                "bet_count": 2,
+                "column_selections": {"col1": [5], "col2": [1, 3], "col3": []},
+            }],
+            cart_id="cart-nagashi2-exacta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi2-exacta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_馬単マルチが両方向に展開される(self) -> None:
+        """exacta nagashi_multi, axis=3, partners=[1,5] → 4点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "exacta",
+                "horse_numbers": [3, 1, 5],
+                "amount": 400,
+                "bet_method": "nagashi_multi",
+                "bet_count": 4,
+                "column_selections": {"col1": [3], "col2": [1, 5], "col3": []},
+            }],
+            cart_id="cart-multi-exacta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-multi-exacta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 4
+
+    def test_三連複軸1頭流しが展開される(self) -> None:
+        """trio nagashi, axis=1, partners=[3,5,7] → C(3,2)=3点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trio",
+                "horse_numbers": [1, 3, 5, 7],
+                "amount": 300,
+                "bet_method": "nagashi",
+                "bet_count": 3,
+                "column_selections": {"col1": [1], "col2": [3, 5, 7], "col3": []},
+            }],
+            cart_id="cart-nagashi-trio-1axis",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi-trio-1axis"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 3
+
+    def test_三連単1着流しが展開される(self) -> None:
+        """trifecta nagashi_1, axis=1, partners=[3,5] → P(2,2)=2点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trifecta",
+                "horse_numbers": [1, 3, 5],
+                "amount": 200,
+                "bet_method": "nagashi_1",
+                "bet_count": 2,
+                "column_selections": {"col1": [1], "col2": [3, 5], "col3": []},
+            }],
+            cart_id="cart-nagashi1-trifecta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi1-trifecta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_三連複軸2頭流しが展開される(self) -> None:
+        """trio nagashi_2, axes=[1,3], partners=[5,7] → 2点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trio",
+                "horse_numbers": [1, 3, 5, 7],
+                "amount": 200,
+                "bet_method": "nagashi_2",
+                "bet_count": 2,
+                "column_selections": {"col1": [1, 3], "col2": [5, 7], "col3": []},
+            }],
+            cart_id="cart-nagashi2-trio",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi2-trio"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_三連単2着流しが展開される(self) -> None:
+        """trifecta nagashi_2, axis=5, partners=[1,3] → P(2,2)=2点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trifecta",
+                "horse_numbers": [5, 1, 3],
+                "amount": 200,
+                "bet_method": "nagashi_2",
+                "bet_count": 2,
+                "column_selections": {"col1": [5], "col2": [1, 3], "col3": []},
+            }],
+            cart_id="cart-nagashi2-trifecta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi2-trifecta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_三連単軸2頭12着流しが展開される(self) -> None:
+        """trifecta nagashi_12, col1=[1], col3=[3], col2=[5,7] → 2点."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trifecta",
+                "horse_numbers": [1, 3, 5, 7],
+                "amount": 200,
+                "bet_method": "nagashi_12",
+                "bet_count": 2,
+                "column_selections": {"col1": [1], "col2": [5, 7], "col3": [3]},
+            }],
+            cart_id="cart-nagashi12-trifecta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-nagashi12-trifecta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 2
+
+    def test_馬連フォーメーションが展開される(self) -> None:
+        """quinella formation, col1=[1,3], col2=[5,7] → unique sorted pairs."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "quinella",
+                "horse_numbers": [1, 3, 5, 7],
+                "amount": 400,
+                "bet_method": "formation",
+                "bet_count": 4,
+                "column_selections": {"col1": [1, 3], "col2": [5, 7], "col3": []},
+            }],
+            cart_id="cart-form-quinella",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-form-quinella"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 4
+
+    def test_馬単フォーメーションが展開される(self) -> None:
+        """exacta formation, col1=[1,3], col2=[5,7] → ordered pairs (no self)."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "exacta",
+                "horse_numbers": [1, 3, 5, 7],
+                "amount": 400,
+                "bet_method": "formation",
+                "bet_count": 4,
+                "column_selections": {"col1": [1, 3], "col2": [5, 7], "col3": []},
+            }],
+            cart_id="cart-form-exacta",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-form-exacta"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 4
+
+    def test_三連複フォーメーションが展開される(self) -> None:
+        """trio formation, col1=[1,2], col2=[3,4], col3=[5,6] → unique sorted triples."""
+        cart_repo = self._setup_and_get_creds()
+        # col1=[1,2], col2=[3,4], col3=[5,6] → all different, so 2*2*2=8 unique triples
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "trio",
+                "horse_numbers": [1, 2, 3, 4, 5, 6],
+                "amount": 800,
+                "bet_method": "formation",
+                "bet_count": 8,
+                "column_selections": {"col1": [1, 2], "col2": [3, 4], "col3": [5, 6]},
+            }],
+            cart_id="cart-form-trio",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-form-trio"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 8
+
+    def test_bet_method未指定でも後方互換性がある(self) -> None:
+        """old format (no bet_method) still works for normal bets."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "win",
+                "horse_numbers": [1],
+                "amount": 100,
+            }],
+            cart_id="cart-compat",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-compat"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 1
+
+    def test_1点あたり金額が100円未満でエラー(self) -> None:
+        """200円を3点に分割 → 66円/点でエラー."""
+        self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "quinella",
+                "horse_numbers": [1, 2, 3],
+                "amount": 200,
+                "bet_method": "box",
+                "bet_count": 3,
+                "column_selections": {"col1": [1, 2, 3], "col2": [], "col3": []},
+            }],
+            cart_id="cart-amount-error",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_通常買いはbet_method指定でそのまま1点(self) -> None:
+        """normal with bet_method="normal" → 1 bet."""
+        cart_repo = self._setup_and_get_creds()
+        event = self._make_event(
+            [{
+                "race_id": "202605051211",
+                "race_name": "東京11R",
+                "bet_type": "quinella",
+                "horse_numbers": [1, 3],
+                "amount": 100,
+                "bet_method": "normal",
+                "column_selections": {"col1": [1], "col2": [3], "col3": []},
+            }],
+            cart_id="cart-normal-explicit",
+        )
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 201
+        saved_cart = cart_repo.find_by_id(CartId("cart-normal-explicit"))
+        assert saved_cart is not None
+        assert saved_cart.get_item_count() == 1
