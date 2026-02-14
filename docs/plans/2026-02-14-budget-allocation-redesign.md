@@ -12,7 +12,7 @@
 
 ## 前提知識
 
-- ワークツリー: `/home/inoue-d/dev/baken-kaigi/feat-budget-redesign`
+- ワークツリー: `./feat-budget-redesign`
 - 対象ファイル: `backend/agentcore/tools/bet_proposal.py`
 - テストファイル: `backend/tests/agentcore/test_bet_proposal.py`
 - テスト実行: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py -v`

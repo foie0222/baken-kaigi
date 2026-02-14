@@ -2323,8 +2323,20 @@ class TestGenerateBetCandidatesNoMaxBets:
             bet_types=["quinella", "trio"],
             total_runners=12,
         )
-        # 旧仕様では8点が上限だったが、新仕様ではmax_bets=Noneで全件返される
+        # max_bets=None（デフォルト）で8点を超える買い目が返される
         assert isinstance(result, list)
+        assert len(result) > 8, f"MAX_BETS制限撤廃後は8点超を期待するが {len(result)}点"
+
+        # max_bets=8を明示すると8点以下に制限される
+        result_limited = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=preds,
+            bet_types=["quinella", "trio"],
+            total_runners=12,
+            max_bets=8,
+        )
+        assert len(result_limited) <= 8
 
 
 class TestBankrollMode:

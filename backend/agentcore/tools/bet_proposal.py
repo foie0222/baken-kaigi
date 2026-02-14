@@ -184,7 +184,7 @@ _DEFAULT_CONFIG = {
     "max_bets": MAX_BETS, "torigami_threshold": TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
     "skip_gate_threshold": SKIP_GATE_THRESHOLD,
     "difficulty_bet_types": DIFFICULTY_BET_TYPES,
-    "base_rate": 0.03,
+    "base_rate": DEFAULT_BASE_RATE,
 }
 
 
@@ -1114,11 +1114,12 @@ def _allocate_budget_dutching(bets: list[dict], budget: int) -> list[dict]:
     オッズの逆数に比例して配分する。
 
     Args:
-        bets: 買い目候補リスト（estimated_odds, expected_value キーを持つ）
+        bets: 買い目候補リスト（composite_odds, expected_value キーを持つ）
         budget: 総予算（円）
 
     Returns:
-        金額付き買い目リスト（期待値>1.0のもののみ）
+        金額付き買い目リスト（期待値>1.0のもののみ）。
+        betsが空またはbudget<=0の場合はそのまま返す。
     """
     if not bets or budget <= 0:
         return bets
@@ -1500,10 +1501,11 @@ def _generate_bet_proposal_impl(
     if use_bankroll:
         confidence_factor = _calculate_confidence_factor(skip["skip_score"])
         raw_budget = bankroll * config["base_rate"] * confidence_factor
-        race_budget = min(
-            int(math.floor(raw_budget / MIN_BET_AMOUNT) * MIN_BET_AMOUNT),
-            int(bankroll * MAX_RACE_BUDGET_RATIO),
+        raw_race_budget = int(math.floor(raw_budget / MIN_BET_AMOUNT) * MIN_BET_AMOUNT)
+        max_race_budget_cap = int(
+            math.floor((bankroll * MAX_RACE_BUDGET_RATIO) / MIN_BET_AMOUNT) * MIN_BET_AMOUNT
         )
+        race_budget = min(raw_race_budget, max_race_budget_cap)
         effective_budget = race_budget
     else:
         effective_budget = budget
