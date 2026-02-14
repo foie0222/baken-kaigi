@@ -103,15 +103,14 @@ class IpatExecutor:
         """stat.iniをパースし残高情報を返す.
 
         ipatgo.exe stat が出力する stat.ini のフィールドから残高を計算する。
-        - limit_vote_amount: IPAT投票限度額（入金額ベース）
-        - total_vote_amount: 累計投票金額
+        - limit_vote_amount: IPAT投票限度額（投票済み額を反映した残高）
         - total_repayment: 累計払戻金額
 
         Returns:
             dict: 残高情報
-                - bet_dedicated_balance: 投票専用残高（限度額 - 累計投票額）
+                - bet_dedicated_balance: 投票専用残高（限度額）
                 - settle_possible_balance: 精算可能残高（払戻金額）
-                - bet_balance: 投票可能残高（専用残高 + 精算可能残高）
+                - bet_balance: 投票可能残高（限度額 + 精算可能残高）
                 - limit_vote_amount: 投票限度額
         """
         config = configparser.ConfigParser()
@@ -128,11 +127,10 @@ class IpatExecutor:
 
         stat = config["stat"]
         limit = int(stat.get("limit_vote_amount", 0))
-        voted = int(stat.get("total_vote_amount", 0))
         repayment = int(stat.get("total_repayment", 0))
         return {
-            "bet_dedicated_balance": limit - voted,
+            "bet_dedicated_balance": limit,
             "settle_possible_balance": repayment,
-            "bet_balance": limit - voted + repayment,
+            "bet_balance": limit + repayment,
             "limit_vote_amount": limit,
         }
