@@ -282,13 +282,14 @@ class TestAssessRaceDifficulty:
 
     def test_多頭数で荒れやすい(self):
         result = _assess_race_difficulty(18)
-        assert result["difficulty_stars"] >= 4
+        # 頭数+1、オフセット+2 → ★3
+        assert result["difficulty_stars"] >= 3
         assert any("多頭数" in f for f in result["factors"])
 
     def test_ハンデ戦で荒れ度上昇(self):
         result = _assess_race_difficulty(12, race_conditions=["handicap"])
         assert any("ハンデ戦" in f for f in result["factors"])
-        # ハンデ戦(+2)で標準頭数(±0)なので★4以上
+        # ハンデ戦(+2)で標準頭数(±0)、オフセット+2 → ★4
         assert result["difficulty_stars"] >= 4
 
     def test_G1で堅い傾向(self):
@@ -320,25 +321,30 @@ class TestAssessRaceDifficulty:
             "堅いレース", "やや堅い", "標準", "荒れ模様", "大荒れ注意"
         ]
 
-    def test_オッズ断層で堅い判定(self):
-        runners = [
-            {"odds": 2.0, "popularity": 1},
-            {"odds": 3.5, "popularity": 2},
-            {"odds": 5.0, "popularity": 3},
-            {"odds": 15.0, "popularity": 4},  # 大きな断層
-        ]
-        result = _assess_race_difficulty(12, runners_data=runners)
-        assert any("断層" in f for f in result["factors"])
-
-    def test_オッズ団子で荒れ判定(self):
+    def test_オッズは難易度判定に影響しない(self):
         runners = [
             {"odds": 3.0, "popularity": 1},
             {"odds": 3.5, "popularity": 2},
             {"odds": 5.0, "popularity": 3},
             {"odds": 7.0, "popularity": 4},
         ]
-        result = _assess_race_difficulty(12, runners_data=runners)
-        assert any("団子" in f for f in result["factors"])
+        result_with_odds = _assess_race_difficulty(12, runners_data=runners)
+        result_without_odds = _assess_race_difficulty(12)
+        assert result_with_odds["difficulty_stars"] == result_without_odds["difficulty_stars"]
+
+    def test_16頭立て通常レースは標準難易度(self):
+        """16頭立てだけで★5にならないことを確認."""
+        result = _assess_race_difficulty(16)
+        # 頭数+1、オフセット+2 → ★3（以前は★5だった）
+        assert result["difficulty_stars"] == 3
+
+    def test_16頭ハンデ福島で高難易度(self):
+        """複数の荒れ要因が重なった場合に★5になる."""
+        result = _assess_race_difficulty(
+            16, race_conditions=["handicap"], venue="福島"
+        )
+        # 頭数+1、ハンデ+2、福島+1 = upset_score 4、+2 → ★5（上限）
+        assert result["difficulty_stars"] == 5
 
 
 class TestAnalyzeOddsGap:
@@ -578,7 +584,7 @@ class TestAnalyzeRaceCharacteristicsImpl:
         result = _analyze_race_characteristics_impl("test_race", [])
         assert "error" in result
 
-    def test_オッズ断層分析が統合される(self):
+    def test_オッズは難易度判定に影響しない(self):
         runners_data = [
             {"odds": 2.0, "popularity": 1},
             {"odds": 3.5, "popularity": 2},
@@ -591,4 +597,5 @@ class TestAnalyzeRaceCharacteristicsImpl:
             runners_data=runners_data,
             surface="芝",
         )
-        assert any("断層" in f for f in result["difficulty"]["factors"])
+        # オッズは難易度判定に使用しないため断層factorは含まれない
+        assert not any("断層" in f for f in result["difficulty"]["factors"])
