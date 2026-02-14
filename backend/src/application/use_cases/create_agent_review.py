@@ -26,7 +26,7 @@ class CreateAgentReviewResult:
 class CreateAgentReviewUseCase:
     """エージェント振り返り生成ユースケース.
 
-    レース結果を受け取り、振り返りテキストとステータス変化を生成する。
+    レース結果を受け取り、振り返りテキストを生成する。
     Phase 1ではルールベースの簡易実装。
     """
 
@@ -106,9 +106,6 @@ class CreateAgentReviewUseCase:
         # 学びを生成
         learnings = self._generate_learnings(bet_results, has_win, profit)
 
-        # ステータス変化を計算
-        stats_change = self._calculate_stats_change(bet_results, has_win, profit, agent.base_style.value)
-
         # 振り返りエンティティ作成
         review_id = ReviewId(f"rev_{uuid.uuid4().hex[:12]}")
         review = AgentReview(
@@ -122,14 +119,13 @@ class CreateAgentReviewUseCase:
             total_return=total_return,
             review_text=review_text,
             learnings=learnings,
-            stats_change=stats_change,
+            stats_change={},
         )
 
         self._review_repository.save(review)
 
         # エージェントの成績を更新
         agent.record_result(total_invested, total_return, has_win)
-        agent.apply_stats_change(**stats_change)
         self._agent_repository.save(agent)
 
         return CreateAgentReviewResult(review=review)
@@ -190,39 +186,3 @@ class CreateAgentReviewUseCase:
 
         return learnings
 
-    def _calculate_stats_change(
-        self,
-        bet_results: list[BetResult],
-        has_win: bool,
-        profit: int,
-        base_style: str,
-    ) -> dict[str, int]:
-        """ステータス変化を計算する."""
-        change: dict[str, int] = {}
-
-        # 基本: レース経験で全ステータス+1
-        change["data_analysis"] = 1
-        change["pace_reading"] = 1
-        change["risk_management"] = 1
-        change["intuition"] = 1
-
-        # 結果に応じたボーナス
-        if has_win:
-            if profit > 0:
-                # 的中して利益: スタイルに応じた得意分野+2
-                style_bonus = {
-                    "solid": "risk_management",
-                    "longshot": "intuition",
-                    "data": "data_analysis",
-                    "pace": "pace_reading",
-                }
-                bonus_stat = style_bonus.get(base_style, "data_analysis")
-                change[bonus_stat] = change.get(bonus_stat, 0) + 2
-            else:
-                # トリガミ: リスク管理+2
-                change["risk_management"] = change.get("risk_management", 0) + 2
-        else:
-            # 不的中: 分析力+1（失敗から学ぶ）
-            change["data_analysis"] = change.get("data_analysis", 0) + 1
-
-        return change

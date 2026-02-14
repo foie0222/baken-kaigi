@@ -31,7 +31,6 @@ def _agent_to_dict(agent) -> dict:
         "user_id": agent.user_id.value,
         "name": agent.name.value,
         "base_style": agent.base_style.value,
-        "stats": agent.stats.to_dict(),
         "performance": agent.performance.to_dict(),
         "level": agent.level,
         "win_rate": round(agent.performance.win_rate * 100, 1),
@@ -128,12 +127,12 @@ def _get_agent(event: dict) -> dict:
 
 
 def _update_agent(event: dict) -> dict:
-    """エージェントを更新する.
+    """エージェントのスタイルを更新する.
 
     PUT /agents/me
 
     Request Body:
-        name: 新しいエージェント名（オプション）
+        base_style: 新しいスタイル (solid/longshot/data/pace)
     """
     try:
         user_id = require_authenticated_user_id(event)
@@ -145,18 +144,22 @@ def _update_agent(event: dict) -> dict:
     except ValueError as e:
         return bad_request_response(str(e), event=event)
 
-    name = body.get("name")
+    base_style = body.get("base_style")
 
-    if name is not None and not isinstance(name, str):
-        return bad_request_response("name must be a string", event=event)
-    if name is None:
-        return bad_request_response("At least name is required for update", event=event)
+    if base_style is None:
+        return bad_request_response("base_style is required for update", event=event)
+    if not isinstance(base_style, str):
+        return bad_request_response("base_style must be a string", event=event)
+    if base_style not in ("solid", "longshot", "data", "pace"):
+        return bad_request_response(
+            "base_style must be one of: solid, longshot, data, pace", event=event
+        )
 
     repository = Dependencies.get_agent_repository()
     use_case = UpdateAgentUseCase(repository)
 
     try:
-        result = use_case.execute(user_id, name=name)
+        result = use_case.execute(user_id, base_style=base_style)
     except AgentNotFoundError:
         return not_found_response("Agent", event=event)
     except ValueError as e:
@@ -214,7 +217,6 @@ def _get_reviews(event: dict) -> dict:
                     "has_win": r.has_win,
                     "review_text": r.review_text,
                     "learnings": r.learnings,
-                    "stats_change": r.stats_change,
                     "created_at": r.created_at.isoformat(),
                 }
                 for r in reviews
@@ -284,7 +286,6 @@ def _create_review(event: dict) -> dict:
             "has_win": review.has_win,
             "review_text": review.review_text,
             "learnings": review.learnings,
-            "stats_change": review.stats_change,
             "created_at": review.created_at.isoformat(),
         },
         event=event,

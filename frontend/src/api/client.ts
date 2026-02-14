@@ -753,10 +753,10 @@ class ApiClient {
     return this.request<Agent>('/agents/me');
   }
 
-  async updateAgent(name: string): Promise<ApiResponse<Agent>> {
+  async updateAgent(baseStyle: AgentStyleId): Promise<ApiResponse<Agent>> {
     return this.request<Agent>('/agents/me', {
       method: 'PUT',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ base_style: baseStyle }),
     });
   }
 

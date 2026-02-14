@@ -78,20 +78,6 @@ class TestCreateAgentReviewUseCase:
         assert agent.performance.total_invested == 1500
         assert agent.performance.total_return == 3000
 
-    def test_エージェントのステータスが変化する(self):
-        agent_repo, review_repo = _setup()
-        uc = CreateAgentReviewUseCase(agent_repo, review_repo)
-
-        from src.domain.identifiers import UserId
-        agent_before = agent_repo.find_by_user_id(UserId("usr_001"))
-        rm_before = agent_before.stats.risk_management
-
-        uc.execute("usr_001", "race_001", "2026-02-01", "東京11R", _make_bets(hit=True))
-
-        agent_after = agent_repo.find_by_user_id(UserId("usr_001"))
-        # solidスタイルの的中ボーナス: risk_management +3 (基本1 + ボーナス2)
-        assert agent_after.stats.risk_management == rm_before + 3
-
     def test_同一レースの振り返り重複はエラー(self):
         agent_repo, review_repo = _setup()
         uc = CreateAgentReviewUseCase(agent_repo, review_repo)
@@ -141,20 +127,3 @@ class TestCreateAgentReviewUseCase:
         assert len(reviews) == 1
         assert reviews[0].review_id == result.review.review_id
 
-    def test_ステータス変化にスタイル別ボーナスが反映される(self):
-        """各スタイルで的中時のボーナスが異なること."""
-        for style, bonus_stat in [
-            ("solid", "risk_management"),
-            ("longshot", "intuition"),
-            ("data", "data_analysis"),
-            ("pace", "pace_reading"),
-        ]:
-            agent_repo = InMemoryAgentRepository()
-            review_repo = InMemoryAgentReviewRepository()
-            CreateAgentUseCase(agent_repo).execute(f"usr_{style}", "テスト", style)
-
-            uc = CreateAgentReviewUseCase(agent_repo, review_repo)
-            result = uc.execute(f"usr_{style}", "race_001", "2026-02-01", "テスト", _make_bets(hit=True))
-
-            # ボーナスステータスは基本1 + ボーナス2 = 3
-            assert result.review.stats_change[bonus_stat] == 3, f"{style}: {bonus_stat} should be 3"

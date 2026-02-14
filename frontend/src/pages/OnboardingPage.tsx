@@ -43,7 +43,7 @@ export function OnboardingPage() {
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>あなたの相棒を作ろう</h1>
         <p style={{ fontSize: 14, color: '#666', marginTop: 8, lineHeight: 1.6 }}>
           競馬を一緒に分析するAIエージェントを育てましょう。<br />
-          レースを重ねるほど、あなた好みの分析ができるようになります。
+          レースを重ねるほど、あなたの好みで分析できるようになります。
         </p>
       </div>
 
@@ -161,7 +161,7 @@ export function OnboardingPage() {
       </button>
 
       <p style={{ fontSize: 12, color: '#999', textAlign: 'center', marginTop: 12 }}>
-        スタイルは後から変更できませんが、名前は変更できます
+        名前は後から変更できませんが、スタイルは変更できます
       </p>
     </div>
   );
