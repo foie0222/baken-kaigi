@@ -46,7 +46,7 @@ class JraVanIpatGateway(IpatGateway):
                 {
                     "opdt": line.opdt,
                     "rcoursecd": line.venue_code.name,
-                    "rno": f"{line.race_number:02d}",
+                    "rno": str(line.race_number),
                     "denomination": line.bet_type.name,
                     "method": "NORMAL",
                     "multi": "",

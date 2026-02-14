@@ -97,7 +97,7 @@ class TestIpatBetLine:
             amount=500,
         )
         csv = line.to_csv_line()
-        assert csv == "20260201,NAKAYAMA,01,UMAREN,NORMAL,,01-03,500"
+        assert csv == "20260201,NAKAYAMA,1,UMAREN,NORMAL,,01-03,500"
 
     def test_三連単のCSV行を生成できる(self) -> None:
         """三連単のCSV行を正しく生成できることを確認."""

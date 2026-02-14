@@ -198,6 +198,7 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
     except PurchaseValidationError as e:
         return bad_request_response(str(e), event=event)
     except IpatSubmissionError as e:
+        logger.exception("IpatSubmissionError: %s", e)
         return internal_error_response(str(e), event=event)
     except IpatGatewayError as e:
         logger.exception("IpatGatewayError: %s", e)
