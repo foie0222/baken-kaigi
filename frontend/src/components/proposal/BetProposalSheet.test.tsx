@@ -175,7 +175,7 @@ describe('BetProposalSheet', () => {
       'race_001',
       3000,
       expect.any(Array),
-      expect.objectContaining({ characterType: 'analyst' })
+      {}
     )
   })
 })
