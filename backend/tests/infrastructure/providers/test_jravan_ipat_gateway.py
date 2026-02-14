@@ -197,6 +197,50 @@ class TestJraVanIpatGateway(unittest.TestCase):
             )
 
     @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_投票送信_レース番号がゼロパディングなしで送信される(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """ipatgo.exeはrnoにゼロパディングなしの数字（"1"等）を期待する."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"success": True}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        bet_line = IpatBetLine(
+            opdt="20260207",
+            venue_code=IpatVenueCode.TOKYO,
+            race_number=1,
+            bet_type=IpatBetType.TANSYO,
+            number="01",
+            amount=100,
+        )
+        self.gateway.submit_bets(self.credentials, [bet_line])
+
+        call_args = mock_session.post.call_args
+        payload = call_args[1]["json"]
+        assert payload["bet_lines"][0]["rno"] == "1"
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_投票送信_2桁レース番号もパディングなしで送信される(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """2桁のレース番号もそのまま送信される."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"success": True}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        self.gateway.submit_bets(self.credentials, self.bet_lines)  # race_number=11
+
+        call_args = mock_session.post.call_args
+        payload = call_args[1]["json"]
+        assert payload["bet_lines"][0]["rno"] == "11"
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
     def test_HTTPエラーで例外(self, mock_session_cls: MagicMock) -> None:
         import requests
 
