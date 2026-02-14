@@ -320,6 +320,7 @@ export interface CartItem {
   horseNumbers: number[];
   betDisplay?: string;  // 買い目の表示文字列（例: "1着軸:3 → 2着:1,5"）
   betCount?: number;    // 点数
+  columnSelections?: ColumnSelections;  // 列選択状態（BOX/流し/フォーメーション展開用）
   amount: number;
 }
 
