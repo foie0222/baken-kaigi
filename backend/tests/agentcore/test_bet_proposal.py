@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
 from tools.bet_proposal import (
+    _build_narration_context,
     _calculate_composite_score,
     _calculate_confidence_factor,
     _calculate_form_score,
@@ -1461,6 +1462,103 @@ class TestProposalReasoningInImpl:
         # 両方が異なる内容（proposal_reasoningはセクション付き）
         assert "【軸馬選定】" in result["proposal_reasoning"]
         assert "【軸馬選定】" not in result["analysis_comment"]
+
+
+class TestBuildNarrationContext:
+    """_build_narration_context のテスト."""
+
+    def _make_reasoning_args(self):
+        """TestProposalReasoning と同じテストデータ."""
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        axis_horses = [
+            {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
+            {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 72.0},
+        ]
+        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
+        skip = {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"}
+        bets = [
+            {
+                "bet_type": "quinella", "bet_type_name": "馬連",
+                "horse_numbers": [1, 3], "expected_value": 1.8,
+                "composite_odds": 8.5, "confidence": "high",
+            },
+        ]
+        return dict(
+            axis_horses=axis_horses,
+            difficulty=difficulty,
+            predicted_pace="ミドル",
+            ai_consensus="概ね合意",
+            skip=skip,
+            bets=bets,
+            preferred_bet_types=None,
+            ai_predictions=ai_preds,
+            runners_data=runners,
+        )
+
+    def test_必須キーが全て含まれる(self):
+        """context dictに必要なキーが全て存在する."""
+        args = self._make_reasoning_args()
+        ctx = _build_narration_context(**args)
+        required_keys = {
+            "axis_horses", "partner_horses", "difficulty",
+            "predicted_pace", "ai_consensus", "skip", "bets",
+        }
+        assert required_keys.issubset(ctx.keys())
+
+    def test_軸馬にAI順位とスコアが付与される(self):
+        """axis_horses の各要素に ai_rank, ai_score が含まれる."""
+        args = self._make_reasoning_args()
+        ctx = _build_narration_context(**args)
+        for horse in ctx["axis_horses"]:
+            assert "ai_rank" in horse
+            assert "ai_score" in horse
+            assert isinstance(horse["ai_rank"], int)
+            assert isinstance(horse["ai_score"], float)
+
+    def test_相手馬が抽出される(self):
+        """betsから軸馬以外の馬番が partner_horses に含まれる."""
+        args = self._make_reasoning_args()
+        ctx = _build_narration_context(**args)
+        assert len(ctx["partner_horses"]) > 0
+        partner_numbers = {p["horse_number"] for p in ctx["partner_horses"]}
+        axis_numbers = {1, 2}
+        assert partner_numbers.isdisjoint(axis_numbers)
+
+    def test_スピード指数の生データが含まれる(self):
+        """speed_index_data が渡された場合、context に speed_index_raw が含まれる."""
+        args = self._make_reasoning_args()
+        args["speed_index_data"] = {
+            "horses": {1: {"indices": [80, 85], "avg": 82.5}},
+        }
+        ctx = _build_narration_context(**args)
+        assert "speed_index_raw" in ctx
+
+    def test_スピード指数なしの場合はキーが存在しない(self):
+        """speed_index_data が None の場合、speed_index_raw は含まれない."""
+        args = self._make_reasoning_args()
+        args["speed_index_data"] = None
+        ctx = _build_narration_context(**args)
+        assert "speed_index_raw" not in ctx
+
+    def test_過去成績の生データが含まれる(self):
+        """past_performance_data が渡された場合、context に past_performance_raw が含まれる."""
+        args = self._make_reasoning_args()
+        args["past_performance_data"] = {
+            "horses": {1: {"results": [1, 3, 2]}},
+        }
+        ctx = _build_narration_context(**args)
+        assert "past_performance_raw" in ctx
+
+    def test_Decimal型データでもエラーにならない(self):
+        """DynamoDB Decimal 型でも正常動作する."""
+        args = self._make_reasoning_args()
+        for pred in args["ai_predictions"]:
+            pred["horse_number"] = Decimal(str(pred["horse_number"]))
+            pred["rank"] = Decimal(str(pred["rank"]))
+            pred["score"] = Decimal(str(pred["score"]))
+        ctx = _build_narration_context(**args)
+        assert len(ctx["axis_horses"]) == 2
 
 
 # =============================================================================
