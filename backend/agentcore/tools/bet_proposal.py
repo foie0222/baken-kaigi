@@ -4,8 +4,11 @@
 レース分析から買い目生成・予算配分までを一括で行う統合ツール。
 """
 
+import json
+import logging
 import math
 
+import boto3
 import requests
 from strands import tool
 
@@ -91,6 +94,41 @@ MAX_RACE_BUDGET_RATIO = 0.10
 
 # デフォルト基本投入率
 DEFAULT_BASE_RATE = 0.03
+
+# LLMナレーション: モデルID
+NARRATOR_MODEL_ID = "jp.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+# LLMナレーション: システムプロンプト
+NARRATOR_SYSTEM_PROMPT = """あなたは競馬データアナリストです。
+以下のデータを元に、買い目提案の根拠を4セクションで書いてください。
+
+## 出力フォーマット（厳守）
+以下の4セクションを改行区切りで出力すること。セクション名は【】で囲む。
+各セクション以外のテキストは出力しないこと。
+
+【軸馬選定】...
+
+【券種】...
+
+【組み合わせ】...
+
+【リスク】...
+
+## ルール
+- 4セクション（【軸馬選定】【券種】【組み合わせ】【リスク】）は必須
+- 各セクション1〜3文で簡潔に
+- データの数値（AI指数順位・スコア・オッズ等）は正確に引用すること
+- レースごとの特徴や注目ポイントを自分の言葉で解説すること
+- 過去成績がある場合は、具体的な着順推移や距離適性に言及
+- スピード指数がある場合は、指数の位置づけや推移に言及
+- 「おすすめ」「買うべき」等の推奨表現は禁止
+
+## トーン制御
+- AI合議が「明確な上位」「概ね合意」→ 確信的に語る
+- AI合議が「やや接戦」「混戦」→ 慎重に、リスクにも触れながら語る
+- 見送りスコア≥7 → 警戒的に、予算削減を強調"""
+
+logger = logging.getLogger(__name__)
 
 
 def _calculate_confidence_factor(skip_score: int) -> float:
@@ -1696,6 +1734,37 @@ def _build_narration_context(
     if past_performance_data:
         ctx["past_performance_raw"] = past_performance_data
     return ctx
+
+
+def _call_bedrock_haiku(system_prompt: str, user_message: str) -> str:
+    """Bedrock Converse API で Haiku を呼び出す."""
+    client = boto3.client("bedrock-runtime", region_name="ap-northeast-1")
+    response = client.converse(
+        modelId=NARRATOR_MODEL_ID,
+        system=[{"text": system_prompt}],
+        messages=[{"role": "user", "content": [{"text": user_message}]}],
+        inferenceConfig={"maxTokens": 1024, "temperature": 0.7},
+    )
+    return response["output"]["message"]["content"][0]["text"]
+
+
+def _invoke_haiku_narrator(context: dict) -> str | None:
+    """コンテキストを元にHaikuでナレーションを生成する.
+
+    Returns:
+        生成されたテキスト。4セクション揃わない場合やエラー時は None。
+    """
+    try:
+        user_message = json.dumps(context, ensure_ascii=False, default=str)
+        text = _call_bedrock_haiku(NARRATOR_SYSTEM_PROMPT, user_message)
+        required = ["【軸馬選定】", "【券種】", "【組み合わせ】", "【リスク】"]
+        if all(section in text for section in required):
+            return text.strip()
+        logger.warning("LLMナレーション: 4セクション不足。フォールバックへ。")
+        return None
+    except Exception:
+        logger.exception("LLMナレーション: Bedrock呼び出し失敗。フォールバックへ。")
+        return None
 
 
 def _generate_proposal_reasoning(
