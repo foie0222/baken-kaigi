@@ -1,102 +1,224 @@
-# 資金配分ロジック再設計
+# 資金配分ロジック再設計 Implementation Plan
 
-## 背景
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-現状の `bet_proposal.py` は `budget`（1レースの予算）を受け取り、`MAX_BETS=8` で買い目を強制カットした後、信頼度別（high/medium/low）に予算配分する。この設計には以下の問題がある。
+**Goal:** 買い目の資金配分を「定率法+信頼度傾斜によるレース間配分」と「ダッチング方式によるレース内配分」に刷新し、MAX_BETS制限を撤廃する。
 
-- 買い目が常に8点前後に固定される（MAX_BETS=8 + MAX_PARTNERS=4 の設計一致）
-- 1レースの掛け金を動的に決めるロジックがない
-- レースの自信度に応じたメリハリがない
+**Architecture:** bankroll（1日の総資金）から見送りスコアに基づくconfidence_factorでレース予算を算出し、期待値>1.0の全買い目にオッズ逆数比例（ダッチング）で配分する。旧`budget`引数は後方互換で維持。
 
-## 設計方針
+**Tech Stack:** Python, pytest, Strands Agents SDK (@tool)
 
-世の中の知見（ケリー基準、定率法、ダッチング、プロの資金管理）を踏まえ、以下を採用する。
+---
 
-- **レース間配分**: 定率法 + 見送りスコアによる信頼度傾斜
-- **レース内配分**: ダッチング（均等払い戻し）
-- **買い目選定**: 期待値 > 1.0 の全買い目を採用（MAX_BETS 撤廃）
+## 前提知識
 
-## 全体フロー
+- ワークツリー: `/home/inoue-d/dev/baken-kaigi/feat-budget-redesign`
+- 対象ファイル: `backend/agentcore/tools/bet_proposal.py`
+- テストファイル: `backend/tests/agentcore/test_bet_proposal.py`
+- テスト実行: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py -v`
+- テストは日本語メソッド名で記述
+- テストデータは `_make_runners()`, `_make_ai_predictions()` ヘルパーで生成
+- DynamoDB Decimal型に注意: `float()` で変換が必要な場合がある
 
-```
-bankroll（1日の総資金）
-  │
-  ├── [第1段階] レース間配分
-  │     race_budget = bankroll × base_rate × confidence_factor
-  │
-  └── [第2段階] レース内配分（ダッチング）
-        各買い目の金額 = race_budget × (1/オッズi) ÷ Σ(1/オッズj)
-        → どの買い目が的中しても同額の払い戻し
-```
+---
 
-## 第1段階: レース間配分
+### Task 1: _calculate_confidence_factor の実装
 
-### 入力の変更
+**Files:**
+- Modify: `backend/agentcore/tools/bet_proposal.py` (定数セクション付近、L83あたりに追加)
+- Test: `backend/tests/agentcore/test_bet_proposal.py`
 
-| 項目 | 現状 | 新設計 |
-|------|------|--------|
-| ツール引数 | `budget: int`（1レース予算） | `bankroll: int`（1日の総資金） |
-| 後方互換 | - | `budget` 引数も残す。指定時はそのまま使用 |
-
-### 計算式
-
-```
-race_budget = bankroll × base_rate × confidence_factor
-```
-
-- `bankroll`: 1日の総資金（ユーザー入力）
-- `base_rate`: 基本投入率。デフォルト 0.03（3%）。ペルソナで変動
-- `confidence_factor`: 見送りスコアから算出。0.0〜2.0
-
-### confidence_factor の算出
-
-見送りスコア(0〜10)から線形マッピング:
+**Step 1: テストを書く**
 
 ```python
+class TestCalculateConfidenceFactor:
+    """信頼度係数算出のテスト."""
+
+    def test_見送りスコア0で最大値(self):
+        assert _calculate_confidence_factor(0) == 2.0
+
+    def test_見送りスコア5で約0_9(self):
+        result = _calculate_confidence_factor(5)
+        assert 0.85 <= result <= 0.95
+
+    def test_見送りスコア8で最低正値(self):
+        result = _calculate_confidence_factor(8)
+        assert 0.2 <= result <= 0.3
+
+    def test_見送りスコア9で見送り(self):
+        assert _calculate_confidence_factor(9) == 0.0
+
+    def test_見送りスコア10で見送り(self):
+        assert _calculate_confidence_factor(10) == 0.0
+
+    def test_スコアが高いほどfactorが小さい(self):
+        factors = [_calculate_confidence_factor(s) for s in range(9)]
+        for i in range(len(factors) - 1):
+            assert factors[i] >= factors[i + 1]
+```
+
+テストの import に `_calculate_confidence_factor` を追加する。
+
+**Step 2: テスト実行して失敗を確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestCalculateConfidenceFactor -v`
+Expected: FAIL (ImportError: cannot import name '_calculate_confidence_factor')
+
+**Step 3: 実装**
+
+`bet_proposal.py` の定数セクション末尾（L87の `MAX_AXIS_HORSES = 2` の後あたり）に追加:
+
+```python
+# 1レースあたりの予算上限（bankrollに対する割合）
+MAX_RACE_BUDGET_RATIO = 0.10
+
+# デフォルト基本投入率
+DEFAULT_BASE_RATE = 0.03
+
+
 def _calculate_confidence_factor(skip_score: int) -> float:
-    """見送りスコアから信頼度係数を算出する."""
+    """見送りスコアから信頼度係数を算出する.
+
+    見送りスコア(0-10)を0.0-2.0の連続値にマッピング。
+    スコア9以上は見送り（0.0）。
+
+    Args:
+        skip_score: 見送りスコア（0-10）
+
+    Returns:
+        信頼度係数（0.0-2.0）
+    """
     if skip_score >= 9:
-        return 0.0  # 見送り
-    # skip_score 0 → 2.0, skip_score 8 → 0.25
+        return 0.0
     return max(0.0, 2.0 - skip_score * (1.75 / 8))
 ```
 
-| 見送りスコア | confidence_factor | 解釈 |
-|------------|-------------------|------|
-| 0 | 2.00 | 最高自信。base_rateの2倍 |
-| 2 | 1.56 | 高自信 |
-| 4 | 1.13 | やや自信あり |
-| 5 | 0.91 | 標準 |
-| 6 | 0.69 | やや不安 |
-| 8 | 0.25 | 低自信。最低限 |
-| 9-10 | 0.00 | 見送り（配分ゼロ） |
+**Step 4: テスト実行して成功を確認**
 
-### ペルソナ別 base_rate
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestCalculateConfidenceFactor -v`
+Expected: PASS (6 passed)
 
-| ペルソナ | base_rate | 備考 |
-|---------|-----------|------|
-| analyst | 0.03 (3%) | 標準。バランス型 |
-| conservative | 0.02 (2%) | 保守的。1レースのリスクを抑える |
-| intuition | 0.03 (3%) | 標準 |
-| aggressive | 0.05 (5%) | 積極的。プロ推奨上限 |
+**Step 5: コミット**
 
-### 安全上限
-
-```python
-MAX_RACE_BUDGET_RATIO = 0.10  # bankrollの10%を絶対に超えない
-race_budget = min(race_budget, bankroll * MAX_RACE_BUDGET_RATIO)
+```bash
+git add backend/agentcore/tools/bet_proposal.py backend/tests/agentcore/test_bet_proposal.py
+git commit -m "feat: _calculate_confidence_factor を追加"
 ```
 
-## 第2段階: レース内配分（ダッチング）
+---
 
-### 買い目選定の変更
+### Task 2: _allocate_budget_dutching の実装
 
-| 項目 | 現状 | 新設計 |
-|------|------|--------|
-| 上限 | `MAX_BETS=8` で強制カット | なし。予算内で自然に決定 |
-| 足切り | トリガミ閾値（合成オッズ2.0倍未満除外） | 期待値 > 1.0 の買い目のみ採用 |
+**Files:**
+- Modify: `backend/agentcore/tools/bet_proposal.py` (Phase 5セクション、L928付近に追加)
+- Test: `backend/tests/agentcore/test_bet_proposal.py`
 
-### ダッチング配分の計算
+**Step 1: テストを書く**
+
+```python
+class TestAllocateBudgetDutching:
+    """ダッチング方式予算配分のテスト."""
+
+    def test_均等払い戻しになる(self):
+        """どの買い目が的中しても同額の払い戻しになる."""
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 1.2},
+            {"estimated_odds": 20.0, "expected_value": 1.1},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        # 各買い目の（金額 × オッズ）がほぼ同額になる
+        payouts = [b["amount"] * b["estimated_odds"] for b in result]
+        # 100円単位丸めの誤差を許容（最大と最小の差がオッズ×100以内）
+        assert max(payouts) - min(payouts) <= max(b["estimated_odds"] for b in result) * 100
+
+    def test_EV1以下の買い目は除外される(self):
+        """期待値が1.0以下の買い目は配分されない."""
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 0.8},  # 除外
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        assert len(result) == 1
+        assert result[0]["expected_value"] == 1.5
+
+    def test_全買い目EV1以下なら空リスト(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 0.9},
+            {"estimated_odds": 10.0, "expected_value": 0.5},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        assert result == []
+
+    def test_100円単位に丸められる(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 8.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        for b in result:
+            assert b["amount"] % 100 == 0
+
+    def test_合計がbudgetを超えない(self):
+        bets = [
+            {"estimated_odds": 3.0, "expected_value": 1.3},
+            {"estimated_odds": 5.0, "expected_value": 1.2},
+            {"estimated_odds": 8.0, "expected_value": 1.1},
+        ]
+        result = _allocate_budget_dutching(bets, 2000)
+        total = sum(b["amount"] for b in result)
+        assert total <= 2000
+
+    def test_空リスト入力(self):
+        result = _allocate_budget_dutching([], 3000)
+        assert result == []
+
+    def test_予算ゼロ(self):
+        bets = [{"estimated_odds": 5.0, "expected_value": 1.5}]
+        result = _allocate_budget_dutching(bets, 0)
+        assert all(b.get("amount", 0) == 0 for b in result) or result == bets
+
+    def test_composite_oddsが結果に含まれる(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        for b in result:
+            assert "composite_odds" in b
+
+    def test_最低賭け金未満の買い目が除外される(self):
+        """予算が少なく高オッズの買い目に100円配分できない場合は除外."""
+        bets = [
+            {"estimated_odds": 3.0, "expected_value": 1.5},
+            {"estimated_odds": 100.0, "expected_value": 1.1},  # 配分が100円未満
+        ]
+        result = _allocate_budget_dutching(bets, 300)
+        # 100倍の買い目は100円未満になるため除外されうる
+        assert all(b["amount"] >= 100 for b in result)
+
+    def test_低オッズの買い目に多く配分される(self):
+        """ダッチングではオッズが低い買い目に多く配分される."""
+        bets = [
+            {"estimated_odds": 3.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        low_odds = next(b for b in result if b["estimated_odds"] == 3.0)
+        high_odds = next(b for b in result if b["estimated_odds"] == 10.0)
+        assert low_odds["amount"] > high_odds["amount"]
+```
+
+テストの import に `_allocate_budget_dutching` を追加する。
+
+**Step 2: テスト実行して失敗を確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestAllocateBudgetDutching -v`
+Expected: FAIL (ImportError)
+
+**Step 3: 実装**
+
+`bet_proposal.py` のPhase 5セクション（L928付近）に `_allocate_budget` の後に追加:
 
 ```python
 def _allocate_budget_dutching(bets: list[dict], budget: int) -> list[dict]:
@@ -104,135 +226,365 @@ def _allocate_budget_dutching(bets: list[dict], budget: int) -> list[dict]:
 
     どの買い目が的中しても同額の払い戻しになるように、
     オッズの逆数に比例して配分する。
+
+    Args:
+        bets: 買い目候補リスト（estimated_odds, expected_value キーを持つ）
+        budget: 総予算（円）
+
+    Returns:
+        金額付き買い目リスト（期待値>1.0のもののみ）
     """
     if not bets or budget <= 0:
         return bets
 
-    # 期待値 > 1.0 の買い目のみ
     eligible = [b for b in bets if b.get("expected_value", 0) > 1.0]
     if not eligible:
         return []
 
-    # オッズ逆数の合計 = 合成オッズの逆数
-    inv_odds_sum = sum(1.0 / b["estimated_odds"] for b in eligible)
+    inv_odds_sum = sum(1.0 / float(b["estimated_odds"]) for b in eligible)
     composite_odds = 1.0 / inv_odds_sum
 
-    # 各買い目の金額 = 予算 × 合成オッズ ÷ オッズi
+    unit = MIN_BET_AMOUNT
     for bet in eligible:
-        raw = budget * composite_odds / bet["estimated_odds"]
-        bet["amount"] = max(MIN_BET_AMOUNT, math.floor(raw / MIN_BET_AMOUNT) * MIN_BET_AMOUNT)
+        raw = budget * composite_odds / float(bet["estimated_odds"])
+        bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
 
-    # 最低賭け金(100円)未満の買い目を除外して再計算
-    funded = [b for b in eligible if b.get("amount", 0) >= MIN_BET_AMOUNT]
+    funded = [b for b in eligible if b.get("amount", 0) >= unit]
     if len(funded) < len(eligible):
         return _allocate_budget_dutching(funded, budget)
 
-    # 余剰調整（丸め誤差分を配分が最も多い買い目に追加）
     total = sum(b["amount"] for b in funded)
     remaining = budget - total
-    if remaining >= MIN_BET_AMOUNT and funded:
-        funded[0]["amount"] += math.floor(remaining / MIN_BET_AMOUNT) * MIN_BET_AMOUNT
+    if remaining >= unit and funded:
+        funded[0]["amount"] += int(remaining // unit) * unit
 
-    # 合成オッズを結果に付与
+    final_inv_sum = sum(1.0 / float(b["estimated_odds"]) for b in funded)
+    final_composite = round(1.0 / final_inv_sum, 2) if final_inv_sum > 0 else 0
     for bet in funded:
-        bet["composite_odds"] = round(composite_odds, 2)
+        bet["composite_odds"] = final_composite
 
     return funded
 ```
 
-### 合成オッズの表示
+**Step 4: テスト実行して成功を確認**
 
-結果に `composite_odds` を含め、ユーザーにレース全体の収益性を示す。
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestAllocateBudgetDutching -v`
+Expected: PASS (10 passed)
 
-## 削除・変更する定数・関数
+**Step 5: コミット**
 
-### 削除
+```bash
+git add backend/agentcore/tools/bet_proposal.py backend/tests/agentcore/test_bet_proposal.py
+git commit -m "feat: _allocate_budget_dutching を追加"
+```
 
-| 対象 | 理由 |
-|------|------|
-| `MAX_BETS = 8` | 点数制限を撤廃 |
-| `ALLOCATION_HIGH / MEDIUM / LOW` | 信頼度別配分を廃止（ダッチングに置換） |
-| `SKIP_BUDGET_REDUCTION = 0.5` | confidence_factorに統合 |
-| `_assign_relative_confidence()` | 信頼度分類が不要に |
-| `_allocate_budget()` | `_allocate_budget_dutching()` に置換 |
+---
 
-### 変更
+### Task 3: ペルソナ設定に base_rate を追加
 
-| 対象 | 変更内容 |
-|------|---------|
-| `_generate_bet_candidates()` | `max_bets` パラメータ削除。`bets[:max_bets]` のスライスを除去 |
-| `_generate_bet_proposal_impl()` | `budget` → `bankroll` 対応。confidence_factor算出を追加 |
-| `generate_bet_proposal()` | `bankroll` 引数追加。`budget` は後方互換で残す |
-| ペルソナ設定 | `max_bets` → `base_rate` に変更。allocation系を削除 |
+**Files:**
+- Modify: `backend/agentcore/tools/bet_proposal.py` (CHARACTER_PROFILES, _DEFAULT_CONFIG)
+- Test: `backend/tests/agentcore/test_bet_proposal.py`
 
-## 後方互換
-
-- `budget` 引数が指定された場合はそのまま1レース予算として使用（従来動作）
-- `bankroll` 引数が指定された場合は新ロジックで race_budget を算出
-- 両方指定された場合は `bankroll` を優先
-
-## 出力の変更
+**Step 1: テストを書く**
 
 ```python
-# 現状
-{
-    "total_amount": 8000,
-    "budget_remaining": 2000,
-}
+class TestBaseRateConfig:
+    """base_rate設定のテスト."""
 
-# 新設計
-{
-    "total_amount": 1620,
-    "race_budget": 1620,           # このレースの予算
-    "composite_odds": 3.45,        # 合成オッズ
-    "confidence_factor": 1.8,      # 信頼度係数
-    "bankroll_usage_pct": 5.4,     # bankroll使用率(%)
-}
+    def test_デフォルトのbase_rateは003(self):
+        config = _get_character_config(None)
+        assert config["base_rate"] == 0.03
+
+    def test_conservativeのbase_rateは002(self):
+        config = _get_character_config("conservative")
+        assert config["base_rate"] == 0.02
+
+    def test_aggressiveのbase_rateは005(self):
+        config = _get_character_config("aggressive")
+        assert config["base_rate"] == 0.05
+
+    def test_全ペルソナにbase_rateが存在する(self):
+        for persona in ["analyst", "intuition", "conservative", "aggressive", None]:
+            config = _get_character_config(persona)
+            assert "base_rate" in config
+            assert 0 < config["base_rate"] <= 0.10
 ```
 
-## 具体例
+**Step 2: テスト実行して失敗を確認**
 
-### 例1: 自信のあるレース
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestBaseRateConfig -v`
+Expected: FAIL (KeyError: 'base_rate')
 
-```
-bankroll = 30,000円、base_rate = 3%
-見送りスコア = 2 → confidence_factor = 1.56
-race_budget = 30,000 × 0.03 × 1.56 = 1,404円
+**Step 3: 実装**
 
-EV>1.0 の買い目:
-  馬連 1-3  オッズ8.0  EV=1.25 → 金額: 500円
-  馬連 2-3  オッズ6.0  EV=1.10 → 金額: 500円
-  馬連 1-5  オッズ12.0 EV=1.15 → 金額: 200円
-  三連複 1-2-3 オッズ25.0 EV=1.30 → 金額: 100円
+`_DEFAULT_CONFIG` に `"base_rate": DEFAULT_BASE_RATE` を追加。
+`CHARACTER_PROFILES` に各ペルソナの `base_rate` を追加:
+- `"conservative"`: `"base_rate": 0.02`
+- `"aggressive"`: `"base_rate": 0.05`
+- `"analyst"`, `"intuition"` はデフォルト(0.03)を使用するため追加不要。
 
-→ 4点買い、合計1,300円、合成オッズ ≒ 2.26倍
-  どの買い目が的中しても約2,940円の払い戻し
-```
+**Step 4: テスト実行して成功を確認**
 
-### 例2: 不安なレース
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestBaseRateConfig -v`
+Expected: PASS (4 passed)
 
-```
-bankroll = 30,000円、base_rate = 3%
-見送りスコア = 7 → confidence_factor = 0.47
-race_budget = 30,000 × 0.03 × 0.47 = 423円
+**Step 5: コミット**
 
-EV>1.0 の買い目が2点 → ダッチングで2点に配分
-→ 2点買い、合計400円
+```bash
+git add backend/agentcore/tools/bet_proposal.py backend/tests/agentcore/test_bet_proposal.py
+git commit -m "feat: ペルソナ設定にbase_rateを追加"
 ```
 
-### 例3: 見送りレース
+---
 
+### Task 4: _generate_bet_candidates から MAX_BETS 制限を撤廃
+
+**Files:**
+- Modify: `backend/agentcore/tools/bet_proposal.py` (L616-889の_generate_bet_candidates)
+- Test: `backend/tests/agentcore/test_bet_proposal.py`
+
+**Step 1: テストを書く**
+
+```python
+class TestGenerateBetCandidatesNoMaxBets:
+    """MAX_BETS撤廃後の買い目生成テスト."""
+
+    def test_期待値プラスの買い目が8点以上でも全て返される(self):
+        """MAX_BETSによるカットがなくなったことを確認."""
+        runners = _make_runners(12)
+        preds = _make_ai_predictions(12)
+        axis = [
+            {"horse_number": 1, "composite_score": 100},
+            {"horse_number": 2, "composite_score": 90},
+        ]
+        result = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=preds,
+            bet_types=["quinella", "trio"],
+            total_runners=12,
+        )
+        # 旧仕様では8点が上限だったが、新仕様では8点を超えることがある
+        # （ただしトリガミ除外でそれ以下になる可能性もある）
+        # 少なくともmax_betsパラメータが無視されることを確認
+        assert isinstance(result, list)
 ```
-見送りスコア = 9 → confidence_factor = 0.0
-race_budget = 0円 → 見送り
+
+**Step 2: テスト実行（現時点で成功するかもしれないが確認）**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestGenerateBetCandidatesNoMaxBets -v`
+
+**Step 3: 実装**
+
+`_generate_bet_candidates` を変更:
+- `max_bets` パラメータのデフォルト値を `None` に変更（後方互換: 指定時はそのまま動作）
+- L880の `selected = bets[:max_bets]` を条件付きに:
+
+```python
+if max_bets is not None:
+    selected = bets[:max_bets]
+else:
+    selected = bets
 ```
 
-## テスト方針
+- `_assign_relative_confidence(selected)` の呼び出しはそのまま残す（ダッチング配分では使わないが、後方互換のbudgetモードで使う）
 
-1. `_calculate_confidence_factor()` の境界値テスト
-2. `_allocate_budget_dutching()` の配分が均等払い戻しになることの検証
-3. 期待値足切り: EV <= 1.0 の買い目が除外されること
-4. 最低賭け金(100円)未満の買い目が再帰的に除外されること
-5. `bankroll` / `budget` の後方互換テスト
-6. 安全上限(10%)を超えないこと
-7. 合成オッズの計算精度
+**Step 4: テスト実行。既存テストも全て通ることを確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py -v`
+Expected: ALL PASS
+
+**Step 5: コミット**
+
+```bash
+git add backend/agentcore/tools/bet_proposal.py backend/tests/agentcore/test_bet_proposal.py
+git commit -m "feat: _generate_bet_candidates のMAX_BETS強制カットを条件付きに変更"
+```
+
+---
+
+### Task 5: _generate_bet_proposal_impl に bankroll モードを追加
+
+**Files:**
+- Modify: `backend/agentcore/tools/bet_proposal.py` (L1324-1488の_generate_bet_proposal_impl)
+- Test: `backend/tests/agentcore/test_bet_proposal.py`
+
+**Step 1: テストを書く**
+
+```python
+class TestBankrollMode:
+    """bankrollモードの統合テスト."""
+
+    def test_bankroll指定でrace_budgetが自動算出される(self):
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=30000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert result["race_budget"] > 0
+        assert result["confidence_factor"] > 0
+
+    def test_budget指定で従来動作(self):
+        """budget指定時は従来の信頼度別配分が使われる."""
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=5000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert result["total_amount"] <= 5000
+
+    def test_bankrollの10パーセントを超えない(self):
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=10000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert result["total_amount"] <= 10000 * 0.10
+
+    def test_見送りスコアが高いとrace_budgetが小さくなる(self):
+        """見送りスコアが高い場合、予算が少なくなる."""
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        # 見送りスコアは内部で算出されるため、直接制御は難しいが
+        # bankroll_usage_pctが含まれることを確認
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=30000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        assert "bankroll_usage_pct" in result
+
+    def test_bankrollモードでcomposite_oddsが出力される(self):
+        runners = _make_runners(8)
+        preds = _make_ai_predictions(8)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=0,
+            bankroll=30000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=8,
+        )
+        if result["proposed_bets"]:
+            assert "composite_odds" in result["proposed_bets"][0]
+```
+
+**Step 2: テスト実行して失敗を確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py::TestBankrollMode -v`
+Expected: FAIL (TypeError: unexpected keyword argument 'bankroll')
+
+**Step 3: 実装**
+
+`_generate_bet_proposal_impl` に変更を加える:
+
+1. `bankroll: int = 0` パラメータを追加
+2. bankroll > 0 の場合:
+   - `_assess_skip_recommendation()` から `skip_score` を取得
+   - `confidence_factor = _calculate_confidence_factor(skip_score)`
+   - `race_budget = min(bankroll * config["base_rate"] * confidence_factor, bankroll * MAX_RACE_BUDGET_RATIO)`
+   - `race_budget` を100円単位に丸め
+   - `_generate_bet_candidates()` を `max_bets=None` で呼び出し
+   - `_allocate_budget_dutching()` で配分
+3. bankroll == 0 (かつ budget > 0)の場合: 従来ロジックをそのまま使用
+4. 出力に `race_budget`, `composite_odds`, `confidence_factor`, `bankroll_usage_pct` を追加
+
+**Step 4: テスト実行。既存テストも全て通ることを確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py -v`
+Expected: ALL PASS
+
+**Step 5: コミット**
+
+```bash
+git add backend/agentcore/tools/bet_proposal.py backend/tests/agentcore/test_bet_proposal.py
+git commit -m "feat: _generate_bet_proposal_impl にbankrollモードを追加"
+```
+
+---
+
+### Task 6: @tool 関数に bankroll 引数を追加
+
+**Files:**
+- Modify: `backend/agentcore/tools/bet_proposal.py` (L1718-の generate_bet_proposal)
+
+**Step 1: 実装**
+
+`generate_bet_proposal` の引数に `bankroll: int = 0` を追加し、`_generate_bet_proposal_impl` に渡す。docstring も更新。
+
+```python
+@tool
+def generate_bet_proposal(
+    race_id: str,
+    budget: int = 0,
+    bankroll: int = 0,
+    preferred_bet_types: list[str] | None = None,
+    axis_horses: list[int] | None = None,
+    character_type: str | None = None,
+    max_bets: int | None = None,
+) -> dict:
+```
+
+**Step 2: 既存テストが全て通ることを確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py -v`
+Expected: ALL PASS
+
+**Step 3: コミット**
+
+```bash
+git add backend/agentcore/tools/bet_proposal.py
+git commit -m "feat: generate_bet_proposal にbankroll引数を追加"
+```
+
+---
+
+### Task 7: 全テスト実行 & リグレッション確認
+
+**Step 1: 全テスト実行**
+
+Run: `cd backend && uv run pytest -v`
+Expected: ALL PASS（既存テストがリグレッションしていないこと）
+
+**Step 2: 必要があれば修正してコミット**
+
+既存テストの import に不足がある場合は修正。特に `_allocate_budget` と `_assign_relative_confidence` は残すため、import エラーは発生しない想定。
+
+---
+
+### Task 8: 不要な定数・コードのクリーンアップ
+
+既存の `_allocate_budget`, `_assign_relative_confidence` は **削除しない**。`budget` モード（後方互換）で使い続けるため。ただし以下を対応:
+
+- `MAX_BETS` 定数のコメントにデフォルト値であり強制上限ではない旨を追記
+- `SKIP_BUDGET_REDUCTION` は bankroll モードでは使わないが、budget モードの後方互換で残す
+
+**Step 1: コメント更新して既存テスト確認**
+
+Run: `cd backend && uv run pytest tests/agentcore/test_bet_proposal.py -v`
+Expected: ALL PASS
+
+**Step 2: コミット**
+
+```bash
+git add backend/agentcore/tools/bet_proposal.py
+git commit -m "docs: 定数コメントを更新（bankrollモード対応）"
+```
