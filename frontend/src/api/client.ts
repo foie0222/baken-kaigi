@@ -522,7 +522,7 @@ class ApiClient {
     }
     const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
 
-    const prompt = `レースID ${raceId} について、予算${budget}円でgenerate_bet_proposalツールを使って買い目提案を生成してください。${optionText}`;
+    const prompt = `レースID ${raceId} について、予算${budget}円で買い目提案を生成してください。${optionText}`;
     const request: AgentCoreConsultationRequest = {
       prompt,
       cart_items: [],

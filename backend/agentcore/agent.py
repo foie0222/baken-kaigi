@@ -191,10 +191,11 @@ def invoke(payload: dict, context: Any) -> dict:
     )
     logger.info(f"Question category: {category}")
 
-    # カテゴリ別のプロンプト補助指示を前置き
-    category_instruction = CATEGORY_INSTRUCTIONS.get(category)
-    if category_instruction:
-        user_message = f"{category_instruction}\n\n{user_message}"
+    # カテゴリ別のプロンプト補助指示を前置き（bet_proposalは専用プロンプトがあるためスキップ）
+    if request_type != "bet_proposal":
+        category_instruction = CATEGORY_INSTRUCTIONS.get(category)
+        if category_instruction:
+            user_message = f"{category_instruction}\n\n{user_message}"
 
     # エージェント実行（カテゴリ別ツール選択で遅延初期化）
     agent = _get_agent(request_type, character_type, category=category, agent_data=agent_data)
