@@ -3,6 +3,7 @@
 import sys
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 # agentcoreモジュールをインポートできるようにパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
@@ -13,6 +14,7 @@ from tools.bet_proposal import (
     _calculate_confidence_factor,
     _calculate_form_score,
     _calculate_speed_index_score,
+    _invoke_haiku_narrator,
     _select_axis_horses,
     _select_bet_types_by_difficulty,
     _generate_bet_candidates,
@@ -1559,6 +1561,66 @@ class TestBuildNarrationContext:
             pred["score"] = Decimal(str(pred["score"]))
         ctx = _build_narration_context(**args)
         assert len(ctx["axis_horses"]) == 2
+
+
+class TestInvokeHaikuNarrator:
+    """_invoke_haiku_narrator のテスト."""
+
+    def _make_context(self) -> dict:
+        """テスト用の最小コンテキストを返す."""
+        return {
+            "axis_horses": [
+                {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0,
+                 "ai_rank": 1, "ai_score": 100, "odds": 3.5},
+            ],
+            "partner_horses": [
+                {"horse_number": 3, "horse_name": "テスト馬3", "ai_rank": 3, "max_expected_value": 1.5},
+            ],
+            "difficulty": {"difficulty_stars": 3, "difficulty_label": "標準"},
+            "predicted_pace": "ミドル",
+            "ai_consensus": "概ね合意",
+            "skip": {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
+            "bets": [
+                {
+                    "bet_type_name": "馬連", "horse_numbers": [1, 3],
+                    "expected_value": 1.8, "composite_odds": 8.5, "confidence": "high",
+                },
+            ],
+        }
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_正常時にLLM生成テキストを返す(self, mock_haiku):
+        """mockが有効な4セクションテキストを返す場合、resultに全4セクションが含まれる."""
+        mock_haiku.return_value = (
+            "【軸馬選定】1番テスト馬1をAI指数1位で軸に選定。\n\n"
+            "【券種】レース難易度★★★のため馬連を選定。\n\n"
+            "【組み合わせ】相手は3番テスト馬3。\n\n"
+            "【リスク】AI合議「概ね合意」。見送りスコア3/10。"
+        )
+        ctx = self._make_context()
+        result = _invoke_haiku_narrator(ctx)
+        assert result is not None
+        assert "【軸馬選定】" in result
+        assert "【券種】" in result
+        assert "【組み合わせ】" in result
+        assert "【リスク】" in result
+        mock_haiku.assert_called_once()
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLMが4セクション返さない場合はNoneを返す(self, mock_haiku):
+        """mockが不完全な回答を返す場合、resultはNone."""
+        mock_haiku.return_value = "不完全な回答です"
+        ctx = self._make_context()
+        result = _invoke_haiku_narrator(ctx)
+        assert result is None
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_API例外時はNoneを返す(self, mock_haiku):
+        """mockがExceptionを発生させる場合、resultはNone."""
+        mock_haiku.side_effect = Exception("ServiceUnavailable")
+        ctx = self._make_context()
+        result = _invoke_haiku_narrator(ctx)
+        assert result is None
 
 
 # =============================================================================
