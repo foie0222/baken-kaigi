@@ -9,6 +9,7 @@ from src.application.use_cases import (
     UpdateAgentUseCase,
 )
 from src.domain.enums import AgentStyle
+from src.domain.value_objects import BettingPreference
 from src.infrastructure.repositories.in_memory_agent_repository import InMemoryAgentRepository
 
 
@@ -107,3 +108,57 @@ class TestUpdateAgentUseCase:
         update_uc = UpdateAgentUseCase(repo)
         with pytest.raises(ValueError):
             update_uc.execute("usr_001", base_style="invalid")
+
+
+class TestUpdateAgentPreferenceUseCase:
+    """エージェント好み設定更新のテスト."""
+
+    def test_好み設定を更新できる(self):
+        repo = InMemoryAgentRepository()
+        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ", "solid")
+        uc = UpdateAgentUseCase(repo)
+
+        result = uc.execute(
+            "usr_001",
+            betting_preference={
+                "bet_type_preference": "trio_focused",
+                "target_style": "big_longshot",
+                "priority": "roi",
+            },
+            custom_instructions="三連単が好き",
+        )
+        assert result.agent.betting_preference.bet_type_preference.value == "trio_focused"
+        assert result.agent.custom_instructions == "三連単が好き"
+
+    def test_好み設定のみ更新でbase_styleは変わらない(self):
+        repo = InMemoryAgentRepository()
+        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ", "solid")
+        uc = UpdateAgentUseCase(repo)
+
+        result = uc.execute(
+            "usr_001",
+            betting_preference={
+                "bet_type_preference": "wide_focused",
+                "target_style": "honmei",
+                "priority": "hit_rate",
+            },
+        )
+        assert result.agent.base_style == AgentStyle.SOLID
+        assert result.agent.betting_preference.bet_type_preference.value == "wide_focused"
+
+    def test_base_styleと好み設定を同時に更新できる(self):
+        repo = InMemoryAgentRepository()
+        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ", "solid")
+        uc = UpdateAgentUseCase(repo)
+
+        result = uc.execute(
+            "usr_001",
+            base_style="longshot",
+            betting_preference={
+                "bet_type_preference": "exacta_focused",
+                "target_style": "big_longshot",
+                "priority": "roi",
+            },
+        )
+        assert result.agent.base_style == AgentStyle.LONGSHOT
+        assert result.agent.betting_preference.bet_type_preference.value == "exacta_focused"

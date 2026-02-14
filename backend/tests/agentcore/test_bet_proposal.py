@@ -3,15 +3,18 @@
 import sys
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 # agentcoreモジュールをインポートできるようにパスを追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
 from tools.bet_proposal import (
+    _build_narration_context,
     _calculate_composite_score,
     _calculate_confidence_factor,
     _calculate_form_score,
     _calculate_speed_index_score,
+    _invoke_haiku_narrator,
     _select_axis_horses,
     _select_bet_types_by_difficulty,
     _generate_bet_candidates,
@@ -23,11 +26,13 @@ from tools.bet_proposal import (
     _generate_bet_proposal_impl,
     _generate_proposal_reasoning,
     _get_character_config,
+    _get_preference_config,
     _compute_unified_win_probabilities,
     _calculate_ev_from_unified_prob,
     _calculate_combination_ev,
     CHARACTER_PROFILES,
     _DEFAULT_CONFIG,
+    MAX_PARTNERS,
     SKIP_GATE_THRESHOLD,
     TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
 )
@@ -460,10 +465,11 @@ class TestTorigamiExclusion:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestSkipGate:
     """見送りゲートのテスト."""
 
-    def test_見送りスコア7以上で予算半減(self):
+    def test_見送りスコア7以上で予算半減(self, mock_narrator):
         """見送りスコアが7以上の場合、予算が50%削減される."""
         runners = _make_runners(18)
         # 混戦AI予想
@@ -486,7 +492,7 @@ class TestSkipGate:
             # total_amount + budget_remaining <= 5000 (10000 * 0.5)
             assert result["total_amount"] + result["budget_remaining"] <= 5000
 
-    def test_通常レースでは予算削減なし(self):
+    def test_通常レースでは予算削減なし(self, mock_narrator):
         """通常レースでは予算は削減されない."""
         runners = _make_runners(8)
         ai_preds = _make_ai_predictions(8)
@@ -547,10 +553,11 @@ class TestAiConsensus:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestOutputFormat:
     """出力フォーマットのテスト."""
 
-    def test_必須フィールドが存在する(self):
+    def test_必須フィールドが存在する(self, mock_narrator):
         """出力に必須フィールドが全て含まれる."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -570,7 +577,7 @@ class TestOutputFormat:
         assert "analysis_comment" in result
         assert "disclaimer" in result
 
-    def test_race_summaryの必須フィールド(self):
+    def test_race_summaryの必須フィールド(self, mock_narrator):
         """race_summaryに必須フィールドが含まれる."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -588,7 +595,7 @@ class TestOutputFormat:
         assert "skip_score" in summary
         assert "skip_recommendation" in summary
 
-    def test_proposed_betsの各要素に必須フィールドがある(self):
+    def test_proposed_betsの各要素に必須フィールドがある(self, mock_narrator):
         """各買い目に必須フィールドが含まれる."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -608,7 +615,7 @@ class TestOutputFormat:
             assert "composite_odds" in bet
             assert "reasoning" in bet
 
-    def test_disclaimerが含まれる(self):
+    def test_disclaimerが含まれる(self, mock_narrator):
         """免責事項が含まれる."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -621,7 +628,7 @@ class TestOutputFormat:
         )
         assert "最終判断" in result["disclaimer"]
 
-    def test_total_amountはbudgetを超えない(self):
+    def test_total_amountはbudgetを超えない(self, mock_narrator):
         """合計金額は予算を超えない."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -687,10 +694,11 @@ class TestTrioBets:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestIntegration:
     """統合テスト."""
 
-    def test_全体フロー_12頭G1(self):
+    def test_全体フロー_12頭G1(self, mock_narrator):
         """12頭G1レースの全体フローが正常に動作する."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -713,7 +721,7 @@ class TestIntegration:
         assert result["total_amount"] > 0
         assert result["total_amount"] <= 10000
 
-    def test_全体フロー_ユーザー指定軸馬(self):
+    def test_全体フロー_ユーザー指定軸馬(self, mock_narrator):
         """ユーザー指定の軸馬でも正常に動作する."""
         runners = _make_runners(16)
         ai_preds = _make_ai_predictions(16)
@@ -730,7 +738,7 @@ class TestIntegration:
         for bet in result["proposed_bets"]:
             assert 5 in bet["horse_numbers"] or 8 in bet["horse_numbers"]
 
-    def test_全体フロー_ユーザー指定券種(self):
+    def test_全体フロー_ユーザー指定券種(self, mock_narrator):
         """ユーザー指定の券種でも正常に動作する."""
         runners = _make_runners(14)
         ai_preds = _make_ai_predictions(14)
@@ -747,7 +755,7 @@ class TestIntegration:
             assert bet["bet_type"] == "quinella_place"
 
 
-    def test_全体フロー_単勝指定で買い目が生成される(self):
+    def test_全体フロー_単勝指定で買い目が生成される(self, mock_narrator):
         """preferred_bet_types=['win']で単勝の買い目が生成される."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -766,7 +774,7 @@ class TestIntegration:
             assert len(bet["horse_numbers"]) == 1
             assert bet["bet_count"] == 1
 
-    def test_全体フロー_複勝指定で買い目が生成される(self):
+    def test_全体フロー_複勝指定で買い目が生成される(self, mock_narrator):
         """preferred_bet_types=['place']で複勝の買い目が生成される."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -888,10 +896,11 @@ def _make_decimal_ai_predictions(count: int) -> list[dict]:
     return preds
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestDecimalCompatibility:
     """DynamoDB Decimal型との互換性テスト."""
 
-    def test_複合スコア計算でDecimal型のrankを処理できる(self):
+    def test_複合スコア計算でDecimal型のrankを処理できる(self, mock_narrator):
         """AI予想のrankがDecimal型でもTypeErrorにならない."""
         runners = _make_runners(12)
         ai_preds = _make_decimal_ai_predictions(12)
@@ -899,7 +908,7 @@ class TestDecimalCompatibility:
         assert isinstance(score, float)
         assert score > 0
 
-    def test_軸馬選定でDecimal型のAI予想を処理できる(self):
+    def test_軸馬選定でDecimal型のAI予想を処理できる(self, mock_narrator):
         """Decimal型のAI予想データでも軸馬選定が正常動作する."""
         runners = _make_runners(12)
         ai_preds = _make_decimal_ai_predictions(12)
@@ -907,13 +916,13 @@ class TestDecimalCompatibility:
         assert len(result) >= 1
         assert all(isinstance(a["composite_score"], float) for a in result)
 
-    def test_AI合議レベル判定でDecimal型のscoreを処理できる(self):
+    def test_AI合議レベル判定でDecimal型のscoreを処理できる(self, mock_narrator):
         """AI予想のscoreがDecimal型でも合議レベル判定が正常動作する."""
         ai_preds = _make_decimal_ai_predictions(12)
         result = _assess_ai_consensus(ai_preds)
         assert result in ("明確な上位", "やや接戦", "概ね合意", "データ不足", "混戦")
 
-    def test_買い目生成でDecimal型のAI予想を処理できる(self):
+    def test_買い目生成でDecimal型のAI予想を処理できる(self, mock_narrator):
         """Decimal型のAI予想データでも買い目生成が正常動作する."""
         runners = _make_runners(12)
         ai_preds = _make_decimal_ai_predictions(12)
@@ -927,7 +936,7 @@ class TestDecimalCompatibility:
         )
         assert len(bets) > 0
 
-    def test_統合提案でDecimal型のAI予想を処理できる(self):
+    def test_統合提案でDecimal型のAI予想を処理できる(self, mock_narrator):
         """Decimal型のAI予想データでも統合提案が正常動作する."""
         runners = _make_runners(12)
         ai_preds = _make_decimal_ai_predictions(12)
@@ -946,10 +955,11 @@ class TestDecimalCompatibility:
         assert isinstance(result["proposed_bets"], list)
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestPopularityNoneHandling:
     """人気データ未取得時のハンドリングテスト."""
 
-    def test_popularityがNoneの場合にスコアが異常に膨張しない(self):
+    def test_popularityがNoneの場合にスコアが異常に膨張しない(self, mock_narrator):
         """popularityがNoneの場合、オッズ乖離ボーナスが誤って付与されない."""
         runners = _make_runners(12, with_odds=False)
         # popularity を None にする（オッズ未発売の状態）
@@ -960,7 +970,7 @@ class TestPopularityNoneHandling:
         # popularity不明でもスコアが100にならないこと（以前は276→100に膨張していた）
         assert score < 100
 
-    def test_popularityが0の場合にスコアが異常に膨張しない(self):
+    def test_popularityが0の場合にスコアが異常に膨張しない(self, mock_narrator):
         """popularityが0の場合、オッズ乖離ボーナスが誤って付与されない."""
         runners = _make_runners(12, with_odds=False)
         for r in runners:
@@ -969,7 +979,7 @@ class TestPopularityNoneHandling:
         score = _calculate_composite_score(1, runners, ai_preds)
         assert score < 100
 
-    def test_oddsもpopularityもないケースで買い目生成できる(self):
+    def test_oddsもpopularityもないケースで買い目生成できる(self, mock_narrator):
         """オッズ・人気データなしでも買い目提案がエラーなく完了する."""
         runners = _make_runners(12, with_odds=False)
         for r in runners:
@@ -986,7 +996,7 @@ class TestPopularityNoneHandling:
         assert "error" not in result
         assert "proposed_bets" in result
 
-    def test_オッズ未発売時に信頼度が全てhighにならない(self):
+    def test_オッズ未発売時に信頼度が全てhighにならない(self, mock_narrator):
         """オッズ・人気データなしの場合、信頼度が分散される."""
         runners = _make_runners(12, with_odds=False)
         for r in runners:
@@ -1220,10 +1230,11 @@ class TestCharacterProfiles:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestMaxBetsParameter:
     """max_bets パラメータのテスト."""
 
-    def test_max_bets_3で最大3点(self):
+    def test_max_bets_3で最大3点(self, mock_narrator):
         """max_bets=3 指定で最大3点."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -1237,7 +1248,7 @@ class TestMaxBetsParameter:
         )
         assert len(result["proposed_bets"]) <= 3
 
-    def test_max_bets未指定でデフォルト8点(self):
+    def test_max_bets未指定でデフォルト8点(self, mock_narrator):
         """max_bets 未指定でデフォルト MAX_BETS=8."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -1250,7 +1261,7 @@ class TestMaxBetsParameter:
         )
         assert len(result["proposed_bets"]) <= 8
 
-    def test_conservativeのデフォルトmax_betsは5(self):
+    def test_conservativeのデフォルトmax_betsは5(self, mock_narrator):
         """character_type='conservative' のデフォルト max_bets は 5."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -1264,7 +1275,7 @@ class TestMaxBetsParameter:
         )
         assert len(result["proposed_bets"]) <= 5
 
-    def test_ユーザーmax_betsがペルソナデフォルトを上書き(self):
+    def test_ユーザーmax_betsがペルソナデフォルトを上書き(self, mock_narrator):
         """ユーザー max_bets=8 が conservative デフォルト5を上書き."""
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
@@ -1317,6 +1328,7 @@ class TestCharacterConfigPropagation:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestGenerateProposalReasoning:
     """_generate_proposal_reasoning のテスト."""
 
@@ -1354,21 +1366,21 @@ class TestGenerateProposalReasoning:
             runners_data=runners,
         )
 
-    def test_提案根拠が文字列を返す(self):
+    def test_提案根拠が文字列を返す(self, mock_narrator):
         """_generate_proposal_reasoning は文字列を返す."""
         args = self._make_reasoning_args()
         result = _generate_proposal_reasoning(**args)
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_軸馬の馬番とAI順位が含まれる(self):
+    def test_軸馬の馬番とAI順位が含まれる(self, mock_narrator):
         """軸馬の馬番とAI順位が根拠テキストに含まれる."""
         args = self._make_reasoning_args()
         result = _generate_proposal_reasoning(**args)
         assert "1番テスト馬1" in result
         assert "AI指数1位" in result
 
-    def test_4セクションが全て含まれる(self):
+    def test_4セクションが全て含まれる(self, mock_narrator):
         """【軸馬選定】【券種】【組み合わせ】【リスク】の4セクションが含まれる."""
         args = self._make_reasoning_args()
         result = _generate_proposal_reasoning(**args)
@@ -1377,20 +1389,20 @@ class TestGenerateProposalReasoning:
         assert "【組み合わせ】" in result
         assert "【リスク】" in result
 
-    def test_券種が自動選定の場合に難易度が言及される(self):
+    def test_券種が自動選定の場合に難易度が言及される(self, mock_narrator):
         """preferred_bet_types未指定時はレース難易度が言及される."""
         args = self._make_reasoning_args(preferred_bet_types=None)
         result = _generate_proposal_reasoning(**args)
         assert "レース難易度" in result
         assert "自動選定" in result
 
-    def test_券種がユーザー指定の場合にその旨が言及される(self):
+    def test_券種がユーザー指定の場合にその旨が言及される(self, mock_narrator):
         """preferred_bet_types指定時は「ユーザー指定」が言及される."""
         args = self._make_reasoning_args(preferred_bet_types=["quinella"])
         result = _generate_proposal_reasoning(**args)
         assert "ユーザー指定" in result
 
-    def test_相手馬の期待値が含まれる(self):
+    def test_相手馬の期待値が含まれる(self, mock_narrator):
         """組み合わせセクションに相手馬の期待値が含まれる."""
         args = self._make_reasoning_args()
         result = _generate_proposal_reasoning(**args)
@@ -1398,25 +1410,25 @@ class TestGenerateProposalReasoning:
         assert "3番" in result
         assert "期待値" in result
 
-    def test_見送りスコアが高い場合にリスク言及が含まれる(self):
+    def test_見送りスコアが高い場合にリスク言及が含まれる(self, mock_narrator):
         """見送りスコアが閾値以上の場合に予算削減の言及がある."""
         args = self._make_reasoning_args(skip_score=8)
         result = _generate_proposal_reasoning(**args)
         assert "予算50%削減" in result
 
-    def test_見送りスコアが低い場合に積極参戦が含まれる(self):
+    def test_見送りスコアが低い場合に積極参戦が含まれる(self, mock_narrator):
         """見送りスコアが低い場合は積極参戦レベルと表示される."""
         args = self._make_reasoning_args(skip_score=2)
         result = _generate_proposal_reasoning(**args)
         assert "積極参戦" in result
 
-    def test_AI合議レベルが含まれる(self):
+    def test_AI合議レベルが含まれる(self, mock_narrator):
         """リスクセクションにAI合議レベルが含まれる."""
         args = self._make_reasoning_args()
         result = _generate_proposal_reasoning(**args)
         assert "AI合議「概ね合意」" in result
 
-    def test_Decimal型のAI予想データでもエラーにならない(self):
+    def test_Decimal型のAI予想データでもエラーにならない(self, mock_narrator):
         """DynamoDB Decimal型のデータでも正常に動作する."""
         args = self._make_reasoning_args()
         # AI予想データをDecimal型に変換
@@ -1429,10 +1441,11 @@ class TestGenerateProposalReasoning:
         assert "【軸馬選定】" in result
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestProposalReasoningInImpl:
     """_generate_bet_proposal_impl の返却dictに proposal_reasoning が含まれることのテスト."""
 
-    def test_返却dictにproposal_reasoningキーが存在する(self):
+    def test_返却dictにproposal_reasoningキーが存在する(self, mock_narrator):
         """_generate_bet_proposal_impl の結果に proposal_reasoning がある."""
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
@@ -1446,7 +1459,7 @@ class TestProposalReasoningInImpl:
         assert isinstance(result["proposal_reasoning"], str)
         assert len(result["proposal_reasoning"]) > 0
 
-    def test_proposal_reasoningとanalysis_commentが両方存在する(self):
+    def test_proposal_reasoningとanalysis_commentが両方存在する(self, mock_narrator):
         """proposal_reasoning を追加しても analysis_comment は維持される."""
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
@@ -1461,6 +1474,167 @@ class TestProposalReasoningInImpl:
         # 両方が異なる内容（proposal_reasoningはセクション付き）
         assert "【軸馬選定】" in result["proposal_reasoning"]
         assert "【軸馬選定】" not in result["analysis_comment"]
+
+
+class TestBuildNarrationContext:
+    """_build_narration_context のテスト."""
+
+    def _make_reasoning_args(self):
+        """TestProposalReasoning と同じテストデータ."""
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        axis_horses = [
+            {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
+            {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 72.0},
+        ]
+        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
+        skip = {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"}
+        bets = [
+            {
+                "bet_type": "quinella", "bet_type_name": "馬連",
+                "horse_numbers": [1, 3], "expected_value": 1.8,
+                "composite_odds": 8.5, "confidence": "high",
+            },
+        ]
+        return dict(
+            axis_horses=axis_horses,
+            difficulty=difficulty,
+            predicted_pace="ミドル",
+            ai_consensus="概ね合意",
+            skip=skip,
+            bets=bets,
+            preferred_bet_types=None,
+            ai_predictions=ai_preds,
+            runners_data=runners,
+        )
+
+    def test_必須キーが全て含まれる(self):
+        """context dictに必要なキーが全て存在する."""
+        args = self._make_reasoning_args()
+        ctx = _build_narration_context(**args)
+        required_keys = {
+            "axis_horses", "partner_horses", "difficulty",
+            "predicted_pace", "ai_consensus", "skip", "bets",
+        }
+        assert required_keys.issubset(ctx.keys())
+
+    def test_軸馬にAI順位とスコアが付与される(self):
+        """axis_horses の各要素に ai_rank, ai_score が含まれる."""
+        args = self._make_reasoning_args()
+        ctx = _build_narration_context(**args)
+        for horse in ctx["axis_horses"]:
+            assert "ai_rank" in horse
+            assert "ai_score" in horse
+            assert isinstance(horse["ai_rank"], int)
+            assert isinstance(horse["ai_score"], float)
+
+    def test_相手馬が抽出される(self):
+        """betsから軸馬以外の馬番が partner_horses に含まれる."""
+        args = self._make_reasoning_args()
+        ctx = _build_narration_context(**args)
+        assert len(ctx["partner_horses"]) > 0
+        partner_numbers = {p["horse_number"] for p in ctx["partner_horses"]}
+        axis_numbers = {1, 2}
+        assert partner_numbers.isdisjoint(axis_numbers)
+
+    def test_スピード指数の生データが含まれる(self):
+        """speed_index_data が渡された場合、context に speed_index_raw が含まれる."""
+        args = self._make_reasoning_args()
+        args["speed_index_data"] = {
+            "horses": {1: {"indices": [80, 85], "avg": 82.5}},
+        }
+        ctx = _build_narration_context(**args)
+        assert "speed_index_raw" in ctx
+
+    def test_スピード指数なしの場合はキーが存在しない(self):
+        """speed_index_data が None の場合、speed_index_raw は含まれない."""
+        args = self._make_reasoning_args()
+        args["speed_index_data"] = None
+        ctx = _build_narration_context(**args)
+        assert "speed_index_raw" not in ctx
+
+    def test_過去成績の生データが含まれる(self):
+        """past_performance_data が渡された場合、context に past_performance_raw が含まれる."""
+        args = self._make_reasoning_args()
+        args["past_performance_data"] = {
+            "horses": {1: {"results": [1, 3, 2]}},
+        }
+        ctx = _build_narration_context(**args)
+        assert "past_performance_raw" in ctx
+
+    def test_Decimal型データでもエラーにならない(self):
+        """DynamoDB Decimal 型でも正常動作する."""
+        args = self._make_reasoning_args()
+        for pred in args["ai_predictions"]:
+            pred["horse_number"] = Decimal(str(pred["horse_number"]))
+            pred["rank"] = Decimal(str(pred["rank"]))
+            pred["score"] = Decimal(str(pred["score"]))
+        ctx = _build_narration_context(**args)
+        assert len(ctx["axis_horses"]) == 2
+
+
+class TestInvokeHaikuNarrator:
+    """_invoke_haiku_narrator のテスト."""
+
+    def _make_context(self) -> dict:
+        """テスト用の最小コンテキストを返す."""
+        return {
+            "axis_horses": [
+                {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0,
+                 "ai_rank": 1, "ai_score": 100, "odds": 3.5},
+            ],
+            "partner_horses": [
+                {"horse_number": 3, "horse_name": "テスト馬3", "ai_rank": 3, "max_expected_value": 1.5},
+            ],
+            "difficulty": {"difficulty_stars": 3, "difficulty_label": "標準"},
+            "predicted_pace": "ミドル",
+            "ai_consensus": "概ね合意",
+            "skip": {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
+            "bets": [
+                {
+                    "bet_type_name": "馬連", "horse_numbers": [1, 3],
+                    "expected_value": 1.8, "composite_odds": 8.5, "confidence": "high",
+                },
+            ],
+        }
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_正常時にLLM生成テキストを返す(self, mock_haiku):
+        """mockが有効な4セクションテキストを返す場合、resultに全4セクションが含まれる."""
+        mock_haiku.return_value = (
+            "【軸馬選定】1番テスト馬1をAI指数1位で軸に選定。\n\n"
+            "【券種】レース難易度★★★のため馬連を選定。\n\n"
+            "【組み合わせ】相手は3番テスト馬3。\n\n"
+            "【リスク】AI合議「概ね合意」。見送りスコア3/10。"
+        )
+        ctx = self._make_context()
+        result = _invoke_haiku_narrator(ctx)
+        assert result is not None
+        assert "【軸馬選定】" in result
+        assert "【券種】" in result
+        assert "【組み合わせ】" in result
+        assert "【リスク】" in result
+        mock_haiku.assert_called_once()
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLMが4セクション返さない場合はNoneを返す(self, mock_haiku):
+        """mockが不完全な回答を返す場合、resultはNone."""
+        mock_haiku.return_value = "不完全な回答です"
+        ctx = self._make_context()
+        result = _invoke_haiku_narrator(ctx)
+        assert result is None
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_API例外時はNoneを返す(self, mock_haiku):
+        """mockがClientErrorを発生させる場合、resultはNone."""
+        from botocore.exceptions import ClientError
+        mock_haiku.side_effect = ClientError(
+            {"Error": {"Code": "ServiceUnavailableException", "Message": "Service Unavailable"}},
+            "Converse",
+        )
+        ctx = self._make_context()
+        result = _invoke_haiku_narrator(ctx)
+        assert result is None
 
 
 # =============================================================================
@@ -1732,10 +1906,11 @@ class TestCompositeScoreWithNewData:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestCallChainPropagation:
     """speed_index_data/past_performance_dataの伝播テスト."""
 
-    def test_軸馬選定にスピード指数が影響(self):
+    def test_軸馬選定にスピード指数が影響(self, mock_narrator):
         runners = _make_runners(5)
         ai_preds = _make_ai_predictions(5)
         # 馬5のスピード指数を最高にする
@@ -1750,7 +1925,7 @@ class TestCallChainPropagation:
         scores_without = {a["horse_number"]: a["composite_score"] for a in result_without}
         assert scores_with != scores_without
 
-    def test_データなしでも軸馬選定が既存動作互換(self):
+    def test_データなしでも軸馬選定が既存動作互換(self, mock_narrator):
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result_new = _select_axis_horses(
@@ -1762,7 +1937,7 @@ class TestCallChainPropagation:
         for new, old in zip(result_new, result_old):
             assert new["composite_score"] == old["composite_score"]
 
-    def test_提案根拠にスピード指数情報が含まれる(self):
+    def test_提案根拠にスピード指数情報が含まれる(self, mock_narrator):
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
         si_data = _make_speed_index_data({
@@ -2078,10 +2253,11 @@ class TestCombinationEv:
 # =============================================================================
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestGenerateBetProposalImplWithUnifiedProbs:
     """unified_probsを渡した場合の統合テスト."""
 
-    def test_unified_probs付きで提案が生成される(self):
+    def test_unified_probs付きで提案が生成される(self, mock_narrator):
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
         unified_probs = {i: (7 - i) / 21.0 for i in range(1, 7)}
@@ -2098,7 +2274,7 @@ class TestGenerateBetProposalImplWithUnifiedProbs:
         assert len(result["proposed_bets"]) > 0
         assert result["total_amount"] > 0
 
-    def test_unified_probs_Noneでフォールバックする(self):
+    def test_unified_probs_Noneでフォールバックする(self, mock_narrator):
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
 
@@ -2113,7 +2289,7 @@ class TestGenerateBetProposalImplWithUnifiedProbs:
         assert "error" not in result
         assert len(result["proposed_bets"]) > 0
 
-    def test_unified_probsがcomposite_scoreに影響する(self):
+    def test_unified_probsがcomposite_scoreに影響する(self, mock_narrator):
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
         # 6番馬の確率を圧倒的に高くする
@@ -2339,10 +2515,11 @@ class TestGenerateBetCandidatesNoMaxBets:
         assert len(result_limited) <= 8
 
 
+@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
 class TestBankrollMode:
     """bankrollモードの統合テスト."""
 
-    def test_bankroll指定でrace_budgetが自動算出される(self):
+    def test_bankroll指定でrace_budgetが自動算出される(self, mock_narrator):
         runners = _make_runners(8)
         preds = _make_ai_predictions(8)
         result = _generate_bet_proposal_impl(
@@ -2356,7 +2533,7 @@ class TestBankrollMode:
         assert result["race_budget"] > 0
         assert result["confidence_factor"] > 0
 
-    def test_budget指定で従来動作(self):
+    def test_budget指定で従来動作(self, mock_narrator):
         """budget指定時は従来の信頼度別配分が使われる."""
         runners = _make_runners(8)
         preds = _make_ai_predictions(8)
@@ -2369,7 +2546,7 @@ class TestBankrollMode:
         )
         assert result["total_amount"] <= 5000
 
-    def test_bankrollの10パーセントを超えない(self):
+    def test_bankrollの10パーセントを超えない(self, mock_narrator):
         runners = _make_runners(8)
         preds = _make_ai_predictions(8)
         result = _generate_bet_proposal_impl(
@@ -2382,7 +2559,7 @@ class TestBankrollMode:
         )
         assert result["total_amount"] <= 10000 * 0.10
 
-    def test_見送りスコアが高いとrace_budgetが小さくなる(self):
+    def test_見送りスコアが高いとrace_budgetが小さくなる(self, mock_narrator):
         """見送りスコアが高い場合、予算が少なくなる."""
         runners = _make_runners(8)
         preds = _make_ai_predictions(8)
@@ -2396,7 +2573,7 @@ class TestBankrollMode:
         )
         assert "bankroll_usage_pct" in result
 
-    def test_bankrollモードでcomposite_oddsが出力される(self):
+    def test_bankrollモードでcomposite_oddsが出力される(self, mock_narrator):
         runners = _make_runners(8)
         preds = _make_ai_predictions(8)
         result = _generate_bet_proposal_impl(
@@ -2409,3 +2586,186 @@ class TestBankrollMode:
         )
         if result["proposed_bets"]:
             assert "dutching_composite_odds" in result["proposed_bets"][0]
+
+
+# =============================================================================
+# 好み設定反映テスト
+# =============================================================================
+
+
+class TestGetPreferenceConfig:
+    """_get_preference_config のテスト."""
+
+    def test_好み設定なしの場合はデフォルト(self):
+        config = _get_preference_config(character_type="analyst", betting_preference=None)
+        assert config["max_partners"] == MAX_PARTNERS
+
+    def test_好み設定が空辞書の場合はデフォルト(self):
+        config = _get_preference_config(character_type="analyst", betting_preference={})
+        assert config["max_partners"] == MAX_PARTNERS
+
+    def test_priorityがhit_rateの場合はmax_partnersが多い(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"priority": "hit_rate"},
+        )
+        assert config["max_partners"] >= 5
+
+    def test_priorityがroiの場合はmax_partnersが少ない(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"priority": "roi"},
+        )
+        assert config["max_partners"] <= 3
+
+    def test_priorityがbalancedの場合はデフォルト(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"priority": "balanced"},
+        )
+        assert config["max_partners"] == MAX_PARTNERS
+
+    def test_bet_type_preferenceがtrio_focusedの場合は三連系が含まれる(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"bet_type_preference": "trio_focused"},
+        )
+        for level, bet_types in config["difficulty_bet_types"].items():
+            assert any("trio" in bt or "trifecta" in bt for bt in bet_types)
+
+    def test_bet_type_preferenceがwide_focusedの場合はワイド系が含まれる(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"bet_type_preference": "wide_focused"},
+        )
+        for level, bet_types in config["difficulty_bet_types"].items():
+            assert any("quinella_place" in bt for bt in bet_types)
+
+    def test_bet_type_preferenceがautoの場合は変更なし(self):
+        config_auto = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"bet_type_preference": "auto"},
+        )
+        config_default = _get_preference_config(
+            character_type="analyst",
+            betting_preference=None,
+        )
+        assert config_auto["difficulty_bet_types"] == config_default["difficulty_bet_types"]
+
+    def test_target_styleがhonmeiの場合は低難易度寄り(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"target_style": "honmei"},
+        )
+        # 本命狙いは安い券種が多い
+        low_diff_types = config["difficulty_bet_types"][1]
+        assert any(bt in ("quinella", "quinella_place", "exacta") for bt in low_diff_types)
+
+    def test_target_styleがbig_longshotの場合は高難易度寄り(self):
+        config = _get_preference_config(
+            character_type="analyst",
+            betting_preference={"target_style": "big_longshot"},
+        )
+        # 大穴狙いは三連系が出やすい
+        high_diff_types = config["difficulty_bet_types"]
+        has_trio = False
+        for level, bet_types in high_diff_types.items():
+            if any("trio" in bt or "trifecta" in bt for bt in bet_types):
+                has_trio = True
+                break
+        assert has_trio
+
+    def test_ペルソナ設定と好み設定の組み合わせ(self):
+        config = _get_preference_config(
+            character_type="conservative",
+            betting_preference={"priority": "roi"},
+        )
+        # conservativeベース + roi → max_partners は roi の値
+        assert config["max_partners"] <= 3
+
+    def test_generate_bet_proposal_implで好み設定が使われる(self):
+        runners = _make_runners(10)
+        preds = _make_ai_predictions(10)
+        # hit_rate: max_partners >= 5 → 相手馬が多い → 買い目が多くなりうる
+        result_hit = _generate_bet_proposal_impl(
+            race_id="test_pref",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=10,
+            betting_preference={"priority": "hit_rate"},
+        )
+        # roi: max_partners <= 3 → 相手馬が少ない → 買い目が少なくなりうる
+        result_roi = _generate_bet_proposal_impl(
+            race_id="test_pref",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=preds,
+            total_runners=10,
+            betting_preference={"priority": "roi"},
+        )
+        # ROI重視は買い目が少なくなる傾向
+        assert len(result_roi["proposed_bets"]) <= len(result_hit["proposed_bets"])
+
+
+# =============================================================================
+# LLMナレーション統合テスト
+# =============================================================================
+
+
+class TestLlmNarrationIntegration:
+    """LLMナレーション→テンプレートフォールバックの統合テスト."""
+
+    def _make_reasoning_args(self):
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        return dict(
+            axis_horses=[
+                {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
+            ],
+            difficulty={"difficulty_stars": 3, "difficulty_label": "標準"},
+            predicted_pace="ミドル",
+            ai_consensus="概ね合意",
+            skip={"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
+            bets=[
+                {
+                    "bet_type": "quinella", "bet_type_name": "馬連",
+                    "horse_numbers": [1, 3], "expected_value": 1.8,
+                    "composite_odds": 8.5, "confidence": "high",
+                },
+            ],
+            preferred_bet_types=None,
+            ai_predictions=ai_preds,
+            runners_data=runners,
+        )
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLM成功時はLLM生成テキストが使われる(self, mock_call):
+        llm_text = (
+            "【軸馬選定】1番テスト馬1（AI指数1位）を軸に据えた。前走の走りが安定\n\n"
+            "【券種】難易度★3の標準レース。馬連で勝負\n\n"
+            "【組み合わせ】相手は3番テスト馬3。期待値1.8と高い\n\n"
+            "【リスク】AI合議「概ね合意」。積極参戦レベル"
+        )
+        mock_call.return_value = llm_text
+        result = _generate_proposal_reasoning(**self._make_reasoning_args())
+        assert "前走の走りが安定" in result
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLM失敗時はテンプレートにフォールバックする(self, mock_call):
+        from botocore.exceptions import ClientError
+        mock_call.side_effect = ClientError(
+            {"Error": {"Code": "ServiceUnavailableException", "Message": "Service Unavailable"}},
+            "Converse",
+        )
+        result = _generate_proposal_reasoning(**self._make_reasoning_args())
+        assert "【軸馬選定】" in result
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    @patch("tools.bet_proposal._call_bedrock_haiku")
+    def test_LLMが不完全な出力をした場合はテンプレートにフォールバック(self, mock_call):
+        mock_call.return_value = "中途半端な回答"
+        result = _generate_proposal_reasoning(**self._make_reasoning_args())
+        assert "【軸馬選定】" in result
+        assert "【リスク】" in result

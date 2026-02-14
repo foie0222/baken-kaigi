@@ -341,6 +341,7 @@ export interface CartItem {
   horseNumbers: number[];
   betDisplay?: string;  // 買い目の表示文字列（例: "1着軸:3 → 2着:1,5"）
   betCount?: number;    // 点数
+  columnSelections?: ColumnSelections;  // 列選択状態（BOX/流し/フォーメーション展開用）
   amount: number;
   odds?: number;        // 単一オッズ値（単勝、馬連、馬単、三連複、三連単）
   oddsMin?: number;     // 幅のあるオッズ下限（複勝、ワイド）
@@ -511,6 +512,17 @@ export interface LossLimitCheckResult {
   message: string;
 }
 
+// 好み設定
+export type BetTypePreference = 'trio_focused' | 'exacta_focused' | 'quinella_focused' | 'wide_focused' | 'auto';
+export type TargetStyle = 'honmei' | 'medium_longshot' | 'big_longshot';
+export type BettingPriorityType = 'hit_rate' | 'roi' | 'balanced';
+
+export interface BettingPreference {
+  bet_type_preference: BetTypePreference;
+  target_style: TargetStyle;
+  priority: BettingPriorityType;
+}
+
 // エージェント育成
 export type AgentStyleId = 'solid' | 'longshot' | 'data' | 'pace';
 
@@ -527,6 +539,8 @@ export interface Agent {
   name: string;
   base_style: AgentStyleId;
   performance: AgentPerformance;
+  betting_preference?: BettingPreference;
+  custom_instructions?: string | null;
   level: number;
   win_rate: number;
   roi: number;
@@ -539,6 +553,8 @@ export interface AgentData {
   name: string;
   base_style: AgentStyleId;
   performance: AgentPerformance;
+  betting_preference?: BettingPreference;
+  custom_instructions?: string | null;
   level: number;
 }
 

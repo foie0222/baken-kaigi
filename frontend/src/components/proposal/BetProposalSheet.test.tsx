@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { BetProposalSheet } from './BetProposalSheet'
 import { MAX_BET_AMOUNT } from '../../constants/betting'
-import type { RaceDetail } from '../../types'
+import type { RaceDetail, Agent, AgentData } from '../../types'
 
 // apiClientモック
 vi.mock('../../api/client', () => ({
@@ -23,6 +23,21 @@ const mockShowToast = vi.fn()
 vi.mock('../../stores/appStore', () => ({
   useAppStore: (selector: (s: { showToast: typeof mockShowToast }) => unknown) =>
     selector({ showToast: mockShowToast }),
+}))
+
+// authStoreモック
+vi.mock('../../stores/authStore', () => ({
+  useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
+    selector({ isAuthenticated: false }),
+}))
+
+// agentStoreモック（テスト毎にmockAgentで切り替え可能）
+let mockAgent: Agent | null = null
+const mockGetAgentData = vi.fn().mockReturnValue(null)
+const mockFetchAgent = vi.fn()
+vi.mock('../../stores/agentStore', () => ({
+  useAgentStore: (selector: (s: { agent: Agent | null; hasFetched: boolean; fetchAgent: typeof mockFetchAgent; getAgentData: typeof mockGetAgentData }) => unknown) =>
+    selector({ agent: mockAgent, hasFetched: true, fetchAgent: mockFetchAgent, getAgentData: mockGetAgentData }),
 }))
 
 const mockRace: RaceDetail = {
@@ -50,9 +65,32 @@ const mockRace: RaceDetail = {
   ],
 }
 
+const mockAgentObj: Agent = {
+  agent_id: 'agent_001',
+  user_id: 'user_001',
+  name: 'うまもん',
+  base_style: 'solid',
+  performance: { total_bets: 10, wins: 3, total_invested: 10000, total_return: 12000 },
+  level: 2,
+  win_rate: 30,
+  roi: 120,
+  profit: 2000,
+  created_at: '2024-01-01T00:00:00',
+  updated_at: '2024-01-01T00:00:00',
+}
+
+const mockAgentDataObj: AgentData = {
+  name: 'うまもん',
+  base_style: 'solid',
+  performance: { total_bets: 10, wins: 3, total_invested: 10000, total_return: 12000 },
+  level: 2,
+}
+
 describe('BetProposalSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAgent = null
+    mockGetAgentData.mockReturnValue(null)
   })
 
   it('予算プリセットと生成ボタンが表示される', () => {
@@ -175,7 +213,71 @@ describe('BetProposalSheet', () => {
       'race_001',
       3000,
       expect.any(Array),
-      expect.objectContaining({ characterType: 'analyst' })
+      {}
     )
+  })
+
+  describe('エージェント設定済みの場合', () => {
+    beforeEach(() => {
+      mockAgent = mockAgentObj
+      mockGetAgentData.mockReturnValue(mockAgentDataObj)
+    })
+
+    it('ボタンテキストにエージェント名が表示される', () => {
+      render(
+        <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
+      )
+
+      expect(screen.getByText('うまもんに提案してもらう')).toBeInTheDocument()
+    })
+
+    it('予算・券種・買い目上限・注目馬の入力フィールドが非表示', () => {
+      render(
+        <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
+      )
+
+      expect(screen.queryByText('1,000円')).not.toBeInTheDocument()
+      expect(screen.queryByText('希望券種')).not.toBeInTheDocument()
+      expect(screen.queryByText('買い目上限')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('例: 3, 7')).not.toBeInTheDocument()
+    })
+
+    it('生成ボタンクリックでagentDataがAPIに渡される', async () => {
+      const { apiClient } = await import('../../api/client')
+      const mockRequest = vi.mocked(apiClient.requestBetProposal)
+      mockRequest.mockResolvedValueOnce({
+        success: true,
+        data: {
+          race_id: 'race_001',
+          race_summary: {
+            race_name: 'テストレース',
+            difficulty_stars: 3,
+            predicted_pace: 'ミドル',
+            ai_consensus_level: '概ね合意',
+            skip_score: 3,
+            skip_recommendation: '通常判断',
+          },
+          proposed_bets: [],
+          total_amount: 0,
+          budget_remaining: 3000,
+          analysis_comment: '',
+          proposal_reasoning: '',
+          disclaimer: '',
+        },
+      })
+
+      const { user } = render(
+        <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
+      )
+
+      await user.click(screen.getByText('うまもんに提案してもらう'))
+
+      expect(mockRequest).toHaveBeenCalledWith(
+        'race_001',
+        3000,
+        expect.any(Array),
+        expect.objectContaining({ agentData: mockAgentDataObj })
+      )
+    })
   })
 })

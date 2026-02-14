@@ -2,9 +2,9 @@
 import pytest
 
 from src.domain.entities import Agent
-from src.domain.enums import AgentStyle
+from src.domain.enums import AgentStyle, BetTypePreference, TargetStyle, BettingPriority
 from src.domain.identifiers import AgentId, UserId
-from src.domain.value_objects import AgentName, AgentPerformance
+from src.domain.value_objects import AgentName, AgentPerformance, BettingPreference
 
 
 class TestAgent:
@@ -146,3 +146,57 @@ class TestAgentPerformance:
     def test_winsがtotal_betsを超えるとエラー(self):
         with pytest.raises(ValueError):
             AgentPerformance(total_bets=5, wins=6, total_invested=0, total_return=0)
+
+
+class TestAgentBettingPreference:
+    """エージェントの好み設定テスト."""
+
+    def test_デフォルトの好み設定で作成される(self):
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        assert agent.betting_preference == BettingPreference.default()
+        assert agent.custom_instructions is None
+
+    def test_好み設定を更新できる(self):
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        new_pref = BettingPreference(
+            bet_type_preference=BetTypePreference.TRIO_FOCUSED,
+            target_style=TargetStyle.BIG_LONGSHOT,
+            priority=BettingPriority.ROI,
+        )
+        agent.update_preference(new_pref, "三連単の1着固定が好き")
+
+        assert agent.betting_preference.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert agent.custom_instructions == "三連単の1着固定が好き"
+
+    def test_custom_instructionsは200文字以内(self):
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        with pytest.raises(ValueError, match="200"):
+            agent.update_preference(
+                BettingPreference.default(),
+                "あ" * 201,
+            )
+
+    def test_custom_instructionsがNoneでも更新できる(self):
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        agent.update_preference(BettingPreference.default(), None)
+        assert agent.custom_instructions is None

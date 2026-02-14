@@ -26,6 +26,7 @@ import type {
   AgentStyleId,
   AgentData,
   AgentReview,
+  BettingPreference,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -382,6 +383,9 @@ class ApiClient {
         bet_type: item.betType,
         horse_numbers: item.horseNumbers,
         amount: item.amount,
+        bet_method: item.betMethod || 'normal',
+        ...(item.betCount != null ? { bet_count: item.betCount } : {}),
+        ...(item.columnSelections ? { column_selections: item.columnSelections } : {}),
       }));
     }
     const res = await this.request<Record<string, unknown>>('/purchases', {
@@ -500,6 +504,7 @@ class ApiClient {
       axisHorses?: number[];
       characterType?: string;
       maxBets?: number;
+      agentData?: AgentData;
     }
   ): Promise<ApiResponse<BetProposalResponse>> {
     const optionParts: string[] = [];
@@ -509,7 +514,7 @@ class ApiClient {
     if (options?.axisHorses?.length) {
       optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
     }
-    if (options?.characterType) {
+    if (!options?.agentData && options?.characterType) {
       optionParts.push(`ペルソナ(character_type): ${options.characterType}`);
     }
     if (options?.maxBets) {
@@ -518,12 +523,16 @@ class ApiClient {
     const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
 
     const prompt = `レースID ${raceId} について、予算${budget}円でgenerate_bet_proposalツールを使って買い目提案を生成してください。${optionText}`;
-    const result = await this.consultWithAgent({
+    const request: AgentCoreConsultationRequest = {
       prompt,
       cart_items: [],
       runners_data: runnersData,
       type: 'bet_proposal',
-    });
+    };
+    if (options?.agentData) {
+      request.agent_data = options.agentData;
+    }
+    const result = await this.consultWithAgent(request);
 
     if (!result.success || !result.data) {
       return { success: false, error: result.error };
@@ -772,10 +781,24 @@ class ApiClient {
     return this.request<Agent>('/agents/me');
   }
 
-  async updateAgent(baseStyle: AgentStyleId): Promise<ApiResponse<Agent>> {
+  async updateAgent(
+    baseStyle?: AgentStyleId,
+    bettingPreference?: BettingPreference,
+    customInstructions?: string | null,
+  ): Promise<ApiResponse<Agent>> {
+    const payload: Record<string, unknown> = {};
+    if (baseStyle !== undefined) {
+      payload.base_style = baseStyle;
+    }
+    if (bettingPreference !== undefined) {
+      payload.betting_preference = bettingPreference;
+    }
+    if (customInstructions !== undefined) {
+      payload.custom_instructions = customInstructions;
+    }
     return this.request<Agent>('/agents/me', {
       method: 'PUT',
-      body: JSON.stringify({ base_style: baseStyle }),
+      body: JSON.stringify(payload),
     });
   }
 

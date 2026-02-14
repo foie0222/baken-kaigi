@@ -126,6 +126,88 @@ class TestUpdateAgent:
         assert response["statusCode"] == 400
 
 
+class TestUpdateAgentPreference:
+    """PUT /agents/me 好み設定更新のテスト."""
+
+    def test_好み設定を更新できる(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "bet_type_preference": "trio_focused",
+                    "target_style": "big_longshot",
+                    "priority": "roi",
+                },
+                "custom_instructions": "三連単が好き",
+            },
+        )
+        response = agent_handler(event, None)
+        body = json.loads(response["body"])
+        assert response["statusCode"] == 200
+        assert body["betting_preference"]["bet_type_preference"] == "trio_focused"
+        assert body["custom_instructions"] == "三連単が好き"
+
+    def test_好み設定とbase_styleを同時に更新できる(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "base_style": "data",
+                "betting_preference": {
+                    "bet_type_preference": "wide_focused",
+                    "target_style": "honmei",
+                    "priority": "hit_rate",
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        body = json.loads(response["body"])
+        assert response["statusCode"] == 200
+        assert body["base_style"] == "data"
+        assert body["betting_preference"]["bet_type_preference"] == "wide_focused"
+
+    def test_GETで好み設定が含まれる(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        get_event = _make_event(method="GET", path="/agents/me")
+        response = agent_handler(get_event, None)
+        body = json.loads(response["body"])
+        assert response["statusCode"] == 200
+        assert body["betting_preference"] == {
+            "bet_type_preference": "auto",
+            "target_style": "medium_longshot",
+            "priority": "balanced",
+        }
+        assert body["custom_instructions"] is None
+
+    def test_custom_instructionsが201文字は400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "bet_type_preference": "auto",
+                    "target_style": "medium_longshot",
+                    "priority": "balanced",
+                },
+                "custom_instructions": "あ" * 201,
+            },
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+
 class TestCreateReview:
     """POST /agents/me/reviews のテスト."""
 

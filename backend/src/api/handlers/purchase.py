@@ -2,6 +2,7 @@
 import logging
 import math
 from datetime import datetime, timezone
+from itertools import combinations, permutations
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -35,18 +36,263 @@ from src.domain.ports import IpatGatewayError
 from src.domain.value_objects import BetSelection, HorseNumbers, Money
 
 
-def _expand_nagashi(item: dict) -> list[BetSelection]:
-    """流し形式の買い目を個別のBetSelectionに展開する.
+def _validate_per_amount(total_amount: int, bet_count: int) -> int:
+    """1点あたりの金額を計算しバリデーションする."""
+    if total_amount % bet_count != 0:
+        raise ValueError(
+            "合計金額を均等に分割できません。"
+            "1点あたりの金額が整数になるように入力してください。"
+        )
 
-    軸馬（先頭）と各相手馬のペアに分割する。
-    例: ワイド [1, 8, 14] → [1,8], [1,14] の2点
+    per_amount = total_amount // bet_count
+
+    if per_amount < 100 or per_amount % 100 != 0:
+        raise ValueError(
+            "1点あたり金額が不正です。"
+            "1点あたり100円以上かつ100円単位になるように入力してください。"
+        )
+
+    return per_amount
+
+
+def _expand_box(col1: list[int], bet_type: BetType) -> list[tuple[int, ...]]:
+    """BOX展開: col1からrequired_count頭の組み合わせ/順列を生成する."""
+    required = bet_type.get_required_count()
+    if bet_type.is_order_required():
+        return list(permutations(col1, required))
+    else:
+        return [tuple(sorted(c)) for c in combinations(col1, required)]
+
+
+def _expand_formation(
+    col1: list[int],
+    col2: list[int],
+    col3: list[int],
+    bet_type: BetType,
+) -> list[tuple[int, ...]]:
+    """フォーメーション展開: 各列のクロス積から重複を除外して生成する."""
+    required = bet_type.get_required_count()
+    ordered = bet_type.is_order_required()
+    results: list[tuple[int, ...]] = []
+    seen: set[tuple[int, ...]] = set()
+
+    if required == 2:
+        for h1 in col1:
+            for h2 in col2:
+                if h1 == h2:
+                    continue
+                key = (h1, h2) if ordered else tuple(sorted((h1, h2)))
+                if key not in seen:
+                    seen.add(key)
+                    results.append(key)
+    elif required == 3:
+        for h1 in col1:
+            for h2 in col2:
+                for h3 in col3:
+                    if h1 == h2 or h1 == h3 or h2 == h3:
+                        continue
+                    key = (h1, h2, h3) if ordered else tuple(sorted((h1, h2, h3)))
+                    if key not in seen:
+                        seen.add(key)
+                        results.append(key)
+
+    return results
+
+
+def _expand_nagashi_2horse(
+    col1: list[int],
+    col2: list[int],
+    bet_method: str,
+    bet_type: BetType,
+) -> list[tuple[int, ...]]:
+    """2頭式券種の流し展開."""
+    if not col1:
+        raise ValueError("軸馬が指定されていません")
+    axis = col1[0]
+    ordered = bet_type.is_order_required()
+
+    if bet_method in ("nagashi", "nagashi_1"):
+        if ordered:
+            return [(axis, p) for p in col2 if p != axis]
+        else:
+            return [tuple(sorted((axis, p))) for p in col2 if p != axis]
+    elif bet_method == "nagashi_2":
+        # 2着固定 (ordered only)
+        return [(p, axis) for p in col2 if p != axis]
+    elif bet_method == "nagashi_multi":
+        # マルチ (ordered only): 両方向
+        results: list[tuple[int, ...]] = []
+        for p in col2:
+            if p == axis:
+                continue
+            results.append((axis, p))
+            results.append((p, axis))
+        return results
+    else:
+        raise ValueError(f"未対応の流し方式です: {bet_method}")
+
+
+def _expand_nagashi_3horse(
+    col1: list[int],
+    col2: list[int],
+    col3: list[int],
+    bet_method: str,
+    bet_type: BetType,
+) -> list[tuple[int, ...]]:
+    """3頭式券種の流し展開."""
+    if not col1:
+        raise ValueError("軸馬が指定されていません")
+
+    ordered = bet_type.is_order_required()
+
+    if bet_method == "nagashi":
+        # 三連複: 軸1頭流し
+        axis = col1[0]
+        return [
+            tuple(sorted((axis, p1, p2)))
+            for p1, p2 in combinations(col2, 2)
+            if axis != p1 and axis != p2
+        ]
+    elif bet_method == "nagashi_1":
+        # 三連単: 1着固定
+        axis = col1[0]
+        return [
+            (axis, p1, p2)
+            for p1, p2 in permutations(col2, 2)
+            if axis != p1 and axis != p2
+        ]
+    elif bet_method == "nagashi_2":
+        if not ordered:
+            # 三連複: 軸2頭流し col1=[a1,a2], col2=相手
+            if len(col1) < 2:
+                raise ValueError("軸2頭流しには2頭以上の軸馬が必要です")
+            a1, a2 = col1[0], col1[1]
+            return [
+                tuple(sorted((a1, a2, p)))
+                for p in col2
+                if p != a1 and p != a2
+            ]
+        else:
+            # 三連単: 2着固定
+            axis = col1[0]
+            return [
+                (p1, axis, p2)
+                for p1, p2 in permutations(col2, 2)
+                if axis != p1 and axis != p2 and p1 != p2
+            ]
+    elif bet_method == "nagashi_3":
+        # 三連単: 3着固定
+        axis = col1[0]
+        return [
+            (p1, p2, axis)
+            for p1, p2 in permutations(col2, 2)
+            if axis != p1 and axis != p2 and p1 != p2
+        ]
+    elif bet_method == "nagashi_1_multi":
+        # 三連単: 1着軸マルチ
+        axis = col1[0]
+        results: list[tuple[int, ...]] = []
+        for p1, p2 in permutations(col2, 2):
+            if axis == p1 or axis == p2:
+                continue
+            results.append((axis, p1, p2))
+            results.append((p1, axis, p2))
+            results.append((p1, p2, axis))
+        return results
+    elif bet_method == "nagashi_2_multi":
+        # 三連単: 軸2頭マルチ col1=[a1,a2], col2=相手
+        if len(col1) < 2:
+            raise ValueError("軸2頭マルチには2頭以上の軸馬が必要です")
+        a1, a2 = col1[0], col1[1]
+        results_list: list[tuple[int, ...]] = []
+        for p in col2:
+            if p == a1 or p == a2:
+                continue
+            for perm in permutations((a1, a2, p)):
+                results_list.append(perm)
+        return results_list
+    elif bet_method == "nagashi_12":
+        # 三連単: 1着2着固定 col1[0]=1着, col3[0]=2着, col2=3着候補
+        if not col3:
+            raise ValueError("nagashi_12には3列目(col3)の指定が必要です")
+        a1 = col1[0]
+        a2 = col3[0]
+        return [
+            (a1, a2, p) for p in col2
+            if p != a1 and p != a2
+        ]
+    elif bet_method == "nagashi_13":
+        # 三連単: 1着3着固定 col1[0]=1着, col3[0]=3着, col2=2着候補
+        if not col3:
+            raise ValueError("nagashi_13には3列目(col3)の指定が必要です")
+        a1 = col1[0]
+        a3 = col3[0]
+        return [
+            (a1, p, a3) for p in col2
+            if p != a1 and p != a3
+        ]
+    elif bet_method == "nagashi_23":
+        # 三連単: 2着3着固定 col1[0]=2着, col3[0]=3着, col2=1着候補
+        if not col3:
+            raise ValueError("nagashi_23には3列目(col3)の指定が必要です")
+        a2 = col1[0]
+        a3 = col3[0]
+        return [
+            (p, a2, a3) for p in col2
+            if p != a2 and p != a3
+        ]
+    else:
+        raise ValueError(f"未対応の流し方式です: {bet_method}")
+
+
+def _expand_bet(item: dict) -> list[BetSelection]:
+    """買い目を展開する.
+
+    bet_methodとcolumn_selectionsに基づいて、BOX・流し・フォーメーション・
+    マルチなどの形式を個別のBetSelectionに展開する。
+    bet_methodが未指定またはnormalの場合は、後方互換のためレガシー動作を維持する。
     """
     bet_type: BetType = item["bet_type"]
     horse_numbers: list[int] = item["horse_numbers"]
     amount: int = item["amount"]
+    bet_method: str = item.get("bet_method", "normal")
+    column_selections: dict | None = item.get("column_selections")
+    bet_count: int | None = item.get("bet_count")
     required = bet_type.get_required_count()
 
-    if len(horse_numbers) <= required:
+    # --- 後方互換: bet_method未指定 or "normal" かつ column_selections無し ---
+    if (bet_method == "normal" or bet_method is None) and column_selections is None:
+        if len(horse_numbers) <= required:
+            return [
+                BetSelection(
+                    bet_type=bet_type,
+                    horse_numbers=HorseNumbers.from_list(horse_numbers),
+                    amount=Money(amount),
+                )
+            ]
+
+        # レガシー流し: 2頭式のみ対応
+        if required != 2:
+            raise ValueError(
+                f"{bet_type.get_display_name()}の流し形式は現在サポートされていません"
+            )
+
+        axis = horse_numbers[0]
+        partners = horse_numbers[1:]
+        partner_count = len(partners)
+        per_amount = _validate_per_amount(amount, partner_count)
+
+        return [
+            BetSelection(
+                bet_type=bet_type,
+                horse_numbers=HorseNumbers.from_list([axis, partner]),
+                amount=Money(per_amount),
+            )
+            for partner in partners
+        ]
+
+    # --- 通常買い（bet_method=normal, column_selections有り）---
+    if bet_method == "normal":
         return [
             BetSelection(
                 bet_type=bet_type,
@@ -55,36 +301,45 @@ def _expand_nagashi(item: dict) -> list[BetSelection]:
             )
         ]
 
-    if required != 2:
+    # --- column_selectionsが必要な方式 ---
+    if column_selections is None:
+        raise ValueError("column_selectionsが必要です")
+
+    col1: list[int] = column_selections.get("col1", [])
+    col2: list[int] = column_selections.get("col2", [])
+    col3: list[int] = column_selections.get("col3", [])
+
+    # 展開ロジック
+    if bet_method == "box":
+        expanded = _expand_box(col1, bet_type)
+    elif bet_method == "formation":
+        expanded = _expand_formation(col1, col2, col3, bet_type)
+    elif bet_method.startswith("nagashi"):
+        if required == 2:
+            expanded = _expand_nagashi_2horse(col1, col2, bet_method, bet_type)
+        else:
+            expanded = _expand_nagashi_3horse(col1, col2, col3, bet_method, bet_type)
+    else:
+        raise ValueError(f"未対応の購入方式です: {bet_method}")
+
+    if not expanded:
+        raise ValueError("展開結果が0点です。選択内容を確認してください。")
+
+    actual_count = len(expanded)
+    if bet_count is not None and bet_count != actual_count:
         raise ValueError(
-            f"{bet_type.get_display_name()}の流し形式は現在サポートされていません"
+            f"展開点数の不一致: フロント={bet_count}点, バックエンド={actual_count}点"
         )
 
-    axis = horse_numbers[0]
-    partners = horse_numbers[1:]
-    partner_count = len(partners)
-
-    if amount % partner_count != 0:
-        raise ValueError(
-            "流し買いの合計金額を均等に分割できません。"
-            "1点あたりの金額が整数になるように入力してください。"
-        )
-
-    per_amount = amount // partner_count
-
-    if per_amount < 100 or per_amount % 100 != 0:
-        raise ValueError(
-            "流し買いの1点あたり金額が不正です。"
-            "1点あたり100円以上かつ100円単位になるように入力してください。"
-        )
+    per_amount = _validate_per_amount(amount, actual_count)
 
     return [
         BetSelection(
             bet_type=bet_type,
-            horse_numbers=HorseNumbers.from_list([axis, partner]),
+            horse_numbers=HorseNumbers.from_list(list(nums)),
             amount=Money(per_amount),
         )
-        for partner in partners
+        for nums in expanded
     ]
 
 
@@ -196,12 +451,61 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         else:
             amount_value = int(amount_raw)
 
+        # オプショナルフィールド: bet_method, bet_count, column_selections
+        bet_method_raw = item_data.get("bet_method", "normal")
+        if not isinstance(bet_method_raw, str):
+            return bad_request_response(
+                f"items[{index}].bet_method must be a string", event=event
+            )
+
+        bet_count_raw = item_data.get("bet_count")
+        bet_count_value: int | None = None
+        if bet_count_raw is not None:
+            if isinstance(bet_count_raw, bool) or not isinstance(bet_count_raw, (int, float)):
+                return bad_request_response(
+                    f"items[{index}].bet_count must be a number", event=event
+                )
+            bet_count_value = int(bet_count_raw)
+            if bet_count_value <= 0:
+                return bad_request_response(
+                    f"items[{index}].bet_count must be a positive integer", event=event
+                )
+
+        column_selections_raw = item_data.get("column_selections")
+        column_selections_value: dict[str, list[int]] | None = None
+        if column_selections_raw is not None:
+            if not isinstance(column_selections_raw, dict):
+                return bad_request_response(
+                    f"items[{index}].column_selections must be an object", event=event
+                )
+            for col_name in ("col1", "col2", "col3"):
+                col_val = column_selections_raw.get(col_name)
+                if col_val is not None and not isinstance(col_val, list):
+                    return bad_request_response(
+                        f"items[{index}].column_selections.{col_name} must be a list",
+                        event=event,
+                    )
+            try:
+                column_selections_value = {
+                    "col1": [int(n) for n in column_selections_raw.get("col1", [])],
+                    "col2": [int(n) for n in column_selections_raw.get("col2", [])],
+                    "col3": [int(n) for n in column_selections_raw.get("col3", [])],
+                }
+            except (TypeError, ValueError):
+                return bad_request_response(
+                    f"items[{index}].column_selections must contain lists of integers",
+                    event=event,
+                )
+
         normalized_items.append({
             "race_id": race_id_raw,
             "race_name": race_name_raw,
             "bet_type": bet_type,
             "horse_numbers": horse_numbers_list,
             "amount": amount_value,
+            "bet_method": bet_method_raw,
+            "bet_count": bet_count_value,
+            "column_selections": column_selections_value,
         })
 
     cart_repository = Dependencies.get_cart_repository()
@@ -215,7 +519,7 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         )
         try:
             for item in normalized_items:
-                expanded = _expand_nagashi(item)
+                expanded = _expand_bet(item)
                 for sel in expanded:
                     cart.add_item(
                         race_id=RaceId(item["race_id"]),

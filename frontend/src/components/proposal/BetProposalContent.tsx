@@ -5,10 +5,10 @@ import { apiClient, type UsageInfo } from '../../api/client';
 import { useCartStore, type AddItemResult } from '../../stores/cartStore';
 import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
-import { AI_CHARACTERS, DEFAULT_CHARACTER_ID, STORAGE_KEY_CHARACTER, type CharacterId } from '../../constants/characters';
+import { useAgentStore } from '../../stores/agentStore';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../../constants/betting';
 import { BetTypeLabels, BetTypeToApiName, type BetType } from '../../types';
-import type { RaceDetail, BetProposalResponse } from '../../types';
+import type { RaceDetail, BetProposalResponse, AgentData } from '../../types';
 import './BetProposalSheet.css';
 
 interface BetProposalContentProps {
@@ -28,23 +28,15 @@ const BET_TYPE_OPTIONS: { value: BetType; label: string }[] = [
   { value: 'place', label: BetTypeLabels.place },
 ];
 
-function readCharacterFromStorage(): CharacterId {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY_CHARACTER);
-    if (stored && AI_CHARACTERS.some((c) => c.id === stored)) {
-      return stored as CharacterId;
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_CHARACTER_ID;
-}
-
 export function BetProposalContent({ race }: BetProposalContentProps) {
   const navigate = useNavigate();
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useAppStore((state) => state.showToast);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
-  const [characterId, setCharacterId] = useState<CharacterId>(readCharacterFromStorage);
+  const agent = useAgentStore((state) => state.agent);
+  const hasFetched = useAgentStore((state) => state.hasFetched);
+  const fetchAgent = useAgentStore((state) => state.fetchAgent);
+  const getAgentData = useAgentStore((state) => state.getAgentData);
   const [budget, setBudget] = useState(3000);
   const [customBudget, setCustomBudget] = useState('');
   const [isCustomBudget, setIsCustomBudget] = useState(false);
@@ -66,12 +58,11 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     };
   }, []);
 
-  const handleCharacterChange = (id: CharacterId) => {
-    setCharacterId(id);
-    try {
-      localStorage.setItem(STORAGE_KEY_CHARACTER, id);
-    } catch { /* ignore */ }
-  };
+  useEffect(() => {
+    if (isAuthenticated && !hasFetched) {
+      fetchAgent();
+    }
+  }, [isAuthenticated, hasFetched, fetchAgent]);
 
   const handleBetTypeToggle = (betType: BetType) => {
     setSelectedBetTypes((prev) =>
@@ -147,10 +138,14 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       const options: {
         preferredBetTypes?: BetType[];
         axisHorses?: number[];
-        characterType: string;
         maxBets?: number;
-      } = { characterType: characterId };
+        agentData?: AgentData;
+      } = {};
 
+      const agentData = getAgentData();
+      if (agentData) {
+        options.agentData = agentData;
+      }
       if (axisHorses.length > 0) options.axisHorses = axisHorses;
       if (selectedBetTypes.length > 0) options.preferredBetTypes = selectedBetTypes;
       if (maxBets !== null) options.maxBets = maxBets;
@@ -329,111 +324,107 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     <>
       {!result && !loading && (
         <div className="proposal-form">
-          {/* ペルソナ選択 */}
-          <div className="proposal-form-group">
-            <label className="proposal-label">AIキャラクター</label>
-            <div className="proposal-character-selector">
-              {AI_CHARACTERS.map((char) => (
-                <button
-                  key={char.id}
-                  className={`proposal-character-chip ${characterId === char.id ? 'active' : ''}`}
-                  aria-pressed={characterId === char.id}
-                  onClick={() => handleCharacterChange(char.id)}
-                >
-                  <span className="proposal-character-icon">{char.icon}</span>
-                  <span className="proposal-character-name">{char.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {agent ? (
+            /* エージェント設定済み: ボタンのみ */
+            <button
+              className="proposal-generate-btn"
+              onClick={handleGenerate}
+              disabled={loading}
+            >
+              {agent.name}に提案してもらう
+            </button>
+          ) : (
+            /* エージェント未設定: 従来のフルフォーム */
+            <>
+              {/* 予算 */}
+              <div className="proposal-form-group">
+                <label className="proposal-label">予算</label>
+                <div className="proposal-budget-presets">
+                  {BUDGET_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      className={`proposal-preset-btn ${!isCustomBudget && budget === preset ? 'active' : ''}`}
+                      onClick={() => handleBudgetPreset(preset)}
+                    >
+                      {preset.toLocaleString()}円
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={`proposal-budget-custom-input ${isCustomBudget ? 'active' : ''}`}
+                  value={customBudget}
+                  onChange={(e) => handleCustomBudgetChange(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="自由入力（円）"
+                />
+              </div>
 
-          {/* 予算 */}
-          <div className="proposal-form-group">
-            <label className="proposal-label">予算</label>
-            <div className="proposal-budget-presets">
-              {BUDGET_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  className={`proposal-preset-btn ${!isCustomBudget && budget === preset ? 'active' : ''}`}
-                  onClick={() => handleBudgetPreset(preset)}
-                >
-                  {preset.toLocaleString()}円
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              className={`proposal-budget-custom-input ${isCustomBudget ? 'active' : ''}`}
-              value={customBudget}
-              onChange={(e) => handleCustomBudgetChange(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="自由入力（円）"
-            />
-          </div>
+              {/* 希望券種 */}
+              <div className="proposal-form-group">
+                <label className="proposal-label">
+                  希望券種
+                  <span className="proposal-label-hint">未選択で自動選定</span>
+                </label>
+                <div className="proposal-bet-type-chips">
+                  {BET_TYPE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      className={`proposal-bet-type-chip ${selectedBetTypes.includes(opt.value) ? 'active' : ''}`}
+                      aria-pressed={selectedBetTypes.includes(opt.value)}
+                      onClick={() => handleBetTypeToggle(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* 希望券種 */}
-          <div className="proposal-form-group">
-            <label className="proposal-label">
-              希望券種
-              <span className="proposal-label-hint">未選択で自動選定</span>
-            </label>
-            <div className="proposal-bet-type-chips">
-              {BET_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`proposal-bet-type-chip ${selectedBetTypes.includes(opt.value) ? 'active' : ''}`}
-                  aria-pressed={selectedBetTypes.includes(opt.value)}
-                  onClick={() => handleBetTypeToggle(opt.value)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* 買い目上限 */}
+              <div className="proposal-form-group">
+                <label className="proposal-label">
+                  買い目上限
+                  <span className="proposal-label-hint">未選択でおまかせ</span>
+                </label>
+                <div className="proposal-budget-presets">
+                  {MAX_BETS_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      className={`proposal-preset-btn ${maxBets === preset ? 'active' : ''}`}
+                      aria-pressed={maxBets === preset}
+                      onClick={() => handleMaxBetsToggle(preset)}
+                    >
+                      {preset}点
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* 買い目上限 */}
-          <div className="proposal-form-group">
-            <label className="proposal-label">
-              買い目上限
-              <span className="proposal-label-hint">未選択でおまかせ</span>
-            </label>
-            <div className="proposal-budget-presets">
-              {MAX_BETS_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  className={`proposal-preset-btn ${maxBets === preset ? 'active' : ''}`}
-                  aria-pressed={maxBets === preset}
-                  onClick={() => handleMaxBetsToggle(preset)}
-                >
-                  {preset}点
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* 注目馬 */}
+              <div className="proposal-form-group">
+                <label className="proposal-label" htmlFor="axis-horses-input">
+                  注目馬（任意）
+                  <span className="proposal-label-hint">カンマ区切りで馬番を入力</span>
+                </label>
+                <input
+                  id="axis-horses-input"
+                  type="text"
+                  className="proposal-axis-input"
+                  value={axisInput}
+                  onChange={(e) => setAxisInput(e.target.value)}
+                  placeholder="例: 3, 7"
+                />
+              </div>
 
-          {/* 注目馬 */}
-          <div className="proposal-form-group">
-            <label className="proposal-label" htmlFor="axis-horses-input">
-              注目馬（任意）
-              <span className="proposal-label-hint">カンマ区切りで馬番を入力</span>
-            </label>
-            <input
-              id="axis-horses-input"
-              type="text"
-              className="proposal-axis-input"
-              value={axisInput}
-              onChange={(e) => setAxisInput(e.target.value)}
-              placeholder="例: 3, 7"
-            />
-          </div>
-
-          <button
-            className="proposal-generate-btn"
-            onClick={handleGenerate}
-            disabled={loading}
-          >
-            提案を生成
-          </button>
+              <button
+                className="proposal-generate-btn"
+                onClick={handleGenerate}
+                disabled={loading}
+              >
+                提案を生成
+              </button>
+            </>
+          )}
         </div>
       )}
 

@@ -127,6 +127,9 @@ describe('PurchaseConfirmPage', () => {
     it('submitPurchaseにitemsが渡される', async () => {
       addTestCartItem()
 
+      // 購入前にcartIdをキャプチャ（購入成功後にカートがクリアされてIDが再生成されるため）
+      const cartId = useCartStore.getState().cartId
+
       vi.mocked(apiClient.submitPurchase).mockResolvedValue({
         success: true,
         data: {
@@ -144,9 +147,9 @@ describe('PurchaseConfirmPage', () => {
         expect(usePurchaseStore.getState().isLoading).toBe(false)
       })
 
-      // submitPurchaseがサーバー側cartIdで呼ばれたことを確認
+      // submitPurchaseがローカルcartIdで呼ばれたことを確認
       expect(apiClient.submitPurchase).toHaveBeenCalledWith(
-        'server-cart-1',    // DynamoDB同期で取得したcartId
+        cartId,             // ローカルで生成されたcartId
         '20260208',         // raceDate
         '05',               // courseCode
         1,                  // raceNumber

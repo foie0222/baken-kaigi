@@ -4,9 +4,14 @@
 レース分析から買い目生成・予算配分までを一括で行う統合ツール。
 """
 
+import json
+import logging
 import math
+import os
 
+import boto3
 import requests
+from botocore.exceptions import BotoCoreError, ClientError
 from strands import tool
 
 from .bet_analysis import (
@@ -30,6 +35,15 @@ from .risk_analysis import (
 # NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
 # 並行リクエストによる競合状態は発生しない。
 _last_proposal_result: dict | None = None
+
+# セッション単位の好み設定（invoke() から注入される）
+_current_betting_preference: dict | None = None
+
+
+def set_betting_preference(preference: dict | None) -> None:
+    """セッションの好み設定を設定する（invoke()から呼ばれる）."""
+    global _current_betting_preference
+    _current_betting_preference = preference
 
 
 def get_last_proposal_result() -> dict | None:
@@ -91,6 +105,45 @@ MAX_RACE_BUDGET_RATIO = 0.10
 
 # デフォルト基本投入率
 DEFAULT_BASE_RATE = 0.03
+
+# LLMナレーション: モデルID・リージョン（環境変数で上書き可能）
+NARRATOR_MODEL_ID = os.environ.get(
+    "BEDROCK_NARRATOR_MODEL_ID",
+    "jp.anthropic.claude-haiku-4-5-20251001-v1:0",
+)
+NARRATOR_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
+
+# LLMナレーション: システムプロンプト
+NARRATOR_SYSTEM_PROMPT = """あなたは競馬データアナリストです。
+以下のデータを元に、買い目提案の根拠を4セクションで書いてください。
+
+## 出力フォーマット（厳守）
+以下の4セクションを改行区切りで出力すること。セクション名は【】で囲む。
+各セクション以外のテキストは出力しないこと。
+
+【軸馬選定】...
+
+【券種】...
+
+【組み合わせ】...
+
+【リスク】...
+
+## ルール
+- 4セクション（【軸馬選定】【券種】【組み合わせ】【リスク】）は必須
+- 各セクション1〜3文で簡潔に
+- データの数値（AI指数順位・スコア・オッズ等）は正確に引用すること
+- レースごとの特徴や注目ポイントを自分の言葉で解説すること
+- 過去成績がある場合は、具体的な着順推移や距離適性に言及
+- スピード指数がある場合は、指数の位置づけや推移に言及
+- 「おすすめ」「買うべき」等の推奨表現は禁止
+
+## トーン制御
+- AI合議が「明確な上位」「概ね合意」→ 確信的に語る
+- AI合議が「やや接戦」「混戦」→ 慎重に、リスクにも触れながら語る
+- 見送りスコア≥7 → 警戒的に、予算削減を強調"""
+
+logger = logging.getLogger(__name__)
 
 
 def _calculate_confidence_factor(skip_score: int) -> float:
@@ -185,6 +238,7 @@ _DEFAULT_CONFIG = {
     "skip_gate_threshold": SKIP_GATE_THRESHOLD,
     "difficulty_bet_types": DIFFICULTY_BET_TYPES,
     "base_rate": DEFAULT_BASE_RATE,
+    "max_partners": MAX_PARTNERS,
 }
 
 
@@ -200,6 +254,104 @@ def _get_character_config(character_type: str | None) -> dict:
     config = dict(_DEFAULT_CONFIG)
     if character_type and character_type in CHARACTER_PROFILES:
         config.update(CHARACTER_PROFILES[character_type])
+    return config
+
+
+# =============================================================================
+# 好み設定（BettingPreference）反映
+# =============================================================================
+
+# target_style → 難易度券種マッピングのシフト
+TARGET_STYLE_DIFFICULTY_BET_TYPES = {
+    "honmei": {
+        1: ["quinella", "quinella_place"],
+        2: ["quinella", "quinella_place"],
+        3: ["quinella", "exacta"],
+        4: ["quinella", "quinella_place"],
+        5: ["quinella_place"],
+    },
+    "big_longshot": {
+        1: ["exacta", "trio"],
+        2: ["exacta", "trio"],
+        3: ["trio", "trifecta"],
+        4: ["trio", "trifecta"],
+        5: ["trio", "quinella_place"],
+    },
+}
+
+# bet_type_preference → 券種候補のオーバーライド
+BET_TYPE_PREFERENCE_MAP = {
+    "trio_focused": {
+        1: ["trio", "exacta"],
+        2: ["trio", "exacta"],
+        3: ["trio", "trifecta"],
+        4: ["trio", "trifecta"],
+        5: ["trio", "quinella_place"],
+    },
+    "exacta_focused": {
+        1: ["exacta", "quinella"],
+        2: ["exacta", "quinella"],
+        3: ["exacta", "trio"],
+        4: ["exacta", "trio"],
+        5: ["quinella", "quinella_place"],
+    },
+    "quinella_focused": {
+        1: ["quinella", "quinella_place"],
+        2: ["quinella", "quinella_place"],
+        3: ["quinella", "quinella_place"],
+        4: ["quinella_place", "quinella"],
+        5: ["quinella_place"],
+    },
+    "wide_focused": {
+        1: ["quinella_place", "quinella"],
+        2: ["quinella_place", "quinella"],
+        3: ["quinella_place", "quinella"],
+        4: ["quinella_place"],
+        5: ["quinella_place"],
+    },
+}
+
+# priority → 相手馬数・軸馬閾値
+PRIORITY_WEIGHTS = {
+    "hit_rate": {"max_partners": 5},
+    "roi": {"max_partners": 3},
+    "balanced": {"max_partners": MAX_PARTNERS},
+}
+
+
+def _get_preference_config(
+    character_type: str | None,
+    betting_preference: dict | None,
+) -> dict:
+    """ペルソナ設定に好み設定を上書きした設定を返す.
+
+    Args:
+        character_type: ペルソナ種別
+        betting_preference: 好み設定辞書（bet_type_preference, target_style, priority）
+
+    Returns:
+        設定辞書
+    """
+    config = _get_character_config(character_type)
+
+    if not betting_preference:
+        return config
+
+    # priority → max_partners の上書き
+    priority = betting_preference.get("priority")
+    if priority and priority in PRIORITY_WEIGHTS:
+        config.update(PRIORITY_WEIGHTS[priority])
+
+    # bet_type_preference → difficulty_bet_types の上書き
+    bet_type_pref = betting_preference.get("bet_type_preference")
+    if bet_type_pref and bet_type_pref != "auto" and bet_type_pref in BET_TYPE_PREFERENCE_MAP:
+        config["difficulty_bet_types"] = dict(BET_TYPE_PREFERENCE_MAP[bet_type_pref])
+    else:
+        # target_style → difficulty_bet_types のシフト（bet_type_preferenceが auto の場合のみ）
+        target_style = betting_preference.get("target_style")
+        if target_style and target_style in TARGET_STYLE_DIFFICULTY_BET_TYPES:
+            config["difficulty_bet_types"] = dict(TARGET_STYLE_DIFFICULTY_BET_TYPES[target_style])
+
     return config
 
 
@@ -659,6 +811,7 @@ def _generate_bet_candidates(
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
     weight_form: float = WEIGHT_FORM,
     unified_probs: dict[int, float] | None = None,
+    max_partners: int = MAX_PARTNERS,
 ) -> list[dict]:
     """買い目候補を生成し、トリガミチェックを行う.
 
@@ -702,7 +855,7 @@ def _generate_bet_candidates(
             "composite_score": score,
         })
     partner_scores.sort(key=lambda x: x["composite_score"], reverse=True)
-    partners = partner_scores[:MAX_PARTNERS]
+    partners = partner_scores[:max_partners]
 
     bets = []
     for bet_type in bet_types:
@@ -843,7 +996,7 @@ def _generate_bet_candidates(
                 axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
-                for p1, p2 in combs(partners[:MAX_PARTNERS], 2):
+                for p1, p2 in combs(partners[:max_partners], 2):
                     p1_hn = p1["horse_number"]
                     p2_hn = p2["horse_number"]
                     p1_runner = runners_map.get(p1_hn, {})
@@ -1421,6 +1574,7 @@ def _generate_bet_proposal_impl(
     past_performance_data: dict | None = None,
     unified_probs: dict[int, float] | None = None,
     bankroll: int = 0,
+    betting_preference: dict | None = None,
 ) -> dict:
     """買い目提案の統合実装（テスト用に公開）.
 
@@ -1441,6 +1595,7 @@ def _generate_bet_proposal_impl(
         max_bets: 買い目点数上限。未指定の場合はペルソナのデフォルト値
             （analystは8、conservativeは5など）。指定時はペルソナのデフォルトより優先。
         bankroll: 1日の総資金（bankrollモード）。0より大きい場合はダッチング配分を使用。
+        betting_preference: 好み設定辞書（bet_type_preference, target_style, priority）
 
     Returns:
         統合提案結果
@@ -1448,8 +1603,8 @@ def _generate_bet_proposal_impl(
     race_conditions = race_conditions or []
     running_styles = running_styles or []
 
-    # ペルソナ設定の解決
-    config = _get_character_config(character_type)
+    # ペルソナ設定 + 好み設定の解決
+    config = _get_preference_config(character_type, betting_preference)
     use_bankroll = bankroll > 0
     if use_bankroll:
         effective_max_bets = max_bets  # bankrollモード: max_bets未指定なら全件
@@ -1532,6 +1687,7 @@ def _generate_bet_proposal_impl(
         weight_speed_index=config["weight_speed_index"],
         weight_form=config["weight_form"],
         unified_probs=unified_probs,
+        max_partners=config["max_partners"],
     )
 
     # Phase 5: 予算配分
@@ -1601,7 +1757,146 @@ def _generate_bet_proposal_impl(
     return result
 
 
-def _generate_proposal_reasoning(
+def _build_narration_context(
+    axis_horses: list[dict],
+    difficulty: dict,
+    predicted_pace: str,
+    ai_consensus: str,
+    skip: dict,
+    bets: list[dict],
+    preferred_bet_types: list[str] | None,
+    ai_predictions: list[dict],
+    runners_data: list[dict],
+    speed_index_data: dict | None = None,
+    past_performance_data: dict | None = None,
+) -> dict:
+    """LLMナレーション用のコンテキストdictを構築する."""
+    # AI順位・スコアマップ（Decimal対策）
+    ai_rank_map = {
+        int(p.get("horse_number", 0)): int(p.get("rank", 99))
+        for p in ai_predictions
+    }
+    ai_score_map = {
+        int(p.get("horse_number", 0)): float(p.get("score", 0))
+        for p in ai_predictions
+    }
+    runners_map = {r.get("horse_number"): r for r in runners_data}
+
+    # 軸馬にAI情報を付与
+    enriched_axis = []
+    for ax in axis_horses:
+        hn = ax["horse_number"]
+        runner = runners_map.get(hn, {})
+        enriched = {
+            "horse_number": hn,
+            "horse_name": ax.get("horse_name", ""),
+            "composite_score": float(ax.get("composite_score", 0)),
+            "ai_rank": ai_rank_map.get(hn, 99),
+            "ai_score": ai_score_map.get(hn, 0),
+            "odds": float(runner.get("odds", 0)) if runner.get("odds") else 0,
+        }
+        if speed_index_data:
+            si_score = _calculate_speed_index_score(hn, speed_index_data)
+            if si_score is not None:
+                enriched["speed_index_score"] = float(si_score)
+        if past_performance_data:
+            form_s = _calculate_form_score(hn, past_performance_data)
+            if form_s is not None:
+                enriched["form_score"] = float(form_s)
+        enriched_axis.append(enriched)
+
+    # 相手馬を抽出
+    axis_numbers = {ax["horse_number"] for ax in axis_horses}
+    partner_numbers_seen = []
+    for bet in bets:
+        for hn in bet.get("horse_numbers", []):
+            if hn not in axis_numbers and hn not in partner_numbers_seen:
+                partner_numbers_seen.append(hn)
+
+    partners = []
+    for hn in partner_numbers_seen[:MAX_PARTNERS]:
+        runner = runners_map.get(hn, {})
+        ev_vals = [
+            b.get("expected_value", 0) for b in bets
+            if hn in b.get("horse_numbers", [])
+        ]
+        partners.append({
+            "horse_number": hn,
+            "horse_name": runner.get("horse_name", ""),
+            "ai_rank": ai_rank_map.get(hn, 99),
+            "max_expected_value": max(ev_vals) if ev_vals else 0,
+        })
+
+    ctx = {
+        "axis_horses": enriched_axis,
+        "partner_horses": partners,
+        "difficulty": difficulty,
+        "predicted_pace": predicted_pace,
+        "ai_consensus": ai_consensus,
+        "skip": skip,
+        "bets": [
+            {
+                "bet_type_name": b.get("bet_type_name", ""),
+                "horse_numbers": b.get("horse_numbers", []),
+                "expected_value": b.get("expected_value", 0),
+                "composite_odds": float(b.get("composite_odds", 0)),
+                "confidence": b.get("confidence", ""),
+            }
+            for b in bets
+        ],
+    }
+    if preferred_bet_types:
+        ctx["preferred_bet_types"] = preferred_bet_types
+    if speed_index_data:
+        ctx["speed_index_raw"] = speed_index_data
+    if past_performance_data:
+        ctx["past_performance_raw"] = past_performance_data
+    return ctx
+
+
+_bedrock_runtime_client = None
+
+
+def _get_bedrock_runtime_client():
+    """Bedrock Runtime クライアントを遅延初期化で取得する."""
+    global _bedrock_runtime_client
+    if _bedrock_runtime_client is None:
+        _bedrock_runtime_client = boto3.client("bedrock-runtime", region_name=NARRATOR_REGION)
+    return _bedrock_runtime_client
+
+
+def _call_bedrock_haiku(system_prompt: str, user_message: str) -> str:
+    """Bedrock Converse API で Haiku を呼び出す."""
+    client = _get_bedrock_runtime_client()
+    response = client.converse(
+        modelId=NARRATOR_MODEL_ID,
+        system=[{"text": system_prompt}],
+        messages=[{"role": "user", "content": [{"text": user_message}]}],
+        inferenceConfig={"maxTokens": 1024, "temperature": 0.7},
+    )
+    return response["output"]["message"]["content"][0]["text"]
+
+
+def _invoke_haiku_narrator(context: dict) -> str | None:
+    """コンテキストを元にHaikuでナレーションを生成する.
+
+    Returns:
+        生成されたテキスト。4セクション揃わない場合やエラー時は None。
+    """
+    try:
+        user_message = json.dumps(context, ensure_ascii=False, default=str)
+        text = _call_bedrock_haiku(NARRATOR_SYSTEM_PROMPT, user_message)
+        required = ["【軸馬選定】", "【券種】", "【組み合わせ】", "【リスク】"]
+        if all(section in text for section in required):
+            return text.strip()
+        logger.warning("LLMナレーション: 4セクション不足。フォールバックへ。")
+        return None
+    except (BotoCoreError, ClientError, KeyError, TypeError) as e:
+        logger.warning("LLMナレーション: Bedrock呼び出し失敗（%s）。フォールバックへ。", type(e).__name__)
+        return None
+
+
+def _generate_proposal_reasoning_template(
     axis_horses: list[dict],
     difficulty: dict,
     predicted_pace: str,
@@ -1612,10 +1907,11 @@ def _generate_proposal_reasoning(
     ai_predictions: list[dict],
     runners_data: list[dict],
     skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
+    max_partners: int = MAX_PARTNERS,
     speed_index_data: dict | None = None,
     past_performance_data: dict | None = None,
 ) -> str:
-    """提案根拠テキストを4セクションで生成する.
+    """提案根拠テキストを4セクションで生成する（テンプレート版）.
 
     Args:
         axis_horses: 軸馬リスト（horse_number, horse_name, composite_score）
@@ -1727,7 +2023,7 @@ def _generate_proposal_reasoning(
                 partner_numbers_seen.append(hn)
 
     partner_descs = []
-    for hn in partner_numbers_seen[:MAX_PARTNERS]:
+    for hn in partner_numbers_seen[:max_partners]:
         runner = runners_map.get(hn, {})
         name = runner.get("horse_name", "")
         ai_rank = ai_rank_map.get(hn, 99)
@@ -1782,6 +2078,54 @@ def _generate_proposal_reasoning(
     sections.append("【リスク】" + "。".join(risk_parts))
 
     return "\n\n".join(sections)
+
+
+def _generate_proposal_reasoning(
+    axis_horses: list[dict],
+    difficulty: dict,
+    predicted_pace: str,
+    ai_consensus: str,
+    skip: dict,
+    bets: list[dict],
+    preferred_bet_types: list[str] | None,
+    ai_predictions: list[dict],
+    runners_data: list[dict],
+    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
+    speed_index_data: dict | None = None,
+    past_performance_data: dict | None = None,
+) -> str:
+    """提案根拠テキストを4セクションで生成する（LLMナレーション版）."""
+    context = _build_narration_context(
+        axis_horses=axis_horses,
+        difficulty=difficulty,
+        predicted_pace=predicted_pace,
+        ai_consensus=ai_consensus,
+        skip=skip,
+        bets=bets,
+        preferred_bet_types=preferred_bet_types,
+        ai_predictions=ai_predictions,
+        runners_data=runners_data,
+        speed_index_data=speed_index_data,
+        past_performance_data=past_performance_data,
+    )
+    result = _invoke_haiku_narrator(context)
+    if result is not None:
+        return result
+    # フォールバック: テンプレート生成
+    return _generate_proposal_reasoning_template(
+        axis_horses=axis_horses,
+        difficulty=difficulty,
+        predicted_pace=predicted_pace,
+        ai_consensus=ai_consensus,
+        skip=skip,
+        bets=bets,
+        preferred_bet_types=preferred_bet_types,
+        ai_predictions=ai_predictions,
+        runners_data=runners_data,
+        skip_gate_threshold=skip_gate_threshold,
+        speed_index_data=speed_index_data,
+        past_performance_data=past_performance_data,
+    )
 
 
 def _generate_analysis_comment(
@@ -1930,6 +2274,7 @@ def generate_bet_proposal(
             past_performance_data=past_performance_data,
             unified_probs=unified_probs or None,
             bankroll=bankroll,
+            betting_preference=_current_betting_preference,
         )
         if "error" not in result:
             _last_proposal_result = result
