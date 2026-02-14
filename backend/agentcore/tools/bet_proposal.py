@@ -1110,25 +1110,23 @@ def _generate_proposal_reasoning(
     for ax in axis_horses:
         hn = ax["horse_number"]
         name = ax.get("horse_name", "")
-        score = ax.get("composite_score", 0)
+        composite_score = float(ax.get("composite_score", 0))
         ai_rank = ai_rank_map.get(hn, 99)
         ai_score = ai_score_map.get(hn, 0)
         runner = runners_map.get(hn, {})
         odds = runner.get("odds", 0)
 
-        desc = f"{hn}番{name}（AI指数{ai_rank}位・{ai_score:.0f}pt）を軸に選定"
+        desc = (
+            f"{hn}番{name}（AI指数{ai_rank}位・{ai_score:.0f}pt、"
+            f"総合評価{composite_score:.1f}pt）を軸に選定"
+        )
         details = []
         if odds and odds > 0:
             details.append(f"単勝オッズ{float(odds):.1f}倍")
         if ai_rank <= 3:
             details.append("AI指数が上位で信頼度が高い")
         if predicted_pace:
-            # 脚質相性の説明
-            style = ""
-            for rs_runner in runners_data:
-                if rs_runner.get("horse_number") == hn:
-                    # running_stylesは別データだが、ペース相性スコアは複合スコアに反映済み
-                    break
+            # ペース予想に基づく一般的な脚質傾向の説明
             if predicted_pace == "ハイ":
                 details.append("ハイペース予想で差し・追込脚質に有利")
             elif predicted_pace == "スロー":
@@ -1220,9 +1218,10 @@ def _generate_proposal_reasoning(
     else:
         risk_parts.append("積極参戦レベル")
 
-    # トリガミリスクの確認
+    # トリガミリスクの確認（Decimal対策でfloat変換、閾値は定数を使用）
     has_torigami_risk = any(
-        b.get("composite_odds", 0) > 0 and b.get("composite_odds", 0) < 3.0
+        float(b.get("composite_odds", 0)) > 0
+        and float(b.get("composite_odds", 0)) < float(TORIGAMI_COMPOSITE_ODDS_THRESHOLD)
         for b in bets
     )
     if has_torigami_risk:
