@@ -22,44 +22,92 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
   amount: number;
   onUpdate: (itemId: string, amount: number) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(String(amount));
 
   useEffect(() => {
     setValue(String(amount));
   }, [amount]);
 
-  const handleBlur = () => {
+  const handleDecrement = () => {
+    const next = Math.max(MIN_BET_AMOUNT, amount - 100);
+    onUpdate(itemId, next);
+  };
+
+  const handleIncrement = () => {
+    const next = Math.min(MAX_BET_AMOUNT, amount + 100);
+    onUpdate(itemId, next);
+  };
+
+  const handleAmountClick = () => {
+    setValue(String(amount));
+    setIsEditing(true);
+  };
+
+  const commitEdit = () => {
     let parsed = parseInt(value, 10);
     if (isNaN(parsed) || parsed < MIN_BET_AMOUNT) {
       parsed = MIN_BET_AMOUNT;
     } else if (parsed > MAX_BET_AMOUNT) {
       parsed = MAX_BET_AMOUNT;
     }
-    // 100円単位に丸める
     parsed = Math.round(parsed / 100) * 100;
-    setValue(String(parsed));
     onUpdate(itemId, parsed);
+    setIsEditing(false);
   };
 
   return (
-    <div className="cart-item-amount">
-      <span>¥</span>
-      <input
-        type="number"
-        className="cart-amount-input"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={handleBlur}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.currentTarget.blur();
-          }
-        }}
-        min={MIN_BET_AMOUNT}
-        max={MAX_BET_AMOUNT}
-        step={100}
-      />
+    <div className="cart-amount-stepper">
+      <button
+        type="button"
+        className="cart-stepper-btn"
+        onClick={handleDecrement}
+        disabled={amount <= MIN_BET_AMOUNT}
+        aria-label="金額を減らす"
+      >
+        −
+      </button>
+      {isEditing ? (
+        <input
+          type="number"
+          className="cart-stepper-input"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.currentTarget.blur();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setValue(String(amount));
+              setIsEditing(false);
+            }
+          }}
+          autoFocus
+          min={MIN_BET_AMOUNT}
+          max={MAX_BET_AMOUNT}
+          step={100}
+        />
+      ) : (
+        <button
+          type="button"
+          className="cart-stepper-value"
+          onClick={handleAmountClick}
+          aria-label={`金額 ${amount}円 タップで編集`}
+        >
+          ¥{amount.toLocaleString()}
+        </button>
+      )}
+      <button
+        type="button"
+        className="cart-stepper-btn"
+        onClick={handleIncrement}
+        disabled={amount >= MAX_BET_AMOUNT}
+        aria-label="金額を増やす"
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -119,11 +167,21 @@ export function CartPage() {
           </div>
         ) : (
           <>
-            {items.map((item) => (
-              <div key={item.id} className="cart-item">
-                <div className="cart-item-info">
-                  <div className="cart-item-race">
-                    {getVenueName(item.raceVenue)} {item.raceNumber} {item.raceName}
+            {items.map((item) => {
+              const oddsText = formatOdds(item);
+              return (
+                <div key={item.id} className="cart-item">
+                  <div className="cart-item-header">
+                    <span className="cart-item-race">
+                      {getVenueName(item.raceVenue)} {item.raceNumber} {item.raceName}
+                    </span>
+                    <button
+                      className="cart-item-delete"
+                      onClick={() => removeItem(item.id)}
+                      aria-label="削除"
+                    >
+                      ×
+                    </button>
                   </div>
                   <div className="cart-item-bet">
                     <span className="cart-item-bet-type">{BetTypeLabels[item.betType]}</span>
@@ -134,24 +192,17 @@ export function CartPage() {
                       <span className="cart-item-bet-count">{item.betCount}点</span>
                     )}
                   </div>
-                  {(() => {
-                    const oddsText = formatOdds(item);
-                    return oddsText && <div className="cart-item-odds">{oddsText}</div>;
-                  })()}
-                  <CartItemAmountInput
-                    itemId={item.id}
-                    amount={item.amount}
-                    onUpdate={updateItemAmount}
-                  />
+                  <div className="cart-item-footer">
+                    {oddsText && <span className="cart-item-odds">{oddsText}</span>}
+                    <CartItemAmountInput
+                      itemId={item.id}
+                      amount={item.amount}
+                      onUpdate={updateItemAmount}
+                    />
+                  </div>
                 </div>
-                <button
-                  className="cart-item-delete"
-                  onClick={() => removeItem(item.id)}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+              );
+            })}
 
             <div className="cart-summary">
               <div className="cart-summary-row">
