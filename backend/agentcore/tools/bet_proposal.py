@@ -185,6 +185,7 @@ _DEFAULT_CONFIG = {
     "skip_gate_threshold": SKIP_GATE_THRESHOLD,
     "difficulty_bet_types": DIFFICULTY_BET_TYPES,
     "base_rate": DEFAULT_BASE_RATE,
+    "max_partners": MAX_PARTNERS,
 }
 
 
@@ -200,6 +201,104 @@ def _get_character_config(character_type: str | None) -> dict:
     config = dict(_DEFAULT_CONFIG)
     if character_type and character_type in CHARACTER_PROFILES:
         config.update(CHARACTER_PROFILES[character_type])
+    return config
+
+
+# =============================================================================
+# 好み設定（BettingPreference）反映
+# =============================================================================
+
+# target_style → 難易度券種マッピングのシフト
+TARGET_STYLE_DIFFICULTY_BET_TYPES = {
+    "honmei": {
+        1: ["quinella", "quinella_place"],
+        2: ["quinella", "quinella_place"],
+        3: ["quinella", "exacta"],
+        4: ["quinella", "quinella_place"],
+        5: ["quinella_place"],
+    },
+    "big_longshot": {
+        1: ["exacta", "trio"],
+        2: ["exacta", "trio"],
+        3: ["trio", "trifecta"],
+        4: ["trio", "trifecta"],
+        5: ["trio", "quinella_place"],
+    },
+}
+
+# bet_type_preference → 券種候補のオーバーライド
+BET_TYPE_PREFERENCE_MAP = {
+    "trio_focused": {
+        1: ["trio", "exacta"],
+        2: ["trio", "exacta"],
+        3: ["trio", "trifecta"],
+        4: ["trio", "trifecta"],
+        5: ["trio", "quinella_place"],
+    },
+    "exacta_focused": {
+        1: ["exacta", "quinella"],
+        2: ["exacta", "quinella"],
+        3: ["exacta", "trio"],
+        4: ["exacta", "trio"],
+        5: ["quinella", "quinella_place"],
+    },
+    "quinella_focused": {
+        1: ["quinella", "quinella_place"],
+        2: ["quinella", "quinella_place"],
+        3: ["quinella", "quinella_place"],
+        4: ["quinella_place", "quinella"],
+        5: ["quinella_place"],
+    },
+    "wide_focused": {
+        1: ["quinella_place", "quinella"],
+        2: ["quinella_place", "quinella"],
+        3: ["quinella_place", "quinella"],
+        4: ["quinella_place"],
+        5: ["quinella_place"],
+    },
+}
+
+# priority → 相手馬数・軸馬閾値
+PRIORITY_WEIGHTS = {
+    "hit_rate": {"max_partners": 5},
+    "roi": {"max_partners": 3},
+    "balanced": {"max_partners": MAX_PARTNERS},
+}
+
+
+def _get_preference_config(
+    character_type: str | None,
+    betting_preference: dict | None,
+) -> dict:
+    """ペルソナ設定に好み設定を上書きした設定を返す.
+
+    Args:
+        character_type: ペルソナ種別
+        betting_preference: 好み設定辞書（bet_type_preference, target_style, priority）
+
+    Returns:
+        設定辞書
+    """
+    config = _get_character_config(character_type)
+
+    if not betting_preference:
+        return config
+
+    # priority → max_partners の上書き
+    priority = betting_preference.get("priority")
+    if priority and priority in PRIORITY_WEIGHTS:
+        config.update(PRIORITY_WEIGHTS[priority])
+
+    # bet_type_preference → difficulty_bet_types の上書き
+    bet_type_pref = betting_preference.get("bet_type_preference")
+    if bet_type_pref and bet_type_pref != "auto" and bet_type_pref in BET_TYPE_PREFERENCE_MAP:
+        config["difficulty_bet_types"] = dict(BET_TYPE_PREFERENCE_MAP[bet_type_pref])
+    else:
+        # target_style → difficulty_bet_types のシフト（bet_type_preferenceが auto の場合のみ）
+        target_style = betting_preference.get("target_style")
+        if target_style and target_style in TARGET_STYLE_DIFFICULTY_BET_TYPES:
+            config["difficulty_bet_types"] = dict(TARGET_STYLE_DIFFICULTY_BET_TYPES[target_style])
+
     return config
 
 
@@ -659,6 +758,7 @@ def _generate_bet_candidates(
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
     weight_form: float = WEIGHT_FORM,
     unified_probs: dict[int, float] | None = None,
+    max_partners: int = MAX_PARTNERS,
 ) -> list[dict]:
     """買い目候補を生成し、トリガミチェックを行う.
 
@@ -702,7 +802,7 @@ def _generate_bet_candidates(
             "composite_score": score,
         })
     partner_scores.sort(key=lambda x: x["composite_score"], reverse=True)
-    partners = partner_scores[:MAX_PARTNERS]
+    partners = partner_scores[:max_partners]
 
     bets = []
     for bet_type in bet_types:
@@ -843,7 +943,7 @@ def _generate_bet_candidates(
                 axis_pop = axis_runner.get("popularity") or 0
                 axis_odds = axis_runner.get("odds") or 0
 
-                for p1, p2 in combs(partners[:MAX_PARTNERS], 2):
+                for p1, p2 in combs(partners[:max_partners], 2):
                     p1_hn = p1["horse_number"]
                     p2_hn = p2["horse_number"]
                     p1_runner = runners_map.get(p1_hn, {})
@@ -1421,6 +1521,7 @@ def _generate_bet_proposal_impl(
     past_performance_data: dict | None = None,
     unified_probs: dict[int, float] | None = None,
     bankroll: int = 0,
+    betting_preference: dict | None = None,
 ) -> dict:
     """買い目提案の統合実装（テスト用に公開）.
 
@@ -1441,6 +1542,7 @@ def _generate_bet_proposal_impl(
         max_bets: 買い目点数上限。未指定の場合はペルソナのデフォルト値
             （analystは8、conservativeは5など）。指定時はペルソナのデフォルトより優先。
         bankroll: 1日の総資金（bankrollモード）。0より大きい場合はダッチング配分を使用。
+        betting_preference: 好み設定辞書（bet_type_preference, target_style, priority）
 
     Returns:
         統合提案結果
@@ -1448,8 +1550,8 @@ def _generate_bet_proposal_impl(
     race_conditions = race_conditions or []
     running_styles = running_styles or []
 
-    # ペルソナ設定の解決
-    config = _get_character_config(character_type)
+    # ペルソナ設定 + 好み設定の解決
+    config = _get_preference_config(character_type, betting_preference)
     use_bankroll = bankroll > 0
     if use_bankroll:
         effective_max_bets = max_bets  # bankrollモード: max_bets未指定なら全件
@@ -1532,6 +1634,7 @@ def _generate_bet_proposal_impl(
         weight_speed_index=config["weight_speed_index"],
         weight_form=config["weight_form"],
         unified_probs=unified_probs,
+        max_partners=config["max_partners"],
     )
 
     # Phase 5: 予算配分
@@ -1563,6 +1666,7 @@ def _generate_bet_proposal_impl(
         ai_predictions=ai_predictions,
         runners_data=runners_data,
         skip_gate_threshold=config["skip_gate_threshold"],
+        max_partners=config["max_partners"],
         speed_index_data=speed_index_data,
         past_performance_data=past_performance_data,
     )
@@ -1612,6 +1716,7 @@ def _generate_proposal_reasoning(
     ai_predictions: list[dict],
     runners_data: list[dict],
     skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
+    max_partners: int = MAX_PARTNERS,
     speed_index_data: dict | None = None,
     past_performance_data: dict | None = None,
 ) -> str:
@@ -1727,7 +1832,7 @@ def _generate_proposal_reasoning(
                 partner_numbers_seen.append(hn)
 
     partner_descs = []
-    for hn in partner_numbers_seen[:MAX_PARTNERS]:
+    for hn in partner_numbers_seen[:max_partners]:
         runner = runners_map.get(hn, {})
         name = runner.get("horse_name", "")
         ai_rank = ai_rank_map.get(hn, 99)
