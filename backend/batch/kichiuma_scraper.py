@@ -248,21 +248,21 @@ def save_indices(
     logger.info(f"Saved indices for {race_id}: {len(indices)} horses")
 
 
-def scrape_races() -> dict[str, Any]:
+def scrape_races(offset_days: int = 1) -> dict[str, Any]:
     """メインのスクレイピング処理.
 
-    翌日分のスピード指数を取得する。
+    スピード指数を取得してDynamoDBに保存する。
 
-    フロー:
-    1. トップページから翌日の開催競馬場を特定
-    2. 各競馬場のレース一覧ページからSPランクリンクを取得
-    3. 各レースのSPランクページからスピード指数を抽出
+    Args:
+        offset_days: 何日後のレースを取得するか。
+            0 = 当日（レース当日の再取得用）
+            1 = 翌日（前日夜の早期取得用、デフォルト）
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
-    tomorrow = scraped_at + timedelta(days=1)
-    date_str = tomorrow.strftime("%Y%m%d")
-    date_param = f"{tomorrow.year}%2F{tomorrow.month}%2F{tomorrow.day}"
+    target = scraped_at + timedelta(days=offset_days)
+    date_str = target.strftime("%Y%m%d")
+    date_param = f"{target.year}%2F{target.month}%2F{target.day}"
 
     results = {
         "success": True,
@@ -359,7 +359,14 @@ def handler(event: dict, context: Any) -> dict:
     logger.info(f"Starting kichiuma scraper: event={event}")
 
     try:
-        results = scrape_races()
+        offset_days = int(event.get("offset_days", 1))
+    except (TypeError, ValueError):
+        offset_days = 1
+    if offset_days not in (0, 1):
+        offset_days = 1
+
+    try:
+        results = scrape_races(offset_days=offset_days)
         logger.info(f"Scraping completed: {results}")
 
         return {

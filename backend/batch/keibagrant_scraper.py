@@ -494,23 +494,22 @@ def save_race_data(
     logger.info(f"Saved race data for {race_id}: {len(horses)} horses")
 
 
-def scrape_races() -> dict[str, Any]:
+def scrape_races(offset_days: int = 1) -> dict[str, Any]:
     """メインのスクレイピング処理.
 
-    フロー:
-    1. カテゴリページから翌日の記事URLを取得
-    2. 記事ページからレースごとのPDFリンクを取得
-    3. 各PDFをダウンロード・テキスト変換・パース
-    4. DynamoDBに保存
+    Args:
+        offset_days: 何日後のレースを取得するか。
+            0 = 当日（レース当日の再取得用）
+            1 = 翌日（前日夜の早期取得用、デフォルト）
 
     Returns:
         dict: {"success": bool, "races_scraped": int, "errors": list}
     """
     table = get_dynamodb_table()
     scraped_at = datetime.now(JST)
-    tomorrow = scraped_at + timedelta(days=1)
-    date_str = tomorrow.strftime("%Y%m%d")
-    target_date = f"{tomorrow.month}月{tomorrow.day}日"  # "2月8日" 形式
+    target = scraped_at + timedelta(days=offset_days)
+    date_str = target.strftime("%Y%m%d")
+    target_date = f"{target.month}月{target.day}日"  # "2月8日" 形式
 
     results: dict[str, Any] = {
         "success": True,
@@ -595,7 +594,14 @@ def handler(event: dict, context: Any) -> dict:
     logger.info(f"Starting keibagrant scraper: event={event}")
 
     try:
-        results = scrape_races()
+        offset_days = int(event.get("offset_days", 1))
+    except (TypeError, ValueError):
+        offset_days = 1
+    if offset_days not in (0, 1):
+        offset_days = 1
+
+    try:
+        results = scrape_races(offset_days=offset_days)
         logger.info(f"Scraping completed: {results}")
 
         return {
