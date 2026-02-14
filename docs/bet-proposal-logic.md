@@ -15,7 +15,7 @@ flowchart TD
         P0D --> P0E[近走成績取得]
     end
 
-    P0 --> P1[Phase 1: ペルソナ設定]
+    P0 --> P1[Phase 1: ペルソナ設定 + 好み設定]
     P1 --> P2
 
     subgraph P2 [Phase 2: ペース予想 + 軸馬選定]
@@ -32,7 +32,7 @@ flowchart TD
     P3 --> P4
 
     subgraph P4 [Phase 4: 買い目生成]
-        P4A[相手馬を上位4頭選出] --> P4B[軸×相手の組み合わせ生成]
+        P4A[相手馬を上位N頭選出] --> P4B[軸×相手の組み合わせ生成]
         P4B --> P4C[オッズ推定 + 期待値計算]
         P4C --> P4D{トリガミ?}
         P4D -->|合成オッズ < 閾値| P4E[除外]
@@ -45,11 +45,19 @@ flowchart TD
 
     subgraph P5 [Phase 5: 見送りゲート]
         P5A{見送りスコア ≥ 閾値?}
-        P5A -->|Yes| P5B[予算を50%に削減]
+        P5A -->|budgetモード| P5B[予算を50%に削減]
+        P5A -->|bankrollモード| P5F[confidence_factorで予算算出]
         P5A -->|No| P5C[予算そのまま]
     end
 
-    P5 --> P6[Phase 6: 予算配分]
+    P5 --> P6
+
+    subgraph P6 [Phase 6: 予算配分]
+        P6A{bankrollモード?}
+        P6A -->|Yes| P6B[ダッチング方式で配分]
+        P6A -->|No| P6C[信頼度別に配分]
+    end
+
     P6 --> P7[Phase 7: 提案理由 + コメント生成]
     P7 --> RESULT([提案結果を返却])
 ```
@@ -63,16 +71,20 @@ flowchart TD
 | データ | 取得元 | 主な項目 |
 |--------|--------|----------|
 | レース情報 | JRA-VAN API (EC2 FastAPI) | 出走馬、単勝オッズ、人気順、会場、レース条件 |
-| AI予想 | DynamoDB `baken-kaigi-ai-predictions` | 馬番、順位、スコア（0-100pt） |
+| AI予想 | DynamoDB `baken-kaigi-ai-predictions` | 馬番、順位、スコア（0-100pt）、複数ソース |
 | 脚質データ | JRA-VAN API `/races/{id}/running-styles` | 逃げ/先行/差し/追込/自在 |
 | スピード指数 | DynamoDB `baken-kaigi-speed-indices` | 各馬のスピード指数（複数ソース） |
 | 近走成績 | DynamoDB `baken-kaigi-past-performances` | 直近5走の着順 |
 
 データが取得できない場合（DynamoDBテーブルが空など）は、その成分を使わずに後続処理を行う（動的重み正規化で対応）。
 
+AI予想が複数ソースの場合、`_compute_unified_win_probabilities()` で統合単勝率を算出する（Phase 7 参照）。
+
 ---
 
-## Phase 1: ペルソナ設定
+## Phase 1: ペルソナ設定 + 好み設定
+
+### 1-1. ペルソナ設定
 
 `character_type` に応じて各種パラメータを調整する。デフォルト値をベースに、ペルソナ固有の設定で上書きする。
 
@@ -84,7 +96,7 @@ flowchart LR
     CT -->|aggressive| D[攻撃型<br>穴狙い・三連単]
 ```
 
-### パラメータ一覧
+#### パラメータ一覧
 
 | パラメータ | analyst | conservative | intuition | aggressive |
 |-----------|---------|-------------|-----------|------------|
@@ -99,8 +111,9 @@ flowchart LR
 | トリガミ閾値 | 2.0 | **2.5** | 1.5 | 1.5 |
 | 見送り閾値 | 7 | **6** | 8 | **9** |
 | 最大点数 | 8 | **5** | 8 | 8 |
+| 基本投入率 `base_rate` | 3% | **2%** | 3% | **5%** |
 
-### 券種マッピング（難易度★別）
+#### 券種マッピング（難易度★別）
 
 | 難易度 | analyst | conservative | intuition | aggressive |
 |--------|---------|-------------|-----------|------------|
@@ -108,6 +121,53 @@ flowchart LR
 | ★3 | 馬連・三連複 | ワイド・馬連 | 馬単・三連複 | 三連単・三連複 |
 | ★4 | 三連複・ワイド | ワイド | 三連複・三連単 | 三連単・三連複 |
 | ★5 | ワイド | ワイド | 三連複・ワイド | 三連複・三連単 |
+
+### 1-2. 好み設定（BettingPreference）
+
+ペルソナ設定の上に、ユーザーの好み設定を上書きする。3つの軸がある。
+
+```mermaid
+flowchart TD
+    PREF[好み設定] --> TS[target_style<br>狙い方]
+    PREF --> BTP[bet_type_preference<br>券種]
+    PREF --> PRI[priority<br>重視ポイント]
+
+    TS -->|honmei| TS1[本命狙い: 堅い券種にシフト]
+    TS -->|big_longshot| TS2[大穴狙い: 高配当券種にシフト]
+
+    BTP -->|trio_focused| BTP1[三連複中心]
+    BTP -->|exacta_focused| BTP2[馬単中心]
+    BTP -->|quinella_focused| BTP3[馬連中心]
+    BTP -->|wide_focused| BTP4[ワイド中心]
+    BTP -->|auto| BTP5[ペルソナの券種マッピングを使用]
+
+    PRI -->|hit_rate| PRI1[的中率重視: 相手馬5頭]
+    PRI -->|roi| PRI2[ROI重視: 相手馬3頭]
+    PRI -->|balanced| PRI3[バランス: 相手馬4頭]
+```
+
+#### 適用優先度
+
+1. `bet_type_preference` が `auto` 以外 → 券種マッピングを完全に上書き
+2. `bet_type_preference` が `auto` かつ `target_style` あり → 狙い方に応じた券種マッピングにシフト
+3. どちらもなし → ペルソナのデフォルト券種マッピングを使用
+
+#### target_style 別の券種マッピング
+
+| 難易度 | honmei（本命狙い） | big_longshot（大穴狙い） |
+|--------|-------------------|----------------------|
+| ★1-2 | 馬連・ワイド | 馬単・三連複 |
+| ★3 | 馬連・馬単 | 三連複・三連単 |
+| ★4 | 馬連・ワイド | 三連複・三連単 |
+| ★5 | ワイド | 三連複・ワイド |
+
+#### priority → 相手馬数
+
+| priority | 相手馬数 `max_partners` |
+|----------|----------------------|
+| hit_rate | 5 |
+| balanced | 4（デフォルト） |
+| roi | 3 |
 
 ---
 
@@ -166,6 +226,18 @@ flowchart TD
   AI正規化重み = 0.5 / 1.0 = 0.500
   オッズ乖離正規化重み = 0.3 / 1.0 = 0.300
   ペース相性正規化重み = 0.2 / 1.0 = 0.200
+```
+
+#### 統合単勝率（unified_probs）使用時
+
+AI予想が複数ソースの場合、統合単勝率から順位を再計算してAI指数スコアを算出する。
+
+```python
+# 統合確率から順位マップを生成
+sorted_probs = sorted(unified_probs.items(), key=lambda x: x[1], reverse=True)
+rank_map = {hn: i + 1 for i, (hn, _) in enumerate(sorted_probs)}
+ai_rank = rank_map.get(horse_number, 99)
+ai_score = max(0.0, 100.0 - (ai_rank - 1) * 5.0)
 ```
 
 ---
@@ -364,7 +436,7 @@ difficulty_stars = clamp(upset_score + 2, 1, 5)
 
 ### 券種の自動選定
 
-ペルソナの `difficulty_bet_types` マッピングを参照して、難易度★から券種を自動選定する。ユーザーが `preferred_bet_types` を指定した場合はそちらを優先。
+ペルソナ（+ 好み設定で上書き後）の `difficulty_bet_types` マッピングを参照して、難易度★から券種を自動選定する。ユーザーが `preferred_bet_types` を指定した場合はそちらを優先。
 
 ```mermaid
 flowchart LR
@@ -380,22 +452,33 @@ flowchart LR
 
 ### 相手馬の選出
 
-軸馬以外の全馬を複合スコア順にソートし、上位 `MAX_PARTNERS`(=4) 頭を相手馬に選出。
+軸馬以外の全馬を複合スコア順にソートし、上位 `max_partners` 頭を相手馬に選出。
+
+`max_partners` は好み設定の `priority` によって変動する（デフォルト4頭）。
+
+| priority | 相手馬数 |
+|----------|---------|
+| hit_rate | 5頭 |
+| balanced | 4頭（デフォルト） |
+| roi | 3頭 |
 
 ### 組み合わせ生成
 
 券種に応じて軸馬×相手馬の組み合わせを生成する。
 
 ```
+単勝/複勝の場合:
+  軸馬のみ = 最大 2通り
+
 馬連/馬単/ワイドの場合:
-  各軸 × 各相手 = 最大 2軸 × 4相手 = 8通り
+  各軸 × 各相手 = 最大 2軸 × N相手
 
   馬連: 馬番昇順で表示 (例: 3-7)
   馬単: 軸→相手の順 (例: 3→7)
   ワイド: 馬番昇順で表示 (例: 3-7)
 
 三連複/三連単の場合:
-  各軸 × C(4相手, 2) = 最大 2軸 × 6組 = 12通り
+  各軸 × C(N相手, 2)
 
   三連複: 馬番昇順 (例: 1-3-7)
   三連単: 軸→相手1→相手2 (例: 1→3→7)
@@ -437,6 +520,8 @@ flowchart LR
 ```
 
 ### 期待値計算
+
+#### 従来方式（単一AIソース）
 
 推定オッズと統計的な的中確率から期待値を計算する。
 
@@ -482,7 +567,32 @@ flowchart LR
 | 新馬戦 | 0.88 | データ不足で荒れやすい |
 | 通常 | 1.00 | - |
 
-**期待値の評価**:
+#### Harvilleモデル方式（複数AIソース / unified_probs 使用時）
+
+統合単勝率が利用可能な場合、Harvilleモデルで券種別の組合せ確率を直接算出する。
+
+```
+Harville 2着確率: P(A=1着, B=2着) = P(A) × P(B) / (1 - P(A))
+Harville 3着確率: P(A=1着, B=2着, C=3着) = P(A) × P(B) / (1 - P(A)) × P(C) / (1 - P(A) - P(B))
+```
+
+**券種別の確率算出**:
+
+| 券種 | 計算方法 |
+|------|---------|
+| 単勝 | P(A) |
+| 複勝 | P(A) × 3（3着内近似） |
+| 馬連 | Harville(A,B) + Harville(B,A) |
+| 馬単 | Harville(A,B) |
+| ワイド | 全非選択馬Cに対する6順列のtrifecta合算 |
+| 三連複 | 6順列のtrifecta合算 |
+| 三連単 | Harville(A,B,C) |
+
+```
+期待値 = 推定オッズ × 組合せ確率
+```
+
+#### 期待値の評価
 
 | 期待値 | 評価 |
 |--------|------|
@@ -542,10 +652,15 @@ flowchart TD
     HP[ハイペース予想: +1] --> SS
 
     SS --> CLAMP[0〜10にクランプ]
-    CLAMP --> J{スコア ≥ 閾値?}
-    J -->|≥ 7| SKIP[見送り推奨<br>予算50%削減]
+    CLAMP --> MODE{モード判定}
+    MODE -->|budgetモード| J{スコア ≥ 閾値?}
+    MODE -->|bankrollモード| CF[confidence_factor算出]
+
+    J -->|≥ 閾値| SKIP[見送り推奨<br>予算50%削減]
     J -->|≥ 5| CAUTION[慎重に検討]
     J -->|< 5| OK[通常判断]
+
+    CF --> BUDGET[レース予算 = bankroll × base_rate × confidence_factor]
 ```
 
 見送り閾値はペルソナで異なる:
@@ -553,6 +668,37 @@ flowchart TD
 - analyst: 7
 - intuition: 8
 - aggressive: 9（攻撃型は見送りにくい）
+
+### confidence_factor（bankrollモード）
+
+見送りスコアを0.0〜2.0の連続値にマッピングする。budgetモードの「閾値超えたら50%削減」という段階的な処理を、連続的なスケーリングに置き換える。
+
+```
+confidence_factor = max(0.0, 2.0 - skip_score × (1.75 / 8))
+
+skip_score ≥ 9 → 0.0（見送り）
+```
+
+| 見送りスコア | confidence_factor | 意味 |
+|-------------|-------------------|------|
+| 0 | 2.00 | 非常に自信あり |
+| 3 | 1.34 | やや自信あり |
+| 5 | 0.91 | 標準 |
+| 7 | 0.47 | 慎重 |
+| 9+ | 0.00 | 見送り |
+
+**レース予算の算出**:
+
+```
+raw_budget = bankroll × base_rate × confidence_factor
+race_budget = min(raw_budget, bankroll × MAX_RACE_BUDGET_RATIO)
+
+例: bankroll=100,000円、base_rate=3%、skip_score=3
+  → confidence_factor = 1.34
+  → raw_budget = 100,000 × 0.03 × 1.34 = 4,020円 → 4,000円（100円単位）
+  → 上限 = 100,000 × 0.10 = 10,000円
+  → race_budget = 4,000円
+```
 
 **具体例**: 福島ハンデ・16頭・AI上位混戦・ハイペース予想
 
@@ -562,14 +708,16 @@ AI上位5頭差20pt → +3
 オッズ団子 → +1
 16頭 → +1
 ハイペース → +1
-合計 = 10 → 見送り推奨（予算50%削減）
+合計 = 10 → 見送り推奨
+  budgetモード: 予算50%削減
+  bankrollモード: confidence_factor=0.0 → 見送り（0円）
 ```
 
 ---
 
 ## Phase 6: 予算配分
 
-### 配分アルゴリズム
+### budgetモード: 信頼度別配分
 
 ```mermaid
 flowchart TD
@@ -592,7 +740,7 @@ flowchart TD
     REMAIN -->|No| DONE[完了]
 ```
 
-### 配分の詳細ルール
+#### 配分の詳細ルール
 
 1. **グループ予算**: 存在するグループのみに配分し、比率を正規化
    - high のみ存在 → 100% が high に
@@ -611,13 +759,62 @@ flowchart TD
 
 5. **予算不足時**: 予算で買える最大点数 `= budget // 100` を超える場合、高信頼度順に絞り込み
 
+### bankrollモード: ダッチング方式
+
+どの買い目が的中しても同額の払い戻しになるように、オッズの逆数に比例して配分する。
+
+```mermaid
+flowchart TD
+    B[レース予算] --> FILTER[期待値 > 1.0 の買い目を選出]
+    FILTER --> CALC[オッズの逆数合計から<br>合成オッズを計算]
+    CALC --> ALLOC[各買い目に<br>合成オッズ / 個別オッズ<br>の比率で配分]
+    ALLOC --> CHECK{予算超過?}
+    CHECK -->|Yes| REMOVE[最小配分の買い目を除外<br>→ 再帰的に再配分]
+    CHECK -->|No| REMAIN{余剰あり?}
+    REMAIN -->|Yes| ADD[先頭の買い目に加算]
+    REMAIN -->|No| DONE[完了]
+```
+
+**計算式**:
+
+```
+合成オッズ = 1 / Σ(1/オッズ_i)
+各買い目の金額 = レース予算 × 合成オッズ / オッズ_i
+```
+
+**例**: 3つの買い目（オッズ 5.0, 8.0, 12.0）、レース予算 3,000円
+
+```
+逆数合計 = 1/5 + 1/8 + 1/12 = 0.200 + 0.125 + 0.083 = 0.408
+合成オッズ = 1 / 0.408 ≈ 2.45
+
+配分:
+  オッズ5.0 → 3,000 × 2.45 / 5.0 = 1,470 → 1,400円
+  オッズ8.0 → 3,000 × 2.45 / 8.0 = 918 → 900円
+  オッズ12.0 → 3,000 × 2.45 / 12.0 = 612 → 600円
+  合計 = 2,900円（残り100円は先頭に加算）
+```
+
 ---
 
-## Phase 7: AI合議レベル + 提案理由
+## Phase 7: 提案理由 + コメント生成
 
 ### AI合議レベル判定
 
-AI予想の上位2頭のスコア差で合議レベルを判定する。
+#### 統合単勝率（unified_probs）使用時
+
+上位2頭の確率差で判定する。
+
+| 上位2頭の確率差 | 合議レベル |
+|----------------|-----------|
+| ≥ 0.15 | 明確な上位 |
+| 0.08〜0.14 | 概ね合意 |
+| 0.04〜0.07 | やや接戦 |
+| < 0.04 | 混戦 |
+
+#### 単一AIソース使用時
+
+AI予想の上位2頭のスコア差で判定する。
 
 | 上位2頭のスコア差 | 合議レベル |
 |------------------|-----------|
@@ -628,11 +825,23 @@ AI予想の上位2頭のスコア差で合議レベルを判定する。
 
 ### 提案理由（proposal_reasoning）
 
-4セクション構成で生成:
+LLMナレーション（Claude Haiku）を使用して、レース固有の特徴を踏まえた提案理由を動的に生成する。
+
+```mermaid
+flowchart TD
+    DATA[分析データを構造化] --> LLM[Claude Haiku<br>Bedrock Converse API]
+    LLM --> CHECK{4セクション揃っている?}
+    CHECK -->|Yes| RESULT[LLMナレーションを使用]
+    CHECK -->|No| FALLBACK[テンプレート生成にフォールバック]
+    LLM -->|エラー| FALLBACK
+```
+
+**4セクション構成**:
 
 ```
 【軸馬選定】
   各軸馬のAI順位・スコア・総合評価・単勝オッズ・ペース相性を記載
+  スピード指数・近走フォームがある場合はその推移にも言及
 
 【券種】
   難易度★に基づく選定理由 + AI指数差による補足
@@ -644,6 +853,40 @@ AI予想の上位2頭のスコア差で合議レベルを判定する。
   AI合議レベル・見送りスコア・トリガミリスクの有無
 ```
 
+**LLMナレーションの特徴**:
+- モデル: Claude Haiku 4.5（`jp.anthropic.claude-haiku-4-5-20251001-v1:0`）
+- 温度: 0.7（レースごとに異なる表現を生成）
+- AI合議レベルに応じてトーン制御（明確な上位→確信的、混戦→慎重）
+- 4セクション不足時やエラー時はテンプレート生成にフォールバック
+
+---
+
+## 統合単勝率の算出
+
+AI予想が複数ソースの場合、全ソースのスコアを統合して馬ごとの単勝率を算出する。
+
+```mermaid
+flowchart TD
+    S1[ソース1の予想] --> N1[ソース内正規化<br>score / Σscores]
+    S2[ソース2の予想] --> N2[ソース内正規化]
+    S3[ソースNの予想] --> N3[ソース内正規化]
+
+    N1 --> AVG[馬ごとにソース間平均]
+    N2 --> AVG
+    N3 --> AVG
+
+    AVG --> RENORM[再正規化<br>合計=1.0を保証]
+    RENORM --> RESULT[統合単勝率<br>horse_number → probability]
+```
+
+**計算手順**:
+
+1. 各ソース内でスコアを正規化（`score_i / Σscores` → 確率）
+2. 馬ごとに利用可能なソース間で平均を取る
+3. 再正規化して合計1.0にする
+
+統合単勝率が算出された場合、Phase 2の複合スコア計算とPhase 4の期待値計算でHarvilleモデルが使用される。
+
 ---
 
 ## 定数一覧
@@ -651,12 +894,14 @@ AI予想の上位2頭のスコア差で合議レベルを判定する。
 | 定数 | 値 | 用途 |
 |------|-----|------|
 | `MAX_AXIS_HORSES` | 2 | 軸馬の最大数 |
-| `MAX_PARTNERS` | 4 | 相手馬の最大数 |
-| `MAX_BETS` | 8 | 買い目の最大数（analyst デフォルト） |
+| `MAX_PARTNERS` | 4 | 相手馬の最大数（デフォルト） |
+| `MAX_BETS` | 8 | 買い目の最大数（budgetモード、analyst デフォルト） |
 | `MIN_BET_AMOUNT` | 100 | 最低掛け金（円） |
 | `TORIGAMI_COMPOSITE_ODDS_THRESHOLD` | 2.0 | トリガミ閾値（analyst デフォルト） |
 | `SKIP_GATE_THRESHOLD` | 7 | 見送り推奨の閾値（analyst デフォルト） |
-| `SKIP_BUDGET_REDUCTION` | 0.5 | 見送り時の予算削減率 |
+| `SKIP_BUDGET_REDUCTION` | 0.5 | 見送り時の予算削減率（budgetモード） |
+| `MAX_RACE_BUDGET_RATIO` | 0.10 | 1レースあたりの予算上限（bankroll比） |
+| `DEFAULT_BASE_RATE` | 0.03 | デフォルト基本投入率（bankrollモード） |
 | `ODDS_GAP_BONUS_THRESHOLD` | 5 | オッズ乖離ボーナスのAI順位/人気閾値 |
 | `WEIGHT_AI_SCORE` | 0.5 | AI指数の重み（analyst デフォルト） |
 | `WEIGHT_ODDS_GAP` | 0.3 | オッズ乖離の重み |
@@ -665,6 +910,7 @@ AI予想の上位2頭のスコア差で合議レベルを判定する。
 | `WEIGHT_FORM` | 0.15 | 近走フォームの重み |
 | `AI_SCORE_CLOSE_GAP` | 30 | 見送り: 混戦判定のスコア差 |
 | `AI_SCORE_MODERATE_GAP` | 60 | 見送り: やや接戦判定のスコア差 |
+| `NARRATOR_MODEL_ID` | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` | LLMナレーションのモデル |
 
 ---
 
@@ -672,8 +918,8 @@ AI予想の上位2頭のスコア差で合議レベルを判定する。
 
 | ファイル | 役割 |
 |---------|------|
-| `backend/agentcore/tools/bet_proposal.py` | 買い目提案の主ロジック（複合スコア・軸馬選定・組み合わせ生成・予算配分） |
-| `backend/agentcore/tools/bet_analysis.py` | 期待値計算・JRA統計確率テーブル・Harvilleモデル |
+| `backend/agentcore/tools/bet_proposal.py` | 買い目提案の主ロジック（複合スコア・軸馬選定・組み合わせ生成・予算配分・LLMナレーション・統合単勝率・Harvilleモデル） |
+| `backend/agentcore/tools/bet_analysis.py` | 期待値計算・JRA統計確率テーブル・Harvilleモデル基本関数 |
 | `backend/agentcore/tools/pace_analysis.py` | ペース予想・難易度判定 |
 | `backend/agentcore/tools/risk_analysis.py` | 見送り判定 |
 | `backend/agentcore/tools/race_data.py` | レースデータ取得 |
