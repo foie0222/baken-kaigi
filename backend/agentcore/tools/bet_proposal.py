@@ -31,6 +31,15 @@ from .risk_analysis import (
 # 並行リクエストによる競合状態は発生しない。
 _last_proposal_result: dict | None = None
 
+# セッション単位の好み設定（invoke() から注入される）
+_current_betting_preference: dict | None = None
+
+
+def set_betting_preference(preference: dict | None) -> None:
+    """セッションの好み設定を設定する（invoke()から呼ばれる）."""
+    global _current_betting_preference
+    _current_betting_preference = preference
+
 
 def get_last_proposal_result() -> dict | None:
     """キャッシュされた最新のツール結果を取得し、キャッシュをクリアする."""
@@ -2035,6 +2044,7 @@ def generate_bet_proposal(
             past_performance_data=past_performance_data,
             unified_probs=unified_probs or None,
             bankroll=bankroll,
+            betting_preference=_current_betting_preference,
         )
         if "error" not in result:
             _last_proposal_result = result
