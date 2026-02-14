@@ -432,6 +432,25 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
             )}
           </div>
 
+          {result.proposal_reasoning && (
+            <div className="proposal-reasoning-section">
+              <div className="proposal-reasoning-title">提案の根拠</div>
+              <div className="proposal-reasoning-body">
+                {result.proposal_reasoning.split('\n').map((line, i) => {
+                  const headingMatch = line.match(/^【(.+?)】(.*)$/);
+                  if (headingMatch) {
+                    return (
+                      <p key={i}>
+                        <strong>【{headingMatch[1]}】</strong>{headingMatch[2]}
+                      </p>
+                    );
+                  }
+                  return line ? <p key={i}>{line}</p> : null;
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="proposal-cards">
             {result.proposed_bets.map((bet, index) => (
               <ProposalCard

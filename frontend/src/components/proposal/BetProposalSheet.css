@@ -306,6 +306,35 @@
   color: #92400e;
 }
 
+/* 提案の根拠 */
+.proposal-reasoning-section {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.proposal-reasoning-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 8px;
+}
+
+.proposal-reasoning-body {
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.7;
+}
+
+.proposal-reasoning-body p {
+  margin: 0 0 6px;
+}
+
+.proposal-reasoning-body p:last-child {
+  margin-bottom: 0;
+}
+
 /* 買い目カード */
 .proposal-cards {
   display: flex;

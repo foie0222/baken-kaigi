@@ -1022,6 +1022,20 @@ def _generate_bet_proposal_impl(
     # AI合議レベル
     ai_consensus = _assess_ai_consensus(ai_predictions)
 
+    # 提案根拠テキスト生成
+    proposal_reasoning = _generate_proposal_reasoning(
+        axis_horses=selected_axis,
+        difficulty=difficulty,
+        predicted_pace=predicted_pace,
+        ai_consensus=ai_consensus,
+        skip=skip,
+        bets=bets,
+        preferred_bet_types=preferred_bet_types,
+        ai_predictions=ai_predictions,
+        runners_data=runners_data,
+        skip_gate_threshold=config["skip_gate_threshold"],
+    )
+
     # 分析コメント生成
     analysis_comment = _generate_analysis_comment(
         selected_axis, difficulty, predicted_pace, skip, ai_consensus, bets,
@@ -1041,9 +1055,184 @@ def _generate_bet_proposal_impl(
         "proposed_bets": bets,
         "total_amount": total_amount,
         "budget_remaining": effective_budget - total_amount,
+        "proposal_reasoning": proposal_reasoning,
         "analysis_comment": analysis_comment,
         "disclaimer": "データ分析に基づく情報提供です。最終判断はご自身でお願いします。",
     }
+
+
+def _generate_proposal_reasoning(
+    axis_horses: list[dict],
+    difficulty: dict,
+    predicted_pace: str,
+    ai_consensus: str,
+    skip: dict,
+    bets: list[dict],
+    preferred_bet_types: list[str] | None,
+    ai_predictions: list[dict],
+    runners_data: list[dict],
+    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
+) -> str:
+    """提案根拠テキストを4セクションで生成する.
+
+    Args:
+        axis_horses: 軸馬リスト（horse_number, horse_name, composite_score）
+        difficulty: 難易度dict（difficulty_stars, difficulty_label）
+        predicted_pace: ペース予想文字列
+        ai_consensus: AI合議レベル文字列
+        skip: 見送り判定dict（skip_score, reasons, recommendation）
+        bets: 生成された買い目リスト
+        preferred_bet_types: ユーザー指定の券種（None可）
+        ai_predictions: AI予想データ
+        runners_data: 出走馬データ
+        skip_gate_threshold: 見送りゲート閾値
+
+    Returns:
+        提案根拠テキスト（4セクション、改行区切り）
+    """
+    sections = []
+
+    # AI順位マップ（Decimal対策）
+    ai_rank_map = {
+        int(p.get("horse_number", 0)): int(p.get("rank", 99))
+        for p in ai_predictions
+    }
+    ai_score_map = {
+        int(p.get("horse_number", 0)): float(p.get("score", 0))
+        for p in ai_predictions
+    }
+
+    # 出走馬マップ
+    runners_map = {r.get("horse_number"): r for r in runners_data}
+
+    # --- 軸馬選定 ---
+    axis_parts = []
+    for ax in axis_horses:
+        hn = ax["horse_number"]
+        name = ax.get("horse_name", "")
+        score = ax.get("composite_score", 0)
+        ai_rank = ai_rank_map.get(hn, 99)
+        ai_score = ai_score_map.get(hn, 0)
+        runner = runners_map.get(hn, {})
+        odds = runner.get("odds", 0)
+
+        desc = f"{hn}番{name}（AI指数{ai_rank}位・{ai_score:.0f}pt）を軸に選定"
+        details = []
+        if odds and odds > 0:
+            details.append(f"単勝オッズ{float(odds):.1f}倍")
+        if ai_rank <= 3:
+            details.append("AI指数が上位で信頼度が高い")
+        if predicted_pace:
+            # 脚質相性の説明
+            style = ""
+            for rs_runner in runners_data:
+                if rs_runner.get("horse_number") == hn:
+                    # running_stylesは別データだが、ペース相性スコアは複合スコアに反映済み
+                    break
+            if predicted_pace == "ハイ":
+                details.append("ハイペース予想で差し・追込脚質に有利")
+            elif predicted_pace == "スロー":
+                details.append("スローペース予想で先行・逃げ脚質に有利")
+            else:
+                details.append(f"{predicted_pace}ペース予想で幅広い脚質に対応")
+
+        if details:
+            desc += "。" + "、".join(details)
+        axis_parts.append(desc)
+
+    sections.append("【軸馬選定】" + "。".join(axis_parts))
+
+    # --- 券種選定 ---
+    stars = difficulty.get("difficulty_stars", 3)
+    label = difficulty.get("difficulty_label", "")
+    bet_type_names_in_bets = list(dict.fromkeys(b.get("bet_type_name", "") for b in bets))
+
+    if preferred_bet_types:
+        pref_names = [BET_TYPE_NAMES.get(bt, bt) for bt in preferred_bet_types]
+        ticket_desc = f"ユーザー指定により{'・'.join(pref_names)}を選定"
+    else:
+        ticket_desc = (
+            f"レース難易度{'★' * stars}（{label}）のため"
+            f"{'・'.join(bet_type_names_in_bets)}を自動選定"
+        )
+
+    # 上位馬のスコア差に基づく補足
+    sorted_preds = sorted(ai_predictions, key=lambda x: float(x.get("score", 0)), reverse=True)
+    if len(sorted_preds) >= 2:
+        top_score = float(sorted_preds[0].get("score", 0))
+        second_score = float(sorted_preds[1].get("score", 0))
+        gap = top_score - second_score
+        if gap >= 20:
+            ticket_desc += "。上位馬のAI指数差が大きく、軸からの流しが有効と判断"
+        elif gap < 10:
+            ticket_desc += "。AI指数が接戦のため手広く構える券種が有効と判断"
+
+    sections.append("【券種】" + ticket_desc)
+
+    # --- 組み合わせ ---
+    axis_numbers = {ax["horse_number"] for ax in axis_horses}
+    # betsから相手馬を抽出（軸馬以外）
+    partner_numbers_seen = []
+    for bet in bets:
+        for hn in bet.get("horse_numbers", []):
+            if hn not in axis_numbers and hn not in partner_numbers_seen:
+                partner_numbers_seen.append(hn)
+
+    partner_descs = []
+    for hn in partner_numbers_seen[:MAX_PARTNERS]:
+        runner = runners_map.get(hn, {})
+        name = runner.get("horse_name", "")
+        ai_rank = ai_rank_map.get(hn, 99)
+        # 期待値は買い目から取得（その馬を含む買い目の最大期待値）
+        ev_vals = [
+            b.get("expected_value", 0) for b in bets
+            if hn in b.get("horse_numbers", [])
+        ]
+        max_ev = max(ev_vals) if ev_vals else 0
+        desc = f"{hn}番{name}（AI{ai_rank}位"
+        if max_ev > 0:
+            desc += f"・期待値{max_ev}"
+        desc += "）"
+        partner_descs.append(desc)
+
+    if partner_descs:
+        combo_text = f"相手は{'、'.join(partner_descs)}を選定"
+        combo_text += "。いずれもAI上位集団に属し、オッズとの乖離から妙味あり"
+    else:
+        combo_text = "単勝・複勝の軸馬単独買い"
+
+    sections.append("【組み合わせ】" + combo_text)
+
+    # --- リスク ---
+    risk_parts = []
+    risk_parts.append(f"AI合議「{ai_consensus}」")
+    if ai_consensus in ("明確な上位", "概ね合意"):
+        risk_parts.append("上位馬の信頼度は高い")
+    elif ai_consensus == "混戦":
+        risk_parts.append("上位馬の力差が小さく波乱含み")
+
+    skip_score = skip.get("skip_score", 0)
+    risk_parts.append(f"見送りスコア{skip_score}/10")
+    if skip_score >= skip_gate_threshold:
+        risk_parts.append("高リスクのため予算50%削減で提案")
+    elif skip_score >= 5:
+        risk_parts.append("慎重な検討を推奨")
+    else:
+        risk_parts.append("積極参戦レベル")
+
+    # トリガミリスクの確認
+    has_torigami_risk = any(
+        b.get("composite_odds", 0) > 0 and b.get("composite_odds", 0) < 3.0
+        for b in bets
+    )
+    if has_torigami_risk:
+        risk_parts.append("一部低オッズの買い目あり、トリガミに注意")
+    else:
+        risk_parts.append("トリガミリスクなし")
+
+    sections.append("【リスク】" + "。".join(risk_parts))
+
+    return "\n\n".join(sections)
 
 
 def _generate_analysis_comment(
