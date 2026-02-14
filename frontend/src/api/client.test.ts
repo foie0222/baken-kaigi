@@ -549,6 +549,7 @@ describe('ApiClient', () => {
           bet_type: 'win',
           horse_numbers: [1],
           amount: 100,
+          bet_method: 'normal',
         },
       ])
     })
