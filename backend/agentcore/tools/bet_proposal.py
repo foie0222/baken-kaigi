@@ -1601,6 +1601,103 @@ def _generate_bet_proposal_impl(
     return result
 
 
+def _build_narration_context(
+    axis_horses: list[dict],
+    difficulty: dict,
+    predicted_pace: str,
+    ai_consensus: str,
+    skip: dict,
+    bets: list[dict],
+    preferred_bet_types: list[str] | None,
+    ai_predictions: list[dict],
+    runners_data: list[dict],
+    speed_index_data: dict | None = None,
+    past_performance_data: dict | None = None,
+) -> dict:
+    """LLMナレーション用のコンテキストdictを構築する."""
+    # AI順位・スコアマップ（Decimal対策）
+    ai_rank_map = {
+        int(p.get("horse_number", 0)): int(p.get("rank", 99))
+        for p in ai_predictions
+    }
+    ai_score_map = {
+        int(p.get("horse_number", 0)): float(p.get("score", 0))
+        for p in ai_predictions
+    }
+    runners_map = {r.get("horse_number"): r for r in runners_data}
+
+    # 軸馬にAI情報を付与
+    enriched_axis = []
+    for ax in axis_horses:
+        hn = ax["horse_number"]
+        runner = runners_map.get(hn, {})
+        enriched = {
+            "horse_number": hn,
+            "horse_name": ax.get("horse_name", ""),
+            "composite_score": float(ax.get("composite_score", 0)),
+            "ai_rank": ai_rank_map.get(hn, 99),
+            "ai_score": ai_score_map.get(hn, 0),
+            "odds": float(runner.get("odds", 0)) if runner.get("odds") else 0,
+        }
+        if speed_index_data:
+            si_score = _calculate_speed_index_score(hn, speed_index_data)
+            if si_score is not None:
+                enriched["speed_index_score"] = float(si_score)
+        if past_performance_data:
+            form_s = _calculate_form_score(hn, past_performance_data)
+            if form_s is not None:
+                enriched["form_score"] = float(form_s)
+        enriched_axis.append(enriched)
+
+    # 相手馬を抽出
+    axis_numbers = {ax["horse_number"] for ax in axis_horses}
+    partner_numbers_seen = []
+    for bet in bets:
+        for hn in bet.get("horse_numbers", []):
+            if hn not in axis_numbers and hn not in partner_numbers_seen:
+                partner_numbers_seen.append(hn)
+
+    partners = []
+    for hn in partner_numbers_seen[:MAX_PARTNERS]:
+        runner = runners_map.get(hn, {})
+        ev_vals = [
+            b.get("expected_value", 0) for b in bets
+            if hn in b.get("horse_numbers", [])
+        ]
+        partners.append({
+            "horse_number": hn,
+            "horse_name": runner.get("horse_name", ""),
+            "ai_rank": ai_rank_map.get(hn, 99),
+            "max_expected_value": max(ev_vals) if ev_vals else 0,
+        })
+
+    ctx = {
+        "axis_horses": enriched_axis,
+        "partner_horses": partners,
+        "difficulty": difficulty,
+        "predicted_pace": predicted_pace,
+        "ai_consensus": ai_consensus,
+        "skip": skip,
+        "bets": [
+            {
+                "bet_type_name": b.get("bet_type_name", ""),
+                "horse_numbers": b.get("horse_numbers", []),
+                "expected_value": b.get("expected_value", 0),
+                "composite_odds": float(b.get("composite_odds", 0)),
+                "confidence": b.get("confidence", ""),
+            }
+            for b in bets
+        ],
+    }
+    if preferred_bet_types:
+        ctx["preferred_bet_types"] = preferred_bet_types
+    if speed_index_data:
+        ctx["speed_index_raw"] = speed_index_data
+    if past_performance_data:
+        ctx["past_performance_raw"] = past_performance_data
+    return ctx
+
+
 def _generate_proposal_reasoning(
     axis_horses: list[dict],
     difficulty: dict,
