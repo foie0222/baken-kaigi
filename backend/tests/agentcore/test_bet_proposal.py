@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
 from tools.bet_proposal import (
     _calculate_composite_score,
+    _calculate_confidence_factor,
     _calculate_form_score,
     _calculate_speed_index_score,
     _select_axis_horses,
@@ -16,6 +17,7 @@ from tools.bet_proposal import (
     _generate_bet_candidates,
     _assign_relative_confidence,
     _allocate_budget,
+    _allocate_budget_dutching,
     _assess_ai_consensus,
     _estimate_bet_odds,
     _generate_bet_proposal_impl,
@@ -2166,3 +2168,138 @@ class TestAssessAiConsensusWithUnifiedProbs:
         result = _assess_ai_consensus(preds, unified_probs=None)
         # 30pt刻みなので gap=30 → "概ね合意"
         assert result == "概ね合意"
+
+
+class TestCalculateConfidenceFactor:
+    """信頼度係数算出のテスト."""
+
+    def test_見送りスコア0で最大値(self):
+        assert _calculate_confidence_factor(0) == 2.0
+
+    def test_見送りスコア5で約0_9(self):
+        result = _calculate_confidence_factor(5)
+        assert 0.85 <= result <= 0.95
+
+    def test_見送りスコア8で最低正値(self):
+        result = _calculate_confidence_factor(8)
+        assert 0.2 <= result <= 0.3
+
+    def test_見送りスコア9で見送り(self):
+        assert _calculate_confidence_factor(9) == 0.0
+
+    def test_見送りスコア10で見送り(self):
+        assert _calculate_confidence_factor(10) == 0.0
+
+    def test_スコアが高いほどfactorが小さい(self):
+        factors = [_calculate_confidence_factor(s) for s in range(9)]
+        for i in range(len(factors) - 1):
+            assert factors[i] >= factors[i + 1]
+
+
+class TestBaseRateConfig:
+    """base_rate設定のテスト."""
+
+    def test_デフォルトのbase_rateは003(self):
+        config = _get_character_config(None)
+        assert config["base_rate"] == 0.03
+
+    def test_conservativeのbase_rateは002(self):
+        config = _get_character_config("conservative")
+        assert config["base_rate"] == 0.02
+
+    def test_aggressiveのbase_rateは005(self):
+        config = _get_character_config("aggressive")
+        assert config["base_rate"] == 0.05
+
+    def test_全ペルソナにbase_rateが存在する(self):
+        for persona in ["analyst", "intuition", "conservative", "aggressive", None]:
+            config = _get_character_config(persona)
+            assert "base_rate" in config
+            assert 0 < config["base_rate"] <= 0.10
+
+
+class TestAllocateBudgetDutching:
+    """ダッチング方式予算配分のテスト."""
+
+    def test_均等払い戻しになる(self):
+        """どの買い目が的中しても同額の払い戻しになる."""
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 1.2},
+            {"estimated_odds": 20.0, "expected_value": 1.1},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        payouts = [b["amount"] * b["estimated_odds"] for b in result]
+        assert max(payouts) - min(payouts) <= max(b["estimated_odds"] for b in result) * 100
+
+    def test_EV1以下の買い目は除外される(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 0.8},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        assert len(result) == 1
+        assert result[0]["expected_value"] == 1.5
+
+    def test_全買い目EV1以下なら空リスト(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 0.9},
+            {"estimated_odds": 10.0, "expected_value": 0.5},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        assert result == []
+
+    def test_100円単位に丸められる(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 8.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        for b in result:
+            assert b["amount"] % 100 == 0
+
+    def test_合計がbudgetを超えない(self):
+        bets = [
+            {"estimated_odds": 3.0, "expected_value": 1.3},
+            {"estimated_odds": 5.0, "expected_value": 1.2},
+            {"estimated_odds": 8.0, "expected_value": 1.1},
+        ]
+        result = _allocate_budget_dutching(bets, 2000)
+        total = sum(b["amount"] for b in result)
+        assert total <= 2000
+
+    def test_空リスト入力(self):
+        result = _allocate_budget_dutching([], 3000)
+        assert result == []
+
+    def test_予算ゼロ(self):
+        bets = [{"estimated_odds": 5.0, "expected_value": 1.5}]
+        result = _allocate_budget_dutching(bets, 0)
+        assert all(b.get("amount", 0) == 0 for b in result) or result == bets
+
+    def test_composite_oddsが結果に含まれる(self):
+        bets = [
+            {"estimated_odds": 5.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        for b in result:
+            assert "composite_odds" in b
+
+    def test_最低賭け金未満の買い目が除外される(self):
+        bets = [
+            {"estimated_odds": 3.0, "expected_value": 1.5},
+            {"estimated_odds": 100.0, "expected_value": 1.1},
+        ]
+        result = _allocate_budget_dutching(bets, 300)
+        assert all(b["amount"] >= 100 for b in result)
+
+    def test_低オッズの買い目に多く配分される(self):
+        bets = [
+            {"estimated_odds": 3.0, "expected_value": 1.5},
+            {"estimated_odds": 10.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        low_odds = next(b for b in result if b["estimated_odds"] == 3.0)
+        high_odds = next(b for b in result if b["estimated_odds"] == 10.0)
+        assert low_odds["amount"] > high_odds["amount"]

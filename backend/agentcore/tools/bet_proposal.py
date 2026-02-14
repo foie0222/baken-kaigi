@@ -86,6 +86,30 @@ MIN_BET_AMOUNT = 100
 # 軸馬の最大数
 MAX_AXIS_HORSES = 2
 
+# 1レースあたりの予算上限（bankrollに対する割合）
+MAX_RACE_BUDGET_RATIO = 0.10
+
+# デフォルト基本投入率
+DEFAULT_BASE_RATE = 0.03
+
+
+def _calculate_confidence_factor(skip_score: int) -> float:
+    """見送りスコアから信頼度係数を算出する.
+
+    見送りスコア(0-10)を0.0-2.0の連続値にマッピング。
+    スコア9以上は見送り（0.0）。
+
+    Args:
+        skip_score: 見送りスコア（0-10）
+
+    Returns:
+        信頼度係数（0.0-2.0）
+    """
+    if skip_score >= 9:
+        return 0.0
+    return max(0.0, 2.0 - skip_score * (1.75 / 8))
+
+
 # オッズ乖離スコア: AI上位なのに人気が低い馬にボーナス
 ODDS_GAP_BONUS_THRESHOLD = 5  # AI上位5位以内で人気が5番人気以下
 
@@ -131,6 +155,7 @@ CHARACTER_PROFILES = {
         "allocation_high": 0.60, "allocation_low": 0.10,
         "max_bets": 5, "torigami_threshold": 2.5, "skip_gate_threshold": 6,
         "weight_ai_score": 0.6, "weight_odds_gap": 0.2,
+        "base_rate": 0.02,
         "difficulty_bet_types": {
             1: ["quinella", "quinella_place"], 2: ["quinella", "quinella_place"],
             3: ["quinella_place", "quinella"], 4: ["quinella_place"],
@@ -141,6 +166,7 @@ CHARACTER_PROFILES = {
         "allocation_high": 0.35, "allocation_medium": 0.25, "allocation_low": 0.40,
         "torigami_threshold": 1.5, "skip_gate_threshold": 9,
         "weight_ai_score": 0.3, "weight_odds_gap": 0.5,
+        "base_rate": 0.05,
         "difficulty_bet_types": {
             1: ["exacta", "trifecta"], 2: ["exacta", "trifecta"],
             3: ["trifecta", "trio"], 4: ["trifecta", "trio"],
@@ -158,6 +184,7 @@ _DEFAULT_CONFIG = {
     "max_bets": MAX_BETS, "torigami_threshold": TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
     "skip_gate_threshold": SKIP_GATE_THRESHOLD,
     "difficulty_bet_types": DIFFICULTY_BET_TYPES,
+    "base_rate": 0.03,
 }
 
 
@@ -1075,6 +1102,51 @@ def _allocate_budget(
                     remaining -= unit
 
     return bets
+
+
+def _allocate_budget_dutching(bets: list[dict], budget: int) -> list[dict]:
+    """ダッチング方式で予算を配分する.
+
+    どの買い目が的中しても同額の払い戻しになるように、
+    オッズの逆数に比例して配分する。
+
+    Args:
+        bets: 買い目候補リスト（estimated_odds, expected_value キーを持つ）
+        budget: 総予算（円）
+
+    Returns:
+        金額付き買い目リスト（期待値>1.0のもののみ）
+    """
+    if not bets or budget <= 0:
+        return bets
+
+    eligible = [b for b in bets if b.get("expected_value", 0) > 1.0]
+    if not eligible:
+        return []
+
+    inv_odds_sum = sum(1.0 / float(b["estimated_odds"]) for b in eligible)
+    composite_odds = 1.0 / inv_odds_sum
+
+    unit = MIN_BET_AMOUNT
+    for bet in eligible:
+        raw = budget * composite_odds / float(bet["estimated_odds"])
+        bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
+
+    funded = [b for b in eligible if b.get("amount", 0) >= unit]
+    if len(funded) < len(eligible):
+        return _allocate_budget_dutching(funded, budget)
+
+    total = sum(b["amount"] for b in funded)
+    remaining = budget - total
+    if remaining >= unit and funded:
+        funded[0]["amount"] += int(remaining // unit) * unit
+
+    final_inv_sum = sum(1.0 / float(b["estimated_odds"]) for b in funded)
+    final_composite = round(1.0 / final_inv_sum, 2) if final_inv_sum > 0 else 0
+    for bet in funded:
+        bet["composite_odds"] = final_composite
+
+    return funded
 
 
 # =============================================================================
