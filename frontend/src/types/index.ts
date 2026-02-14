@@ -487,6 +487,17 @@ export interface LossLimitCheckResult {
   message: string;
 }
 
+// 好み設定
+export type BetTypePreference = 'trio_focused' | 'exacta_focused' | 'quinella_focused' | 'wide_focused' | 'auto';
+export type TargetStyle = 'honmei' | 'medium_longshot' | 'big_longshot';
+export type BettingPriorityType = 'hit_rate' | 'roi' | 'balanced';
+
+export interface BettingPreference {
+  bet_type_preference: BetTypePreference;
+  target_style: TargetStyle;
+  priority: BettingPriorityType;
+}
+
 // エージェント育成
 export type AgentStyleId = 'solid' | 'longshot' | 'data' | 'pace';
 
@@ -503,6 +514,8 @@ export interface Agent {
   name: string;
   base_style: AgentStyleId;
   performance: AgentPerformance;
+  betting_preference?: BettingPreference;
+  custom_instructions?: string | null;
   level: number;
   win_rate: number;
   roi: number;
@@ -515,6 +528,8 @@ export interface AgentData {
   name: string;
   base_style: AgentStyleId;
   performance: AgentPerformance;
+  betting_preference?: BettingPreference;
+  custom_instructions?: string | null;
   level: number;
 }
 
