@@ -422,6 +422,7 @@ export interface BetProposalResponse {
   total_amount: number;
   budget_remaining: number;
   analysis_comment: string;
+  proposal_reasoning: string;
   disclaimer: string;
 }
 

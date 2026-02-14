@@ -17,6 +17,7 @@ from tools.bet_proposal import (
     _assess_ai_consensus,
     _estimate_bet_odds,
     _generate_bet_proposal_impl,
+    _generate_proposal_reasoning,
     _get_character_config,
     CHARACTER_PROFILES,
     _DEFAULT_CONFIG,
@@ -1302,3 +1303,154 @@ class TestCharacterConfigPropagation:
         config = _get_character_config("conservative")
         bet_types = config["difficulty_bet_types"][1]
         assert "quinella_place" in bet_types
+
+
+# =============================================================================
+# 提案根拠テスト
+# =============================================================================
+
+
+class TestGenerateProposalReasoning:
+    """_generate_proposal_reasoning のテスト."""
+
+    def _make_reasoning_args(self, *, skip_score: int = 3, preferred_bet_types=None):
+        """テスト用の共通引数を生成する."""
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        axis_horses = [
+            {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
+            {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 72.0},
+        ]
+        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
+        skip = {"skip_score": skip_score, "reasons": [], "recommendation": "参戦推奨"}
+        bets = [
+            {
+                "bet_type": "quinella", "bet_type_name": "馬連",
+                "horse_numbers": [1, 3], "expected_value": 1.8,
+                "composite_odds": 8.5, "confidence": "high",
+            },
+            {
+                "bet_type": "quinella", "bet_type_name": "馬連",
+                "horse_numbers": [1, 5], "expected_value": 1.5,
+                "composite_odds": 12.0, "confidence": "medium",
+            },
+        ]
+        return dict(
+            axis_horses=axis_horses,
+            difficulty=difficulty,
+            predicted_pace="ミドル",
+            ai_consensus="概ね合意",
+            skip=skip,
+            bets=bets,
+            preferred_bet_types=preferred_bet_types,
+            ai_predictions=ai_preds,
+            runners_data=runners,
+        )
+
+    def test_提案根拠が文字列を返す(self):
+        """_generate_proposal_reasoning は文字列を返す."""
+        args = self._make_reasoning_args()
+        result = _generate_proposal_reasoning(**args)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_軸馬の馬番とAI順位が含まれる(self):
+        """軸馬の馬番とAI順位が根拠テキストに含まれる."""
+        args = self._make_reasoning_args()
+        result = _generate_proposal_reasoning(**args)
+        assert "1番テスト馬1" in result
+        assert "AI指数1位" in result
+
+    def test_4セクションが全て含まれる(self):
+        """【軸馬選定】【券種】【組み合わせ】【リスク】の4セクションが含まれる."""
+        args = self._make_reasoning_args()
+        result = _generate_proposal_reasoning(**args)
+        assert "【軸馬選定】" in result
+        assert "【券種】" in result
+        assert "【組み合わせ】" in result
+        assert "【リスク】" in result
+
+    def test_券種が自動選定の場合に難易度が言及される(self):
+        """preferred_bet_types未指定時はレース難易度が言及される."""
+        args = self._make_reasoning_args(preferred_bet_types=None)
+        result = _generate_proposal_reasoning(**args)
+        assert "レース難易度" in result
+        assert "自動選定" in result
+
+    def test_券種がユーザー指定の場合にその旨が言及される(self):
+        """preferred_bet_types指定時は「ユーザー指定」が言及される."""
+        args = self._make_reasoning_args(preferred_bet_types=["quinella"])
+        result = _generate_proposal_reasoning(**args)
+        assert "ユーザー指定" in result
+
+    def test_相手馬の期待値が含まれる(self):
+        """組み合わせセクションに相手馬の期待値が含まれる."""
+        args = self._make_reasoning_args()
+        result = _generate_proposal_reasoning(**args)
+        # 相手馬3番（期待値1.8）が含まれるはず
+        assert "3番" in result
+        assert "期待値" in result
+
+    def test_見送りスコアが高い場合にリスク言及が含まれる(self):
+        """見送りスコアが閾値以上の場合に予算削減の言及がある."""
+        args = self._make_reasoning_args(skip_score=8)
+        result = _generate_proposal_reasoning(**args)
+        assert "予算50%削減" in result
+
+    def test_見送りスコアが低い場合に積極参戦が含まれる(self):
+        """見送りスコアが低い場合は積極参戦レベルと表示される."""
+        args = self._make_reasoning_args(skip_score=2)
+        result = _generate_proposal_reasoning(**args)
+        assert "積極参戦" in result
+
+    def test_AI合議レベルが含まれる(self):
+        """リスクセクションにAI合議レベルが含まれる."""
+        args = self._make_reasoning_args()
+        result = _generate_proposal_reasoning(**args)
+        assert "AI合議「概ね合意」" in result
+
+    def test_Decimal型のAI予想データでもエラーにならない(self):
+        """DynamoDB Decimal型のデータでも正常に動作する."""
+        args = self._make_reasoning_args()
+        # AI予想データをDecimal型に変換
+        for pred in args["ai_predictions"]:
+            pred["horse_number"] = Decimal(str(pred["horse_number"]))
+            pred["rank"] = Decimal(str(pred["rank"]))
+            pred["score"] = Decimal(str(pred["score"]))
+        result = _generate_proposal_reasoning(**args)
+        assert isinstance(result, str)
+        assert "【軸馬選定】" in result
+
+
+class TestProposalReasoningInImpl:
+    """_generate_bet_proposal_impl の返却dictに proposal_reasoning が含まれることのテスト."""
+
+    def test_返却dictにproposal_reasoningキーが存在する(self):
+        """_generate_bet_proposal_impl の結果に proposal_reasoning がある."""
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+        )
+        assert "proposal_reasoning" in result
+        assert isinstance(result["proposal_reasoning"], str)
+        assert len(result["proposal_reasoning"]) > 0
+
+    def test_proposal_reasoningとanalysis_commentが両方存在する(self):
+        """proposal_reasoning を追加しても analysis_comment は維持される."""
+        runners = _make_runners(6)
+        ai_preds = _make_ai_predictions(6)
+        result = _generate_bet_proposal_impl(
+            race_id="test_001",
+            budget=10000,
+            runners_data=runners,
+            ai_predictions=ai_preds,
+        )
+        assert "proposal_reasoning" in result
+        assert "analysis_comment" in result
+        # 両方が異なる内容（proposal_reasoningはセクション付き）
+        assert "【軸馬選定】" in result["proposal_reasoning"]
+        assert "【軸馬選定】" not in result["analysis_comment"]

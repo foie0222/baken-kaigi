@@ -108,6 +108,7 @@ describe('BetProposalSheet', () => {
         total_amount: 0,
         budget_remaining: MAX_BET_AMOUNT,
         analysis_comment: '',
+        proposal_reasoning: '',
         disclaimer: '',
       },
     })
@@ -159,6 +160,7 @@ describe('BetProposalSheet', () => {
         total_amount: 1000,
         budget_remaining: 2000,
         analysis_comment: 'テスト分析',
+        proposal_reasoning: '【軸馬選定】1番テスト馬1を軸に選定\n\n【券種】馬連を自動選定\n\n【組み合わせ】相手は2番テスト馬2を選定\n\n【リスク】積極参戦レベル',
         disclaimer: '免責事項',
       },
     })
