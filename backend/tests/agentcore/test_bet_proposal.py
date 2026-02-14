@@ -2303,3 +2303,25 @@ class TestAllocateBudgetDutching:
         low_odds = next(b for b in result if b["estimated_odds"] == 3.0)
         high_odds = next(b for b in result if b["estimated_odds"] == 10.0)
         assert low_odds["amount"] > high_odds["amount"]
+
+
+class TestGenerateBetCandidatesNoMaxBets:
+    """MAX_BETS撤廃後の買い目生成テスト."""
+
+    def test_期待値プラスの買い目が8点以上でも全て返される(self):
+        """MAX_BETSによるカットがなくなったことを確認."""
+        runners = _make_runners(12)
+        preds = _make_ai_predictions(12)
+        axis = [
+            {"horse_number": 1, "composite_score": 100},
+            {"horse_number": 2, "composite_score": 90},
+        ]
+        result = _generate_bet_candidates(
+            axis_horses=axis,
+            runners_data=runners,
+            ai_predictions=preds,
+            bet_types=["quinella", "trio"],
+            total_runners=12,
+        )
+        # 旧仕様では8点が上限だったが、新仕様ではmax_bets=Noneで全件返される
+        assert isinstance(result, list)

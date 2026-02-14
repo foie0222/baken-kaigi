@@ -649,7 +649,7 @@ def _generate_bet_candidates(
     race_conditions: list[str] | None = None,
     predicted_pace: str = "",
     running_styles: list[dict] | None = None,
-    max_bets: int = MAX_BETS,
+    max_bets: int | None = None,
     torigami_threshold: float = TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
     weight_ai_score: float = WEIGHT_AI_SCORE,
     weight_odds_gap: float = WEIGHT_ODDS_GAP,
@@ -904,7 +904,10 @@ def _generate_bet_candidates(
 
     # 期待値降順ソート
     bets.sort(key=lambda x: x["expected_value"], reverse=True)
-    selected = bets[:max_bets]
+    if max_bets is not None:
+        selected = bets[:max_bets]
+    else:
+        selected = bets
 
     # 信頼度を候補リスト内のスコア分布に基づいて相対的に再割り当て
     _assign_relative_confidence(selected)
