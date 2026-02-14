@@ -1767,7 +1767,7 @@ def _invoke_haiku_narrator(context: dict) -> str | None:
         return None
 
 
-def _generate_proposal_reasoning(
+def _generate_proposal_reasoning_template(
     axis_horses: list[dict],
     difficulty: dict,
     predicted_pace: str,
@@ -1781,7 +1781,7 @@ def _generate_proposal_reasoning(
     speed_index_data: dict | None = None,
     past_performance_data: dict | None = None,
 ) -> str:
-    """提案根拠テキストを4セクションで生成する.
+    """提案根拠テキストを4セクションで生成する（テンプレート版）.
 
     Args:
         axis_horses: 軸馬リスト（horse_number, horse_name, composite_score）
@@ -1948,6 +1948,54 @@ def _generate_proposal_reasoning(
     sections.append("【リスク】" + "。".join(risk_parts))
 
     return "\n\n".join(sections)
+
+
+def _generate_proposal_reasoning(
+    axis_horses: list[dict],
+    difficulty: dict,
+    predicted_pace: str,
+    ai_consensus: str,
+    skip: dict,
+    bets: list[dict],
+    preferred_bet_types: list[str] | None,
+    ai_predictions: list[dict],
+    runners_data: list[dict],
+    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
+    speed_index_data: dict | None = None,
+    past_performance_data: dict | None = None,
+) -> str:
+    """提案根拠テキストを4セクションで生成する（LLMナレーション版）."""
+    context = _build_narration_context(
+        axis_horses=axis_horses,
+        difficulty=difficulty,
+        predicted_pace=predicted_pace,
+        ai_consensus=ai_consensus,
+        skip=skip,
+        bets=bets,
+        preferred_bet_types=preferred_bet_types,
+        ai_predictions=ai_predictions,
+        runners_data=runners_data,
+        speed_index_data=speed_index_data,
+        past_performance_data=past_performance_data,
+    )
+    result = _invoke_haiku_narrator(context)
+    if result is not None:
+        return result
+    # フォールバック: テンプレート生成
+    return _generate_proposal_reasoning_template(
+        axis_horses=axis_horses,
+        difficulty=difficulty,
+        predicted_pace=predicted_pace,
+        ai_consensus=ai_consensus,
+        skip=skip,
+        bets=bets,
+        preferred_bet_types=preferred_bet_types,
+        ai_predictions=ai_predictions,
+        runners_data=runners_data,
+        skip_gate_threshold=skip_gate_threshold,
+        speed_index_data=speed_index_data,
+        past_performance_data=past_performance_data,
+    )
 
 
 def _generate_analysis_comment(
