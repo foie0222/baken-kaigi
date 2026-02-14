@@ -707,3 +707,96 @@ class TestNagashiExpansion:
         saved_cart = cart_repo.find_by_id(CartId("cart-normal-001"))
         assert saved_cart is not None
         assert saved_cart.get_item_count() == 1
+
+    def test_流しで1点あたり金額が100円未満の場合はエラー(self) -> None:
+        """300円を4点に分割 → 75円/点でエラー."""
+        _, _, cred_provider, _, _ = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-nagashi-small",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 6,
+            "items": [
+                {
+                    "race_id": "202605050606",
+                    "race_name": "東京6R",
+                    "bet_type": "quinella",
+                    "horse_numbers": [3, 1, 5, 7, 9],
+                    "amount": 300,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_流しで金額が点数で割り切れない場合はエラー(self) -> None:
+        """6100円を3点に分割 → 割り切れずエラー."""
+        _, _, cred_provider, _, _ = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-nagashi-remainder",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 7,
+            "items": [
+                {
+                    "race_id": "202605050707",
+                    "race_name": "東京7R",
+                    "bet_type": "quinella",
+                    "horse_numbers": [4, 1, 5, 7],
+                    "amount": 6100,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400
+
+    def test_三連複の流し形式はエラー(self) -> None:
+        """三連複の流しは未サポートでエラー."""
+        _, _, cred_provider, _, _ = _setup_deps()
+        cred_provider.save_credentials(
+            UserId("user-001"),
+            IpatCredentials(
+                inet_id="ABcd1234",
+                subscriber_number="12345678",
+                pin="1234",
+                pars_number="5678",
+            ),
+        )
+
+        event = _auth_event(body={
+            "cart_id": "cart-nagashi-trio",
+            "race_date": "20260207",
+            "course_code": "05",
+            "race_number": 8,
+            "items": [
+                {
+                    "race_id": "202605050808",
+                    "race_name": "東京8R",
+                    "bet_type": "trio",
+                    "horse_numbers": [3, 1, 5, 7],
+                    "amount": 1200,
+                },
+            ],
+        })
+        result = submit_purchase_handler(event, None)
+        assert result["statusCode"] == 400

@@ -55,9 +55,28 @@ def _expand_nagashi(item: dict) -> list[BetSelection]:
             )
         ]
 
+    if required != 2:
+        raise ValueError(
+            f"{bet_type.get_display_name()}の流し形式は現在サポートされていません"
+        )
+
     axis = horse_numbers[0]
     partners = horse_numbers[1:]
-    per_amount = amount // len(partners)
+    partner_count = len(partners)
+
+    if amount % partner_count != 0:
+        raise ValueError(
+            "流し買いの合計金額を均等に分割できません。"
+            "1点あたりの金額が整数になるように入力してください。"
+        )
+
+    per_amount = amount // partner_count
+
+    if per_amount < 100 or per_amount % 100 != 0:
+        raise ValueError(
+            "流し買いの1点あたり金額が不正です。"
+            "1点あたり100円以上かつ100円単位になるように入力してください。"
+        )
 
     return [
         BetSelection(
