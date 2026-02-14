@@ -4,6 +4,7 @@ from .agent_performance import AgentPerformance
 from .agent_stats import AgentStats
 from .amount_feedback import AmountFeedback
 from .bet_selection import BetSelection
+from .betting_preference import BettingPreference
 from .betting_summary import BettingSummary
 from .data_feedback import DataFeedback
 from .date_of_birth import DateOfBirth
@@ -24,6 +25,7 @@ __all__ = [
     "AgentStats",
     "AmountFeedback",
     "BetSelection",
+    "BettingPreference",
     "BettingSummary",
     "DataFeedback",
     "DateOfBirth",
