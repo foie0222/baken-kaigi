@@ -175,8 +175,8 @@ class TestJraVanIpatGateway(unittest.TestCase):
             self.gateway.submit_bets(self.credentials, [bet_line])
             call_args = mock_session.post.call_args
             denomination = call_args[1]["json"]["bet_lines"][0]["denomination"]
-            assert denomination == denomination.upper(), (
-                f"{bet_type.name}: denomination '{denomination}' is not uppercase"
+            assert denomination == bet_type.name, (
+                f"{bet_type.name}: denomination '{denomination}' does not match enum name"
             )
 
     @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
