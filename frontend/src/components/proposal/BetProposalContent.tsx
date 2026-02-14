@@ -271,33 +271,42 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     <>
       {!result && !loading && (
         <div className="proposal-form">
-          {/* 予算 */}
-          <div className="proposal-form-group">
-            <label className="proposal-label">予算</label>
-            <div className="proposal-budget-presets">
-              {BUDGET_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  className={`proposal-preset-btn ${!isCustomBudget && budget === preset ? 'active' : ''}`}
-                  onClick={() => handleBudgetPreset(preset)}
-                >
-                  {preset.toLocaleString()}円
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              inputMode="numeric"
-              className={`proposal-budget-custom-input ${isCustomBudget ? 'active' : ''}`}
-              value={customBudget}
-              onChange={(e) => handleCustomBudgetChange(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="自由入力（円）"
-            />
-          </div>
-
-          {/* エージェント未設定時のみ詳細オプションを表示 */}
-          {!agent && (
+          {agent ? (
+            /* エージェント設定済み: ボタンのみ */
+            <button
+              className="proposal-generate-btn"
+              onClick={handleGenerate}
+              disabled={loading}
+            >
+              {agent.name}に提案してもらう
+            </button>
+          ) : (
+            /* エージェント未設定: 従来のフルフォーム */
             <>
+              {/* 予算 */}
+              <div className="proposal-form-group">
+                <label className="proposal-label">予算</label>
+                <div className="proposal-budget-presets">
+                  {BUDGET_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      className={`proposal-preset-btn ${!isCustomBudget && budget === preset ? 'active' : ''}`}
+                      onClick={() => handleBudgetPreset(preset)}
+                    >
+                      {preset.toLocaleString()}円
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={`proposal-budget-custom-input ${isCustomBudget ? 'active' : ''}`}
+                  value={customBudget}
+                  onChange={(e) => handleCustomBudgetChange(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="自由入力（円）"
+                />
+              </div>
+
               {/* 希望券種 */}
               <div className="proposal-form-group">
                 <label className="proposal-label">
@@ -353,16 +362,16 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
                   placeholder="例: 3, 7"
                 />
               </div>
+
+              <button
+                className="proposal-generate-btn"
+                onClick={handleGenerate}
+                disabled={loading}
+              >
+                提案を生成
+              </button>
             </>
           )}
-
-          <button
-            className="proposal-generate-btn"
-            onClick={handleGenerate}
-            disabled={loading}
-          >
-            {agent ? `${agent.name}に提案してもらう` : '提案を生成'}
-          </button>
         </div>
       )}
 
