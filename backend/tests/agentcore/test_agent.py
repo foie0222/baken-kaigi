@@ -21,10 +21,11 @@ class Testプロンプト切り替え:
 
         assert "絶対に全6ツールを呼び出すこと" in SYSTEM_PROMPT
 
-    def test_買い目提案用プロンプトにgenerate_bet_proposal必須指示が含まれる(self):
+    def test_買い目提案用プロンプトにEVベースツール必須指示が含まれる(self):
         from agentcore.prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
 
-        assert "generate_bet_proposal" in BET_PROPOSAL_SYSTEM_PROMPT
+        assert "analyze_race_for_betting" in BET_PROPOSAL_SYSTEM_PROMPT
+        assert "propose_bets" in BET_PROPOSAL_SYSTEM_PROMPT
         assert "必ず" in BET_PROPOSAL_SYSTEM_PROMPT
 
     def test_相談用プロンプトにユーザーコンテキスト活用ルールが含まれる(self):

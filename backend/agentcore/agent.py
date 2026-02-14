@@ -79,7 +79,9 @@ def _get_agent(
         if _bet_proposal_agent is None:
             logger.info("Lazy initializing bet_proposal agent...")
             from prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
-            _bet_proposal_agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT)
+            from tool_router import get_tools_for_category
+            ev_tools = get_tools_for_category("ev_proposal")
+            _bet_proposal_agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT, tools=ev_tools)
         return _bet_proposal_agent
 
     from tool_router import get_tools_for_category
@@ -189,10 +191,11 @@ def invoke(payload: dict, context: Any) -> dict:
     )
     logger.info(f"Question category: {category}")
 
-    # カテゴリ別のプロンプト補助指示を前置き
-    category_instruction = CATEGORY_INSTRUCTIONS.get(category)
-    if category_instruction:
-        user_message = f"{category_instruction}\n\n{user_message}"
+    # カテゴリ別のプロンプト補助指示を前置き（bet_proposalは専用プロンプトがあるためスキップ）
+    if request_type != "bet_proposal":
+        category_instruction = CATEGORY_INSTRUCTIONS.get(category)
+        if category_instruction:
+            user_message = f"{category_instruction}\n\n{user_message}"
 
     # エージェント実行（カテゴリ別ツール選択で遅延初期化）
     agent = _get_agent(request_type, character_type, category=category, agent_data=agent_data)
@@ -321,17 +324,21 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
     """買い目提案のセパレータが欠落している場合、ツール結果キャッシュから復元する."""
     from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
     from tools.bet_proposal import get_last_proposal_result
+    from tools.ev_proposer import get_last_ev_proposal_result
 
     # セパレータ有無に関わらず、呼び出し単位でツール結果キャッシュを必ず取得して消費する
     cached_result = get_last_proposal_result()
+    cached_ev_result = get_last_ev_proposal_result()
 
     if BET_PROPOSALS_SEPARATOR in message_text:
         return message_text
 
-    if cached_result is not None:
+    # EVプロポーザルのキャッシュを優先（新フロー）、なければ既存キャッシュ
+    effective_result = cached_ev_result or cached_result
+    if effective_result is not None:
         logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
 
-    return inject_bet_proposal_separator(message_text, cached_result)
+    return inject_bet_proposal_separator(message_text, effective_result)
 
 
 def _format_betting_context(summary: dict) -> str:

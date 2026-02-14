@@ -95,9 +95,11 @@ def get_tools_for_category(category: CategoryType) -> list[Callable[..., Any]]:
     from tools.ai_prediction import get_ai_prediction
     from tools.bet_analysis import analyze_bet_selection
     from tools.bet_proposal import generate_bet_proposal
+    from tools.ev_proposer import propose_bets
     from tools.odds_analysis import analyze_odds_movement
     from tools.pace_analysis import analyze_race_characteristics
     from tools.past_performance import get_past_performance
+    from tools.race_analyzer import analyze_race_for_betting
     from tools.race_data import get_race_runners
     from tools.risk_analysis import analyze_risk_factors
     from tools.speed_index import get_speed_index, list_speed_indices_for_date
@@ -113,7 +115,12 @@ def get_tools_for_category(category: CategoryType) -> list[Callable[..., Any]]:
         analyze_race_characteristics,
         analyze_risk_factors,
         generate_bet_proposal,
+        analyze_race_for_betting,
+        propose_bets,
     ]
+
+    # EVベース買い目提案専用ツールセット
+    ev_proposal_tools = [analyze_race_for_betting, propose_bets]
 
     tool_sets = {
         "full_analysis": all_tools,
@@ -130,6 +137,8 @@ def get_tools_for_category(category: CategoryType) -> list[Callable[..., Any]]:
             generate_bet_proposal,
             analyze_risk_factors,
             get_ai_prediction,
+            analyze_race_for_betting,
+            propose_bets,
         ],
         "race_focused": [
             get_race_runners,
@@ -145,6 +154,7 @@ def get_tools_for_category(category: CategoryType) -> list[Callable[..., Any]]:
             get_ai_prediction,
         ],
         "followup": [],
+        "ev_proposal": ev_proposal_tools,
     }
 
     return tool_sets.get(category, all_tools)
