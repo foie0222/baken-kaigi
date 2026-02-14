@@ -865,7 +865,16 @@ class RaceDataProvider(ABC):
 
     @abstractmethod
     def get_bet_odds(self, race_id: RaceId, bet_type: str, horse_numbers: list[int]) -> BetOddsData | None:
-        """指定した買い目のオッズを取得する."""
+        """指定した買い目のオッズを取得する.
+
+        Args:
+            race_id: レースID
+            bet_type: 券種 (win/place/quinella/wide/exacta/trio/trifecta)
+            horse_numbers: 馬番リスト
+
+        Returns:
+            オッズデータ、見つからない場合はNone
+        """
         pass
 
 

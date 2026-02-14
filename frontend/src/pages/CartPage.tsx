@@ -9,10 +9,10 @@ import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
 function formatOdds(item: CartItem): string | null {
   if (item.oddsMin != null && item.oddsMax != null) {
-    return `${item.oddsMin}〜${item.oddsMax}倍`;
+    return `${item.oddsMin.toFixed(1)}〜${item.oddsMax.toFixed(1)}倍`;
   }
   if (item.odds != null) {
-    return `${item.odds}倍`;
+    return `${item.odds.toFixed(1)}倍`;
   }
   return null;
 }
@@ -50,6 +50,7 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={handleBlur}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
         min={MIN_BET_AMOUNT}
         max={MAX_BET_AMOUNT}
         step={100}
@@ -128,9 +129,10 @@ export function CartPage() {
                       <span className="cart-item-bet-count">{item.betCount}点</span>
                     )}
                   </div>
-                  {formatOdds(item) && (
-                    <div className="cart-item-odds">{formatOdds(item)}</div>
-                  )}
+                  {(() => {
+                    const oddsText = formatOdds(item);
+                    return oddsText && <div className="cart-item-odds">{oddsText}</div>;
+                  })()}
                   <CartItemAmountInput
                     itemId={item.id}
                     amount={item.amount}
