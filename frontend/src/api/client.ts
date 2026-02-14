@@ -230,6 +230,9 @@ class ApiClient {
     betType: string,
     horseNumbers: number[],
   ): Promise<ApiResponse<BetOddsResponse>> {
+    if (!horseNumbers || horseNumbers.length === 0) {
+      return { success: false, error: 'Horse numbers must not be empty' };
+    }
     const params = new URLSearchParams({
       bet_type: betType,
       horses: horseNumbers.join(','),

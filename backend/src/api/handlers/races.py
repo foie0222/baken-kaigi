@@ -382,7 +382,16 @@ def get_bet_odds(event: dict, context: Any) -> dict:
     if not bet_type or not horses_str:
         return bad_request_response("bet_type and horses are required", event=event)
 
-    horse_numbers = [int(h.strip()) for h in horses_str.split(",")]
+    valid_bet_types = {"win", "place", "quinella", "quinella_place", "wide", "exacta", "trio", "trifecta"}
+    if bet_type not in valid_bet_types:
+        return bad_request_response(f"Invalid bet_type: {bet_type}", event=event)
+
+    try:
+        horse_numbers = [int(h.strip()) for h in horses_str.split(",") if h.strip()]
+        if not horse_numbers:
+            return bad_request_response("horses must contain at least one horse number", event=event)
+    except ValueError:
+        return bad_request_response("horses must contain valid integers", event=event)
 
     provider = Dependencies.get_race_data_provider()
     result = provider.get_bet_odds(RaceId(race_id_str), bet_type, horse_numbers)

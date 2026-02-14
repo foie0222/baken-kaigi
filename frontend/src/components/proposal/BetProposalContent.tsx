@@ -201,8 +201,8 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
         oddsMin = oddsResult.data.odds_min ?? undefined;
         oddsMax = oddsResult.data.odds_max ?? undefined;
       }
-    } catch {
-      // オッズ取得失敗はカート追加をブロックしない
+    } catch (error: unknown) {
+      console.warn('Failed to fetch odds in handleAddSingle:', error);
     }
 
     const addResult = addItem({
@@ -262,8 +262,13 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
               oddsMax: oddsResult.data.odds_max ?? undefined,
             };
           }
-        } catch {
-          // オッズ取得失敗はカート追加をブロックしない
+        } catch (error) {
+          console.warn('Failed to fetch odds for bet', {
+            raceId: race.id,
+            betType: bet.bet_type,
+            horseNumbers: bet.horse_numbers,
+            error,
+          });
         }
         return { odds: undefined, oddsMin: undefined, oddsMax: undefined };
       })

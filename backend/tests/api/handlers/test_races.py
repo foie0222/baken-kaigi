@@ -1219,3 +1219,39 @@ class TestGetBetOddsHandler:
         response = get_bet_odds(event, None)
 
         assert response["statusCode"] == 400
+
+    def test_無効なbet_typeの場合は400(self) -> None:
+        """無効な券種名の場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "invalid", "horses": "3"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "Invalid bet_type" in body["error"]["message"]
+
+    def test_horsesに数値以外が含まれる場合は400(self) -> None:
+        """horsesに数値以外の文字列が含まれる場合は400を返すことを確認."""
+        from src.api.handlers.races import get_bet_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+            "queryStringParameters": {"bet_type": "win", "horses": "abc"},
+        }
+
+        response = get_bet_odds(event, None)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert "valid integers" in body["error"]["message"]

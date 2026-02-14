@@ -142,8 +142,8 @@ export function RaceDetailPage() {
         oddsMin = oddsResult.data.odds_min ?? undefined;
         oddsMax = oddsResult.data.odds_max ?? undefined;
       }
-    } catch {
-      // オッズ取得失敗はカート追加をブロックしない
+    } catch (error: unknown) {
+      console.warn('Failed to fetch odds when adding item to cart:', error);
     }
 
     const result = addItem({

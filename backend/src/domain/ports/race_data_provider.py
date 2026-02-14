@@ -869,7 +869,9 @@ class RaceDataProvider(ABC):
 
         Args:
             race_id: レースID
-            bet_type: 券種 (win/place/quinella/wide/exacta/trio/trifecta)
+            bet_type: 券種。バックエンドでは wide を正準名として使用する
+                (win/place/quinella/wide/exacta/trio/trifecta)。
+                フロントエンドでは quinella_place を wide にマッピングしている。
             horse_numbers: 馬番リスト
 
         Returns:

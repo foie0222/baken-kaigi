@@ -50,7 +50,12 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={handleBlur}
-        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
         min={MIN_BET_AMOUNT}
         max={MAX_BET_AMOUNT}
         step={100}

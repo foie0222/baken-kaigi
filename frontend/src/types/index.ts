@@ -234,6 +234,7 @@ export const BetTypeRequiredHorses: Record<BetType, number> = {
 };
 
 // 券種 → APIオッズ名マッピング
+// バックエンドでは wide を正準名として使用するため、quinella_place を wide にマッピング
 export const BetTypeToApiName: Record<BetType, string> = {
   win: 'win',
   place: 'place',
