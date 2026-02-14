@@ -106,6 +106,8 @@ def _expand_nagashi_2horse(
     bet_type: BetType,
 ) -> list[tuple[int, ...]]:
     """2頭式券種の流し展開."""
+    if not col1:
+        raise ValueError("軸馬が指定されていません")
     axis = col1[0]
     ordered = bet_type.is_order_required()
 
@@ -138,6 +140,9 @@ def _expand_nagashi_3horse(
     bet_type: BetType,
 ) -> list[tuple[int, ...]]:
     """3頭式券種の流し展開."""
+    if not col1:
+        raise ValueError("軸馬が指定されていません")
+
     ordered = bet_type.is_order_required()
 
     if bet_method == "nagashi":
@@ -159,6 +164,8 @@ def _expand_nagashi_3horse(
     elif bet_method == "nagashi_2":
         if not ordered:
             # 三連複: 軸2頭流し col1=[a1,a2], col2=相手
+            if len(col1) < 2:
+                raise ValueError("軸2頭流しには2頭以上の軸馬が必要です")
             a1, a2 = col1[0], col1[1]
             return [
                 tuple(sorted((a1, a2, p)))
@@ -194,6 +201,8 @@ def _expand_nagashi_3horse(
         return results
     elif bet_method == "nagashi_2_multi":
         # 三連単: 軸2頭マルチ col1=[a1,a2], col2=相手
+        if len(col1) < 2:
+            raise ValueError("軸2頭マルチには2頭以上の軸馬が必要です")
         a1, a2 = col1[0], col1[1]
         results_list: list[tuple[int, ...]] = []
         for p in col2:
@@ -204,6 +213,8 @@ def _expand_nagashi_3horse(
         return results_list
     elif bet_method == "nagashi_12":
         # 三連単: 1着2着固定 col1[0]=1着, col3[0]=2着, col2=3着候補
+        if not col3:
+            raise ValueError("nagashi_12には3列目(col3)の指定が必要です")
         a1 = col1[0]
         a2 = col3[0]
         return [
@@ -212,6 +223,8 @@ def _expand_nagashi_3horse(
         ]
     elif bet_method == "nagashi_13":
         # 三連単: 1着3着固定 col1[0]=1着, col3[0]=3着, col2=2着候補
+        if not col3:
+            raise ValueError("nagashi_13には3列目(col3)の指定が必要です")
         a1 = col1[0]
         a3 = col3[0]
         return [
@@ -220,6 +233,8 @@ def _expand_nagashi_3horse(
         ]
     elif bet_method == "nagashi_23":
         # 三連単: 2着3着固定 col1[0]=2着, col3[0]=3着, col2=1着候補
+        if not col3:
+            raise ValueError("nagashi_23には3列目(col3)の指定が必要です")
         a2 = col1[0]
         a3 = col3[0]
         return [
@@ -451,6 +466,10 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
                     f"items[{index}].bet_count must be a number", event=event
                 )
             bet_count_value = int(bet_count_raw)
+            if bet_count_value <= 0:
+                return bad_request_response(
+                    f"items[{index}].bet_count must be a positive integer", event=event
+                )
 
         column_selections_raw = item_data.get("column_selections")
         column_selections_value: dict[str, list[int]] | None = None
@@ -459,11 +478,24 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
                 return bad_request_response(
                     f"items[{index}].column_selections must be an object", event=event
                 )
-            column_selections_value = {
-                "col1": [int(n) for n in column_selections_raw.get("col1", [])],
-                "col2": [int(n) for n in column_selections_raw.get("col2", [])],
-                "col3": [int(n) for n in column_selections_raw.get("col3", [])],
-            }
+            for col_name in ("col1", "col2", "col3"):
+                col_val = column_selections_raw.get(col_name)
+                if col_val is not None and not isinstance(col_val, list):
+                    return bad_request_response(
+                        f"items[{index}].column_selections.{col_name} must be a list",
+                        event=event,
+                    )
+            try:
+                column_selections_value = {
+                    "col1": [int(n) for n in column_selections_raw.get("col1", [])],
+                    "col2": [int(n) for n in column_selections_raw.get("col2", [])],
+                    "col3": [int(n) for n in column_selections_raw.get("col3", [])],
+                }
+            except (TypeError, ValueError):
+                return bad_request_response(
+                    f"items[{index}].column_selections must contain lists of integers",
+                    event=event,
+                )
 
         normalized_items.append({
             "race_id": race_id_raw,
