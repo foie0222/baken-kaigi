@@ -1539,22 +1539,16 @@ def generate_bet_proposal(
         # スピード指数データ取得
         from .speed_index import get_speed_index
         speed_index_data = None
-        try:
-            si_result = get_speed_index(race_id)
-            if isinstance(si_result, dict) and "error" not in si_result:
-                speed_index_data = si_result
-        except Exception:
-            pass
+        si_result = get_speed_index(race_id)
+        if isinstance(si_result, dict) and "error" not in si_result:
+            speed_index_data = si_result
 
         # 過去成績データ取得
         from .past_performance import get_past_performance
         past_performance_data = None
-        try:
-            pp_result = get_past_performance(race_id)
-            if isinstance(pp_result, dict) and "error" not in pp_result:
-                past_performance_data = pp_result
-        except Exception:
-            pass
+        pp_result = get_past_performance(race_id)
+        if isinstance(pp_result, dict) and "error" not in pp_result:
+            past_performance_data = pp_result
 
         result = _generate_bet_proposal_impl(
             race_id=race_id,
