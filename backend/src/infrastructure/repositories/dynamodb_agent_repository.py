@@ -9,7 +9,7 @@ from src.domain.entities import Agent
 from src.domain.enums import AgentStyle
 from src.domain.identifiers import AgentId, UserId
 from src.domain.ports.agent_repository import AgentRepository
-from src.domain.value_objects import AgentName, AgentPerformance
+from src.domain.value_objects import AgentName, AgentPerformance, BettingPreference
 
 
 class DynamoDBAgentRepository(AgentRepository):
@@ -53,15 +53,19 @@ class DynamoDBAgentRepository(AgentRepository):
     @staticmethod
     def _to_dynamodb_item(agent: Agent) -> dict:
         """Agent を DynamoDB アイテムに変換する."""
-        return {
+        item = {
             "agent_id": str(agent.agent_id.value),
             "user_id": str(agent.user_id.value),
             "name": str(agent.name.value),
             "base_style": str(agent.base_style.value),
             "performance": agent.performance.to_dict(),
+            "betting_preference": agent.betting_preference.to_dict(),
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat(),
         }
+        if agent.custom_instructions is not None:
+            item["custom_instructions"] = agent.custom_instructions
+        return item
 
     @staticmethod
     def _from_dynamodb_item(item: dict) -> Agent:
@@ -79,6 +83,8 @@ class DynamoDBAgentRepository(AgentRepository):
                 total_invested=int(perf_data.get("total_invested", 0)),
                 total_return=int(perf_data.get("total_return", 0)),
             ),
+            betting_preference=BettingPreference.from_dict(item.get("betting_preference")),
+            custom_instructions=item.get("custom_instructions"),
             created_at=datetime.fromisoformat(item["created_at"]),
             updated_at=datetime.fromisoformat(item["updated_at"]),
         )
