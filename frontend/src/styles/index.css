@@ -1312,6 +1312,13 @@ main {
     outline: none;
 }
 
+.cart-item-odds {
+    font-size: 13px;
+    color: #e65100;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
 .cart-item-delete {
     background: none;
     border: none;

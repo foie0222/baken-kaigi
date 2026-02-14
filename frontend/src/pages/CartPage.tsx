@@ -4,8 +4,18 @@ import { useCartStore } from '../stores/cartStore';
 import { useAuthStore } from '../stores/authStore';
 import { useIpatSettingsStore } from '../stores/ipatSettingsStore';
 import { useLossLimitStore } from '../stores/lossLimitStore';
-import { BetTypeLabels, getVenueName } from '../types';
+import { BetTypeLabels, getVenueName, type CartItem } from '../types';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
+
+function formatOdds(item: CartItem): string | null {
+  if (item.oddsMin != null && item.oddsMax != null) {
+    return `${item.oddsMin}〜${item.oddsMax}倍`;
+  }
+  if (item.odds != null) {
+    return `${item.odds}倍`;
+  }
+  return null;
+}
 
 function CartItemAmountInput({ itemId, amount, onUpdate }: {
   itemId: string;
@@ -118,6 +128,9 @@ export function CartPage() {
                       <span className="cart-item-bet-count">{item.betCount}点</span>
                     )}
                   </div>
+                  {formatOdds(item) && (
+                    <div className="cart-item-odds">{formatOdds(item)}</div>
+                  )}
                   <CartItemAmountInput
                     itemId={item.id}
                     amount={item.amount}
