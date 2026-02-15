@@ -82,7 +82,6 @@ def invoke(payload: dict, context: Any) -> dict:
     payload 形式:
     {
         "prompt": "ユーザーメッセージ",
-        "cart_items": [...],  # オプション: カート内容
         "runners_data": [...],  # オプション: 出走馬データ
         "session_id": "...",  # オプション: セッションID
         "agent_data": {  # オプション: エージェント育成データ
@@ -92,7 +91,6 @@ def invoke(payload: dict, context: Any) -> dict:
     }
     """
     user_message = payload.get("prompt", "")
-    cart_items = payload.get("cart_items", [])
     runners_data = payload.get("runners_data", [])
     agent_data = payload.get("agent_data")
 
@@ -102,27 +100,18 @@ def invoke(payload: dict, context: Any) -> dict:
     set_betting_preference(betting_preference)
 
     # 入力バリデーション
-    if not user_message and not cart_items:
+    if not user_message:
         return {
-            "message": "カートに買い目を追加してからご相談ください。",
+            "message": "メッセージを入力してください。",
             "session_id": getattr(context, "session_id", None),
             "suggested_questions": [],
         }
-
-    # promptが空でもcart_itemsがあれば分析を開始
-    if not user_message and cart_items:
-        user_message = "カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。"
 
     # ユーザー成績コンテキストを追加
     betting_summary = payload.get("betting_summary")
     if betting_summary:
         betting_context = _format_betting_context(betting_summary)
         user_message = f"【ユーザーの成績】\n{betting_context}\n\n{user_message}"
-
-    # カート情報をコンテキストとして追加
-    if cart_items:
-        cart_summary = _format_cart_summary(cart_items)
-        user_message = f"【現在のカート】\n{cart_summary}\n\n【質問】\n{user_message}"
 
     # 出走馬データをコンテキストとして追加
     if runners_data:
@@ -284,78 +273,6 @@ def _format_betting_context(summary: dict) -> str:
         if summary.get("net_profit") is not None:
             parts.append(f"収支: {summary['net_profit']:+,}円")
     return " / ".join(parts) if parts else "成績データなし"
-
-
-def _format_cart_summary(cart_items: list) -> str:
-    """カート内容をフォーマットする.
-
-    各買い目を明確に表示し、馬番の出現頻度を事前計算して
-    LLMの数え間違いを防止する。
-    """
-    bet_type_names = {
-        "win": "単勝",
-        "place": "複勝",
-        "quinella": "馬連",
-        "quinella_place": "ワイド",
-        "exacta": "馬単",
-        "trio": "三連複",
-        "trifecta": "三連単",
-    }
-
-    if not cart_items:
-        return "カートは空です"
-
-    lines = []
-    horse_count: dict[int, int] = {}
-    race_ids: dict[str, str] = {}  # race_id -> race_name
-    total_amount = 0
-
-    for i, item in enumerate(cart_items, 1):
-        race_id = item.get("raceId", "")
-        bet_type = item.get("betType", "")
-        bet_type_display = bet_type_names.get(bet_type, bet_type)
-        horse_numbers = item.get("horseNumbers", [])
-        amount = item.get("amount", 0)
-        race_name = item.get("raceName", "")
-
-        if race_id:
-            race_ids[race_id] = race_name
-
-        display = "-".join(str(n) for n in horse_numbers)
-        line = f"{i}. {race_name} {bet_type_display} {display} ¥{amount:,}"
-        lines.append(line)
-        total_amount += amount
-
-        for hn in horse_numbers:
-            horse_count[hn] = horse_count.get(hn, 0) + 1
-
-    total_bets = len(cart_items)
-    header = f"買い目一覧（全{total_bets}点、合計¥{total_amount:,}）"
-
-    # 対象レースID一覧（ツール呼び出し用）
-    race_id_lines = []
-    for rid, rname in race_ids.items():
-        race_id_lines.append(f"  {rname}: race_id={rid}")
-
-    # 馬番出現頻度サマリー（LLMの数え間違い防止）
-    freq_lines = []
-    for hn in sorted(horse_count.keys()):
-        count = horse_count[hn]
-        freq_lines.append(f"  {hn}番: {total_bets}点中{count}点に出現")
-
-    parts = [header]
-    if race_id_lines:
-        parts.append("")
-        parts.append("対象レース:")
-        parts.extend(race_id_lines)
-    parts.append("")
-    parts.extend(lines)
-    if freq_lines:
-        parts.append("")
-        parts.append("馬番の出現頻度:")
-        parts.extend(freq_lines)
-
-    return "\n".join(parts)
 
 
 def _format_runners_summary(runners_data: list) -> str:

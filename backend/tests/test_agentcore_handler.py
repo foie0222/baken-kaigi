@@ -309,7 +309,7 @@ class TestInvokeAgentcore:
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
             from agentcore_handler import invoke_agentcore
 
-            event = {"body": '{"cart_items": []}'}
+            event = {"body": '{}'}
             context = MagicMock()
 
             response = invoke_agentcore(event, context)
