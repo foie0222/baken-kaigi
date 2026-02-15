@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from database import (
     _parse_combination_odds_2h,
     _parse_combination_odds_3h,
+    _parse_wide_odds,
     get_all_odds,
 )
 
@@ -42,6 +43,41 @@ class TestParseCombinationOdds2h:
     def test_空文字列で空辞書を返す(self):
         assert _parse_combination_odds_2h("") == {}
         assert _parse_combination_odds_2h(None) == {}
+
+
+class TestParseWideOdds:
+    """_parse_wide_odds のテスト.
+
+    jvd_o3(ワイド) 用パーサー。
+    17文字/組: kumiban(4桁) + odds_min(5桁, ÷10) + odds_max(5桁, ÷10) + ninkijun(3桁)
+    """
+
+    def test_ワイドオッズを正常に解析できる(self):
+        # 1-2: min=35.6 max=37.4 rank=30, 1-3: min=24.0 max=25.3 rank=24
+        odds_str = "01020035600374030" + "01030024000253024"
+        result = _parse_wide_odds(odds_str)
+        assert len(result) == 2
+        assert result["1-2"] == 35.6
+        assert result["1-3"] == 24.0
+
+    def test_複数エントリを正しく解析できる(self):
+        # 実データから: 1-2, 1-3, 1-4 の3エントリ
+        odds_str = "01020035600374030" + "01030024000253024" + "01040007900087013"
+        result = _parse_wide_odds(odds_str)
+        assert len(result) == 3
+        assert result["1-2"] == 35.6
+        assert result["1-3"] == 24.0
+        assert result["1-4"] == 7.9
+
+    def test_取消馬をスキップする(self):
+        odds_str = "0102*************" + "01030024000253024"
+        result = _parse_wide_odds(odds_str)
+        assert len(result) == 1
+        assert result["1-3"] == 24.0
+
+    def test_空文字列で空辞書を返す(self):
+        assert _parse_wide_odds("") == {}
+        assert _parse_wide_odds(None) == {}
 
 
 class TestParseCombinationOdds3h:
@@ -91,7 +127,7 @@ class TestGetAllOdds:
         mock_cursor.fetchone.side_effect = [
             ("010035010200580203012003", "010024003304020018002503"),  # o1: tansho + fukusho
             ("0102000648005",),   # o2: umaren 64.8倍
-            ("0102000123003",),   # o3: wide 12.3倍
+            ("01020012300155030",),  # o3: wide min=12.3 max=15.5 rank=30
             ("0102001285005",),   # o4: umatan 128.5倍
             ("010203003419023",), # o5: sanrenpuku
             ("010203020483023",), # o6: sanrentan 2048.3倍

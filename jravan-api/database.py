@@ -771,10 +771,50 @@ def _parse_fukusho_odds(odds_fukusho: str) -> list[dict]:
     return result
 
 
+def _parse_wide_odds(odds_str: str | None) -> dict[str, float]:
+    """ワイドオッズ文字列を解析する.
+
+    jvd_o3(ワイド) 専用パーサー。
+    17文字/組: kumiban(4桁) + odds_min(5桁, ÷10) + odds_max(5桁, ÷10) + ninkijun(3桁)
+
+    ワイドは3着以内の2頭を当てる券種で、3着馬によりオッズが変動するため
+    最低/最高の2つのオッズ値を持つ。EV計算には最低オッズ（保守的見積り）を使用。
+
+    Args:
+        odds_str: オッズ連結文字列
+
+    Returns:
+        組番をキー、最低オッズを値とする辞書。例: {"1-2": 35.6}
+    """
+    if not odds_str:
+        return {}
+
+    odds_str = odds_str.strip()
+    result: dict[str, float] = {}
+    for i in range(0, len(odds_str), 17):
+        chunk = odds_str[i:i + 17]
+        if len(chunk) < 17:
+            break
+        if "***" in chunk:
+            continue
+        try:
+            h1 = int(chunk[0:2])
+            h2 = int(chunk[2:4])
+            odds_min_raw = int(chunk[4:9])
+            odds_min = odds_min_raw / 10.0
+
+            if h1 > 0 and h2 > 0 and odds_min > 0:
+                result[f"{h1}-{h2}"] = odds_min
+        except (ValueError, IndexError):
+            continue
+
+    return result
+
+
 def _parse_combination_odds_2h(odds_str: str | None) -> dict[str, float]:
     """2頭組合せオッズ文字列を解析する.
 
-    jvd_o2(馬連)/o3(ワイド)/o4(馬単) 用パーサー。
+    jvd_o2(馬連)/o4(馬単) 用パーサー。
     13文字/組: kumiban(4桁) + odds(6桁, ÷10) + ninkijun(3桁)
 
     取消馬は "XXXX******NNN" のようにオッズ部分がアスタリスクとなる。
@@ -1129,8 +1169,8 @@ def get_all_odds(race_id: str) -> dict | None:
 
         # 馬連
         quinella = _parse_combination_odds_2h(o2_row[0] if o2_row else None)
-        # ワイド
-        quinella_place = _parse_combination_odds_2h(o3_row[0] if o3_row else None)
+        # ワイド（17文字/組の専用パーサー）
+        quinella_place = _parse_wide_odds(o3_row[0] if o3_row else None)
         # 馬単
         exacta = _parse_combination_odds_2h(o4_row[0] if o4_row else None)
         # 三連複
