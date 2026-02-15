@@ -78,7 +78,7 @@ def invoke(payload: dict, context: Any) -> dict:
     payload 形式:
     {
         "prompt": "ユーザーメッセージ",
-        "runners_data": [...],  # オプション: 出走馬データ
+        "race_id": "...",  # オプション: レースID
         "session_id": "...",  # オプション: セッションID
         "agent_data": {  # オプション: エージェント育成データ
             "name": "エージェント名",
@@ -87,7 +87,7 @@ def invoke(payload: dict, context: Any) -> dict:
     }
     """
     user_message = payload.get("prompt", "")
-    runners_data = payload.get("runners_data", [])
+    race_id = payload.get("race_id", "")
     agent_data = payload.get("agent_data")
 
     # 好み設定をev_proposerツールに注入（preferred_bet_typesの解決に使用）
@@ -103,10 +103,9 @@ def invoke(payload: dict, context: Any) -> dict:
             "suggested_questions": [],
         }
 
-    # 出走馬データをコンテキストとして追加
-    if runners_data:
-        runners_summary = _format_runners_summary(runners_data)
-        user_message = f"【出走馬データ】\n{runners_summary}\n\n{user_message}"
+    # レースIDをコンテキストとして追加
+    if race_id:
+        user_message = f"【対象レースID】{race_id}\n\n{user_message}"
 
     # エージェント実行
     agent = _get_agent()
@@ -249,31 +248,6 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
         logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
 
     return inject_bet_proposal_separator(message_text, effective_result)
-
-
-def _format_runners_summary(runners_data: list) -> str:
-    """出走馬データをフォーマットする."""
-    lines = []
-    for runner in runners_data:
-        number = runner.get("horse_number", "?")
-        name = runner.get("horse_name", "不明")
-        odds = runner.get("odds")
-        popularity = runner.get("popularity")
-        frame = runner.get("frame_number")
-        if frame is None:
-            frame = runner.get("waku_ban")
-
-        parts = [f"{number}番 {name}"]
-        if odds is not None:
-            parts.append(f"オッズ:{odds}")
-        if popularity is not None:
-            parts.append(f"{popularity}番人気")
-        if frame is not None:
-            parts.append(f"{frame}枠")
-
-        lines.append("- " + " ".join(parts))
-
-    return "\n".join(lines) if lines else "出走馬データなし"
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ propose_bets(
     skip_score=<race_info.skip_score>,
     predicted_pace=<race_info.predicted_pace>,
     ai_consensus=<race_info.ai_consensus>,
-    runners_data=<出走馬データ（payloadから）>,
+    runners_data=<出走馬データ（DynamoDBから取得）>,
     total_runners=<race_info.total_runners>,
     preferred_bet_types=<ユーザー指定があれば>,
     max_bets=<ユーザー指定があれば>,

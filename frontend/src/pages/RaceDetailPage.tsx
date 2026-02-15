@@ -161,13 +161,6 @@ export function RaceDetailPage() {
       odds,
       oddsMin,
       oddsMax,
-      runnersData: race.horses.map((h) => ({
-        horse_number: h.number,
-        horse_name: h.name,
-        odds: h.odds,
-        popularity: h.popularity,
-        frame_number: h.wakuBan,
-      })),
     });
 
     if (result === 'different_race' || result === 'invalid_amount') {

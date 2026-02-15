@@ -271,7 +271,7 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
 
     Request Body:
         prompt: ユーザーメッセージ
-        runners_data: 出走馬データ（オプション）
+        race_id: レースID（オプション）
         session_id: セッションID（オプション）
         agent_data: エージェント育成データ（オプション）
 
@@ -317,7 +317,7 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     # AgentCore 用のペイロードを構築
     payload = {
         "prompt": body.get("prompt", ""),
-        "runners_data": body.get("runners_data", []),
+        "race_id": body.get("race_id", ""),
     }
 
     # エージェントデータを中継
