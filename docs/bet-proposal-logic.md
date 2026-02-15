@@ -239,7 +239,7 @@ win_probabilities = {
     "win":            {"1": 3.5, "2": 5.8, ...},                  # 単勝
     "place":          {"1": {"min": 1.2, "max": 1.5}, ...},       # 複勝
     "quinella":       {"1-2": 64.8, "1-3": 155.2, ...},           # 馬連
-    "quinella_place": {"1-2": 12.3, ...},                          # ワイド
+    "quinella_place": {"1-2": 12.3, ...},                          # ワイド（odds_min を返す）
     "exacta":         {"1-2": 128.5, ...},                         # 馬単
     "trio":           {"1-2-3": 341.9, ...},                       # 三連複
     "trifecta":       {"1-2-3": 2048.3, ...}                       # 三連単
@@ -251,9 +251,9 @@ win_probabilities = {
 | 券種 | JRA-VAN テーブル | パース仕様 |
 |------|-----------------|-----------|
 | 単勝・複勝 | jvd_o1 | 8文字/馬（単勝）、12文字/馬（複勝） |
-| 馬連 | jvd_o2 | 13文字/組: kumiban(4) + odds(6, ÷10) + ninkijun(3) |
-| ワイド | jvd_o3 | 13文字/組（同上） |
-| 馬単 | jvd_o4 | 13文字/組（同上） |
+| 馬連 | jvd_o2 | 13文字/組: kumiban(4) + odds(6, ÷10) + ninkijun(3) → `_parse_combination_odds_2h` |
+| ワイド | jvd_o3 | 17文字/組: kumiban(4) + odds_min(5, ÷10) + odds_max(5, ÷10) + ninkijun(3) → `_parse_wide_odds` |
+| 馬単 | jvd_o4 | 13文字/組: kumiban(4) + odds(6, ÷10) + ninkijun(3) → `_parse_combination_odds_2h` |
 | 三連複 | jvd_o5 | 15文字/組: kumiban(6) + odds(6, ÷10) + ninkijun(3) |
 | 三連単 | jvd_o6 | 15文字/組（同上） |
 
