@@ -1771,8 +1771,9 @@ class BakenKaigiApiStack(Stack):
         for fn in purchase_functions:
             purchase_order_table.grant_read_write_data(fn)
 
-        # IPAT購入関連 Lambda に Cart テーブルへの読み取り権限を付与
-        cart_table.grant_read_data(submit_purchase_fn)
+        # IPAT購入関連 Lambda に Cart テーブルへの読み書き権限を付与
+        # submit_purchase はフロントから送られた items からカートを作成・保存する
+        cart_table.grant_read_write_data(submit_purchase_fn)
 
         # SecretsManager 権限（IPAT認証情報の管理）
         ipat_secrets_policy = iam.PolicyStatement(
