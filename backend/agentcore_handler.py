@@ -274,7 +274,6 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         runners_data: 出走馬データ（オプション）
         session_id: セッションID（オプション）
         agent_data: エージェント育成データ（オプション）
-        betting_summary: ユーザー成績サマリー（オプション）
 
     Returns:
         message: AI からの応答
@@ -325,11 +324,6 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     agent_data = body.get("agent_data")
     if agent_data and isinstance(agent_data, dict):
         payload["agent_data"] = agent_data
-
-    # ユーザー成績サマリーを中継
-    betting_summary = body.get("betting_summary")
-    if betting_summary and isinstance(betting_summary, dict):
-        payload["betting_summary"] = betting_summary
 
     try:
         # boto3 クライアント設定

@@ -501,11 +501,3 @@ class TestAgentData中継:
         payload = self._invoke_and_get_payload({"prompt": "分析して"})
         assert "agent_data" not in payload
 
-    def test_betting_summaryがpayloadに含まれる(self):
-        """betting_summary がリクエストに含まれる場合、payload に中継される."""
-        summary = {"record_count": 10, "win_rate": 30.0, "roi": 85.0}
-        payload = self._invoke_and_get_payload({
-            "prompt": "分析して",
-            "betting_summary": summary,
-        })
-        assert payload["betting_summary"] == summary

@@ -107,12 +107,6 @@ def invoke(payload: dict, context: Any) -> dict:
             "suggested_questions": [],
         }
 
-    # ユーザー成績コンテキストを追加
-    betting_summary = payload.get("betting_summary")
-    if betting_summary:
-        betting_context = _format_betting_context(betting_summary)
-        user_message = f"【ユーザーの成績】\n{betting_context}\n\n{user_message}"
-
     # 出走馬データをコンテキストとして追加
     if runners_data:
         runners_summary = _format_runners_summary(runners_data)
@@ -259,20 +253,6 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
         logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
 
     return inject_bet_proposal_separator(message_text, effective_result)
-
-
-def _format_betting_context(summary: dict) -> str:
-    """ユーザーの成績サマリーをフォーマットする."""
-    parts = []
-    if summary.get("record_count", 0) > 0:
-        parts.append(f"通算成績: {summary['record_count']}件")
-        if summary.get("win_rate") is not None:
-            parts.append(f"的中率: {summary['win_rate']:.1f}%")
-        if summary.get("roi") is not None:
-            parts.append(f"回収率: {summary['roi']:.1f}%")
-        if summary.get("net_profit") is not None:
-            parts.append(f"収支: {summary['net_profit']:+,}円")
-    return " / ".join(parts) if parts else "成績データなし"
 
 
 def _format_runners_summary(runners_data: list) -> str:

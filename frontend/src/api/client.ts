@@ -41,7 +41,6 @@ export interface AgentCoreConsultationRequest {
   runners_data?: RunnerData[];
   session_id?: string;
   agent_data?: AgentData;
-  betting_summary?: Record<string, unknown>;
 }
 
 export interface BetAction {
