@@ -18,7 +18,7 @@ def _setup():
 
     # エージェントを先に作成
     create_uc = CreateAgentUseCase(agent_repo)
-    create_uc.execute("usr_001", "ハヤテ", "solid")
+    create_uc.execute("usr_001", "ハヤテ")
 
     return agent_repo, review_repo
 
@@ -64,19 +64,6 @@ class TestCreateAgentReviewUseCase:
         assert result.review.total_return == 0
         assert result.review.has_win is False
         assert "不的中" in result.review.review_text
-
-    def test_エージェントの成績が更新される(self):
-        agent_repo, review_repo = _setup()
-        uc = CreateAgentReviewUseCase(agent_repo, review_repo)
-
-        uc.execute("usr_001", "race_001", "2026-02-01", "東京11R", _make_bets(hit=True))
-
-        from src.domain.identifiers import UserId
-        agent = agent_repo.find_by_user_id(UserId("usr_001"))
-        assert agent.performance.total_bets == 1
-        assert agent.performance.wins == 1
-        assert agent.performance.total_invested == 1500
-        assert agent.performance.total_return == 3000
 
     def test_同一レースの振り返り重複はエラー(self):
         agent_repo, review_repo = _setup()

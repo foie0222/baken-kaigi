@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Agent, AgentData, AgentStyleId, BettingPreference } from '../types';
+import type { Agent, AgentData, BettingPreference } from '../types';
 import { apiClient } from '../api/client';
 
 interface AgentState {
@@ -9,8 +9,8 @@ interface AgentState {
   hasFetched: boolean;
 
   fetchAgent: () => Promise<void>;
-  createAgent: (name: string, baseStyle: AgentStyleId) => Promise<boolean>;
-  updateAgent: (baseStyle?: AgentStyleId, bettingPreference?: BettingPreference, customInstructions?: string | null) => Promise<boolean>;
+  createAgent: (name: string) => Promise<boolean>;
+  updateAgent: (bettingPreference?: BettingPreference, customInstructions?: string | null) => Promise<boolean>;
   getAgentData: () => AgentData | null;
   clearError: () => void;
   reset: () => void;
@@ -34,9 +34,9 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
     }
   },
 
-  createAgent: async (name: string, baseStyle: AgentStyleId) => {
+  createAgent: async (name: string) => {
     set({ isLoading: true, error: null });
-    const result = await apiClient.createAgent(name, baseStyle);
+    const result = await apiClient.createAgent(name);
 
     if (result.success && result.data) {
       set({ agent: result.data, isLoading: false });
@@ -47,9 +47,9 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
     return false;
   },
 
-  updateAgent: async (baseStyle?: AgentStyleId, bettingPreference?: BettingPreference, customInstructions?: string | null) => {
+  updateAgent: async (bettingPreference?: BettingPreference, customInstructions?: string | null) => {
     set({ isLoading: true, error: null });
-    const result = await apiClient.updateAgent(baseStyle, bettingPreference, customInstructions);
+    const result = await apiClient.updateAgent(bettingPreference, customInstructions);
 
     if (result.success && result.data) {
       set({ agent: result.data, isLoading: false });
@@ -66,11 +66,8 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
 
     return {
       name: agent.name,
-      base_style: agent.base_style,
-      performance: agent.performance,
       betting_preference: agent.betting_preference,
       custom_instructions: agent.custom_instructions,
-      level: agent.level,
     };
   },
 

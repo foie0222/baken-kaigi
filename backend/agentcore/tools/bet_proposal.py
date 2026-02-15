@@ -181,44 +181,6 @@ FINISH_POSITION_SCORES = {1: 100, 2: 85, 3: 70, 4: 55, 5: 45}
 # 近走重み（最新=5, 2走前=4, ... 5走前=1）
 FORM_RECENCY_WEIGHTS = [5, 4, 3, 2, 1]
 
-# ペルソナ別プロファイル
-# analyst はデフォルトと同一のため空辞書
-CHARACTER_PROFILES = {
-    "analyst": {},
-    "intuition": {
-        "weight_ai_score": 0.3, "weight_odds_gap": 0.5,
-        "allocation_high": 0.40, "allocation_low": 0.30,
-        "torigami_threshold": 1.5, "skip_gate_threshold": 8,
-        "difficulty_bet_types": {
-            1: ["exacta", "quinella"], 2: ["exacta", "quinella"],
-            3: ["exacta", "trio"], 4: ["trio", "trifecta"],
-            5: ["trio", "quinella_place"],
-        },
-    },
-    "conservative": {
-        "allocation_high": 0.60, "allocation_low": 0.10,
-        "max_bets": 5, "torigami_threshold": 2.5, "skip_gate_threshold": 6,
-        "weight_ai_score": 0.6, "weight_odds_gap": 0.2,
-        "base_rate": 0.02,
-        "difficulty_bet_types": {
-            1: ["quinella", "quinella_place"], 2: ["quinella", "quinella_place"],
-            3: ["quinella_place", "quinella"], 4: ["quinella_place"],
-            5: ["quinella_place"],
-        },
-    },
-    "aggressive": {
-        "allocation_high": 0.35, "allocation_medium": 0.25, "allocation_low": 0.40,
-        "torigami_threshold": 1.5, "skip_gate_threshold": 9,
-        "weight_ai_score": 0.3, "weight_odds_gap": 0.5,
-        "base_rate": 0.05,
-        "difficulty_bet_types": {
-            1: ["exacta", "trifecta"], 2: ["exacta", "trifecta"],
-            3: ["trifecta", "trio"], 4: ["trifecta", "trio"],
-            5: ["trio", "trifecta"],
-        },
-    },
-}
-
 _DEFAULT_CONFIG = {
     "weight_ai_score": WEIGHT_AI_SCORE, "weight_odds_gap": WEIGHT_ODDS_GAP,
     "weight_pace_compat": WEIGHT_PACE_COMPAT,
@@ -231,41 +193,6 @@ _DEFAULT_CONFIG = {
     "base_rate": DEFAULT_BASE_RATE,
     "max_partners": MAX_PARTNERS,
 }
-
-
-def _get_character_config(character_type: str | None) -> dict:
-    """ペルソナに応じた設定を返す.
-
-    Args:
-        character_type: ペルソナ種別（None or 未知のキーはデフォルト）
-
-    Returns:
-        設定辞書
-    """
-    config = dict(_DEFAULT_CONFIG)
-    if character_type and character_type in CHARACTER_PROFILES:
-        config.update(CHARACTER_PROFILES[character_type])
-    return config
-
-
-# =============================================================================
-# 好み設定（BettingPreference）反映
-# =============================================================================
-
-def _get_preference_config(
-    character_type: str | None,
-    betting_preference: dict | None,
-) -> dict:
-    """ペルソナ設定を返す.
-
-    Args:
-        character_type: ペルソナ種別
-        betting_preference: 好み設定辞書（未使用、旧APIとの互換のため残す）
-
-    Returns:
-        設定辞書
-    """
-    return _get_character_config(character_type)
 
 
 # =============================================================================
@@ -1481,13 +1408,11 @@ def _generate_bet_proposal_impl(
     running_styles: list[dict] | None = None,
     preferred_bet_types: list[str] | None = None,
     axis_horses: list[int] | None = None,
-    character_type: str | None = None,
     max_bets: int | None = None,
     speed_index_data: dict | None = None,
     past_performance_data: dict | None = None,
     unified_probs: dict[int, float] | None = None,
     bankroll: int = 0,
-    betting_preference: dict | None = None,
 ) -> dict:
     """買い目提案の統合実装（テスト用に公開）.
 
@@ -1503,12 +1428,8 @@ def _generate_bet_proposal_impl(
         running_styles: 脚質データ
         preferred_bet_types: ユーザー指定の券種リスト
         axis_horses: ユーザー指定の軸馬番号リスト
-        character_type: ペルソナ種別（"analyst"/"intuition"/"conservative"/"aggressive"）。
-            未指定またはNoneの場合はデフォルト（analyst相当）を使用。
-        max_bets: 買い目点数上限。未指定の場合はペルソナのデフォルト値
-            （analystは8、conservativeは5など）。指定時はペルソナのデフォルトより優先。
+        max_bets: 買い目点数上限。未指定の場合はデフォルト値（8）。
         bankroll: 1日の総資金（bankrollモード）。0より大きい場合はダッチング配分を使用。
-        betting_preference: 好み設定辞書（bet_type_preference, target_style, priority）
 
     Returns:
         統合提案結果
@@ -1516,8 +1437,7 @@ def _generate_bet_proposal_impl(
     race_conditions = race_conditions or []
     running_styles = running_styles or []
 
-    # ペルソナ設定 + 好み設定の解決
-    config = _get_preference_config(character_type, betting_preference)
+    config = dict(_DEFAULT_CONFIG)
     use_bankroll = bankroll > 0
     if use_bankroll:
         effective_max_bets = max_bets  # bankrollモード: max_bets未指定なら全件
@@ -2092,7 +2012,6 @@ def generate_bet_proposal(
     bankroll: int = 0,
     preferred_bet_types: list[str] | None = None,
     axis_horses: list[int] | None = None,
-    character_type: str | None = None,
     max_bets: int | None = None,
 ) -> dict:
     """レース分析に基づき、買い目の提案を一括生成する.
@@ -2110,8 +2029,7 @@ def generate_bet_proposal(
         preferred_bet_types: 券種の指定リスト (省略時はレース難易度から自動選定)
             "win", "place", "quinella", "quinella_place", "exacta", "trio", "trifecta"
         axis_horses: 軸馬の馬番リスト (省略時はAI指数上位から自動選定)
-        character_type: ペルソナ種別 ("analyst", "intuition", "conservative", "aggressive")
-        max_bets: 買い目点数上限 (省略時はペルソナのデフォルト値)
+        max_bets: 買い目点数上限 (省略時はデフォルト値 8)
 
     Returns:
         提案結果:
@@ -2181,13 +2099,11 @@ def generate_bet_proposal(
             running_styles=running_styles,
             preferred_bet_types=preferred_bet_types,
             axis_horses=axis_horses,
-            character_type=character_type,
             max_bets=max_bets,
             speed_index_data=speed_index_data,
             past_performance_data=past_performance_data,
             unified_probs=unified_probs or None,
             bankroll=bankroll,
-            betting_preference=None,
         )
         if "error" not in result:
             _last_proposal_result = result

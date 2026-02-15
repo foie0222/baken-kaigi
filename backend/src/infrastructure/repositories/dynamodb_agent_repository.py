@@ -7,10 +7,9 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from src.domain.entities import Agent
-from src.domain.enums import AgentStyle
 from src.domain.identifiers import AgentId, UserId
 from src.domain.ports.agent_repository import AgentRepository
-from src.domain.value_objects import AgentName, AgentPerformance, BettingPreference
+from src.domain.value_objects import AgentName, BettingPreference
 
 
 def _floats_to_decimal(d: dict) -> dict:
@@ -63,8 +62,6 @@ class DynamoDBAgentRepository(AgentRepository):
             "agent_id": str(agent.agent_id.value),
             "user_id": str(agent.user_id.value),
             "name": str(agent.name.value),
-            "base_style": str(agent.base_style.value),
-            "performance": agent.performance.to_dict(),
             "betting_preference": _floats_to_decimal(agent.betting_preference.to_dict()),
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat(),
@@ -75,20 +72,14 @@ class DynamoDBAgentRepository(AgentRepository):
 
     @staticmethod
     def _from_dynamodb_item(item: dict) -> Agent:
-        """DynamoDB アイテムから Agent を復元する."""
-        perf_data = item["performance"]
+        """DynamoDB アイテムから Agent を復元する.
 
+        Note: 既存データに含まれる base_style / performance フィールドは無視する。
+        """
         return Agent(
             agent_id=AgentId(item["agent_id"]),
             user_id=UserId(item["user_id"]),
             name=AgentName(item["name"]),
-            base_style=AgentStyle(item["base_style"]),
-            performance=AgentPerformance(
-                total_bets=int(perf_data["total_bets"]),
-                wins=int(perf_data["wins"]),
-                total_invested=int(perf_data["total_invested"]),
-                total_return=int(perf_data["total_return"]),
-            ),
             betting_preference=BettingPreference.from_dict(item.get("betting_preference")),
             custom_instructions=item.get("custom_instructions"),
             created_at=datetime.fromisoformat(item["created_at"]),

@@ -124,10 +124,6 @@ class CreateAgentReviewUseCase:
 
         self._review_repository.save(review)
 
-        # エージェントの成績を更新
-        agent.record_result(total_invested, total_return, has_win)
-        self._agent_repository.save(agent)
-
         return CreateAgentReviewResult(review=review)
 
     def _generate_review_text(

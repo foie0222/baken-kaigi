@@ -526,39 +526,21 @@ export interface BettingPreference {
   max_ev?: number | null;
 }
 
-// エージェント育成
-export type AgentStyleId = 'solid' | 'longshot' | 'data' | 'pace';
-
-export interface AgentPerformance {
-  total_bets: number;
-  wins: number;
-  total_invested: number;
-  total_return: number;
-}
-
+// エージェント
 export interface Agent {
   agent_id: string;
   user_id: string;
   name: string;
-  base_style: AgentStyleId;
-  performance: AgentPerformance;
-  betting_preference?: BettingPreference;
+  betting_preference: BettingPreference;
   custom_instructions?: string | null;
-  level: number;
-  win_rate: number;
-  roi: number;
-  profit: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface AgentData {
   name: string;
-  base_style: AgentStyleId;
-  performance: AgentPerformance;
   betting_preference?: BettingPreference;
   custom_instructions?: string | null;
-  level: number;
 }
 
 export interface AgentReview {

@@ -279,8 +279,8 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         cart_items: カート内容（オプション）
         runners_data: 出走馬データ（オプション）
         session_id: セッションID（オプション）
-        character_type: AIキャラクター（オプション、agent_dataがない場合のフォールバック）
-        agent_data: エージェント育成データ（オプション、character_typeより優先）
+        agent_data: エージェント育成データ（オプション）
+        betting_summary: ユーザー成績サマリー（オプション）
 
     Returns:
         message: AI からの応答
@@ -328,29 +328,10 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         "runners_data": body.get("runners_data", []),
     }
 
-    # リクエストタイプを中継（買い目提案/相談の切り替え用）
-    _VALID_REQUEST_TYPES = {"bet_proposal", "consultation"}
-    request_type = body.get("type")
-    if request_type:
-        if not isinstance(request_type, str) or request_type not in _VALID_REQUEST_TYPES:
-            return _make_response(
-                {"error": f"Invalid type. Must be one of: {', '.join(sorted(_VALID_REQUEST_TYPES))}"},
-                400,
-                event=event,
-            )
-        payload["type"] = request_type
-
-    # エージェントデータを中継（agent_data > character_type の優先順位）
+    # エージェントデータを中継
     agent_data = body.get("agent_data")
     if agent_data and isinstance(agent_data, dict):
         payload["agent_data"] = agent_data
-    else:
-        # フォールバック: 従来のキャラクタータイプ
-        _VALID_CHARACTER_TYPES = {"analyst", "intuition", "conservative", "aggressive"}
-        character_type = body.get("character_type")
-        if character_type:
-            if isinstance(character_type, str) and character_type in _VALID_CHARACTER_TYPES:
-                payload["character_type"] = character_type
 
     # ユーザー成績サマリーを中継
     betting_summary = body.get("betting_summary")

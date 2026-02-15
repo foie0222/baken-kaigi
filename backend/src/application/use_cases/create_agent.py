@@ -5,7 +5,6 @@ import uuid
 from dataclasses import dataclass
 
 from src.domain.entities import Agent
-from src.domain.enums import AgentStyle
 from src.domain.identifiers import AgentId, UserId
 from src.domain.ports.agent_repository import AgentRepository
 from src.domain.value_objects import AgentName
@@ -31,13 +30,12 @@ class CreateAgentUseCase:
         """初期化."""
         self._agent_repository = agent_repository
 
-    def execute(self, user_id: str, name: str, base_style: str) -> CreateAgentResult:
+    def execute(self, user_id: str, name: str) -> CreateAgentResult:
         """エージェントを作成する.
 
         Args:
             user_id: ユーザーID
             name: エージェント名
-            base_style: ベーススタイル (solid/longshot/data/pace)
 
         Returns:
             作成結果
@@ -55,14 +53,12 @@ class CreateAgentUseCase:
 
         # 値オブジェクト変換
         agent_name = AgentName(name)
-        style = AgentStyle(base_style)
         agent_id = AgentId(f"agt_{uuid.uuid4().hex[:12]}")
 
         agent = Agent.create(
             agent_id=agent_id,
             user_id=uid,
             name=agent_name,
-            base_style=style,
         )
 
         self._agent_repository.save(agent)

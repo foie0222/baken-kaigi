@@ -39,33 +39,27 @@ class TestCreateAgent:
         event = _make_event(
             method="POST",
             path="/agents",
-            body={"name": "ハヤテ", "base_style": "solid"},
+            body={"name": "ハヤテ"},
         )
         response = agent_handler(event, None)
         assert response["statusCode"] == 201
 
         body = json.loads(response["body"])
         assert body["name"] == "ハヤテ"
-        assert body["base_style"] == "solid"
-        assert body["level"] == 1
+        assert "agent_id" in body
 
     def test_認証なしは401(self):
-        event = _make_event(method="POST", path="/agents", sub=None, body={"name": "テスト", "base_style": "solid"})
+        event = _make_event(method="POST", path="/agents", sub=None, body={"name": "テスト"})
         response = agent_handler(event, None)
         assert response["statusCode"] == 401
 
     def test_名前なしは400(self):
-        event = _make_event(method="POST", path="/agents", body={"base_style": "solid"})
-        response = agent_handler(event, None)
-        assert response["statusCode"] == 400
-
-    def test_不正なスタイルは400(self):
-        event = _make_event(method="POST", path="/agents", body={"name": "テスト", "base_style": "invalid"})
+        event = _make_event(method="POST", path="/agents", body={})
         response = agent_handler(event, None)
         assert response["statusCode"] == 400
 
     def test_重複作成は409(self):
-        event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(event, None)  # 1回目
         response = agent_handler(event, None)  # 2回目
         assert response["statusCode"] == 409
@@ -76,7 +70,7 @@ class TestGetAgent:
 
     def test_エージェントを取得できる(self):
         # 事前にエージェント作成
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "data"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(method="GET", path="/agents/me")
@@ -85,7 +79,6 @@ class TestGetAgent:
 
         body = json.loads(response["body"])
         assert body["name"] == "ハヤテ"
-        assert body["base_style"] == "data"
 
     def test_未作成は404(self):
         event = _make_event(method="GET", path="/agents/me")
@@ -101,36 +94,36 @@ class TestGetAgent:
 class TestUpdateAgent:
     """PUT /agents/me のテスト."""
 
-    def test_スタイルを更新できる(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+    def test_好み設定を更新できる(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
-        event = _make_event(method="PUT", path="/agents/me", body={"base_style": "data"})
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "bet_type_preference": "trio_focused",
+                },
+            },
+        )
         response = agent_handler(event, None)
         assert response["statusCode"] == 200
 
         body = json.loads(response["body"])
-        assert body["base_style"] == "data"
+        assert body["betting_preference"]["bet_type_preference"] == "trio_focused"
 
     def test_未作成は404(self):
-        event = _make_event(method="PUT", path="/agents/me", body={"base_style": "data"})
+        event = _make_event(method="PUT", path="/agents/me", body={"betting_preference": {"bet_type_preference": "auto"}})
         response = agent_handler(event, None)
         assert response["statusCode"] == 404
-
-    def test_不正なスタイルは400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
-        agent_handler(create_event, None)
-
-        event = _make_event(method="PUT", path="/agents/me", body={"base_style": "invalid"})
-        response = agent_handler(event, None)
-        assert response["statusCode"] == 400
 
 
 class TestUpdateAgentPreference:
     """PUT /agents/me 好み設定更新のテスト."""
 
     def test_好み設定を更新できる(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -149,28 +142,8 @@ class TestUpdateAgentPreference:
         assert body["betting_preference"]["bet_type_preference"] == "trio_focused"
         assert body["custom_instructions"] == "三連単が好き"
 
-    def test_好み設定とbase_styleを同時に更新できる(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
-        agent_handler(create_event, None)
-
-        event = _make_event(
-            method="PUT",
-            path="/agents/me",
-            body={
-                "base_style": "data",
-                "betting_preference": {
-                    "bet_type_preference": "wide_focused",
-                },
-            },
-        )
-        response = agent_handler(event, None)
-        body = json.loads(response["body"])
-        assert response["statusCode"] == 200
-        assert body["base_style"] == "data"
-        assert body["betting_preference"]["bet_type_preference"] == "wide_focused"
-
     def test_GETで好み設定が含まれる(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         get_event = _make_event(method="GET", path="/agents/me")
@@ -187,7 +160,7 @@ class TestUpdateAgentPreference:
         assert body["custom_instructions"] is None
 
     def test_フィルター設定を更新できる(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -208,7 +181,7 @@ class TestUpdateAgentPreference:
         assert body["betting_preference"]["min_ev"] == 1.5
 
     def test_min_probabilityが範囲外で400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -224,7 +197,7 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 400
 
     def test_min_probabilityが上限超えで400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -240,7 +213,7 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 400
 
     def test_min_evが負の値で400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -256,7 +229,7 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 400
 
     def test_min_evが上限超えで400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -272,7 +245,7 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 400
 
     def test_max_probabilityがmin_probability未満で400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -289,7 +262,7 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 400
 
     def test_max_evがmin_ev未満で400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -306,7 +279,7 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 400
 
     def test_booleanはフィルター値として拒否される(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         for field in ["min_probability", "min_ev", "max_probability", "max_ev"]:
@@ -319,7 +292,7 @@ class TestUpdateAgentPreference:
             assert response["statusCode"] == 400, f"{field}=True should be rejected"
 
     def test_custom_instructionsが201文字は400(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
         agent_handler(create_event, None)
 
         event = _make_event(
@@ -341,7 +314,7 @@ class TestCreateReview:
 
     def _setup_agent(self):
         """テスト用エージェントを作成する."""
-        event = _make_event(method="POST", path="/agents", body={"name": "テスト", "base_style": "solid"})
+        event = _make_event(method="POST", path="/agents", body={"name": "テスト"})
         agent_handler(event, None)
 
     def test_振り返りを作成できる(self):
@@ -410,7 +383,7 @@ class TestGetReviews:
 
     def test_振り返り一覧を取得できる(self):
         # エージェント作成
-        create_event = _make_event(method="POST", path="/agents", body={"name": "テスト", "base_style": "data"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "テスト"})
         agent_handler(create_event, None)
 
         # 振り返り作成
@@ -436,7 +409,7 @@ class TestGetReviews:
         assert body["reviews"][0]["race_name"] == "東京11R"
 
     def test_空の振り返り一覧(self):
-        create_event = _make_event(method="POST", path="/agents", body={"name": "テスト", "base_style": "data"})
+        create_event = _make_event(method="POST", path="/agents", body={"name": "テスト"})
         agent_handler(create_event, None)
 
         event = _make_event(method="GET", path="/agents/me/reviews")

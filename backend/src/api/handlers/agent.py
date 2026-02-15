@@ -30,12 +30,6 @@ def _agent_to_dict(agent) -> dict:
         "agent_id": agent.agent_id.value,
         "user_id": agent.user_id.value,
         "name": agent.name.value,
-        "base_style": agent.base_style.value,
-        "performance": agent.performance.to_dict(),
-        "level": agent.level,
-        "win_rate": round(agent.performance.win_rate * 100, 1),
-        "roi": round(agent.performance.roi * 100, 1),
-        "profit": agent.performance.profit,
         "betting_preference": agent.betting_preference.to_dict(),
         "custom_instructions": agent.custom_instructions,
         "created_at": agent.created_at.isoformat(),
@@ -70,7 +64,6 @@ def _create_agent(event: dict) -> dict:
 
     Request Body:
         name: エージェント名（1〜10文字）
-        base_style: ベーススタイル (solid/longshot/data/pace)
     """
     try:
         user_id = require_authenticated_user_id(event)
@@ -83,22 +76,15 @@ def _create_agent(event: dict) -> dict:
         return bad_request_response(str(e), event=event)
 
     name = body.get("name")
-    base_style = body.get("base_style")
 
     if not name or not isinstance(name, str):
         return bad_request_response("name is required and must be a string", event=event)
-    if not base_style or not isinstance(base_style, str):
-        return bad_request_response("base_style is required and must be a string", event=event)
-    if base_style not in ("solid", "longshot", "data", "pace"):
-        return bad_request_response(
-            "base_style must be one of: solid, longshot, data, pace", event=event
-        )
 
     repository = Dependencies.get_agent_repository()
     use_case = CreateAgentUseCase(repository)
 
     try:
-        result = use_case.execute(user_id, name, base_style)
+        result = use_case.execute(user_id, name)
     except AgentAlreadyExistsError:
         return conflict_response("Agent already exists for this user", event=event)
     except ValueError as e:
@@ -137,7 +123,6 @@ def _update_agent(event: dict) -> dict:
     PUT /agents/me
 
     Request Body:
-        base_style: 新しいスタイル (solid/longshot/data/pace) [任意]
         betting_preference: 好み設定 [任意]
         custom_instructions: 追加指示 (200文字以内) [任意]
     """
@@ -151,19 +136,9 @@ def _update_agent(event: dict) -> dict:
     except ValueError as e:
         return bad_request_response(str(e), event=event)
 
-    base_style = body.get("base_style")
     betting_preference = body.get("betting_preference")
     custom_instructions_specified = "custom_instructions" in body
     custom_instructions = body.get("custom_instructions") if custom_instructions_specified else None
-
-    # base_style バリデーション
-    if base_style is not None:
-        if not isinstance(base_style, str):
-            return bad_request_response("base_style must be a string", event=event)
-        if base_style not in ("solid", "longshot", "data", "pace"):
-            return bad_request_response(
-                "base_style must be one of: solid, longshot, data, pace", event=event
-            )
 
     # betting_preference バリデーション
     if betting_preference is not None:
@@ -205,15 +180,13 @@ def _update_agent(event: dict) -> dict:
             return bad_request_response("custom_instructions must be 200 characters or less", event=event)
 
     # 何も更新するものがない場合
-    if base_style is None and betting_preference is None and not custom_instructions_specified:
-        return bad_request_response("At least one of base_style, betting_preference, or custom_instructions is required", event=event)
+    if betting_preference is None and not custom_instructions_specified:
+        return bad_request_response("At least one of betting_preference or custom_instructions is required", event=event)
 
     repository = Dependencies.get_agent_repository()
     use_case = UpdateAgentUseCase(repository)
 
     kwargs: dict = {"user_id": user_id}
-    if base_style is not None:
-        kwargs["base_style"] = base_style
     if betting_preference is not None:
         kwargs["betting_preference"] = betting_preference
     if custom_instructions_specified:

@@ -69,21 +69,14 @@ const mockAgentObj: Agent = {
   agent_id: 'agent_001',
   user_id: 'user_001',
   name: 'うまもん',
-  base_style: 'solid',
-  performance: { total_bets: 10, wins: 3, total_invested: 10000, total_return: 12000 },
-  level: 2,
-  win_rate: 30,
-  roi: 120,
-  profit: 2000,
+  betting_preference: { bet_type_preference: 'auto' },
   created_at: '2024-01-01T00:00:00',
   updated_at: '2024-01-01T00:00:00',
 }
 
 const mockAgentDataObj: AgentData = {
   name: 'うまもん',
-  base_style: 'solid',
-  performance: { total_bets: 10, wins: 3, total_invested: 10000, total_return: 12000 },
-  level: 2,
+  betting_preference: { bet_type_preference: 'auto' },
 }
 
 describe('BetProposalSheet', () => {

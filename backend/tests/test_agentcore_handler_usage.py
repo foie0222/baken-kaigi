@@ -45,7 +45,6 @@ def _make_bet_proposal_body(race_id: str = "202502011201", session_id: str | Non
     body = {
         "prompt": f"レースID {race_id} について、予算3000円でgenerate_bet_proposalツールを使って買い目提案を生成してください。",
         "cart_items": [],
-        "type": "bet_proposal",
     }
     if session_id:
         body["session_id"] = session_id

@@ -1,6 +1,5 @@
 """値オブジェクトモジュール."""
 from .agent_name import AgentName
-from .agent_performance import AgentPerformance
 from .agent_stats import AgentStats
 from .bet_selection import BetSelection
 from .betting_preference import BettingPreference
@@ -18,7 +17,6 @@ from .race_reference import RaceReference
 
 __all__ = [
     "AgentName",
-    "AgentPerformance",
     "AgentStats",
     "BetSelection",
     "BettingPreference",
