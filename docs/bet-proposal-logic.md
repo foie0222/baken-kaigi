@@ -254,8 +254,8 @@ win_probabilities = {
 | 馬連 | jvd_o2 | 13文字/組: kumiban(4) + odds(6, ÷10) + ninkijun(3) → `_parse_combination_odds_2h` |
 | ワイド | jvd_o3 | 17文字/組: kumiban(4) + odds_min(5, ÷10) + odds_max(5, ÷10) + ninkijun(3) → `_parse_wide_odds` |
 | 馬単 | jvd_o4 | 13文字/組: kumiban(4) + odds(6, ÷10) + ninkijun(3) → `_parse_combination_odds_2h` |
-| 三連複 | jvd_o5 | 15文字/組: kumiban(6) + odds(6, ÷10) + ninkijun(3) |
-| 三連単 | jvd_o6 | 15文字/組（同上） |
+| 三連複 | jvd_o5 | 15文字/組: kumiban(6) + odds(6, ÷10) + ninkijun(3) → `_parse_combination_odds_3h` |
+| 三連単 | jvd_o6 | 15文字/組（同上） → `_parse_combination_odds_3h` |
 
 ### オッズ参照キーの生成
 
