@@ -139,8 +139,6 @@ class TestUpdateAgentPreference:
             body={
                 "betting_preference": {
                     "bet_type_preference": "trio_focused",
-                    "target_style": "big_longshot",
-                    "priority": "roi",
                 },
                 "custom_instructions": "三連単が好き",
             },
@@ -162,8 +160,6 @@ class TestUpdateAgentPreference:
                 "base_style": "data",
                 "betting_preference": {
                     "bet_type_preference": "wide_focused",
-                    "target_style": "honmei",
-                    "priority": "hit_rate",
                 },
             },
         )
@@ -183,8 +179,6 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 200
         assert body["betting_preference"] == {
             "bet_type_preference": "auto",
-            "target_style": "medium_longshot",
-            "priority": "balanced",
         }
         assert body["custom_instructions"] is None
 
@@ -198,8 +192,6 @@ class TestUpdateAgentPreference:
             body={
                 "betting_preference": {
                     "bet_type_preference": "auto",
-                    "target_style": "medium_longshot",
-                    "priority": "balanced",
                 },
                 "custom_instructions": "あ" * 201,
             },

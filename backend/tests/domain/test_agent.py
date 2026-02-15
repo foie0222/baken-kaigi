@@ -2,7 +2,7 @@
 import pytest
 
 from src.domain.entities import Agent
-from src.domain.enums import AgentStyle, BetTypePreference, TargetStyle, BettingPriority
+from src.domain.enums import AgentStyle, BetTypePreference
 from src.domain.identifiers import AgentId, UserId
 from src.domain.value_objects import AgentName, AgentPerformance, BettingPreference
 
@@ -170,8 +170,6 @@ class TestAgentBettingPreference:
         )
         new_pref = BettingPreference(
             bet_type_preference=BetTypePreference.TRIO_FOCUSED,
-            target_style=TargetStyle.BIG_LONGSHOT,
-            priority=BettingPriority.ROI,
         )
         agent.update_preference(new_pref, "三連単の1着固定が好き")
 

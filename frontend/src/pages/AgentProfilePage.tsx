@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgentStore } from '../stores/agentStore';
 import { AGENT_STYLES, AGENT_STYLE_MAP } from '../constants/agentStyles';
-import { BET_TYPE_PREFERENCE_OPTIONS, TARGET_STYLE_OPTIONS, BETTING_PRIORITY_OPTIONS } from '../constants/bettingPreferences';
+import { BET_TYPE_PREFERENCE_OPTIONS } from '../constants/bettingPreferences';
 import { apiClient } from '../api/client';
-import type { Agent, AgentReview, BetTypePreference, TargetStyle, BettingPriorityType } from '../types';
+import type { Agent, AgentReview, BetTypePreference } from '../types';
 
 const LEVEL_TITLES: Record<number, string> = {
   1: '駆け出し',
@@ -292,8 +292,6 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
   const { updateAgent } = useAgentStore();
 
   const [betTypePref, setBetTypePref] = useState<BetTypePreference>(agent.betting_preference?.bet_type_preference ?? 'auto');
-  const [targetStyle, setTargetStyle] = useState<TargetStyle>(agent.betting_preference?.target_style ?? 'medium_longshot');
-  const [bettingPriority, setBettingPriority] = useState<BettingPriorityType>(agent.betting_preference?.priority ?? 'balanced');
   const [customInstructions, setCustomInstructions] = useState<string>(agent.custom_instructions ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -321,68 +319,6 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
                 key={opt.value}
                 type="button"
                 onClick={() => setBetTypePref(opt.value)}
-                aria-pressed={isSelected}
-                style={{
-                  fontSize: 13,
-                  fontWeight: isSelected ? 600 : 400,
-                  color: isSelected ? '#1a73e8' : '#555',
-                  background: isSelected ? '#e8f0fe' : '#f5f5f5',
-                  border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
-                  borderRadius: 20,
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 狙い方 */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>狙い方</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {TARGET_STYLE_OPTIONS.map((opt) => {
-            const isSelected = targetStyle === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setTargetStyle(opt.value)}
-                aria-pressed={isSelected}
-                style={{
-                  fontSize: 13,
-                  fontWeight: isSelected ? 600 : 400,
-                  color: isSelected ? '#1a73e8' : '#555',
-                  background: isSelected ? '#e8f0fe' : '#f5f5f5',
-                  border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
-                  borderRadius: 20,
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 重視ポイント */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>重視ポイント</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {BETTING_PRIORITY_OPTIONS.map((opt) => {
-            const isSelected = bettingPriority === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setBettingPriority(opt.value)}
                 aria-pressed={isSelected}
                 style={{
                   fontSize: 13,
@@ -445,8 +381,6 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
             undefined,
             {
               bet_type_preference: betTypePref,
-              target_style: targetStyle,
-              priority: bettingPriority,
             },
             customInstructions === '' ? null : customInstructions,
           );

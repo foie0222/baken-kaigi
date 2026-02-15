@@ -36,15 +36,6 @@ from .risk_analysis import (
 # 並行リクエストによる競合状態は発生しない。
 _last_proposal_result: dict | None = None
 
-# セッション単位の好み設定（invoke() から注入される）
-_current_betting_preference: dict | None = None
-
-
-def set_betting_preference(preference: dict | None) -> None:
-    """セッションの好み設定を設定する（invoke()から呼ばれる）."""
-    global _current_betting_preference
-    _current_betting_preference = preference
-
 
 def get_last_proposal_result() -> dict | None:
     """キャッシュされた最新のツール結果を取得し、キャッシュをクリアする."""
@@ -261,98 +252,20 @@ def _get_character_config(character_type: str | None) -> dict:
 # 好み設定（BettingPreference）反映
 # =============================================================================
 
-# target_style → 難易度券種マッピングのシフト
-TARGET_STYLE_DIFFICULTY_BET_TYPES = {
-    "honmei": {
-        1: ["quinella", "quinella_place"],
-        2: ["quinella", "quinella_place"],
-        3: ["quinella", "exacta"],
-        4: ["quinella", "quinella_place"],
-        5: ["quinella_place"],
-    },
-    "big_longshot": {
-        1: ["exacta", "trio"],
-        2: ["exacta", "trio"],
-        3: ["trio", "trifecta"],
-        4: ["trio", "trifecta"],
-        5: ["trio", "quinella_place"],
-    },
-}
-
-# bet_type_preference → 券種候補のオーバーライド
-BET_TYPE_PREFERENCE_MAP = {
-    "trio_focused": {
-        1: ["trio", "exacta"],
-        2: ["trio", "exacta"],
-        3: ["trio", "trifecta"],
-        4: ["trio", "trifecta"],
-        5: ["trio", "quinella_place"],
-    },
-    "exacta_focused": {
-        1: ["exacta", "quinella"],
-        2: ["exacta", "quinella"],
-        3: ["exacta", "trio"],
-        4: ["exacta", "trio"],
-        5: ["quinella", "quinella_place"],
-    },
-    "quinella_focused": {
-        1: ["quinella", "quinella_place"],
-        2: ["quinella", "quinella_place"],
-        3: ["quinella", "quinella_place"],
-        4: ["quinella_place", "quinella"],
-        5: ["quinella_place"],
-    },
-    "wide_focused": {
-        1: ["quinella_place", "quinella"],
-        2: ["quinella_place", "quinella"],
-        3: ["quinella_place", "quinella"],
-        4: ["quinella_place"],
-        5: ["quinella_place"],
-    },
-}
-
-# priority → 相手馬数・軸馬閾値
-PRIORITY_WEIGHTS = {
-    "hit_rate": {"max_partners": 5},
-    "roi": {"max_partners": 3},
-    "balanced": {"max_partners": MAX_PARTNERS},
-}
-
-
 def _get_preference_config(
     character_type: str | None,
     betting_preference: dict | None,
 ) -> dict:
-    """ペルソナ設定に好み設定を上書きした設定を返す.
+    """ペルソナ設定を返す.
 
     Args:
         character_type: ペルソナ種別
-        betting_preference: 好み設定辞書（bet_type_preference, target_style, priority）
+        betting_preference: 好み設定辞書（未使用、旧APIとの互換のため残す）
 
     Returns:
         設定辞書
     """
-    config = _get_character_config(character_type)
-
-    if not betting_preference:
-        return config
-
-    # priority → max_partners の上書き
-    priority = betting_preference.get("priority")
-    if priority and priority in PRIORITY_WEIGHTS:
-        config.update(PRIORITY_WEIGHTS[priority])
-
-    # bet_type_preference → difficulty_bet_types の上書き
-    bet_type_pref = betting_preference.get("bet_type_preference")
-    if bet_type_pref and bet_type_pref != "auto" and bet_type_pref in BET_TYPE_PREFERENCE_MAP:
-        config["difficulty_bet_types"] = dict(BET_TYPE_PREFERENCE_MAP[bet_type_pref])
-    else:
-        # target_style → difficulty_bet_types のシフト（bet_type_preferenceが auto の場合のみ）
-        target_style = betting_preference.get("target_style")
-        if target_style and target_style in TARGET_STYLE_DIFFICULTY_BET_TYPES:
-            config["difficulty_bet_types"] = dict(TARGET_STYLE_DIFFICULTY_BET_TYPES[target_style])
-
-    return config
+    return _get_character_config(character_type)
 
 
 # =============================================================================
@@ -2274,7 +2187,7 @@ def generate_bet_proposal(
             past_performance_data=past_performance_data,
             unified_probs=unified_probs or None,
             bankroll=bankroll,
-            betting_preference=_current_betting_preference,
+            betting_preference=None,
         )
         if "error" not in result:
             _last_proposal_result = result

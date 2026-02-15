@@ -29,6 +29,36 @@ from .pace_analysis import _assess_race_difficulty
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# 好み設定 → preferred_bet_types マッピング
+# =============================================================================
+_current_betting_preference: dict | None = None
+
+
+def set_betting_preference(preference: dict | None) -> None:
+    """好み設定を注入する（agent.py から呼ばれる）."""
+    global _current_betting_preference
+    _current_betting_preference = preference
+
+
+_BET_TYPE_PREFERENCE_MAP: dict[str, list[str]] = {
+    "trio_focused": ["trio", "trifecta"],
+    "exacta_focused": ["exacta", "quinella", "quinella_place"],
+    "quinella_focused": ["quinella", "quinella_place"],
+    "wide_focused": ["quinella_place", "quinella"],
+}
+
+
+def _resolve_bet_types(betting_preference: dict | None) -> list[str]:
+    """好み設定から preferred_bet_types を解決する."""
+    if not betting_preference:
+        return DEFAULT_BET_TYPES
+    pref = betting_preference.get("bet_type_preference")
+    if not pref or pref == "auto":
+        return DEFAULT_BET_TYPES
+    return _BET_TYPE_PREFERENCE_MAP.get(pref, DEFAULT_BET_TYPES)
+
+
+# =============================================================================
 # ツール結果キャッシュ（セパレータ復元用）
 # =============================================================================
 _last_ev_proposal_result: dict | None = None
@@ -425,6 +455,10 @@ def propose_bets(
     try:
         # win_probabilities のキーを int に変換（LLMが文字列で渡す場合の対応）
         int_probs = {int(k): float(v) for k, v in win_probabilities.items()}
+
+        # 好み設定から preferred_bet_types を解決（LLMが明示指定しなかった場合のみ）
+        if preferred_bet_types is None:
+            preferred_bet_types = _resolve_bet_types(_current_betting_preference)
 
         # runners_data が渡されない場合はレースデータから取得
         if not runners_data:
