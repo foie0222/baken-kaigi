@@ -27,6 +27,8 @@ class TestDynamoDBAgentSerialization:
             "bet_type_preference": "trio_focused",
             "min_probability": 0.0,
             "min_ev": 0.0,
+            "max_probability": None,
+            "max_ev": None,
         }
         assert item["custom_instructions"] == "三連単が好き"
 
@@ -109,6 +111,8 @@ class TestDynamoDBAgentSerialization:
                 bet_type_preference=BetTypePreference.AUTO,
                 min_probability=0.03,
                 min_ev=1.5,
+                max_probability=0.25,
+                max_ev=5.0,
             ),
             None,
         )
@@ -116,3 +120,25 @@ class TestDynamoDBAgentSerialization:
         restored = DynamoDBAgentRepository._from_dynamodb_item(item)
         assert restored.betting_preference.min_probability == 0.03
         assert restored.betting_preference.min_ev == 1.5
+        assert restored.betting_preference.max_probability == 0.25
+        assert restored.betting_preference.max_ev == 5.0
+
+    def test_maxがNoneのフィルター設定をシリアライズ復元できる(self):
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        agent.update_preference(
+            BettingPreference(
+                bet_type_preference=BetTypePreference.AUTO,
+                min_probability=0.05,
+                min_ev=1.0,
+            ),
+            None,
+        )
+        item = DynamoDBAgentRepository._to_dynamodb_item(agent)
+        restored = DynamoDBAgentRepository._from_dynamodb_item(item)
+        assert restored.betting_preference.max_probability is None
+        assert restored.betting_preference.max_ev is None

@@ -181,6 +181,8 @@ class TestUpdateAgentPreference:
             "bet_type_preference": "auto",
             "min_probability": 0.0,
             "min_ev": 0.0,
+            "max_probability": None,
+            "max_ev": None,
         }
         assert body["custom_instructions"] is None
 
@@ -273,7 +275,7 @@ class TestUpdateAgentPreference:
         create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
         agent_handler(create_event, None)
 
-        for field in ["min_probability", "min_ev"]:
+        for field in ["min_probability", "min_ev", "max_probability", "max_ev"]:
             event = _make_event(
                 method="PUT",
                 path="/agents/me",

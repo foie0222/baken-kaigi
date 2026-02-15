@@ -12,6 +12,7 @@ from tools.ev_proposer import (
     _lookup_real_odds,
     _resolve_bet_types,
     _resolve_ev_filter,
+    _build_proposal_reasoning,
     DEFAULT_BET_TYPES,
 )
 
@@ -412,25 +413,53 @@ class TestResolveEvFilter:
 
     def test_Noneの場合はデフォルト値(self):
         result = _resolve_ev_filter(None)
-        assert result == (0.0, 0.0)
+        assert result == (0.0, 0.0, None, None)
 
     def test_空辞書の場合はデフォルト値(self):
         result = _resolve_ev_filter({})
-        assert result == (0.0, 0.0)
+        assert result == (0.0, 0.0, None, None)
 
     def test_フィルター値が反映される(self):
         pref = {
             "bet_type_preference": "auto",
             "min_probability": 0.05,
             "min_ev": 1.5,
+            "max_probability": 0.30,
+            "max_ev": 5.0,
         }
         result = _resolve_ev_filter(pref)
-        assert result == (0.05, 1.5)
+        assert result == (0.05, 1.5, 0.30, 5.0)
 
     def test_一部だけ指定の場合は残りデフォルト(self):
         pref = {"min_probability": 0.03}
         result = _resolve_ev_filter(pref)
-        assert result == (0.03, 0.0)
+        assert result == (0.03, 0.0, None, None)
+
+    def test_maxがNoneの場合は上限なし(self):
+        pref = {
+            "min_probability": 0.05,
+            "min_ev": 1.0,
+            "max_probability": None,
+            "max_ev": None,
+        }
+        result = _resolve_ev_filter(pref)
+        assert result == (0.05, 1.0, None, None)
+
+
+class TestBuildProposalReasoning:
+    """_build_proposal_reasoning のテスト."""
+
+    def test_maxなしの場合は以上表記(self):
+        result = _build_proposal_reasoning((0.05, 1.0, None, None), 5)
+        assert result == "確率5%以上・期待値1.0以上で5点選定"
+
+    def test_maxありの場合は範囲表記(self):
+        result = _build_proposal_reasoning((0.05, 1.0, 0.30, 5.0), 3)
+        assert result == "確率5〜30%・期待値1.0〜5.0で3点選定"
+
+    def test_確率maxのみ(self):
+        result = _build_proposal_reasoning((0.0, 0.0, 0.20, None), 8)
+        assert result == "確率0〜20%・期待値0.0以上で8点選定"
 
 
 class TestEvFilterIntegration:

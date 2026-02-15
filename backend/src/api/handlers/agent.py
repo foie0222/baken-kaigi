@@ -179,11 +179,23 @@ def _update_agent(event: dict) -> dict:
         if min_prob is not None:
             if isinstance(min_prob, bool) or not isinstance(min_prob, (int, float)) or not (0.0 <= min_prob <= 0.50):
                 return bad_request_response("min_probability must be between 0.0 and 0.50", event=event)
+        max_prob = betting_preference.get("max_probability")
+        if max_prob is not None:
+            if isinstance(max_prob, bool) or not isinstance(max_prob, (int, float)) or not (0.0 <= max_prob <= 0.50):
+                return bad_request_response("max_probability must be between 0.0 and 0.50", event=event)
+            if min_prob is not None and max_prob < min_prob:
+                return bad_request_response("max_probability must be >= min_probability", event=event)
         # EVフィルター バリデーション
         min_ev = betting_preference.get("min_ev")
         if min_ev is not None:
             if isinstance(min_ev, bool) or not isinstance(min_ev, (int, float)) or not (0.0 <= min_ev <= 10.0):
                 return bad_request_response("min_ev must be between 0.0 and 10.0", event=event)
+        max_ev = betting_preference.get("max_ev")
+        if max_ev is not None:
+            if isinstance(max_ev, bool) or not isinstance(max_ev, (int, float)) or not (0.0 <= max_ev <= 10.0):
+                return bad_request_response("max_ev must be between 0.0 and 10.0", event=event)
+            if min_ev is not None and max_ev < min_ev:
+                return bad_request_response("max_ev must be >= min_ev", event=event)
 
     # custom_instructions バリデーション
     if custom_instructions is not None:

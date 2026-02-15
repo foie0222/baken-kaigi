@@ -288,41 +288,104 @@ export function AgentProfilePage() {
 }
 
 
-function FilterSlider({
+function RangeSlider({
   label,
-  value,
-  min,
-  max,
+  minValue,
+  maxValue,
+  rangeMin,
+  rangeMax,
   step,
   formatValue,
-  onChange,
+  onMinChange,
+  onMaxChange,
 }: {
   label: string;
-  value: number;
-  min: number;
-  max: number;
+  minValue: number;
+  maxValue: number;
+  rangeMin: number;
+  rangeMax: number;
   step: number;
   formatValue: (v: number) => string;
-  onChange: (v: number) => void;
+  onMinChange: (v: number) => void;
+  onMaxChange: (v: number) => void;
 }) {
+  const minDisplay = formatValue(minValue);
+  const maxDisplay = maxValue >= rangeMax ? 'なし' : formatValue(maxValue);
+  const minPercent = ((minValue - rangeMin) / (rangeMax - rangeMin)) * 100;
+  const maxPercent = ((maxValue - rangeMin) / (rangeMax - rangeMin)) * 100;
+
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div style={{ fontSize: 12, color: '#666' }}>{label}</div>
         <div style={{ fontSize: 12, color: '#1a73e8', fontWeight: 600 }}>
-          {value === min ? 'なし' : `${formatValue(value)} 以上`}
+          {minDisplay} 〜 {maxDisplay}
         </div>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={label}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: '#1a73e8' }}
-      />
+      <div style={{ position: 'relative', height: 36 }}>
+        {/* トラック背景 */}
+        <div style={{
+          position: 'absolute',
+          top: 16,
+          left: 0,
+          right: 0,
+          height: 4,
+          borderRadius: 2,
+          background: '#e5e7eb',
+        }} />
+        {/* 選択範囲ハイライト */}
+        <div style={{
+          position: 'absolute',
+          top: 16,
+          left: `${minPercent}%`,
+          width: `${maxPercent - minPercent}%`,
+          height: 4,
+          borderRadius: 2,
+          background: '#1a73e8',
+        }} />
+        {/* 下限スライダー */}
+        <input
+          type="range"
+          min={rangeMin}
+          max={rangeMax}
+          step={step}
+          value={minValue}
+          aria-label={`${label}の下限`}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            if (val <= maxValue) onMinChange(val);
+          }}
+          className="range-slider-thumb"
+          style={{
+            position: 'absolute',
+            top: 0,
+            width: '100%',
+            height: 36,
+            zIndex: minValue > rangeMax - step ? 5 : 3,
+          }}
+        />
+        {/* 上限スライダー */}
+        <input
+          type="range"
+          min={rangeMin}
+          max={rangeMax}
+          step={step}
+          value={maxValue}
+          aria-label={`${label}の上限`}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            if (val >= minValue) onMaxChange(val);
+          }}
+          className="range-slider-thumb"
+          style={{
+            position: 'absolute',
+            top: 0,
+            width: '100%',
+            height: 36,
+            zIndex: 4,
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -336,7 +399,11 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [minProb, setMinProb] = useState<number>((agent.betting_preference?.min_probability ?? 0) * 100);
+  const [maxProb, setMaxProb] = useState<number>(
+    agent.betting_preference?.max_probability != null ? agent.betting_preference.max_probability * 100 : 50,
+  );
   const [minEv, setMinEv] = useState<number>(agent.betting_preference?.min_ev ?? 0);
+  const [maxEv, setMaxEv] = useState<number>(agent.betting_preference?.max_ev ?? 10.0);
 
   return (
     <div style={{
@@ -381,25 +448,29 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
       </div>
 
       {/* 確率フィルター */}
-      <FilterSlider
-        label="最低確率"
-        value={minProb}
-        min={0}
-        max={50}
+      <RangeSlider
+        label="確率フィルター"
+        minValue={minProb}
+        maxValue={maxProb}
+        rangeMin={0}
+        rangeMax={50}
         step={1}
         formatValue={(v) => `${v}%`}
-        onChange={setMinProb}
+        onMinChange={setMinProb}
+        onMaxChange={setMaxProb}
       />
 
-      {/* EVフィルター */}
-      <FilterSlider
-        label="最低EV"
-        value={minEv}
-        min={0}
-        max={10.0}
+      {/* 期待値フィルター */}
+      <RangeSlider
+        label="期待値フィルター"
+        minValue={minEv}
+        maxValue={maxEv}
+        rangeMin={0}
+        rangeMax={10.0}
         step={0.5}
         formatValue={(v) => `${v.toFixed(1)}`}
-        onChange={setMinEv}
+        onMinChange={setMinEv}
+        onMaxChange={setMaxEv}
       />
 
       {/* 追加指示 */}
@@ -446,6 +517,8 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
               bet_type_preference: betTypePref,
               min_probability: minProb / 100,
               min_ev: minEv,
+              max_probability: maxProb >= 50 ? null : maxProb / 100,
+              max_ev: maxEv >= 10.0 ? null : maxEv,
             },
             customInstructions === '' ? null : customInstructions,
           );

@@ -39,6 +39,8 @@ class TestBettingPreference:
             "bet_type_preference": "auto",
             "min_probability": 0.0,
             "min_ev": 0.0,
+            "max_probability": None,
+            "max_ev": None,
         }
 
     def test_from_dictで復元できる(self):
@@ -78,18 +80,24 @@ class TestBettingPreference:
         pref = BettingPreference.default()
         assert pref.min_probability == 0.0
         assert pref.min_ev == 0.0
+        assert pref.max_probability is None
+        assert pref.max_ev is None
 
     def test_to_dictにフィルターフィールドが含まれる(self):
         pref = BettingPreference(
             bet_type_preference=BetTypePreference.AUTO,
             min_probability=0.05,
             min_ev=1.5,
+            max_probability=0.30,
+            max_ev=5.0,
         )
         d = pref.to_dict()
         assert d == {
             "bet_type_preference": "auto",
             "min_probability": 0.05,
             "min_ev": 1.5,
+            "max_probability": 0.30,
+            "max_ev": 5.0,
         }
 
     def test_from_dictでフィルターフィールドを復元できる(self):
@@ -97,27 +105,33 @@ class TestBettingPreference:
             "bet_type_preference": "trio_focused",
             "min_probability": 0.03,
             "min_ev": 1.2,
+            "max_probability": 0.25,
+            "max_ev": 4.0,
         }
         pref = BettingPreference.from_dict(data)
         assert pref.min_probability == 0.03
         assert pref.min_ev == 1.2
+        assert pref.max_probability == 0.25
+        assert pref.max_ev == 4.0
 
     def test_from_dictでフィルターフィールドなしはデフォルト値(self):
         data = {"bet_type_preference": "auto"}
         pref = BettingPreference.from_dict(data)
         assert pref.min_probability == 0.0
         assert pref.min_ev == 0.0
+        assert pref.max_probability is None
+        assert pref.max_ev is None
 
-    def test_from_dictで旧形式のmax値は無視される(self):
+    def test_from_dictでmaxがNoneの場合は上限なし(self):
         data = {
             "bet_type_preference": "auto",
             "min_probability": 0.05,
-            "max_probability": 0.30,
+            "max_probability": None,
             "min_ev": 1.5,
-            "max_ev": 5.0,
+            "max_ev": None,
         }
         pref = BettingPreference.from_dict(data)
         assert pref.min_probability == 0.05
         assert pref.min_ev == 1.5
-        assert "max_probability" not in pref.to_dict()
-        assert "max_ev" not in pref.to_dict()
+        assert pref.max_probability is None
+        assert pref.max_ev is None

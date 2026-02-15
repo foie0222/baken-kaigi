@@ -522,6 +522,8 @@ export interface BettingPreference {
   bet_type_preference: BetTypePreference;
   min_probability?: number;
   min_ev?: number;
+  max_probability?: number | null;
+  max_ev?: number | null;
 }
 
 // エージェント育成
