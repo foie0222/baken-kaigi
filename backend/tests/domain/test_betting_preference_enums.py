@@ -127,3 +127,19 @@ class TestBettingPreference:
         assert pref.max_probability == 0.50
         assert pref.min_ev == 1.0
         assert pref.max_ev == 10.0
+
+    def test_min_probabilityがmax_probabilityより大きいとエラー(self):
+        with pytest.raises(ValueError):
+            BettingPreference(
+                bet_type_preference=BetTypePreference.AUTO,
+                min_probability=0.30,
+                max_probability=0.10,
+            )
+
+    def test_min_evがmax_evより大きいとエラー(self):
+        with pytest.raises(ValueError):
+            BettingPreference(
+                bet_type_preference=BetTypePreference.AUTO,
+                min_ev=8.0,
+                max_ev=2.0,
+            )

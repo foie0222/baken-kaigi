@@ -16,6 +16,13 @@ class BettingPreference:
     min_ev: float = 1.0
     max_ev: float = 10.0
 
+    def __post_init__(self) -> None:
+        """不変条件を検証する."""
+        if self.min_probability > self.max_probability:
+            raise ValueError(f"min_probability ({self.min_probability}) cannot exceed max_probability ({self.max_probability})")
+        if self.min_ev > self.max_ev:
+            raise ValueError(f"min_ev ({self.min_ev}) cannot exceed max_ev ({self.max_ev})")
+
     @classmethod
     def default(cls) -> BettingPreference:
         """デフォルト値で作成する."""
