@@ -491,10 +491,7 @@ class TestAgentData中継:
         """agent_data がリクエストに含まれる場合、payload に中継される."""
         agent_data = {
             "name": "ハヤテ",
-            "base_style": "solid",
-            "stats": {"data_analysis": 40, "pace_reading": 30, "risk_management": 50, "intuition": 20},
-            "performance": {"total_bets": 10, "wins": 3, "total_invested": 10000, "total_return": 12000},
-            "level": 2,
+            "betting_preference": {"bet_type_preference": "trio_focused"},
         }
         payload = self._invoke_and_get_payload({"prompt": "分析して", "agent_data": agent_data})
         assert payload["agent_data"] == agent_data

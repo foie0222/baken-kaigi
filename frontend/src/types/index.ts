@@ -531,7 +531,7 @@ export interface Agent {
   agent_id: string;
   user_id: string;
   name: string;
-  betting_preference?: BettingPreference;
+  betting_preference: BettingPreference;
   custom_instructions?: string | null;
   created_at: string;
   updated_at: string;
