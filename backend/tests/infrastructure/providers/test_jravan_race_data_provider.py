@@ -118,6 +118,7 @@ class TestGetAllOdds:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
+                "race_id": "2024060111",
                 "win": {"1": 3.5, "3": 5.5},
                 "place": {"1": {"min": 1.2, "max": 2.0}, "3": {"min": 2.0, "max": 3.5}},
                 "quinella": {"1-3": 15.2},
