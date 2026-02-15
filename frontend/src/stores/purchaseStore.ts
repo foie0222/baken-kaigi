@@ -37,7 +37,7 @@ export async function syncCartToDynamo(
     if (!res.success || !res.data) {
       // 作成済みサーバーカートをbest-effortでクリーンアップ
       if (serverCartId) {
-        apiClient.clearCart(serverCartId).catch(() => {});
+        apiClient.clearCart(serverCartId).catch(e => console.warn('Failed to clear cart:', e));
       }
       return { success: false, error: res.error };
     }

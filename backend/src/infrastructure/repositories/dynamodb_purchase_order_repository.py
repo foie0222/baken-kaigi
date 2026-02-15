@@ -43,7 +43,7 @@ class DynamoDBPurchaseOrderRepository(PurchaseOrderRepository):
             KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
             ScanIndexForward=False,
         )
-        items = response.get("Items", [])
+        items = response["Items"]
         return [self._from_dynamodb_item(item) for item in items]
 
     @staticmethod

@@ -49,7 +49,7 @@ class DynamoDBCartRepository(CartRepository):
             KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
             Limit=1,
         )
-        items = response.get("Items", [])
+        items = response["Items"]
         if not items:
             return None
         return self._from_dynamodb_item(items[0])

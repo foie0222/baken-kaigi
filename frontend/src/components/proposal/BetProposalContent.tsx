@@ -192,9 +192,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       const apiName = BetTypeToApiName[bet.bet_type];
       const oddsResult = await apiClient.getBetOdds(race.id, apiName, bet.horse_numbers);
       if (oddsResult.success && oddsResult.data) {
-        odds = oddsResult.data.odds ?? undefined;
-        oddsMin = oddsResult.data.odds_min ?? undefined;
-        oddsMax = oddsResult.data.odds_max ?? undefined;
+        odds = oddsResult.data.odds;
+        oddsMin = oddsResult.data.odds_min;
+        oddsMax = oddsResult.data.odds_max;
       }
     } catch (error: unknown) {
       console.warn('Failed to fetch odds in handleAddSingle:', error);
@@ -252,9 +252,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
           const oddsResult = await apiClient.getBetOdds(race.id, apiName, bet.horse_numbers);
           if (oddsResult.success && oddsResult.data) {
             return {
-              odds: oddsResult.data.odds ?? undefined,
-              oddsMin: oddsResult.data.odds_min ?? undefined,
-              oddsMax: oddsResult.data.odds_max ?? undefined,
+              odds: oddsResult.data.odds,
+              oddsMin: oddsResult.data.odds_min,
+              oddsMax: oddsResult.data.odds_max,
             };
           }
         } catch (error) {
