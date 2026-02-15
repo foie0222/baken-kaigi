@@ -182,8 +182,8 @@ def _update_agent(event: dict) -> dict:
         # EVフィルター バリデーション
         min_ev = betting_preference.get("min_ev")
         if min_ev is not None:
-            if isinstance(min_ev, bool) or not isinstance(min_ev, (int, float)) or min_ev < 0.0:
-                return bad_request_response("min_ev must be 0.0 or greater", event=event)
+            if isinstance(min_ev, bool) or not isinstance(min_ev, (int, float)) or not (0.0 <= min_ev <= 10.0):
+                return bad_request_response("min_ev must be between 0.0 and 10.0", event=event)
 
     # custom_instructions バリデーション
     if custom_instructions is not None:

@@ -119,4 +119,5 @@ class TestBettingPreference:
         pref = BettingPreference.from_dict(data)
         assert pref.min_probability == 0.05
         assert pref.min_ev == 1.5
-        assert not hasattr(pref, "max_probability") or "max_probability" not in pref.to_dict()
+        assert "max_probability" not in pref.to_dict()
+        assert "max_ev" not in pref.to_dict()
