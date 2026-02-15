@@ -16,12 +16,8 @@ class IpatExecutor:
 
     def __init__(self) -> None:
         """初期化."""
-        self.ipatgo_path = os.environ.get(
-            "IPATGO_PATH", r"C:\umagen\ipatgo\ipatgo.exe"
-        )
-        self.stat_ini_path = os.environ.get(
-            "STAT_INI_PATH", r"C:\umagen\ipatgo\stat.ini"
-        )
+        self.ipatgo_path = os.environ["IPATGO_PATH"]
+        self.stat_ini_path = os.environ["STAT_INI_PATH"]
 
     def _check_ipatgo(self) -> str | None:
         """ipatgo.exe の存在を確認する.

@@ -38,7 +38,12 @@ class TestDynamoDBAgentSerialization:
             "user_id": "usr_001",
             "name": "ハヤテ",
             "base_style": "solid",
-            "performance": {},
+            "performance": {
+                "total_bets": 0,
+                "wins": 0,
+                "total_invested": 0,
+                "total_return": 0,
+            },
             "betting_preference": {
                 "bet_type_preference": "trio_focused",
                 "target_style": "big_longshot",
@@ -58,7 +63,12 @@ class TestDynamoDBAgentSerialization:
             "user_id": "usr_001",
             "name": "ハヤテ",
             "base_style": "solid",
-            "performance": {},
+            "performance": {
+                "total_bets": 0,
+                "wins": 0,
+                "total_invested": 0,
+                "total_return": 0,
+            },
             "created_at": "2026-01-01T00:00:00+00:00",
             "updated_at": "2026-01-01T00:00:00+00:00",
         }

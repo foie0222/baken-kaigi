@@ -1,4 +1,5 @@
 """IpatExecutorのテスト."""
+import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
@@ -14,7 +15,11 @@ class TestIpatExecutor:
 
     def setup_method(self) -> None:
         """テスト前の準備."""
-        self.executor = IpatExecutor()
+        with patch.dict(os.environ, {
+            "IPATGO_PATH": r"C:\umagen\ipatgo\ipatgo.exe",
+            "STAT_INI_PATH": r"C:\umagen\ipatgo\stat.ini",
+        }):
+            self.executor = IpatExecutor()
 
     def test_CSVファイルを正しく書き出す(self, tmp_path: Path) -> None:
         """CSVファイルが正しいフォーマットで書き出されることを確認."""

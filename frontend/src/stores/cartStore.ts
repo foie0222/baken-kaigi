@@ -52,7 +52,7 @@ export const useCartStore = create<CartState>()(
         const duplicate = state.items.find((existing) => {
           if (existing.betType !== item.betType) return false;
           // betMethod が異なれば別アイテム（BOXと通常を区別）
-          if ((existing.betMethod || 'normal') !== (item.betMethod || 'normal')) return false;
+          if (existing.betMethod !== item.betMethod) return false;
           if (existing.betDisplay && item.betDisplay) {
             return existing.betDisplay === item.betDisplay;
           }

@@ -353,7 +353,7 @@ class ApiClient {
         bet_type: item.betType,
         horse_numbers: item.horseNumbers,
         amount: item.amount,
-        bet_method: item.betMethod || 'normal',
+        bet_method: item.betMethod,
         ...(item.betCount != null ? { bet_count: item.betCount } : {}),
         ...(item.columnSelections ? { column_selections: item.columnSelections } : {}),
       }));
@@ -396,7 +396,7 @@ class ApiClient {
           betLineCount: Number(d.bet_line_count ?? 0),
           errorMessage: d.error_message != null ? String(d.error_message) : undefined,
           createdAt: String(d.created_at ?? ''),
-          updatedAt: String(d.updated_at || d.created_at || ''),
+          updatedAt: String(d.updated_at ?? ''),
         };
       })};
     }
@@ -605,9 +605,9 @@ class ApiClient {
       return {
         success: true,
         data: {
-          lossLimit: (d.loss_limit as number | null) ?? null,
+          lossLimit: d.loss_limit as number | null,
           totalLossThisMonth: (d.total_loss_this_month as number) ?? 0,
-          remainingLossLimit: (d.remaining_loss_limit as number | null) ?? null,
+          remainingLossLimit: d.remaining_loss_limit as number | null,
           pendingChange,
         },
       };
@@ -694,7 +694,7 @@ class ApiClient {
         success: true,
         data: {
           canPurchase: d.can_purchase as boolean,
-          remainingAmount: (d.remaining_amount as number | null) ?? null,
+          remainingAmount: d.remaining_amount as number | null,
           warningLevel: d.warning_level as 'none' | 'caution' | 'warning',
           message: d.message as string,
         },

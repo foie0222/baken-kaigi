@@ -110,8 +110,8 @@ export function AgentProfilePage() {
   }
 
   const styleInfo = AGENT_STYLE_MAP[agent.base_style];
-  const levelTitle = LEVEL_TITLES[agent.level] || '駆け出し';
-  const color = styleInfo?.color || '#666';
+  const levelTitle = LEVEL_TITLES[agent.level];
+  const color = styleInfo.color;
 
   return (
     <div className="fade-in" style={{ padding: '0 0 20px' }}>
@@ -138,7 +138,7 @@ export function AgentProfilePage() {
           fontSize: 32,
           margin: '0 auto 10px',
         }}>
-          {styleInfo?.icon || '\u{1F916}'}
+          {styleInfo.icon}
         </div>
         <div style={{ fontSize: 20, fontWeight: 700, color: '#111' }}>{agent.name}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
@@ -150,7 +150,7 @@ export function AgentProfilePage() {
             padding: '2px 10px',
             borderRadius: 10,
           }}>
-            {styleInfo?.label || agent.base_style}
+            {styleInfo.label}
           </span>
           <span style={{ fontSize: 13, color: '#666' }}>Lv.{agent.level} {levelTitle}</span>
           <button
@@ -448,7 +448,7 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
               target_style: targetStyle,
               priority: bettingPriority,
             },
-            customInstructions === '' ? null : (customInstructions ?? null),
+            customInstructions === '' ? null : customInstructions,
           );
           if (success) {
             setSaved(true);

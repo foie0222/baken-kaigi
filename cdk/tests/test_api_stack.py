@@ -20,7 +20,7 @@ def template():
 
     from stacks.api_stack import BakenKaigiApiStack
 
-    app = cdk.App()
+    app = cdk.App(context={"agentcore_agent_id": "test-agent-id"})
     stack = BakenKaigiApiStack(app, "TestStack")
     return assertions.Template.from_stack(stack)
 
@@ -36,7 +36,7 @@ def template_with_dev_origins():
 
     from stacks.api_stack import BakenKaigiApiStack
 
-    app = cdk.App()
+    app = cdk.App(context={"agentcore_agent_id": "test-agent-id"})
     stack = BakenKaigiApiStack(app, "TestStackWithDevOrigins", allow_dev_origins=True)
     return assertions.Template.from_stack(stack)
 
@@ -52,7 +52,7 @@ def template_without_dev_origins():
 
     from stacks.api_stack import BakenKaigiApiStack
 
-    app = cdk.App()
+    app = cdk.App(context={"agentcore_agent_id": "test-agent-id"})
     stack = BakenKaigiApiStack(app, "TestStackDefault", allow_dev_origins=False)
     return assertions.Template.from_stack(stack)
 

@@ -41,9 +41,6 @@ def get_ipat_balance_handler(event: dict, context: Any) -> dict:
     except IpatGatewayError as e:
         logger.exception("IpatGatewayError: %s", e)
         return internal_error_response("IPAT通信エラーが発生しました", event=event)
-    except Exception as e:
-        logger.exception("Unexpected error in get_ipat_balance: %s", e)
-        return internal_error_response("IPAT残高の取得に失敗しました", event=event)
 
     return success_response({
         "bet_dedicated_balance": balance.bet_dedicated_balance,

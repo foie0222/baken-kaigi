@@ -21,11 +21,11 @@ def post_confirmation(event: dict, context: Any) -> dict:
     Returns:
         イベント（Cognito に返す）
     """
-    user_attributes = event.get("request", {}).get("userAttributes", {})
+    user_attributes = event["request"]["userAttributes"]
 
-    user_id = user_attributes.get("sub", "")
-    email = user_attributes.get("email", "")
-    display_name = user_attributes.get("custom:display_name", email.split("@")[0] if email else "ユーザー")
+    user_id = user_attributes["sub"]
+    email = user_attributes["email"]
+    display_name = user_attributes.get("custom:display_name", email.split("@")[0])
     date_of_birth = user_attributes.get("birthdate", "2000-01-01")
 
     # 認証プロバイダの判定
@@ -53,13 +53,5 @@ def post_confirmation(event: dict, context: Any) -> dict:
         logger.info("User registered: %s", user_id)
     except UserAlreadyExistsError:
         logger.info("User already exists: %s (idempotent)", user_id)
-    except (ValueError, TypeError) as exc:
-        logger.exception("Failed to register user: %s", user_id)
-        # Cognito トリガーはエラーを返してもサインアップを止めないように
-        # 値オブジェクト生成時のバリデーションエラーのみ握りつぶす
-        logger.warning("Suppressed error for user %s: %s", user_id, exc)
-    except Exception:
-        logger.exception("Unexpected error registering user: %s", user_id)
-        raise
 
     return event
