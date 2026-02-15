@@ -338,16 +338,6 @@ export interface ColumnConfig {
   colorClass: string;
 }
 
-// 出走馬データ（AgentCore分析用）
-export interface RunnerData {
-  horse_number: number;
-  horse_name: string;
-  odds?: number;
-  popularity?: number;
-  running_style?: string;
-  frame_number?: number;
-}
-
 // カート
 export interface CartItem {
   id: string;

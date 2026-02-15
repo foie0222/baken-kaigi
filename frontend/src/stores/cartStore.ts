@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CartItem, RunnerData } from '../types';
+import type { CartItem } from '../types';
 import { BetTypeOrdered } from '../types';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../constants/betting';
 
@@ -9,8 +9,7 @@ export type AddItemResult = 'ok' | 'merged' | 'different_race' | 'invalid_amount
 interface CartState {
   cartId: string;
   items: CartItem[];
-  currentRunnersData: RunnerData[];
-  addItem: (item: Omit<CartItem, 'id'> & { runnersData?: RunnerData[] }) => AddItemResult;
+  addItem: (item: Omit<CartItem, 'id'>) => AddItemResult;
   removeItem: (itemId: string) => void;
   updateItemAmount: (itemId: string, amount: number) => void;
   clearCart: () => void;
@@ -30,7 +29,6 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       cartId: generateCartId(),
       items: [],
-      currentRunnersData: [],
 
       addItem: (item) => {
         // 金額バリデーション
@@ -68,42 +66,33 @@ export const useCartStore = create<CartState>()(
             sortedExisting.every((v, i) => v === sortedNew[i]);
         });
 
-        // runnersDataはCart単位で保持（CartItemには含めない）
-        const { runnersData, ...itemWithoutRunners } = item;
-        const runnersUpdate: Partial<CartState> = {};
-        if (runnersData && runnersData.length > 0) {
-          runnersUpdate.currentRunnersData = runnersData;
-        }
-
         if (duplicate) {
           const mergedAmount = Math.min(duplicate.amount + item.amount, MAX_BET_AMOUNT);
           set((state) => ({
             items: state.items.map((i) => {
               if (i.id !== duplicate.id) return i;
               const merged = { ...i, amount: mergedAmount };
-              if (!merged.betDisplay && itemWithoutRunners.betDisplay) {
-                merged.betDisplay = itemWithoutRunners.betDisplay;
+              if (!merged.betDisplay && item.betDisplay) {
+                merged.betDisplay = item.betDisplay;
               }
-              if (!merged.betMethod && itemWithoutRunners.betMethod) {
-                merged.betMethod = itemWithoutRunners.betMethod;
+              if (!merged.betMethod && item.betMethod) {
+                merged.betMethod = item.betMethod;
               }
-              if (merged.betCount == null && itemWithoutRunners.betCount != null) {
-                merged.betCount = itemWithoutRunners.betCount;
+              if (merged.betCount == null && item.betCount != null) {
+                merged.betCount = item.betCount;
               }
               return merged;
             }),
-            ...runnersUpdate,
           }));
           return 'merged';
         }
 
         const newItem: CartItem = {
-          ...itemWithoutRunners,
+          ...item,
           id: generateItemId(),
         };
         set((state) => ({
           items: [...state.items, newItem],
-          ...runnersUpdate,
         }));
         return 'ok';
       },
@@ -129,7 +118,6 @@ export const useCartStore = create<CartState>()(
       clearCart: () => {
         set({
           items: [],
-          currentRunnersData: [],
           cartId: generateCartId(),
         });
       },

@@ -157,7 +157,6 @@ describe('BetProposalSheet', () => {
     expect(mockRequest).toHaveBeenCalledWith(
       'race_001',
       MAX_BET_AMOUNT,
-      expect.any(Array),
       expect.any(Object)
     )
   })
@@ -205,7 +204,6 @@ describe('BetProposalSheet', () => {
     expect(mockRequest).toHaveBeenCalledWith(
       'race_001',
       3000,
-      expect.any(Array),
       {}
     )
   })
@@ -268,7 +266,6 @@ describe('BetProposalSheet', () => {
       expect(mockRequest).toHaveBeenCalledWith(
         'race_001',
         3000,
-        expect.any(Array),
         expect.objectContaining({ agentData: mockAgentDataObj })
       )
     })

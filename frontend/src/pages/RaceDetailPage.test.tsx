@@ -274,46 +274,4 @@ describe('RaceDetailPage', () => {
     })
   })
 
-  describe('runnersDataマッピング', () => {
-    it('カート追加時にrunnersDataが正しくマッピングされてcurrentRunnersDataに保存される', async () => {
-      const { user } = render(<RaceDetailPage />)
-
-      // レース詳細がロードされるのを待つ
-      await screen.findByText('テストレース')
-
-      // 手動モードに切り替え
-      const manualLink = screen.getByText('手動で買い目を選ぶ')
-      await user.click(manualLink)
-
-      // 馬1を選択
-      const checkboxes = await screen.findAllByRole('checkbox')
-      await user.click(checkboxes[0])
-
-      // カートに追加
-      const addButton = await screen.findByRole('button', { name: /カートに追加/i })
-      await user.click(addButton)
-
-      // cartStoreのcurrentRunnersDataにマッピングされたデータが入っている
-      const state = useCartStore.getState()
-      expect(state.currentRunnersData).toHaveLength(5)
-      expect(state.currentRunnersData[0]).toEqual(
-        expect.objectContaining({
-          horse_number: 1,
-          horse_name: 'テスト馬1',
-          odds: 5.0,
-          popularity: 2,
-          frame_number: 1,
-        })
-      )
-      expect(state.currentRunnersData[1]).toEqual(
-        expect.objectContaining({
-          horse_number: 2,
-          horse_name: 'テスト馬2',
-          odds: 3.0,
-          popularity: 1,
-          frame_number: 1,
-        })
-      )
-    })
-  })
 })

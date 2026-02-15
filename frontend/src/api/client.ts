@@ -7,7 +7,7 @@ import type {
   ApiResponse,
   ApiRacesResponse,
   ApiRaceDetailResponse,
-  RunnerData,
+
   PurchaseResult,
   PurchaseOrder,
   IpatCredentialsInput,
@@ -38,7 +38,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || '';
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
   prompt: string;
-  runners_data?: RunnerData[];
+  race_id?: string;
   session_id?: string;
   agent_data?: AgentData;
 }
@@ -446,7 +446,6 @@ class ApiClient {
   async requestBetProposal(
     raceId: string,
     budget: number,
-    runnersData: RunnerData[],
     options?: {
       preferredBetTypes?: BetType[];
       axisHorses?: number[];
@@ -469,7 +468,7 @@ class ApiClient {
     const prompt = `レースID ${raceId} について、予算${budget}円で買い目提案を生成してください。${optionText}`;
     const request: AgentCoreConsultationRequest = {
       prompt,
-      runners_data: runnersData,
+      race_id: raceId,
     };
     if (options?.agentData) {
       request.agent_data = options.agentData;

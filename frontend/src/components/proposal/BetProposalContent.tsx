@@ -118,14 +118,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     setAddedIndices(new Set());
 
     try {
-      const runnersData = race.horses.map((h) => ({
-        horse_number: h.number,
-        horse_name: h.name,
-        odds: h.odds,
-        popularity: h.popularity,
-        frame_number: h.wakuBan,
-      }));
-
       // 出走馬に存在する馬番のみ抽出し、重複を除去
       const validNumbers = new Set(race.horses.map((h) => h.number));
       const axisHorses = [...new Set(
@@ -153,7 +145,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       const response = await apiClient.requestBetProposal(
         race.id,
         effectiveBudget,
-        runnersData,
         options,
       );
 
@@ -214,13 +205,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       odds,
       oddsMin,
       oddsMax,
-      runnersData: race.horses.map((h) => ({
-        horse_number: h.number,
-        horse_name: h.name,
-        odds: h.odds,
-        popularity: h.popularity,
-        frame_number: h.wakuBan,
-      })),
     });
 
     if (addResult === 'ok' || addResult === 'merged') {
@@ -275,13 +259,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
         odds: oddsData.odds,
         oddsMin: oddsData.oddsMin,
         oddsMax: oddsData.oddsMax,
-        runnersData: race.horses.map((h) => ({
-          horse_number: h.number,
-          horse_name: h.name,
-          odds: h.odds,
-          popularity: h.popularity,
-          frame_number: h.wakuBan,
-        })),
       });
 
       if (addResult === 'ok' || addResult === 'merged') {

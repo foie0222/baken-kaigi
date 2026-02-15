@@ -301,61 +301,6 @@ describe('cartStore', () => {
     })
   })
 
-  describe('currentRunnersData', () => {
-    it('runnersData付きでaddItemするとcurrentRunnersDataに保存される', () => {
-      const runnersData = [
-        { horse_number: 1, horse_name: '馬A', odds: 5.0, popularity: 2, frame_number: 1 },
-        { horse_number: 2, horse_name: '馬B', odds: 3.0, popularity: 1, frame_number: 1 },
-      ]
-      useCartStore.getState().addItem(createMockCartItem({ runnersData }))
-
-      const state = useCartStore.getState()
-      expect(state.currentRunnersData).toHaveLength(2)
-      expect(state.currentRunnersData[0].horse_name).toBe('馬A')
-    })
-
-    it('runnersDataなしでaddItemしてもcurrentRunnersDataは変更されない', () => {
-      useCartStore.getState().addItem(createMockCartItem())
-
-      const state = useCartStore.getState()
-      expect(state.currentRunnersData).toHaveLength(0)
-    })
-
-    it('同一レースで複数回addItemしてもrunnersDataは1セットだけ保持', () => {
-      const runnersData = [
-        { horse_number: 1, horse_name: '馬A', odds: 5.0, popularity: 2, frame_number: 1 },
-      ]
-      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [1, 2], runnersData }))
-      useCartStore.getState().addItem(createMockCartItem({ horseNumbers: [3, 4], runnersData }))
-
-      const state = useCartStore.getState()
-      expect(state.items).toHaveLength(2)
-      expect(state.currentRunnersData).toHaveLength(1) // 重複保持しない
-    })
-
-    it('clearCartでcurrentRunnersDataもクリアされる', () => {
-      const runnersData = [
-        { horse_number: 1, horse_name: '馬A', odds: 5.0, popularity: 2, frame_number: 1 },
-      ]
-      useCartStore.getState().addItem(createMockCartItem({ runnersData }))
-      useCartStore.getState().clearCart()
-
-      const state = useCartStore.getState()
-      expect(state.currentRunnersData).toHaveLength(0)
-    })
-
-    it('CartItemにrunnersDataが含まれない', () => {
-      const runnersData = [
-        { horse_number: 1, horse_name: '馬A', odds: 5.0, popularity: 2, frame_number: 1 },
-      ]
-      useCartStore.getState().addItem(createMockCartItem({ runnersData }))
-
-      const state = useCartStore.getState()
-      // CartItemにはrunnersDataプロパティがない
-      expect('runnersData' in state.items[0]).toBe(false)
-    })
-  })
-
   describe('addItem金額バリデーション', () => {
     it('MAX_BET_AMOUNTを超える金額のアイテムは追加できない', () => {
       const result = useCartStore.getState().addItem(

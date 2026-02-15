@@ -653,10 +653,6 @@ describe('ApiClient', () => {
   })
 
   describe('AI買い目提案 (requestBetProposal)', () => {
-    const mockRunners = [
-      { horse_number: 1, horse_name: 'テスト馬1', odds: 3.5, popularity: 1, frame_number: 1 },
-      { horse_number: 2, horse_name: 'テスト馬2', odds: 5.0, popularity: 2, frame_number: 2 },
-    ]
     const mockProposal = {
       race_summary: {
         race_name: 'テストレース',
@@ -692,7 +688,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+      const result = await client.requestBetProposal('race_001', 3000)
 
       expect(result.success).toBe(true)
       expect(result.data?.proposed_bets).toHaveLength(1)
@@ -708,7 +704,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+      const result = await client.requestBetProposal('race_001', 3000)
 
       expect(result.success).toBe(true)
       expect(result.data?.proposed_bets).toHaveLength(1)
@@ -735,7 +731,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+      const result = await client.requestBetProposal('race_001', 3000)
 
       expect(result.success).toBe(true)
       expect(result.data?.proposed_bets[0].bet_count).toBe(1)
@@ -748,7 +744,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+      const result = await client.requestBetProposal('race_001', 3000)
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('セパレータなしの応答')
@@ -762,7 +758,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+      const result = await client.requestBetProposal('race_001', 3000)
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('提案データの解析に失敗しました')
@@ -776,7 +772,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000, mockRunners)
+      const result = await client.requestBetProposal('race_001', 3000)
 
       expect(result.success).toBe(false)
     })
