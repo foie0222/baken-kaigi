@@ -466,14 +466,17 @@ class TopOffspringData:
 
 
 @dataclass(frozen=True)
-class BetOddsData:
-    """券種別オッズデータ."""
+class AllOddsData:
+    """全券種オッズデータ."""
 
-    bet_type: str
-    horse_numbers: list[int]
-    odds: float | None = None
-    odds_min: float | None = None
-    odds_max: float | None = None
+    race_id: str
+    win: dict[str, float]
+    place: dict[str, dict[str, float]]
+    quinella: dict[str, float]
+    quinella_place: dict[str, float]
+    exacta: dict[str, float]
+    trio: dict[str, float]
+    trifecta: dict[str, float]
 
 
 class RaceDataProvider(ABC):
@@ -864,18 +867,14 @@ class RaceDataProvider(ABC):
         pass
 
     @abstractmethod
-    def get_bet_odds(self, race_id: RaceId, bet_type: str, horse_numbers: list[int]) -> BetOddsData | None:
-        """指定した買い目のオッズを取得する.
+    def get_all_odds(self, race_id: RaceId) -> AllOddsData | None:
+        """全券種のオッズを一括取得する.
 
         Args:
             race_id: レースID
-            bet_type: 券種。バックエンドでは wide を正準名として使用する
-                (win/place/quinella/wide/exacta/trio/trifecta)。
-                フロントエンドでは quinella_place を wide にマッピングしている。
-            horse_numbers: 馬番リスト
 
         Returns:
-            オッズデータ、見つからない場合はNone
+            全券種オッズデータ、見つからない場合はNone
         """
         pass
 

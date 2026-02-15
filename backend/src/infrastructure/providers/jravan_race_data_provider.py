@@ -13,7 +13,7 @@ from urllib3.util.retry import Retry
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     AncestorData,
-    BetOddsData,
+    AllOddsData,
     AptitudeSummaryData,
     BreederInfoData,
     BreederStatsData,
@@ -1318,27 +1318,28 @@ class JraVanRaceDataProvider(RaceDataProvider):
             logger.warning(f"Could not get breeder stats for {breeder_id}: {e}")
             return None
 
-    def get_bet_odds(self, race_id: RaceId, bet_type: str, horse_numbers: list[int]) -> BetOddsData | None:
-        """指定した買い目のオッズを取得する."""
+    def get_all_odds(self, race_id: RaceId) -> AllOddsData | None:
+        """全券種のオッズを一括取得する."""
         try:
-            horses_param = ",".join(str(h) for h in horse_numbers)
             response = self._session.get(
-                f"{self._base_url}/races/{race_id.value}/bet-odds",
-                params={"bet_type": bet_type, "horses": horses_param},
+                f"{self._base_url}/races/{race_id.value}/odds",
                 timeout=self._timeout,
             )
             if response.status_code != 200:
                 return None
             data = response.json()
-            return BetOddsData(
-                bet_type=data["bet_type"],
-                horse_numbers=data["horse_numbers"],
-                odds=data.get("odds"),
-                odds_min=data.get("odds_min"),
-                odds_max=data.get("odds_max"),
+            return AllOddsData(
+                race_id=str(race_id),
+                win=data.get("win", {}),
+                place=data.get("place", {}),
+                quinella=data.get("quinella", {}),
+                quinella_place=data.get("quinella_place", {}),
+                exacta=data.get("exacta", {}),
+                trio=data.get("trio", {}),
+                trifecta=data.get("trifecta", {}),
             )
         except requests.RequestException as e:
-            logger.warning(f"Could not get bet odds for race {race_id}: {e}")
+            logger.warning(f"Could not get all odds for race {race_id}: {e}")
             return None
 
 
