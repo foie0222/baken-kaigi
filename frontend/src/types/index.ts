@@ -298,13 +298,6 @@ export const BetMethodLabels: Record<BetMethod, string> = {
   formation: 'フォメ',
 };
 
-export interface BetMethodConfig {
-  id: BetMethod;
-  label: string;
-  description: string;
-  badge?: string;       // 倍率バッジ（×2など）
-}
-
 // 複数列選択の状態
 export interface ColumnSelections {
   col1: number[];  // 1着/軸/1頭目

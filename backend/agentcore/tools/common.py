@@ -81,24 +81,6 @@ def get_tool_logger(name: str) -> logging.Logger:
     return logger
 
 
-def handle_tool_errors(func: Callable[P, R]) -> Callable[P, R | dict]:
-    """ツールのエラーハンドリングデコレータ.
-
-    予期しない例外をキャッチし、構造化されたエラーレスポンスを返す。
-    エラー時はCloudWatchにエラーメトリクスを送信する。
-    """
-    @wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | dict:
-        logger = get_tool_logger(func.__module__.split(".")[-1])
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            logger.exception(f"Error in {func.__name__}: {e}")
-            _emit_metrics(func.__name__, 0, success=False)
-            return {"error": f"ツールの実行中にエラーが発生しました: {type(e).__name__}"}
-    return wrapper
-
-
 def log_tool_execution(func: Callable[P, R]) -> Callable[P, R]:
     """ツール実行時間の計測・ログデコレータ.
 
