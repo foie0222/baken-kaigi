@@ -102,10 +102,15 @@ def invoke(payload: dict, context: Any) -> dict:
             "session_id": getattr(context, "session_id", None),
             "suggested_questions": [],
         }
+    if not race_id:
+        return {
+            "message": "レースIDが必要です。",
+            "session_id": getattr(context, "session_id", None),
+            "suggested_questions": [],
+        }
 
     # レースIDをコンテキストとして追加
-    if race_id:
-        user_message = f"【対象レースID】{race_id}\n\n{user_message}"
+    user_message = f"【対象レースID】{race_id}\n\n{user_message}"
 
     # エージェント実行
     agent = _get_agent()
