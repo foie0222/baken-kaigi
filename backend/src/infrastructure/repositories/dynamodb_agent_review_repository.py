@@ -41,7 +41,7 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
             ScanIndexForward=False,
             Limit=limit,
         )
-        items = response.get("Items", [])
+        items = response["Items"]
         return [self._from_dynamodb_item(item) for item in items]
 
     @staticmethod

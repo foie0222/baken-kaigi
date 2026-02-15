@@ -41,7 +41,7 @@ class DynamoDBAgentRepository(AgentRepository):
             IndexName="user_id-index",
             KeyConditionExpression=Key("user_id").eq(uid_str),
         )
-        items = response.get("Items", [])
+        items = response["Items"]
         if not items:
             return None
         return self._from_dynamodb_item(items[0])

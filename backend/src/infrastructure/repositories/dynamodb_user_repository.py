@@ -40,7 +40,7 @@ class DynamoDBUserRepository(UserRepository):
             IndexName="email-index",
             KeyConditionExpression=Key("email").eq(str(email.value)),
         )
-        items = response.get("Items", [])
+        items = response["Items"]
         if not items:
             return None
         return self._from_dynamodb_item(items[0])

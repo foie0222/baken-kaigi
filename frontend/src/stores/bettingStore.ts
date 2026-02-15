@@ -75,9 +75,9 @@ export const useBettingStore = create<BettingState>()((set) => ({
         apiClient.getBettingSummary('all_time'),
       ]);
       set({
-        thisMonthSummary: thisMonth.success ? thisMonth.data ?? null : null,
-        lastMonthSummary: lastMonth.success ? lastMonth.data ?? null : null,
-        summary: allTime.success ? allTime.data ?? null : null,
+        thisMonthSummary: thisMonth.success && thisMonth.data ? thisMonth.data : null,
+        lastMonthSummary: lastMonth.success && lastMonth.data ? lastMonth.data : null,
+        summary: allTime.success && allTime.data ? allTime.data : null,
         isLoadingSummary: false,
       });
     } catch (error) {

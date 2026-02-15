@@ -22,7 +22,7 @@ export function Header() {
               onClick={() => navigate('/profile')}
               type="button"
             >
-              {user?.displayName || user?.email?.split('@')[0] || ''}
+              {user!.displayName || user!.email?.split('@')[0] || ''}
             </button>
             <span className="header-pill-divider" />
             <button

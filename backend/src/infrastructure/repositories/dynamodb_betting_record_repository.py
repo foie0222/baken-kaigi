@@ -78,11 +78,11 @@ class DynamoDBBettingRecordRepository(BettingRecordRepository):
 
         items: list[dict] = []
         response = self._table.query(**query_kwargs)
-        items.extend(response.get("Items", []))
+        items.extend(response["Items"])
         while "LastEvaluatedKey" in response:
             query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
             response = self._table.query(**query_kwargs)
-            items.extend(response.get("Items", []))
+            items.extend(response["Items"])
         return [self._from_dynamodb_item(item) for item in items]
 
     @staticmethod
