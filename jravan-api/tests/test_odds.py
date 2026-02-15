@@ -27,13 +27,14 @@ class TestGetRunners:
 
     @patch("database._fetch_all_as_dicts")
     @patch("database.get_db")
-    def test_確定オッズがある場合に取得できる(
+    def test_確定オッズがありjvd_o1がない場合は確定オッズを使う(
         self, mock_get_db, mock_fetch_all,
     ):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value.__enter__.return_value = mock_conn
+        mock_cursor.fetchone.return_value = None  # jvd_o1 なし
 
         mock_fetch_all.return_value = [
             {
@@ -60,13 +61,14 @@ class TestGetRunners:
 
     @patch("database._fetch_all_as_dicts")
     @patch("database.get_db")
-    def test_確定オッズがない場合はNone(
+    def test_確定オッズもjvd_o1もない場合はNone(
         self, mock_get_db, mock_fetch_all,
     ):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value.__enter__.return_value = mock_conn
+        mock_cursor.fetchone.return_value = None  # jvd_o1 なし
 
         mock_fetch_all.return_value = [
             {
@@ -90,6 +92,112 @@ class TestGetRunners:
         assert len(result) == 1
         assert result[0]["odds"] is None
         assert result[0]["popularity"] is None
+
+    @patch("database._fetch_all_as_dicts")
+    @patch("database.get_db")
+    def test_jvd_o1のリアルタイムオッズが確定オッズより優先される(
+        self, mock_get_db, mock_fetch_all,
+    ):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        # jvd_o1: 馬1=5.0倍/人気2, 馬2=3.5倍/人気1
+        mock_cursor.fetchone.return_value = ("0100500202003501",)
+
+        mock_fetch_all.return_value = [
+            {
+                "umaban": "1",
+                "wakuban": "1",
+                "bamei": "テスト馬1",
+                "ketto_toroku_bango": "2020100001",
+                "kishumei_ryakusho": "テスト騎手",
+                "kishu_code": "00001",
+                "chokyoshimei_ryakusho": "テスト調教師",
+                "futan_juryo": "550",
+                "bataiju": "480",
+                "zogen_sa": "+2",
+                "tansho_odds": "35",  # 確定: 3.5倍
+                "tansho_ninkijun": "1",  # 確定: 人気1
+            },
+            {
+                "umaban": "2",
+                "wakuban": "2",
+                "bamei": "テスト馬2",
+                "ketto_toroku_bango": "2020100002",
+                "kishumei_ryakusho": "テスト騎手2",
+                "kishu_code": "00002",
+                "chokyoshimei_ryakusho": "テスト調教師2",
+                "futan_juryo": "560",
+                "bataiju": "490",
+                "zogen_sa": "-2",
+                "tansho_odds": "58",  # 確定: 5.8倍
+                "tansho_ninkijun": "2",  # 確定: 人気2
+            },
+        ]
+
+        result = get_runners_by_race("20260105_09_01")
+
+        assert len(result) == 2
+        # jvd_o1のオッズが優先される
+        assert result[0]["odds"] == 5.0
+        assert result[0]["popularity"] == 2
+        assert result[1]["odds"] == 3.5
+        assert result[1]["popularity"] == 1
+
+    @patch("database._fetch_all_as_dicts")
+    @patch("database.get_db")
+    def test_確定オッズがなくjvd_o1にオッズがある場合(
+        self, mock_get_db, mock_fetch_all,
+    ):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        # jvd_o1: 馬1=3.5倍/人気1
+        mock_cursor.fetchone.return_value = ("0100350102005802",)
+
+        mock_fetch_all.return_value = [
+            {
+                "umaban": "1",
+                "wakuban": "1",
+                "bamei": "テスト馬1",
+                "ketto_toroku_bango": "2020100001",
+                "kishumei_ryakusho": "テスト騎手",
+                "kishu_code": "00001",
+                "chokyoshimei_ryakusho": "テスト調教師",
+                "futan_juryo": "550",
+                "bataiju": "480",
+                "zogen_sa": "+2",
+                "tansho_odds": "",
+                "tansho_ninkijun": "",
+            },
+            {
+                "umaban": "2",
+                "wakuban": "2",
+                "bamei": "テスト馬2",
+                "ketto_toroku_bango": "2020100002",
+                "kishumei_ryakusho": "テスト騎手2",
+                "kishu_code": "00002",
+                "chokyoshimei_ryakusho": "テスト調教師2",
+                "futan_juryo": "560",
+                "bataiju": "490",
+                "zogen_sa": "-2",
+                "tansho_odds": "",
+                "tansho_ninkijun": "",
+            },
+        ]
+
+        result = get_runners_by_race("20260105_09_01")
+
+        assert len(result) == 2
+        # jvd_o1からオッズが取得される
+        assert result[0]["odds"] == 3.5
+        assert result[0]["popularity"] == 1
+        assert result[1]["odds"] == 5.8
+        assert result[1]["popularity"] == 2
 
 
 class TestParseTanshoOdds:

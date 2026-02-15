@@ -294,6 +294,25 @@ def get_runners_by_race(race_id: str) -> list[dict]:
         rows = _fetch_all_as_dicts(cur)
         runners = [_to_runner_dict(row) for row in rows]
 
+        # jvd_o1 からリアルタイムオッズを取得（優先）
+        cur.execute("""
+            SELECT odds_tansho FROM jvd_o1
+            WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+              AND keibajo_code = %s AND race_bango = %s
+        """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
+        o1_row = cur.fetchone()
+        if o1_row and o1_row[0]:
+            realtime_odds = _parse_tansho_odds(o1_row[0], {})
+            odds_map = {
+                entry["horse_number"]: (entry["odds"], entry["popularity"])
+                for entry in realtime_odds
+            }
+            for runner in runners:
+                hn = runner["horse_number"]
+                if hn in odds_map:
+                    runner["odds"] = odds_map[hn][0]
+                    runner["popularity"] = odds_map[hn][1]
+
         return runners
 
 
