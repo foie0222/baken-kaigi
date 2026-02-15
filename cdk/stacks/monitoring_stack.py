@@ -19,6 +19,8 @@ TOOL_NAMES = [
     "analyze_race_characteristics",
     "analyze_risk_factors",
     "generate_bet_proposal",
+    "analyze_race_for_betting",
+    "propose_bets",
 ]
 
 METRICS_NAMESPACE = "BakenKaigi/AgentTools"

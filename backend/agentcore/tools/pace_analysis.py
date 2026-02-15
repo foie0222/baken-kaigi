@@ -213,22 +213,6 @@ def _analyze_race_development_impl(
     }
 
 
-@tool
-def analyze_race_development(race_id: str) -> dict:
-    """レースの展開を予想する.
-
-    逃げ馬の頭数からペースを判定し、有利な脚質を分析する。
-
-    Args:
-        race_id: レースID (例: "20260125_05_11")
-
-    Returns:
-        展開予想結果（脚質別の馬リスト、予想ペース、有利脚質、分析コメント）
-    """
-    running_styles = _get_running_styles(race_id)
-    return _analyze_race_development_impl(race_id, running_styles)
-
-
 def _analyze_running_style_match_impl(
     race_id: str,
     horse_numbers: list[int],
@@ -299,37 +283,6 @@ def _analyze_running_style_match_impl(
         "favorable_styles": favorable_styles,
         "horses": horses_analysis,
     }
-
-
-@tool
-def analyze_running_style_match(
-    race_id: str,
-    horse_numbers: list[int],
-) -> dict:
-    """選択馬の脚質と展開の相性を分析する.
-
-    レースの展開予想を行い、選択された馬の脚質との相性を判定する。
-
-    Args:
-        race_id: レースID (例: "20260125_05_11")
-        horse_numbers: 分析対象の馬番リスト
-
-    Returns:
-        脚質相性分析結果（予想ペース、各馬の相性評価とコメント）
-    """
-    running_styles = _get_running_styles(race_id)
-
-    # まず展開予想を実行
-    development = _analyze_race_development_impl(race_id, running_styles)
-
-    if "error" in development:
-        return development
-
-    predicted_pace = development.get("predicted_pace", "不明")
-
-    return _analyze_running_style_match_impl(
-        race_id, horse_numbers, running_styles, predicted_pace
-    )
 
 
 def _assess_race_difficulty(

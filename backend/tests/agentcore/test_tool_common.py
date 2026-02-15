@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 from tools.common import (
     _emit_metrics,
     get_tool_logger,
-    handle_tool_errors,
     log_tool_execution,
 )
 
@@ -37,47 +36,6 @@ class TestGetToolLogger:
         logger1 = get_tool_logger("module_a")
         logger2 = get_tool_logger("module_b")
         assert logger1.name != logger2.name
-
-
-class TestHandleToolErrors:
-    """handle_tool_errors デコレータのテスト."""
-
-    def test_正常実行時はそのまま結果を返す(self):
-        @handle_tool_errors
-        def success_func():
-            return {"result": "ok"}
-
-        assert success_func() == {"result": "ok"}
-
-    def test_例外発生時はエラーレスポンスを返す(self):
-        @handle_tool_errors
-        def failing_func():
-            raise ValueError("test error")
-
-        result = failing_func()
-        assert "error" in result
-        assert "ValueError" in result["error"]
-
-    def test_関数名が保持される(self):
-        @handle_tool_errors
-        def my_function():
-            return {}
-
-        assert my_function.__name__ == "my_function"
-
-    def test_引数が正しく渡される(self):
-        @handle_tool_errors
-        def add(a, b):
-            return {"sum": a + b}
-
-        assert add(1, 2) == {"sum": 3}
-
-    def test_キーワード引数が正しく渡される(self):
-        @handle_tool_errors
-        def greet(name="world"):
-            return {"greeting": f"hello {name}"}
-
-        assert greet(name="test") == {"greeting": "hello test"}
 
 
 class TestLogToolExecution:
@@ -132,28 +90,6 @@ class TestLogToolExecution:
         completed_msg = [m for m in log_messages if "completed" in m]
         assert completed_msg, f"completed ログが見つからない: {log_messages}"
         assert "ms" in completed_msg[0], f"実行時間(ms)がログに含まれていない: {completed_msg[0]}"
-
-
-class TestDecoratorsComposition:
-    """デコレータの組み合わせテスト."""
-
-    def test_handle_tool_errorsとlog_tool_executionの組み合わせ(self):
-        @handle_tool_errors
-        @log_tool_execution
-        def combined_func(x):
-            return {"value": x * 2}
-
-        assert combined_func(5) == {"value": 10}
-
-    def test_組み合わせ時に例外がキャッチされる(self):
-        @handle_tool_errors
-        @log_tool_execution
-        def failing_combined():
-            raise RuntimeError("combined error")
-
-        result = failing_combined()
-        assert "error" in result
-        assert "RuntimeError" in result["error"]
 
 
 class TestEmitMetrics:
@@ -239,21 +175,6 @@ class TestMetricsIntegration:
             result = my_tool()
 
         assert result == {"error": "something went wrong"}
-        metric_data = mock_client.put_metric_data.call_args[1]["MetricData"]
-        assert metric_data[2]["Value"] == 1  # Errors = 1
-
-    @patch("tools.common.METRICS_ENABLED", True)
-    def test_handle_tool_errors例外時にメトリクスが送信される(self):
-        mock_client = MagicMock()
-        with patch("tools.common._get_cloudwatch_client", return_value=mock_client):
-            @handle_tool_errors
-            def my_tool():
-                raise ValueError("test")
-
-            result = my_tool()
-
-        assert "error" in result
-        mock_client.put_metric_data.assert_called_once()
         metric_data = mock_client.put_metric_data.call_args[1]["MetricData"]
         assert metric_data[2]["Value"] == 1  # Errors = 1
 
