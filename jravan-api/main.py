@@ -131,6 +131,18 @@ class RunningStyleResponse(BaseModel):
     running_style_tendency: str # 馬マスタの脚質傾向
 
 
+class AllOddsResponse(BaseModel):
+    """全券種オッズレスポンス."""
+    race_id: str
+    win: dict[str, float]                        # 単勝
+    place: dict[str, dict[str, float]]            # 複勝 {"1": {"min": 1.2, "max": 1.5}}
+    quinella: dict[str, float]                    # 馬連
+    quinella_place: dict[str, float]              # ワイド
+    exacta: dict[str, float]                      # 馬単
+    trio: dict[str, float]                        # 三連複
+    trifecta: dict[str, float]                    # 三連単
+
+
 class OddsEntry(BaseModel):
     """個別オッズレスポンス."""
     horse_number: int
@@ -583,6 +595,25 @@ def get_running_styles(race_id: str):
         )
         for r in runners
     ]
+
+
+@app.get("/races/{race_id}/odds", response_model=AllOddsResponse)
+def get_all_odds(race_id: str):
+    """全券種のオッズを一括取得する."""
+    data = db.get_all_odds(race_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="オッズデータが見つかりません")
+
+    return AllOddsResponse(
+        race_id=race_id,
+        win=data["win"],
+        place=data["place"],
+        quinella=data["quinella"],
+        quinella_place=data["quinella_place"],
+        exacta=data["exacta"],
+        trio=data["trio"],
+        trifecta=data["trifecta"],
+    )
 
 
 @app.get("/races/{race_id}/odds-history", response_model=OddsHistoryResponse)
