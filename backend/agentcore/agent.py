@@ -10,13 +10,13 @@ import re
 import sys
 from typing import Any
 
-from bedrock_agentcore.runtime import BedrockAgentCoreApp
-
 # AgentCore Runtime ではCloudWatchメトリクス送信を有効化
 os.environ.setdefault("EMIT_CLOUDWATCH_METRICS", "true")
 
 # ツール承認をバイパス（自動化のため）
 os.environ["BYPASS_TOOL_CONSENT"] = "true"
+
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 # ロギング設定
 logging.basicConfig(
