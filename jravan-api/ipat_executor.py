@@ -19,6 +19,11 @@ class IpatExecutor:
         self.ipatgo_path = os.environ["IPATGO_PATH"]
         self.stat_ini_path = os.environ["STAT_INI_PATH"]
 
+    @staticmethod
+    def _build_error_message(result: subprocess.CompletedProcess) -> str:
+        """subprocess実行結果からエラーメッセージを組み立てる."""
+        return result.stdout.strip() or result.stderr.strip() or f"ipatgo.exe exited with code {result.returncode}"
+
     def _check_ipatgo(self) -> str | None:
         """ipatgo.exe の存在を確認する.
 
@@ -52,8 +57,7 @@ class IpatExecutor:
             if result.returncode == 0:
                 return {"success": True}
             else:
-                message = result.stdout.strip() or result.stderr.strip() or f"ipatgo.exe exited with code {result.returncode}"
-                return {"success": False, "message": message}
+                return {"success": False, "message": self._build_error_message(result)}
         except subprocess.TimeoutExpired:
             return {"success": False, "message": "ipatgo.exe timed out"}
         finally:
@@ -75,8 +79,7 @@ class IpatExecutor:
             return {"success": False, "message": "ipatgo.exe timed out"}
 
         if result.returncode != 0:
-            message = result.stdout.strip() or result.stderr.strip() or f"ipatgo.exe exited with code {result.returncode}"
-            return {"success": False, "message": message}
+            return {"success": False, "message": self._build_error_message(result)}
 
         data = self._parse_stat_ini()
         return {"success": True, **data}
