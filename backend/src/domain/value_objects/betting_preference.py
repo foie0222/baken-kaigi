@@ -13,6 +13,8 @@ class BettingPreference:
     bet_type_preference: BetTypePreference
     min_probability: float = 0.0
     min_ev: float = 0.0
+    max_probability: float | None = None
+    max_ev: float | None = None
 
     @classmethod
     def default(cls) -> BettingPreference:
@@ -27,6 +29,8 @@ class BettingPreference:
             "bet_type_preference": self.bet_type_preference.value,
             "min_probability": self.min_probability,
             "min_ev": self.min_ev,
+            "max_probability": self.max_probability,
+            "max_ev": self.max_ev,
         }
 
     @classmethod
@@ -34,8 +38,12 @@ class BettingPreference:
         """辞書から復元する."""
         if not data:
             return cls.default()
+        max_prob_raw = data.get("max_probability")
+        max_ev_raw = data.get("max_ev")
         return cls(
             bet_type_preference=BetTypePreference(data.get("bet_type_preference", "auto")),
             min_probability=float(data.get("min_probability", 0.0)),
             min_ev=float(data.get("min_ev", 0.0)),
+            max_probability=float(max_prob_raw) if max_prob_raw is not None else None,
+            max_ev=float(max_ev_raw) if max_ev_raw is not None else None,
         )

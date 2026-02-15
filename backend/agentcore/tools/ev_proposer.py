@@ -60,17 +60,22 @@ def _resolve_bet_types(betting_preference: dict | None) -> list[str]:
 
 def _resolve_ev_filter(
     betting_preference: dict | None,
-) -> tuple[float, float]:
+) -> tuple[float, float, float | None, float | None]:
     """好み設定から確率/EVフィルター値を解決する.
 
     Returns:
-        (min_probability, min_ev)
+        (min_probability, min_ev, max_probability, max_ev)
+        max は None = 上限なし
     """
     if not betting_preference:
-        return (0.0, 0.0)
+        return (0.0, 0.0, None, None)
+    max_prob_raw = betting_preference.get("max_probability")
+    max_ev_raw = betting_preference.get("max_ev")
     return (
         float(betting_preference.get("min_probability", 0.0)),
         float(betting_preference.get("min_ev", 0.0)),
+        float(max_prob_raw) if max_prob_raw is not None else None,
+        float(max_ev_raw) if max_ev_raw is not None else None,
     )
 
 
@@ -258,16 +263,25 @@ def _generate_ev_candidates(
     bet_types: list[str],
     total_runners: int,
     all_odds: dict,
-    ev_filter: tuple[float, float] | None = None,
+    ev_filter: tuple[float, float, float | None, float | None] | None = None,
 ) -> list[dict]:
     """全組合せのEVを計算し、フィルター条件を満たすものを返す."""
-    min_prob_filter, min_ev_filter = ev_filter or (0.0, 0.0)
+    min_prob_filter, min_ev_filter, max_prob_filter, max_ev_filter = ev_filter or (0.0, 0.0, None, None)
 
     eligible = sorted(
         [hn for hn, p in win_probs.items() if p >= min_prob_filter],
         key=lambda hn: win_probs[hn],
         reverse=True,
     )
+
+    def _passes_filter(prob: float, ev: float) -> bool:
+        if prob < min_prob_filter or ev < min_ev_filter:
+            return False
+        if max_prob_filter is not None and prob > max_prob_filter:
+            return False
+        if max_ev_filter is not None and ev > max_ev_filter:
+            return False
+        return True
 
     candidates = []
 
@@ -280,7 +294,7 @@ def _generate_ev_candidates(
                 )
                 real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
                 ev = prob * real_odds if real_odds > 0 else 0.0
-                if ev >= min_ev_filter and prob >= min_prob_filter:
+                if _passes_filter(prob, ev):
                     candidates.append(_build_candidate(
                         horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
@@ -295,7 +309,7 @@ def _generate_ev_candidates(
                 )
                 real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
                 ev = prob * real_odds if real_odds > 0 else 0.0
-                if ev >= min_ev_filter and prob >= min_prob_filter:
+                if _passes_filter(prob, ev):
                     candidates.append(_build_candidate(
                         horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
@@ -310,7 +324,7 @@ def _generate_ev_candidates(
                 )
                 real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
                 ev = prob * real_odds if real_odds > 0 else 0.0
-                if ev >= min_ev_filter and prob >= min_prob_filter:
+                if _passes_filter(prob, ev):
                     candidates.append(_build_candidate(
                         horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
@@ -416,7 +430,7 @@ def _propose_bets_impl(
         "total_amount": total_amount,
         "budget_remaining": max(0, budget_remaining),
         "analysis_comment": analysis_comment,
-        "proposal_reasoning": f"確率{ev_filter[0]*100:.0f}%以上・EV{ev_filter[1]:.1f}以上で{len(bets)}点選定",
+        "proposal_reasoning": _build_proposal_reasoning(ev_filter, len(bets)),
         "disclaimer": "この提案はデータ分析に基づくものであり、的中を保証するものではありません。",
     }
 
@@ -516,6 +530,23 @@ def propose_bets(
     except Exception as e:
         logger.exception("propose_bets failed")
         return {"error": f"買い目提案に失敗しました: {e}"}
+
+
+def _build_proposal_reasoning(
+    ev_filter: tuple[float, float, float | None, float | None],
+    bet_count: int,
+) -> str:
+    """提案理由の文字列を組み立てる."""
+    min_prob, min_ev, max_prob, max_ev = ev_filter
+    if max_prob is not None:
+        prob_part = f"確率{min_prob*100:.0f}〜{max_prob*100:.0f}%"
+    else:
+        prob_part = f"確率{min_prob*100:.0f}%以上"
+    if max_ev is not None:
+        ev_part = f"期待値{min_ev:.1f}〜{max_ev:.1f}"
+    else:
+        ev_part = f"期待値{min_ev:.1f}以上"
+    return f"{prob_part}・{ev_part}で{bet_count}点選定"
 
 
 def _build_skip_result(
