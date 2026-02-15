@@ -123,6 +123,49 @@ class TestDynamoDBAgentSerialization:
         assert restored.betting_preference.max_probability == 0.25
         assert restored.betting_preference.max_ev == 5.0
 
+    def test_シリアライズ結果にfloat型が含まれない(self):
+        """DynamoDBはfloatを拒否するため、Decimal変換が必要."""
+        from decimal import Decimal
+
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        agent.update_preference(
+            BettingPreference(
+                bet_type_preference=BetTypePreference.AUTO,
+                min_probability=0.05,
+                min_ev=1.5,
+                max_probability=0.25,
+                max_ev=5.0,
+            ),
+            None,
+        )
+        item = DynamoDBAgentRepository._to_dynamodb_item(agent)
+        pref = item["betting_preference"]
+        for key in ["min_probability", "min_ev", "max_probability", "max_ev"]:
+            assert isinstance(pref[key], Decimal), f"{key} should be Decimal, got {type(pref[key])}"
+
+    def test_デフォルト値のシリアライズ結果にfloat型が含まれない(self):
+        """デフォルト値 0.0 も Decimal に変換される."""
+        from decimal import Decimal
+
+        agent = Agent.create(
+            agent_id=AgentId("agt_001"),
+            user_id=UserId("usr_001"),
+            name=AgentName("ハヤテ"),
+            base_style=AgentStyle.SOLID,
+        )
+        item = DynamoDBAgentRepository._to_dynamodb_item(agent)
+        pref = item["betting_preference"]
+        for key in ["min_probability", "min_ev"]:
+            assert isinstance(pref[key], Decimal), f"{key} should be Decimal, got {type(pref[key])}"
+        # max は None のままで OK（DynamoDB は None を NULL として処理）
+        assert pref["max_probability"] is None
+        assert pref["max_ev"] is None
+
     def test_maxがNoneのフィルター設定をシリアライズ復元できる(self):
         agent = Agent.create(
             agent_id=AgentId("agt_001"),
