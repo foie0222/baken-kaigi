@@ -76,6 +76,7 @@ const mockAgentObj: Agent = {
 
 const mockAgentDataObj: AgentData = {
   name: 'うまもん',
+  betting_preference: { bet_type_preference: 'auto' },
 }
 
 describe('BetProposalSheet', () => {
