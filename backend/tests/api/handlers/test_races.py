@@ -1039,3 +1039,67 @@ class TestGetOddsHistoryHandler:
         assert "trend" in movement
 
 
+class TestGetAllOddsHandler:
+    """GET /races/{race_id}/odds ハンドラーのテスト."""
+
+    def test_全券種オッズを取得できる(self) -> None:
+        from src.api.handlers.races import get_all_odds
+
+        provider = MockRaceDataProvider()
+        provider.add_all_odds(
+            "2024060111",
+            AllOddsData(
+                race_id="2024060111",
+                win={"1": 3.5, "2": 12.0},
+                place={"1": {"min": 1.2, "max": 1.5}},
+                quinella={"1-2": 64.8},
+                quinella_place={"1-2": 10.5},
+                exacta={"1-2": 128.5},
+                trio={"1-2-3": 341.9},
+                trifecta={"1-2-3": 2048.3},
+            ),
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+        }
+
+        response = get_all_odds(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["race_id"] == "2024060111"
+        assert body["win"]["1"] == 3.5
+        assert body["place"]["1"]["min"] == 1.2
+        assert body["quinella"]["1-2"] == 64.8
+        assert body["trifecta"]["1-2-3"] == 2048.3
+
+    def test_オッズが見つからない場合は404(self) -> None:
+        from src.api.handlers.races import get_all_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {"race_id": "2024060111"},
+        }
+
+        response = get_all_odds(event, None)
+        assert response["statusCode"] == 404
+
+    def test_race_idが指定されていない場合は400(self) -> None:
+        from src.api.handlers.races import get_all_odds
+
+        provider = MockRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+        event = {
+            "pathParameters": {},
+            "queryStringParameters": None,
+        }
+
+        response = get_all_odds(event, None)
+        assert response["statusCode"] == 400
+
+

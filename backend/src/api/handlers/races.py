@@ -348,51 +348,34 @@ def get_race_results(event: dict, context: Any) -> dict:
     return success_response(response, event=event)
 
 
-def get_bet_odds(event: dict, context: Any) -> dict:
-    """指定した買い目のオッズを取得する.
+def get_all_odds(event: dict, context: Any) -> dict:
+    """全券種のオッズを一括取得する.
 
-    GET /races/{race_id}/bet-odds?bet_type=win&horses=3
+    GET /races/{race_id}/odds
 
     Path Parameters:
         race_id: レースID
 
-    Query Parameters:
-        bet_type: 券種（win, place, quinella, exacta, trio, trifecta, quinella_place）
-        horses: 馬番（カンマ区切り、例: "3" or "3,7" or "3,7,11"）
-
     Returns:
-        オッズデータ
+        全券種オッズデータ
     """
     race_id_str = get_path_parameter(event, "race_id")
     if not race_id_str:
         return bad_request_response("race_id is required", event=event)
 
-    bet_type = get_query_parameter(event, "bet_type")
-    horses_str = get_query_parameter(event, "horses")
-    if not bet_type or not horses_str:
-        return bad_request_response("bet_type and horses are required", event=event)
-
-    valid_bet_types = {"win", "place", "quinella", "quinella_place", "wide", "exacta", "trio", "trifecta"}
-    if bet_type not in valid_bet_types:
-        return bad_request_response(f"Invalid bet_type: {bet_type}", event=event)
-
-    try:
-        horse_numbers = [int(h.strip()) for h in horses_str.split(",") if h.strip()]
-        if not horse_numbers:
-            return bad_request_response("horses must contain at least one horse number", event=event)
-    except ValueError:
-        return bad_request_response("horses must contain valid integers", event=event)
-
     provider = Dependencies.get_race_data_provider()
-    result = provider.get_bet_odds(RaceId(race_id_str), bet_type, horse_numbers)
+    result = provider.get_all_odds(RaceId(race_id_str))
 
     if result is None:
         return not_found_response("オッズデータが見つかりません", event=event)
 
     return success_response({
-        "bet_type": result.bet_type,
-        "horse_numbers": result.horse_numbers,
-        "odds": result.odds,
-        "odds_min": result.odds_min,
-        "odds_max": result.odds_max,
+        "race_id": result.race_id,
+        "win": result.win,
+        "place": result.place,
+        "quinella": result.quinella,
+        "quinella_place": result.quinella_place,
+        "exacta": result.exacta,
+        "trio": result.trio,
+        "trifecta": result.trifecta,
     }, event=event)
