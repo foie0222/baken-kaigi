@@ -7,7 +7,7 @@
       "source.organizeImports.ruff": "explicit"
     }
   },
-  "ruff.lineLength": 100,
+  "ruff.lineLength": 120,
 
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
