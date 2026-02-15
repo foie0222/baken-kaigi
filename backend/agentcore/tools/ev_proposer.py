@@ -5,7 +5,6 @@ LLMが調整した勝率と実オッズから期待値を計算し、
 """
 
 import logging
-import math
 from itertools import combinations, permutations
 
 from strands import tool
@@ -16,7 +15,6 @@ from .bet_analysis import (
     _harville_trifecta,
 )
 from .bet_proposal import (
-    BET_TYPE_ODDS_MULTIPLIER,
     MIN_BET_AMOUNT,
     MAX_RACE_BUDGET_RATIO,
     DEFAULT_BASE_RATE,
@@ -25,6 +23,7 @@ from .bet_proposal import (
     _allocate_budget_dutching,
     _invoke_haiku_narrator,
 )
+from .jravan_client import cached_get, get_api_url
 from .pace_analysis import _assess_race_difficulty
 
 logger = logging.getLogger(__name__)
@@ -56,30 +55,59 @@ MIN_PROB_FOR_COMBINATION = 0.02
 DEFAULT_MAX_BETS = 10
 
 
-def _estimate_odds(horse_numbers: list[int], bet_type: str, runners_map: dict) -> float:
-    """馬番リストと券種から推定オッズを計算する.
+def _fetch_all_odds(race_id: str) -> dict:
+    """JRA-VAN APIから全券種オッズを取得."""
+    response = cached_get(f"{get_api_url()}/races/{race_id}/odds")
+    if response.status_code == 404:
+        return {}
+    response.raise_for_status()
+    return response.json()
 
-    単勝オッズの積（or幾何平均）× 券種補正係数で推定。
+
+# 昇順ソートする券種（着順を問わない）
+_SORTED_BET_TYPES = {"quinella", "quinella_place", "trio"}
+
+
+def _make_odds_key(horse_numbers: list[int], bet_type: str) -> str:
+    """馬番リストからオッズ参照キーを生成.
+
+    馬連/ワイド/三連複 → 昇順。馬単/三連単 → 着順のまま。
+    単勝/複勝 → 馬番のみ。
     """
-    odds_list = []
-    for hn in horse_numbers:
-        runner = runners_map.get(hn, {})
-        odds = float(runner.get("odds", 0))
-        if odds > 0:
-            odds_list.append(odds)
+    if len(horse_numbers) == 1:
+        return str(horse_numbers[0])
+    nums = sorted(horse_numbers) if bet_type in _SORTED_BET_TYPES else horse_numbers
+    return "-".join(str(n) for n in nums)
 
-    if not odds_list:
+
+# 券種名 → レスポンスキー のマッピング
+_BET_TYPE_TO_ODDS_KEY = {
+    "win": "win",
+    "place": "place",
+    "quinella": "quinella",
+    "quinella_place": "quinella_place",
+    "exacta": "exacta",
+    "trio": "trio",
+    "trifecta": "trifecta",
+}
+
+
+def _lookup_real_odds(
+    horse_numbers: list[int], bet_type: str, all_odds: dict,
+) -> float:
+    """実オッズを参照。見つからない場合は0.0."""
+    odds_key = _BET_TYPE_TO_ODDS_KEY.get(bet_type)
+    if not odds_key or odds_key not in all_odds:
         return 0.0
 
-    multiplier = BET_TYPE_ODDS_MULTIPLIER.get(bet_type, 1.0)
+    odds_dict = all_odds[odds_key]
+    key = _make_odds_key(horse_numbers, bet_type)
 
-    if len(odds_list) == 1:
-        return odds_list[0]
-    elif len(odds_list) == 2:
-        return math.sqrt(odds_list[0] * odds_list[1]) * multiplier
-    else:
-        geo_mean = (odds_list[0] * odds_list[1] * odds_list[2]) ** (1 / 3)
-        return geo_mean * multiplier
+    if bet_type == "place":
+        entry = odds_dict.get(key, {})
+        return float(entry.get("min", 0)) if entry else 0.0
+
+    return float(odds_dict.get(key, 0.0))
 
 
 def _calculate_combination_probability(
@@ -174,7 +202,7 @@ def _build_candidate(
         "expected_value": round(ev, 2),
         "composite_odds": round(estimated_odds, 1),
         "combination_probability": round(probability, 6),
-        "reasoning": f"EV={ev:.2f} (確率{probability:.1%}×推定オッズ{estimated_odds:.1f}倍)",
+        "reasoning": f"EV={ev:.2f} (確率{probability:.1%}×オッズ{estimated_odds:.1f}倍)",
     }
 
 
@@ -183,6 +211,7 @@ def _generate_ev_candidates(
     runners_map: dict[int, dict],
     bet_types: list[str],
     total_runners: int,
+    all_odds: dict,
 ) -> list[dict]:
     """全組合せのEVを計算し、EV > 閾値のものを返す."""
     eligible = sorted(
@@ -200,11 +229,11 @@ def _generate_ev_candidates(
                 prob = _calculate_combination_probability(
                     horse_numbers, bet_type, win_probs, total_runners,
                 )
-                est_odds = _estimate_odds(horse_numbers, bet_type, runners_map)
-                ev = prob * est_odds if est_odds > 0 else 0.0
+                real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
+                ev = prob * real_odds if real_odds > 0 else 0.0
                 if ev >= EV_THRESHOLD:
                     candidates.append(_build_candidate(
-                        horse_numbers, bet_type, prob, est_odds, ev, runners_map,
+                        horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
 
         elif bet_type in ("quinella", "exacta", "quinella_place"):
@@ -215,11 +244,11 @@ def _generate_ev_candidates(
                 prob = _calculate_combination_probability(
                     horse_numbers, bet_type, win_probs, total_runners,
                 )
-                est_odds = _estimate_odds(horse_numbers, bet_type, runners_map)
-                ev = prob * est_odds if est_odds > 0 else 0.0
+                real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
+                ev = prob * real_odds if real_odds > 0 else 0.0
                 if ev >= EV_THRESHOLD:
                     candidates.append(_build_candidate(
-                        horse_numbers, bet_type, prob, est_odds, ev, runners_map,
+                        horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
 
         elif bet_type in ("trio", "trifecta"):
@@ -230,11 +259,11 @@ def _generate_ev_candidates(
                 prob = _calculate_combination_probability(
                     horse_numbers, bet_type, win_probs, total_runners,
                 )
-                est_odds = _estimate_odds(horse_numbers, bet_type, runners_map)
-                ev = prob * est_odds if est_odds > 0 else 0.0
+                real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
+                ev = prob * real_odds if real_odds > 0 else 0.0
                 if ev >= EV_THRESHOLD:
                     candidates.append(_build_candidate(
-                        horse_numbers, bet_type, prob, est_odds, ev, runners_map,
+                        horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
 
     candidates.sort(key=lambda c: c["expected_value"], reverse=True)
@@ -256,10 +285,11 @@ def _propose_bets_impl(
     skip_score: int = 0,
     predicted_pace: str = "",
     ai_consensus: str = "",
+    all_odds: dict | None = None,
 ) -> dict:
     """EVベース買い目提案の統合実装（テスト用に公開）."""
     race_conditions = race_conditions or []
-    runners_map = {r.get("horse_number"): r for r in runners_data}
+    runners_map = {int(r.get("horse_number", 0)): r for r in runners_data}
     bet_types = preferred_bet_types or DEFAULT_BET_TYPES
     effective_max_bets = max_bets or DEFAULT_MAX_BETS
 
@@ -270,9 +300,13 @@ def _propose_bets_impl(
     if confidence_factor == 0.0:
         return _build_skip_result(race_id, race_name, skip_score, venue, predicted_pace, ai_consensus)
 
+    # 0. 実オッズ取得
+    if all_odds is None:
+        all_odds = _fetch_all_odds(race_id)
+
     # 1. EV計算+買い目候補生成
     candidates = _generate_ev_candidates(
-        win_probabilities, runners_map, bet_types, total_runners,
+        win_probabilities, runners_map, bet_types, total_runners, all_odds,
     )
 
     # 2. 上限で切る

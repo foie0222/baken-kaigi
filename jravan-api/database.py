@@ -275,9 +275,6 @@ def get_runners_by_race(race_id: str) -> list[dict]:
     except ValueError:
         return []
 
-    # リアルタイムオッズを先に取得（jvd_o1テーブル）
-    realtime_odds = get_realtime_odds(race_id)
-
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -302,93 +299,7 @@ def get_runners_by_race(race_id: str) -> list[dict]:
         rows = _fetch_all_as_dicts(cur)
         runners = [_to_runner_dict(row) for row in rows]
 
-        # リアルタイムオッズがある場合は上書き
-        if realtime_odds:
-            for runner in runners:
-                horse_number = runner.get("horse_number")
-                if horse_number and horse_number in realtime_odds:
-                    rt_odds = realtime_odds[horse_number]
-                    runner["odds"] = rt_odds.get("odds")
-                    runner["popularity"] = rt_odds.get("popularity")
-
         return runners
-
-
-def get_realtime_odds(race_id: str) -> dict[int, dict] | None:
-    """jvd_o1テーブルからリアルタイムオッズ（発売中オッズ）を取得.
-
-    JRA-VANのjvd_o1テーブルには発売中（レース開始前）のオッズが格納されています。
-    レース終了後の確定オッズはjvd_seテーブルに格納されます。
-
-    Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
-            例: "20260105_09_01" = 2026年1月5日 阪神 1R
-
-    Returns:
-        馬番をキー、オッズと人気を値とする辞書。
-        例: {1: {"odds": 3.5, "popularity": 1}, 2: {"odds": 5.8, "popularity": 2}}
-        テーブルが存在しない、またはデータがない場合はNone。
-
-    Note:
-        - jvd_o1テーブルのodds_tanshoカラムは全馬のオッズが連結された文字列:
-          馬番(2桁) + オッズ(4桁, 10で割る) + 人気(2桁) = 8桁/馬
-          例: "01055709" = 馬番1, オッズ55.7倍, 人気9位
-        - オッズが10倍で格納されているのはJRA-VANの仕様
-        - jvd_o1テーブルが存在しない環境ではNoneを返す
-    """
-    try:
-        kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
-    except ValueError:
-        return None
-
-    try:
-        with get_db() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT odds_tansho
-                FROM jvd_o1
-                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
-                  AND keibajo_code = %s AND race_bango = %s
-            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
-            row = cur.fetchone()
-
-            if not row or not row[0]:
-                return None
-
-            odds_str = row[0].strip()
-            if not odds_str:
-                return None
-
-            # odds_tansho文字列を解析: 8桁/馬（馬番2 + オッズ4 + 人気2）
-            result = {}
-            for i in range(0, len(odds_str), 8):
-                if i + 8 > len(odds_str):
-                    break
-                chunk = odds_str[i:i+8]
-                if chunk.strip() == "" or len(chunk) < 8:
-                    continue
-
-                try:
-                    horse_number = int(chunk[0:2])
-                    odds_raw = int(chunk[2:6])
-                    popularity_raw = int(chunk[6:8])
-
-                    # オッズは10倍で格納されている（JRA-VAN仕様）
-                    odds = odds_raw / 10.0 if odds_raw > 0 else None
-                    popularity = popularity_raw if popularity_raw > 0 else None
-
-                    if horse_number > 0:
-                        result[horse_number] = {"odds": odds, "popularity": popularity}
-                except (ValueError, IndexError):
-                    continue
-
-            return result if result else None
-    except (EnvironmentError, OSError, Exception) as e:
-        # DB接続エラー（テーブル不在含む）はNoneを返す
-        # Note: pg8000のDatabaseErrorはExceptionを直接継承しているため、
-        # Exception も含めてキャッチする必要がある
-        logger.debug(f"Failed to get realtime odds: {e}")
-        return None
 
 
 def get_horse_count(race_id: str) -> int:
@@ -865,6 +776,85 @@ def _parse_fukusho_odds(odds_fukusho: str) -> list[dict]:
     return result
 
 
+def _parse_combination_odds_2h(odds_str: str | None) -> dict[str, float]:
+    """2頭組合せオッズ文字列を解析する.
+
+    jvd_o2(馬連)/o3(ワイド)/o4(馬単) 用パーサー。
+    13文字/組: kumiban(4桁) + odds(6桁, ÷10) + ninkijun(3桁)
+
+    取消馬は "XXXX******NNN" のようにオッズ部分がアスタリスクとなる。
+
+    Args:
+        odds_str: オッズ連結文字列
+
+    Returns:
+        組番をキー、オッズを値とする辞書。例: {"1-2": 64.8}
+    """
+    if not odds_str:
+        return {}
+
+    odds_str = odds_str.strip()
+    result: dict[str, float] = {}
+    for i in range(0, len(odds_str), 13):
+        chunk = odds_str[i:i + 13]
+        if len(chunk) < 13:
+            break
+        if "***" in chunk:
+            continue
+        try:
+            h1 = int(chunk[0:2])
+            h2 = int(chunk[2:4])
+            odds_raw = int(chunk[4:10])
+            odds = odds_raw / 10.0
+
+            if h1 > 0 and h2 > 0 and odds > 0:
+                result[f"{h1}-{h2}"] = odds
+        except (ValueError, IndexError):
+            continue
+
+    return result
+
+
+def _parse_combination_odds_3h(odds_str: str | None) -> dict[str, float]:
+    """3頭組合せオッズ文字列を解析する.
+
+    jvd_o5(三連複)/o6(三連単) 用パーサー。
+    15文字/組: kumiban(6桁) + odds(6桁, ÷10) + ninkijun(3桁)
+
+    取消馬はオッズ部分がアスタリスクとなる。
+
+    Args:
+        odds_str: オッズ連結文字列
+
+    Returns:
+        組番をキー、オッズを値とする辞書。例: {"1-2-3": 341.9}
+    """
+    if not odds_str:
+        return {}
+
+    odds_str = odds_str.strip()
+    result: dict[str, float] = {}
+    for i in range(0, len(odds_str), 15):
+        chunk = odds_str[i:i + 15]
+        if len(chunk) < 15:
+            break
+        if "***" in chunk:
+            continue
+        try:
+            h1 = int(chunk[0:2])
+            h2 = int(chunk[2:4])
+            h3 = int(chunk[4:6])
+            odds_raw = int(chunk[6:12])
+            odds = odds_raw / 10.0
+
+            if h1 > 0 and h2 > 0 and h3 > 0 and odds > 0:
+                result[f"{h1}-{h2}-{h3}"] = odds
+        except (ValueError, IndexError):
+            continue
+
+    return result
+
+
 def _parse_tansho_odds(
     odds_tansho: str, horse_names: dict[int, str],
 ) -> list[dict]:
@@ -1067,42 +1057,108 @@ def get_odds_history(race_id: str) -> dict | None:
         return None
 
 
-def get_place_odds(race_id: str) -> list[dict] | None:
-    """複勝オッズを取得する.
+def get_all_odds(race_id: str) -> dict | None:
+    """全券種のオッズを一括取得する.
 
-    jvd_o1 の odds_fukusho カラムから複勝オッズを取得する。
-    12文字/馬: 馬番(2桁) + 最低オッズ(4桁, ÷10) + 最高オッズ(4桁, ÷10) + 人気(2桁)
+    jvd_o1〜o6 から単勝・複勝・馬連・ワイド・馬単・三連複・三連単を取得。
 
     Args:
         race_id: レースID（YYYYMMDD_XX_RR形式）
 
     Returns:
-        複勝オッズリスト。データがない場合はNone。
+        全券種オッズを含む辞書。全テーブルが空の場合はNone。
     """
     try:
         kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
     except ValueError:
         return None
 
+    race_params = (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango)
+    where_clause = """WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
+                  AND keibajo_code = %s AND race_bango = %s"""
+
     try:
         with get_db() as conn:
             cur = conn.cursor()
-            cur.execute("""
-                SELECT odds_fukusho
-                FROM jvd_o1
-                WHERE kaisai_nen = %s AND kaisai_tsukihi = %s
-                  AND keibajo_code = %s AND race_bango = %s
-            """, (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango))
-            row = cur.fetchone()
 
-            if not row or not row[0]:
-                return None
+            # jvd_o1: 単勝 + 複勝
+            cur.execute(f"""
+                SELECT odds_tansho, odds_fukusho FROM jvd_o1 {where_clause}
+            """, race_params)
+            o1_row = cur.fetchone()
 
-            result = _parse_fukusho_odds(row[0])
-            return result if result else None
+            # jvd_o2: 馬連
+            cur.execute(f"""
+                SELECT odds_umaren FROM jvd_o2 {where_clause}
+            """, race_params)
+            o2_row = cur.fetchone()
+
+            # jvd_o3: ワイド
+            cur.execute(f"""
+                SELECT odds_wide FROM jvd_o3 {where_clause}
+            """, race_params)
+            o3_row = cur.fetchone()
+
+            # jvd_o4: 馬単
+            cur.execute(f"""
+                SELECT odds_umatan FROM jvd_o4 {where_clause}
+            """, race_params)
+            o4_row = cur.fetchone()
+
+            # jvd_o5: 三連複
+            cur.execute(f"""
+                SELECT odds_sanrenpuku FROM jvd_o5 {where_clause}
+            """, race_params)
+            o5_row = cur.fetchone()
+
+            # jvd_o6: 三連単
+            cur.execute(f"""
+                SELECT odds_sanrentan FROM jvd_o6 {where_clause}
+            """, race_params)
+            o6_row = cur.fetchone()
+
+        # 単勝
+        win: dict[str, float] = {}
+        if o1_row and o1_row[0]:
+            for entry in _parse_tansho_odds(o1_row[0], {}):
+                win[str(entry["horse_number"])] = entry["odds"]
+
+        # 複勝
+        place: dict[str, dict[str, float]] = {}
+        if o1_row and o1_row[1]:
+            for entry in _parse_fukusho_odds(o1_row[1]):
+                place[str(entry["horse_number"])] = {
+                    "min": entry["odds_min"],
+                    "max": entry["odds_max"],
+                }
+
+        # 馬連
+        quinella = _parse_combination_odds_2h(o2_row[0] if o2_row else None)
+        # ワイド
+        quinella_place = _parse_combination_odds_2h(o3_row[0] if o3_row else None)
+        # 馬単
+        exacta = _parse_combination_odds_2h(o4_row[0] if o4_row else None)
+        # 三連複
+        trio = _parse_combination_odds_3h(o5_row[0] if o5_row else None)
+        # 三連単
+        trifecta = _parse_combination_odds_3h(o6_row[0] if o6_row else None)
+
+        # 全て空ならNone
+        if not any([win, place, quinella, quinella_place, exacta, trio, trifecta]):
+            return None
+
+        return {
+            "win": win,
+            "place": place,
+            "quinella": quinella,
+            "quinella_place": quinella_place,
+            "exacta": exacta,
+            "trio": trio,
+            "trifecta": trifecta,
+        }
 
     except Exception as e:
-        logger.debug(f"Failed to get place odds: {e}")
+        logger.debug(f"Failed to get all odds: {e}")
         return None
 
 
