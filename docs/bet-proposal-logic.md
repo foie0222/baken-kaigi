@@ -26,7 +26,7 @@ flowchart TD
     P1 --> P2
 
     subgraph P2 [Phase 2: 実オッズ取得]
-        P2A[JRA-VAN API /races/ID/odds] --> P2B[全7券種のオッズを取得]
+        P2A[JRA-VAN API GET /races/{race_id}/odds] --> P2B[全7券種のオッズを取得]
     end
 
     P2 --> P3
@@ -166,7 +166,12 @@ flowchart TD
         "distance": "1600",
         "surface": "ダ",
         "total_runners": 16,
-        "difficulty": 2,              # ★
+        "difficulty": {               # _assess_race_difficulty() の戻り値
+            "difficulty_stars": 2,
+            "difficulty_label": "やや堅い",
+            "upset_score": 0,
+            "factors": ["16頭立ての多頭数レース（荒れやすい）", "G1（堅い傾向）"],
+        },
         "predicted_pace": "ハイ",
         "skip_score": 3,
         "ai_consensus": "概ね合意",
@@ -352,15 +357,24 @@ EV = 0.115 × 64.8 = 7.45  → 採用（high）
 
 ### 見送り判定
 
-Phase 0 で算出された `skip_score` と `confidence_factor` を使用する。
+Phase 0 で算出された `skip_score` から `confidence_factor`（0.0〜2.0）を算出する。
 
-| confidence_factor | 状態 |
-|-------------------|------|
-| 0.0 | 完全見送り（買い目0点） |
-| 0.0 < cf < 1.0 | 予算削減 |
-| 1.0 | 通常投資 |
+**confidence_factor の算出**:
 
-`skip_score ≥ 7` の場合、budget モードでは予算を50%に削減する。
+```
+skip_score >= 9 → 0.0（完全見送り、買い目0点）
+それ以外       → max(0.0, 2.0 - skip_score × 1.75 / 8)
+```
+
+| skip_score | confidence_factor | 状態 |
+|------------|-------------------|------|
+| 0 | 2.0 | 高信頼 |
+| 4 | 1.125 | 通常 |
+| 7 | 0.469 | 予算削減 |
+| 9 | 0.0 | 完全見送り（買い目0点） |
+
+budget モードでは `skip_score ≥ 7` で予算を50%に削減する。
+bankroll モードでは `confidence_factor` を `race_budget` の算出に直接使用する。
 
 ### 予算配分
 
