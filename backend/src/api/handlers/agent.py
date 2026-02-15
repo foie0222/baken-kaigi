@@ -176,26 +176,14 @@ def _update_agent(event: dict) -> dict:
             )
         # 確率フィルター バリデーション
         min_prob = betting_preference.get("min_probability")
-        max_prob = betting_preference.get("max_probability")
         if min_prob is not None:
-            if isinstance(min_prob, bool) or not isinstance(min_prob, (int, float)) or not (0.01 <= min_prob <= 0.50):
-                return bad_request_response("min_probability must be between 0.01 and 0.50", event=event)
-        if max_prob is not None:
-            if isinstance(max_prob, bool) or not isinstance(max_prob, (int, float)) or not (0.01 <= max_prob <= 0.50):
-                return bad_request_response("max_probability must be between 0.01 and 0.50", event=event)
-        if min_prob is not None and max_prob is not None and min_prob > max_prob:
-            return bad_request_response("min_probability must be <= max_probability", event=event)
+            if isinstance(min_prob, bool) or not isinstance(min_prob, (int, float)) or not (0.0 <= min_prob <= 0.50):
+                return bad_request_response("min_probability must be between 0.0 and 0.50", event=event)
         # EVフィルター バリデーション
         min_ev = betting_preference.get("min_ev")
-        max_ev = betting_preference.get("max_ev")
         if min_ev is not None:
-            if isinstance(min_ev, bool) or not isinstance(min_ev, (int, float)) or not (1.0 <= min_ev <= 10.0):
-                return bad_request_response("min_ev must be between 1.0 and 10.0", event=event)
-        if max_ev is not None:
-            if isinstance(max_ev, bool) or not isinstance(max_ev, (int, float)) or not (1.0 <= max_ev <= 10.0):
-                return bad_request_response("max_ev must be between 1.0 and 10.0", event=event)
-        if min_ev is not None and max_ev is not None and min_ev > max_ev:
-            return bad_request_response("min_ev must be <= max_ev", event=event)
+            if isinstance(min_ev, bool) or not isinstance(min_ev, (int, float)) or min_ev < 0.0:
+                return bad_request_response("min_ev must be 0.0 or greater", event=event)
 
     # custom_instructions バリデーション
     if custom_instructions is not None:

@@ -1,6 +1,4 @@
 """好み設定列挙型のテスト."""
-import pytest
-
 from src.domain.enums import BetTypePreference
 
 
@@ -39,10 +37,8 @@ class TestBettingPreference:
         d = pref.to_dict()
         assert d == {
             "bet_type_preference": "auto",
-            "min_probability": 0.01,
-            "max_probability": 0.50,
-            "min_ev": 1.0,
-            "max_ev": 10.0,
+            "min_probability": 0.0,
+            "min_ev": 0.0,
         }
 
     def test_from_dictで復元できる(self):
@@ -73,73 +69,54 @@ class TestBettingPreference:
         pref = BettingPreference(
             bet_type_preference=BetTypePreference.AUTO,
             min_probability=0.05,
-            max_probability=0.30,
             min_ev=1.5,
-            max_ev=5.0,
         )
         assert pref.min_probability == 0.05
-        assert pref.max_probability == 0.30
         assert pref.min_ev == 1.5
-        assert pref.max_ev == 5.0
 
     def test_デフォルト値にフィルターフィールドが含まれる(self):
         pref = BettingPreference.default()
-        assert pref.min_probability == 0.01
-        assert pref.max_probability == 0.50
-        assert pref.min_ev == 1.0
-        assert pref.max_ev == 10.0
+        assert pref.min_probability == 0.0
+        assert pref.min_ev == 0.0
 
     def test_to_dictにフィルターフィールドが含まれる(self):
         pref = BettingPreference(
             bet_type_preference=BetTypePreference.AUTO,
             min_probability=0.05,
-            max_probability=0.30,
             min_ev=1.5,
-            max_ev=5.0,
         )
         d = pref.to_dict()
         assert d == {
             "bet_type_preference": "auto",
             "min_probability": 0.05,
-            "max_probability": 0.30,
             "min_ev": 1.5,
-            "max_ev": 5.0,
         }
 
     def test_from_dictでフィルターフィールドを復元できる(self):
         data = {
             "bet_type_preference": "trio_focused",
             "min_probability": 0.03,
-            "max_probability": 0.25,
             "min_ev": 1.2,
-            "max_ev": 8.0,
         }
         pref = BettingPreference.from_dict(data)
         assert pref.min_probability == 0.03
-        assert pref.max_probability == 0.25
         assert pref.min_ev == 1.2
-        assert pref.max_ev == 8.0
 
     def test_from_dictでフィルターフィールドなしはデフォルト値(self):
         data = {"bet_type_preference": "auto"}
         pref = BettingPreference.from_dict(data)
-        assert pref.min_probability == 0.01
-        assert pref.max_probability == 0.50
-        assert pref.min_ev == 1.0
-        assert pref.max_ev == 10.0
+        assert pref.min_probability == 0.0
+        assert pref.min_ev == 0.0
 
-    def test_min_probabilityがmax_probabilityより大きいとエラー(self):
-        with pytest.raises(ValueError):
-            BettingPreference(
-                bet_type_preference=BetTypePreference.AUTO,
-                min_probability=0.30,
-                max_probability=0.10,
-            )
-
-    def test_min_evがmax_evより大きいとエラー(self):
-        with pytest.raises(ValueError):
-            BettingPreference(
-                bet_type_preference=BetTypePreference.AUTO,
-                min_ev=8.0,
-                max_ev=2.0,
-            )
+    def test_from_dictで旧形式のmax値は無視される(self):
+        data = {
+            "bet_type_preference": "auto",
+            "min_probability": 0.05,
+            "max_probability": 0.30,
+            "min_ev": 1.5,
+            "max_ev": 5.0,
+        }
+        pref = BettingPreference.from_dict(data)
+        assert pref.min_probability == 0.05
+        assert pref.min_ev == 1.5
+        assert not hasattr(pref, "max_probability") or "max_probability" not in pref.to_dict()

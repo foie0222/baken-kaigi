@@ -521,9 +521,7 @@ export type BetTypePreference = 'trio_focused' | 'exacta_focused' | 'quinella_fo
 export interface BettingPreference {
   bet_type_preference: BetTypePreference;
   min_probability?: number;
-  max_probability?: number;
   min_ev?: number;
-  max_ev?: number;
 }
 
 // エージェント育成

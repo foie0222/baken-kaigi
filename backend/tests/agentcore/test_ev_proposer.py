@@ -121,13 +121,16 @@ class TestProposeBetsImpl:
                 assert bets[i]["expected_value"] >= bets[i + 1]["expected_value"]
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
-    def test_全組合せEV1未満で買い目ゼロ(self, mock_narrator):
-        """確率が低くオッズも低い→全てEV < 1.0 → 買い目なし."""
+    def test_min_evフィルターでEV未満の組合せが除外される(self, mock_narrator):
+        """min_ev=1.0 設定で EV < 1.0 の組合せは除外される."""
         runners = _make_runners(6)
         # 均等な確率 + 低オッズ → EV < 1.0
         win_probs = {i: 1.0 / 6 for i in range(1, 7)}
         for r in runners:
             r["odds"] = 2.0
+
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({"min_probability": 0.0, "min_ev": 1.0})
 
         result = _propose_bets_impl(
             race_id="test",
@@ -140,6 +143,8 @@ class TestProposeBetsImpl:
 
         assert result["proposed_bets"] == []
         assert result["total_amount"] == 0
+
+        set_betting_preference(None)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
     def test_max_betsで買い目数が制限される(self, mock_narrator):
@@ -407,44 +412,40 @@ class TestResolveEvFilter:
 
     def test_Noneの場合はデフォルト値(self):
         result = _resolve_ev_filter(None)
-        assert result == (0.01, 0.50, 1.0, 10.0)
+        assert result == (0.0, 0.0)
 
     def test_空辞書の場合はデフォルト値(self):
         result = _resolve_ev_filter({})
-        assert result == (0.01, 0.50, 1.0, 10.0)
+        assert result == (0.0, 0.0)
 
     def test_フィルター値が反映される(self):
         pref = {
             "bet_type_preference": "auto",
             "min_probability": 0.05,
-            "max_probability": 0.30,
             "min_ev": 1.5,
-            "max_ev": 5.0,
         }
         result = _resolve_ev_filter(pref)
-        assert result == (0.05, 0.30, 1.5, 5.0)
+        assert result == (0.05, 1.5)
 
     def test_一部だけ指定の場合は残りデフォルト(self):
         pref = {"min_probability": 0.03}
         result = _resolve_ev_filter(pref)
-        assert result == (0.03, 0.50, 1.0, 10.0)
+        assert result == (0.03, 0.0)
 
 
 class TestEvFilterIntegration:
     """確率/EVフィルターの統合テスト."""
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
-    def test_max_probabilityで高確率の組合せが除外される(self, mock_narrator):
-        """max_probability=0.10 で確率10%超の組合せは除外される."""
+    def test_min_probabilityで低確率の組合せが除外される(self, mock_narrator):
+        """min_probability=0.20 で確率20%未満の組合せは除外される."""
         runners = _make_runners(4)
         win_probs = {1: 0.50, 2: 0.25, 3: 0.15, 4: 0.10}
 
         from tools.ev_proposer import set_betting_preference
         set_betting_preference({
-            "min_probability": 0.01,
-            "max_probability": 0.10,
-            "min_ev": 1.0,
-            "max_ev": 10.0,
+            "min_probability": 0.20,
+            "min_ev": 0.0,
         })
 
         result = _propose_bets_impl(
@@ -458,22 +459,20 @@ class TestEvFilterIntegration:
         )
 
         for bet in result["proposed_bets"]:
-            assert bet["combination_probability"] <= 0.10
+            assert bet["combination_probability"] >= 0.20
 
         set_betting_preference(None)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
-    def test_max_evで高EV組合せが除外される(self, mock_narrator):
-        """max_ev=3.0 で EV > 3.0 の組合せは除外される."""
+    def test_min_evで低EV組合せが除外される(self, mock_narrator):
+        """min_ev=2.0 で EV < 2.0 の組合せは除外される."""
         runners = _make_runners(6)
         win_probs = {1: 0.40, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.06, 6: 0.04}
 
         from tools.ev_proposer import set_betting_preference
         set_betting_preference({
-            "min_probability": 0.01,
-            "max_probability": 0.50,
-            "min_ev": 1.0,
-            "max_ev": 3.0,
+            "min_probability": 0.0,
+            "min_ev": 2.0,
         })
 
         result = _propose_bets_impl(
@@ -486,6 +485,6 @@ class TestEvFilterIntegration:
         )
 
         for bet in result["proposed_bets"]:
-            assert bet["expected_value"] <= 3.0
+            assert bet["expected_value"] >= 2.0
 
         set_betting_preference(None)
