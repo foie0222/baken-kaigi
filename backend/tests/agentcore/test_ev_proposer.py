@@ -11,6 +11,7 @@ from tools.ev_proposer import (
     _make_odds_key,
     _lookup_real_odds,
     _resolve_bet_types,
+    _resolve_ev_filter,
     DEFAULT_BET_TYPES,
 )
 
@@ -399,3 +400,92 @@ class TestResolveBetTypes:
 
     def test_不明な値の場合はデフォルト券種(self):
         assert _resolve_bet_types({"bet_type_preference": "unknown"}) == DEFAULT_BET_TYPES
+
+
+class TestResolveEvFilter:
+    """_resolve_ev_filter のテスト."""
+
+    def test_Noneの場合はデフォルト値(self):
+        result = _resolve_ev_filter(None)
+        assert result == (0.01, 0.50, 1.0, 10.0)
+
+    def test_空辞書の場合はデフォルト値(self):
+        result = _resolve_ev_filter({})
+        assert result == (0.01, 0.50, 1.0, 10.0)
+
+    def test_フィルター値が反映される(self):
+        pref = {
+            "bet_type_preference": "auto",
+            "min_probability": 0.05,
+            "max_probability": 0.30,
+            "min_ev": 1.5,
+            "max_ev": 5.0,
+        }
+        result = _resolve_ev_filter(pref)
+        assert result == (0.05, 0.30, 1.5, 5.0)
+
+    def test_一部だけ指定の場合は残りデフォルト(self):
+        pref = {"min_probability": 0.03}
+        result = _resolve_ev_filter(pref)
+        assert result == (0.03, 0.50, 1.0, 10.0)
+
+
+class TestEvFilterIntegration:
+    """確率/EVフィルターの統合テスト."""
+
+    @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
+    def test_max_probabilityで高確率の組合せが除外される(self, mock_narrator):
+        """max_probability=0.10 で確率10%超の組合せは除外される."""
+        runners = _make_runners(4)
+        win_probs = {1: 0.50, 2: 0.25, 3: 0.15, 4: 0.10}
+
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({
+            "min_probability": 0.01,
+            "max_probability": 0.10,
+            "min_ev": 1.0,
+            "max_ev": 10.0,
+        })
+
+        result = _propose_bets_impl(
+            race_id="test",
+            win_probabilities=win_probs,
+            runners_data=runners,
+            total_runners=4,
+            budget=5000,
+            preferred_bet_types=["win"],
+            all_odds=_make_all_odds(runners),
+        )
+
+        for bet in result["proposed_bets"]:
+            assert bet["combination_probability"] <= 0.10
+
+        set_betting_preference(None)
+
+    @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
+    def test_max_evで高EV組合せが除外される(self, mock_narrator):
+        """max_ev=3.0 で EV > 3.0 の組合せは除外される."""
+        runners = _make_runners(6)
+        win_probs = {1: 0.40, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.06, 6: 0.04}
+
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({
+            "min_probability": 0.01,
+            "max_probability": 0.50,
+            "min_ev": 1.0,
+            "max_ev": 3.0,
+        })
+
+        result = _propose_bets_impl(
+            race_id="test",
+            win_probabilities=win_probs,
+            runners_data=runners,
+            total_runners=6,
+            budget=5000,
+            all_odds=_make_all_odds(runners),
+        )
+
+        for bet in result["proposed_bets"]:
+            assert bet["expected_value"] <= 3.0
+
+        set_betting_preference(None)

@@ -288,6 +288,71 @@ export function AgentProfilePage() {
 }
 
 
+function DualRangeSlider({
+  label,
+  minValue,
+  maxValue,
+  min,
+  max,
+  step,
+  formatValue,
+  onMinChange,
+  onMaxChange,
+}: {
+  label: string;
+  minValue: number;
+  maxValue: number;
+  min: number;
+  max: number;
+  step: number;
+  formatValue: (v: number) => string;
+  onMinChange: (v: number) => void;
+  onMaxChange: (v: number) => void;
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 12, color: '#666' }}>{label}</div>
+        <div style={{ fontSize: 12, color: '#1a73e8', fontWeight: 600 }}>
+          {formatValue(minValue)} ～ {formatValue(maxValue)}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: '#999', minWidth: 32 }}>下限</span>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={minValue}
+          aria-label={`${label}（下限）`}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (v <= maxValue) onMinChange(v);
+          }}
+          style={{ flex: 1, accentColor: '#1a73e8' }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4 }}>
+        <span style={{ fontSize: 11, color: '#999', minWidth: 32 }}>上限</span>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={maxValue}
+          aria-label={`${label}（上限）`}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (v >= minValue) onMaxChange(v);
+          }}
+          style={{ flex: 1, accentColor: '#1a73e8' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function BettingPreferenceForm({ agent }: { agent: Agent }) {
   const { updateAgent } = useAgentStore();
 
@@ -296,6 +361,10 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [minProb, setMinProb] = useState<number>((agent.betting_preference?.min_probability ?? 0.01) * 100);
+  const [maxProb, setMaxProb] = useState<number>((agent.betting_preference?.max_probability ?? 0.50) * 100);
+  const [minEv, setMinEv] = useState<number>(agent.betting_preference?.min_ev ?? 1.0);
+  const [maxEv, setMaxEv] = useState<number>(agent.betting_preference?.max_ev ?? 10.0);
 
   return (
     <div style={{
@@ -339,6 +408,32 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
         </div>
       </div>
 
+      {/* 確率フィルター */}
+      <DualRangeSlider
+        label="確率フィルター"
+        minValue={minProb}
+        maxValue={maxProb}
+        min={1}
+        max={50}
+        step={1}
+        formatValue={(v) => `${v}%`}
+        onMinChange={setMinProb}
+        onMaxChange={setMaxProb}
+      />
+
+      {/* EVフィルター */}
+      <DualRangeSlider
+        label="期待値(EV)フィルター"
+        minValue={minEv}
+        maxValue={maxEv}
+        min={1.0}
+        max={10.0}
+        step={0.5}
+        formatValue={(v) => `${v.toFixed(1)}`}
+        onMinChange={setMinEv}
+        onMaxChange={setMaxEv}
+      />
+
       {/* 追加指示 */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -381,6 +476,10 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
             undefined,
             {
               bet_type_preference: betTypePref,
+              min_probability: minProb / 100,
+              max_probability: maxProb / 100,
+              min_ev: minEv,
+              max_ev: maxEv,
             },
             customInstructions === '' ? null : customInstructions,
           );

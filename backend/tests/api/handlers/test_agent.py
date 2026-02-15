@@ -179,8 +179,116 @@ class TestUpdateAgentPreference:
         assert response["statusCode"] == 200
         assert body["betting_preference"] == {
             "bet_type_preference": "auto",
+            "min_probability": 0.01,
+            "max_probability": 0.50,
+            "min_ev": 1.0,
+            "max_ev": 10.0,
         }
         assert body["custom_instructions"] is None
+
+    def test_フィルター設定を更新できる(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "bet_type_preference": "auto",
+                    "min_probability": 0.05,
+                    "max_probability": 0.30,
+                    "min_ev": 1.5,
+                    "max_ev": 5.0,
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        body = json.loads(response["body"])
+        assert response["statusCode"] == 200
+        assert body["betting_preference"]["min_probability"] == 0.05
+        assert body["betting_preference"]["max_probability"] == 0.30
+        assert body["betting_preference"]["min_ev"] == 1.5
+        assert body["betting_preference"]["max_ev"] == 5.0
+
+    def test_min_probabilityが範囲外で400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "min_probability": 0.0,
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_min_probabilityがmax_probabilityより大きいと400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "min_probability": 0.30,
+                    "max_probability": 0.10,
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_min_evが範囲外で400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "min_ev": 0.5,
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_min_evがmax_evより大きいと400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "min_ev": 8.0,
+                    "max_ev": 2.0,
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_booleanはフィルター値として拒否される(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        for field in ["min_probability", "max_probability", "min_ev", "max_ev"]:
+            event = _make_event(
+                method="PUT",
+                path="/agents/me",
+                body={"betting_preference": {field: True}},
+            )
+            response = agent_handler(event, None)
+            assert response["statusCode"] == 400, f"{field}=True should be rejected"
 
     def test_custom_instructionsが201文字は400(self):
         create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
