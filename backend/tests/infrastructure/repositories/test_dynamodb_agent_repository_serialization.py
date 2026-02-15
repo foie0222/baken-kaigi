@@ -25,6 +25,10 @@ class TestDynamoDBAgentSerialization:
         item = DynamoDBAgentRepository._to_dynamodb_item(agent)
         assert item["betting_preference"] == {
             "bet_type_preference": "trio_focused",
+            "min_probability": 0.01,
+            "max_probability": 0.50,
+            "min_ev": 1.0,
+            "max_ev": 10.0,
         }
         assert item["custom_instructions"] == "三連単が好き"
 
