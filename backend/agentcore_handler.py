@@ -155,11 +155,6 @@ def _extract_race_ids(body: dict) -> set[str]:
     """リクエストボディからレースIDのユニークセットを抽出する."""
     race_ids: set[str] = set()
 
-    # cart_items から raceId を抽出
-    for item in body.get("cart_items", []):
-        if isinstance(item, dict) and "raceId" in item:
-            race_ids.add(item["raceId"])
-
     # prompt からレースIDを抽出（12桁数字パターン: YYYYMMDDVVRR）
     prompt = body.get("prompt", "")
     for match in re.findall(r"\d{12}", prompt):
@@ -276,7 +271,6 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
 
     Request Body:
         prompt: ユーザーメッセージ
-        cart_items: カート内容（オプション）
         runners_data: 出走馬データ（オプション）
         session_id: セッションID（オプション）
         agent_data: エージェント育成データ（オプション）
@@ -324,7 +318,6 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     # AgentCore 用のペイロードを構築
     payload = {
         "prompt": body.get("prompt", ""),
-        "cart_items": body.get("cart_items", []),
         "runners_data": body.get("runners_data", []),
     }
 

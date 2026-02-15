@@ -222,7 +222,6 @@ describe('ApiClient', () => {
 
       const result = await client.consultWithAgent({
         prompt: 'テスト',
-        cart_items: [],
       })
 
       expect(result.success).toBe(false)
@@ -241,13 +240,6 @@ describe('ApiClient', () => {
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
       const result = await client.consultWithAgent({
         prompt: 'カートの買い目を分析してください',
-        cart_items: [{
-          raceId: 'race_001',
-          raceName: 'テストレース',
-          betType: 'quinella',
-          horseNumbers: [1, 2],
-          amount: 1000,
-        }],
       })
 
       expect(result.success).toBe(true)
@@ -319,7 +311,6 @@ describe('ApiClient', () => {
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
       const result = await client.consultWithAgent({
         prompt: 'テスト',
-        cart_items: [],
       })
 
       expect(result.success).toBe(false)
@@ -412,7 +403,6 @@ describe('ApiClient', () => {
       const client = await getApiClient('http://localhost:3000', '/api/consultation', 'test-api-key')
       await client.consultWithAgent({
         prompt: 'テスト',
-        cart_items: [],
       })
 
       expect(mockFetch).toHaveBeenCalledWith(

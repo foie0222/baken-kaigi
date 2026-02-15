@@ -44,7 +44,6 @@ def _make_bet_proposal_body(race_id: str = "202502011201", session_id: str | Non
     """買い目提案リクエストボディを構築."""
     body = {
         "prompt": f"レースID {race_id} について、予算3000円でgenerate_bet_proposalツールを使って買い目提案を生成してください。",
-        "cart_items": [],
     }
     if session_id:
         body["session_id"] = session_id
@@ -113,21 +112,6 @@ class TestExtractRaceIds:
         result = _extract_race_ids(body)
 
         assert result == {"202502011201"}
-
-    def test_カートアイテムからレースIDを抽出できる(self):
-        from agentcore_handler import _extract_race_ids
-
-        body = {
-            "prompt": "分析してください",
-            "cart_items": [
-                {"raceId": "202502011201", "raceName": "test"},
-                {"raceId": "202502011202", "raceName": "test2"},
-            ],
-        }
-        result = _extract_race_ids(body)
-
-        assert result == {"202502011201", "202502011202"}
-
 
 class TestCheckAndRecordUsage:
     """_check_and_record_usage 関数のテスト."""
