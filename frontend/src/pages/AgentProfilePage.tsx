@@ -1,23 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgentStore } from '../stores/agentStore';
-import { AGENT_STYLES, AGENT_STYLE_MAP } from '../constants/agentStyles';
 import { BET_TYPE_PREFERENCE_OPTIONS } from '../constants/bettingPreferences';
 import { apiClient } from '../api/client';
 import type { Agent, AgentReview, BetTypePreference } from '../types';
-
-const LEVEL_TITLES: Record<number, string> = {
-  1: '駆け出し',
-  2: '見習い',
-  3: '一人前',
-  4: 'ベテラン',
-  5: '熟練',
-  6: '達人',
-  7: '名人',
-  8: '鉄人',
-  9: '伝説',
-  10: '神',
-};
 
 function ReviewCard({ review }: { review: AgentReview }) {
   return (
@@ -73,12 +59,9 @@ function ReviewCard({ review }: { review: AgentReview }) {
 
 export function AgentProfilePage() {
   const navigate = useNavigate();
-  const { agent, fetchAgent, updateAgent } = useAgentStore();
+  const { agent, fetchAgent } = useAgentStore();
   const [reviews, setReviews] = useState<AgentReview[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
-  const [isEditingStyle, setIsEditingStyle] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [styleError, setStyleError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAgent();
@@ -109,10 +92,6 @@ export function AgentProfilePage() {
     );
   }
 
-  const styleInfo = AGENT_STYLE_MAP[agent.base_style];
-  const levelTitle = LEVEL_TITLES[agent.level];
-  const color = styleInfo.color;
-
   return (
     <div className="fade-in" style={{ padding: '0 0 20px' }}>
       <button className="back-btn" onClick={() => navigate('/')}>
@@ -131,125 +110,16 @@ export function AgentProfilePage() {
           width: 64,
           height: 64,
           borderRadius: '50%',
-          background: `${color}15`,
+          background: '#2563eb15',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 32,
           margin: '0 auto 10px',
         }}>
-          {styleInfo.icon}
+          {'\u{1F3C7}'}
         </div>
         <div style={{ fontSize: 20, fontWeight: 700, color: '#111' }}>{agent.name}</div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
-          <span style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color,
-            background: `${color}12`,
-            padding: '2px 10px',
-            borderRadius: 10,
-          }}>
-            {styleInfo.label}
-          </span>
-          <span style={{ fontSize: 13, color: '#666' }}>Lv.{agent.level} {levelTitle}</span>
-          <button
-            type="button"
-            onClick={() => setIsEditingStyle(!isEditingStyle)}
-            style={{
-              fontSize: 12,
-              color: '#1a73e8',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-            }}
-          >
-            {isEditingStyle ? '閉じる' : '変更'}
-          </button>
-        </div>
-
-        {isEditingStyle && (
-          <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {AGENT_STYLES.map((style) => {
-              const isSelected = agent.base_style === style.id;
-              return (
-                <button
-                  key={style.id}
-                  type="button"
-                  disabled={isUpdating}
-                  aria-label={`${style.label}スタイルを選択${isSelected ? '（選択中）' : ''}`}
-                  onClick={async () => {
-                    if (style.id === agent.base_style) return;
-                    setStyleError(null);
-                    setIsUpdating(true);
-                    const success = await updateAgent(style.id);
-                    if (success) {
-                      setIsEditingStyle(false);
-                    } else {
-                      const { error } = useAgentStore.getState();
-                      setStyleError(error || 'スタイルの変更に失敗しました');
-                    }
-                    setIsUpdating(false);
-                  }}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: 12,
-                    border: isSelected ? `2px solid ${style.color}` : '2px solid #e5e7eb',
-                    borderRadius: 10,
-                    background: isSelected ? `${style.color}08` : 'white',
-                    cursor: isSelected ? 'default' : 'pointer',
-                    opacity: isUpdating ? 0.5 : 1,
-                  }}
-                >
-                  <span style={{ fontSize: 24, marginBottom: 4 }}>{style.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: isSelected ? style.color : '#333' }}>
-                    {style.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {styleError && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#dc2626' }}>
-            {styleError}
-          </div>
-        )}
-
-        {/* 成績サマリー */}
-        {agent.performance.total_bets > 0 && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: 24,
-            marginTop: 16,
-            paddingTop: 16,
-            borderTop: '1px solid #f0f0f0',
-          }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#888' }}>戦績</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>
-                {agent.performance.total_bets}戦{agent.performance.wins}勝
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: '#888' }}>収支</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: agent.profit >= 0 ? '#059669' : '#dc2626' }}>
-                {agent.profit >= 0 ? '+' : ''}{agent.profit.toLocaleString()}円
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: '#888' }}>回収率</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#333' }}>
-                {agent.roi.toFixed(1)}%
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 好み設定 - keyでagent変更時に再マウントし初期値をリセット */}
@@ -512,7 +382,6 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
           setSaved(false);
           setIsSaving(true);
           const success = await updateAgent(
-            undefined,
             {
               bet_type_preference: betTypePref,
               min_probability: minProb / 100,

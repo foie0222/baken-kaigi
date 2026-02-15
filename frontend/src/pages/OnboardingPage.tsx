@@ -1,14 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgentStore } from '../stores/agentStore';
-import { AGENT_STYLES } from '../constants/agentStyles';
-import type { AgentStyleId } from '../types';
 
 export function OnboardingPage() {
   const navigate = useNavigate();
   const { createAgent, isLoading, error, clearError } = useAgentStore();
   const [name, setName] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState<AgentStyleId | null>(null);
   const [nameError, setNameError] = useState('');
 
   const validateName = (value: string): string => {
@@ -24,16 +21,15 @@ export function OnboardingPage() {
       setNameError(validation);
       return;
     }
-    if (!selectedStyle) return;
 
     clearError();
-    const success = await createAgent(name.trim(), selectedStyle);
+    const success = await createAgent(name.trim());
     if (success) {
       navigate('/');
     }
   };
 
-  const canSubmit = name.trim().length > 0 && name.trim().length <= 10 && selectedStyle !== null && !isLoading;
+  const canSubmit = name.trim().length > 0 && name.trim().length <= 10 && !isLoading;
 
   return (
     <div className="fade-in" style={{ padding: '24px 0' }}>
@@ -81,49 +77,6 @@ export function OnboardingPage() {
         </div>
       </div>
 
-      {/* スタイル選択 */}
-      <div style={{ background: 'white', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-        <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-          分析スタイル
-        </label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {AGENT_STYLES.map((style) => {
-            const isSelected = selectedStyle === style.id;
-            return (
-              <button
-                key={style.id}
-                type="button"
-                onClick={() => setSelectedStyle(style.id)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: 16,
-                  border: isSelected ? `2px solid ${style.color}` : '2px solid #e5e7eb',
-                  borderRadius: 12,
-                  background: isSelected ? `${style.color}08` : 'white',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                <span style={{ fontSize: 28, marginBottom: 8 }}>{style.icon}</span>
-                <span style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: isSelected ? style.color : '#333',
-                  marginBottom: 4,
-                }}>
-                  {style.label}
-                </span>
-                <span style={{ fontSize: 11, color: '#666', textAlign: 'center', lineHeight: 1.4 }}>
-                  {style.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* エラー表示 */}
       {error && (
         <div style={{
@@ -161,7 +114,7 @@ export function OnboardingPage() {
       </button>
 
       <p style={{ fontSize: 12, color: '#999', textAlign: 'center', marginTop: 12 }}>
-        名前は後から変更できませんが、スタイルは変更できます
+        好み設定は作成後に設定できます
       </p>
     </div>
   );

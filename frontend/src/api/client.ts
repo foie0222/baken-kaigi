@@ -22,7 +22,6 @@ import type {
   PendingLossLimitChange,
   LossLimitCheckResult,
   Agent,
-  AgentStyleId,
   AgentData,
   AgentReview,
   BettingPreference,
@@ -48,8 +47,6 @@ export interface AgentCoreConsultationRequest {
   }>;
   runners_data?: RunnerData[];
   session_id?: string;
-  type?: 'consultation' | 'bet_proposal';
-  character_type?: 'analyst' | 'intuition' | 'conservative' | 'aggressive';
   agent_data?: AgentData;
   betting_summary?: Record<string, unknown>;
 }
@@ -461,7 +458,6 @@ class ApiClient {
     options?: {
       preferredBetTypes?: BetType[];
       axisHorses?: number[];
-      characterType?: string;
       maxBets?: number;
       agentData?: AgentData;
     }
@@ -473,9 +469,6 @@ class ApiClient {
     if (options?.axisHorses?.length) {
       optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
     }
-    if (!options?.agentData && options?.characterType) {
-      optionParts.push(`ペルソナ(character_type): ${options.characterType}`);
-    }
     if (options?.maxBets) {
       optionParts.push(`買い目点数上限(max_bets): ${options.maxBets}点`);
     }
@@ -486,7 +479,6 @@ class ApiClient {
       prompt,
       cart_items: [],
       runners_data: runnersData,
-      type: 'bet_proposal',
     };
     if (options?.agentData) {
       request.agent_data = options.agentData;
@@ -729,10 +721,10 @@ class ApiClient {
   }
 
   // Agent API（エージェント育成）
-  async createAgent(name: string, baseStyle: AgentStyleId): Promise<ApiResponse<Agent>> {
+  async createAgent(name: string): Promise<ApiResponse<Agent>> {
     return this.request<Agent>('/agents', {
       method: 'POST',
-      body: JSON.stringify({ name, base_style: baseStyle }),
+      body: JSON.stringify({ name }),
     });
   }
 
@@ -741,14 +733,10 @@ class ApiClient {
   }
 
   async updateAgent(
-    baseStyle?: AgentStyleId,
     bettingPreference?: BettingPreference,
     customInstructions?: string | null,
   ): Promise<ApiResponse<Agent>> {
     const payload: Record<string, unknown> = {};
-    if (baseStyle !== undefined) {
-      payload.base_style = baseStyle;
-    }
     if (bettingPreference !== undefined) {
       payload.betting_preference = bettingPreference;
     }
