@@ -277,6 +277,19 @@ class TestUpdateAgentPreference:
         response = agent_handler(event, None)
         assert response["statusCode"] == 400
 
+    def test_booleanはフィルター値として拒否される(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
+        agent_handler(create_event, None)
+
+        for field in ["min_probability", "max_probability", "min_ev", "max_ev"]:
+            event = _make_event(
+                method="PUT",
+                path="/agents/me",
+                body={"betting_preference": {field: True}},
+            )
+            response = agent_handler(event, None)
+            assert response["statusCode"] == 400, f"{field}=True should be rejected"
+
     def test_custom_instructionsが201文字は400(self):
         create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ", "base_style": "solid"})
         agent_handler(create_event, None)

@@ -325,6 +325,7 @@ function DualRangeSlider({
           max={max}
           step={step}
           value={minValue}
+          aria-label={`${label}（下限）`}
           onChange={(e) => {
             const v = Number(e.target.value);
             if (v <= maxValue) onMinChange(v);
@@ -340,6 +341,7 @@ function DualRangeSlider({
           max={max}
           step={step}
           value={maxValue}
+          aria-label={`${label}（上限）`}
           onChange={(e) => {
             const v = Number(e.target.value);
             if (v >= minValue) onMaxChange(v);

@@ -418,7 +418,7 @@ def _propose_bets_impl(
         "total_amount": total_amount,
         "budget_remaining": max(0, budget_remaining),
         "analysis_comment": analysis_comment,
-        "proposal_reasoning": f"確率×オッズの期待値(EV)が{EV_THRESHOLD}以上の組合せを{len(bets)}点選定",
+        "proposal_reasoning": f"確率{ev_filter[0]*100:.0f}%-{ev_filter[1]*100:.0f}%・EV{ev_filter[2]:.1f}-{ev_filter[3]:.1f}の範囲で{len(bets)}点選定",
         "disclaimer": "この提案はデータ分析に基づくものであり、的中を保証するものではありません。",
     }
 
