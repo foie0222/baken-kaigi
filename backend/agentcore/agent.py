@@ -148,8 +148,8 @@ def invoke(payload: dict, context: Any) -> dict:
     character_type = payload.get("character_type")
     agent_data = payload.get("agent_data")
 
-    # 好み設定をbet_proposalツールに注入
-    from tools.bet_proposal import set_betting_preference
+    # 好み設定をev_proposerツールに注入（preferred_bet_typesの解決に使用）
+    from tools.ev_proposer import set_betting_preference
     betting_preference = agent_data.get("betting_preference") if agent_data else None
     set_betting_preference(betting_preference)
 

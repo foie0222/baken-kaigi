@@ -122,8 +122,6 @@ class TestUpdateAgentPreferenceUseCase:
             "usr_001",
             betting_preference={
                 "bet_type_preference": "trio_focused",
-                "target_style": "big_longshot",
-                "priority": "roi",
             },
             custom_instructions="三連単が好き",
         )
@@ -139,8 +137,6 @@ class TestUpdateAgentPreferenceUseCase:
             "usr_001",
             betting_preference={
                 "bet_type_preference": "wide_focused",
-                "target_style": "honmei",
-                "priority": "hit_rate",
             },
         )
         assert result.agent.base_style == AgentStyle.SOLID
@@ -156,8 +152,6 @@ class TestUpdateAgentPreferenceUseCase:
             base_style="longshot",
             betting_preference={
                 "bet_type_preference": "exacta_focused",
-                "target_style": "big_longshot",
-                "priority": "roi",
             },
         )
         assert result.agent.base_style == AgentStyle.LONGSHOT

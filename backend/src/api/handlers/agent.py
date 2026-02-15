@@ -129,8 +129,6 @@ def _get_agent(event: dict) -> dict:
 
 
 _VALID_BET_TYPE_PREFERENCES = ("trio_focused", "exacta_focused", "quinella_focused", "wide_focused", "auto")
-_VALID_TARGET_STYLES = ("honmei", "medium_longshot", "big_longshot")
-_VALID_BETTING_PRIORITIES = ("hit_rate", "roi", "balanced")
 
 
 def _update_agent(event: dict) -> dict:
@@ -175,16 +173,6 @@ def _update_agent(event: dict) -> dict:
         if btp is not None and btp not in _VALID_BET_TYPE_PREFERENCES:
             return bad_request_response(
                 f"bet_type_preference must be one of: {', '.join(_VALID_BET_TYPE_PREFERENCES)}", event=event
-            )
-        ts = betting_preference.get("target_style")
-        if ts is not None and ts not in _VALID_TARGET_STYLES:
-            return bad_request_response(
-                f"target_style must be one of: {', '.join(_VALID_TARGET_STYLES)}", event=event
-            )
-        bp = betting_preference.get("priority")
-        if bp is not None and bp not in _VALID_BETTING_PRIORITIES:
-            return bad_request_response(
-                f"priority must be one of: {', '.join(_VALID_BETTING_PRIORITIES)}", event=event
             )
 
     # custom_instructions バリデーション

@@ -10,6 +10,8 @@ from tools.ev_proposer import (
     _propose_bets_impl,
     _make_odds_key,
     _lookup_real_odds,
+    _resolve_bet_types,
+    DEFAULT_BET_TYPES,
 )
 
 
@@ -357,3 +359,43 @@ class TestProposeBetsImplWithRealOdds:
         bets = result["proposed_bets"]
         if bets:
             assert bets[0]["horse_numbers"] == [1, 2]
+
+
+# =============================================================================
+# 好み設定 → preferred_bet_types 解決テスト
+# =============================================================================
+
+
+class TestResolveBetTypes:
+    """_resolve_bet_types のテスト."""
+
+    def test_Noneの場合はデフォルト券種(self):
+        assert _resolve_bet_types(None) == DEFAULT_BET_TYPES
+
+    def test_空辞書の場合はデフォルト券種(self):
+        assert _resolve_bet_types({}) == DEFAULT_BET_TYPES
+
+    def test_autoの場合はデフォルト券種(self):
+        assert _resolve_bet_types({"bet_type_preference": "auto"}) == DEFAULT_BET_TYPES
+
+    def test_trio_focusedの場合は三連系(self):
+        result = _resolve_bet_types({"bet_type_preference": "trio_focused"})
+        assert "trio" in result
+        assert "trifecta" in result
+
+    def test_exacta_focusedの場合は馬単系(self):
+        result = _resolve_bet_types({"bet_type_preference": "exacta_focused"})
+        assert "exacta" in result
+        assert "quinella" in result
+
+    def test_quinella_focusedの場合は馬連系(self):
+        result = _resolve_bet_types({"bet_type_preference": "quinella_focused"})
+        assert "quinella" in result
+        assert "quinella_place" in result
+
+    def test_wide_focusedの場合はワイド系(self):
+        result = _resolve_bet_types({"bet_type_preference": "wide_focused"})
+        assert "quinella_place" in result
+
+    def test_不明な値の場合はデフォルト券種(self):
+        assert _resolve_bet_types({"bet_type_preference": "unknown"}) == DEFAULT_BET_TYPES
