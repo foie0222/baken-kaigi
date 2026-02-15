@@ -138,9 +138,9 @@ export function RaceDetailPage() {
       const apiName = BetTypeToApiName[betType];
       const oddsResult = await apiClient.getBetOdds(race.id, apiName, horseNumbersDisplay);
       if (oddsResult.success && oddsResult.data) {
-        odds = oddsResult.data.odds;
-        oddsMin = oddsResult.data.odds_min;
-        oddsMax = oddsResult.data.odds_max;
+        odds = oddsResult.data.odds ?? undefined;
+        oddsMin = oddsResult.data.odds_min ?? undefined;
+        oddsMax = oddsResult.data.odds_max ?? undefined;
       }
     } catch (error: unknown) {
       console.warn('Failed to fetch odds when adding item to cart:', error);
