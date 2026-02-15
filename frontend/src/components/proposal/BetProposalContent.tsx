@@ -7,7 +7,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useAgentStore } from '../../stores/agentStore';
 import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../../constants/betting';
-import { BetTypeLabels, BetTypeToApiName, type BetType } from '../../types';
+import { BetTypeLabels, extractOdds, type BetType, type AllOddsResponse } from '../../types';
 import type { RaceDetail, BetProposalResponse, AgentData } from '../../types';
 import './BetProposalSheet.css';
 
@@ -189,12 +189,12 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     let oddsMin: number | undefined;
     let oddsMax: number | undefined;
     try {
-      const apiName = BetTypeToApiName[bet.bet_type];
-      const oddsResult = await apiClient.getBetOdds(race.id, apiName, bet.horse_numbers);
+      const oddsResult = await apiClient.getAllOdds(race.id);
       if (oddsResult.success && oddsResult.data) {
-        odds = oddsResult.data.odds ?? undefined;
-        oddsMin = oddsResult.data.odds_min ?? undefined;
-        oddsMax = oddsResult.data.odds_max ?? undefined;
+        const extracted = extractOdds(oddsResult.data, bet.bet_type as BetType, bet.horse_numbers);
+        odds = extracted.odds;
+        oddsMin = extracted.oddsMin;
+        oddsMax = extracted.oddsMax;
       }
     } catch (error: unknown) {
       console.warn('Failed to fetch odds in handleAddSingle:', error);
@@ -245,34 +245,20 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       .map((bet, index) => ({ bet, index }))
       .filter(({ index }) => !newIndices.has(index));
 
-    // 全買い目のオッズを並列取得（失敗してもカート追加はブロックしない）
-    const oddsResults = await Promise.allSettled(
-      betsToAdd.map(async ({ bet }) => {
-        try {
-          const apiName = BetTypeToApiName[bet.bet_type];
-          const oddsResult = await apiClient.getBetOdds(race.id, apiName, bet.horse_numbers);
-          if (oddsResult.success && oddsResult.data) {
-            return {
-              odds: oddsResult.data.odds ?? undefined,
-              oddsMin: oddsResult.data.odds_min ?? undefined,
-              oddsMax: oddsResult.data.odds_max ?? undefined,
-            };
-          }
-        } catch (error) {
-          console.warn('Failed to fetch odds for bet', {
-            raceId: race.id,
-            betType: bet.bet_type,
-            horseNumbers: bet.horse_numbers,
-            error,
-          });
-        }
-        return { odds: undefined, oddsMin: undefined, oddsMax: undefined };
-      })
-    );
+    // 全券種オッズを1回で取得（失敗してもカート追加はブロックしない）
+    let allOddsData: AllOddsResponse | undefined;
+    try {
+      const oddsResult = await apiClient.getAllOdds(race.id);
+      if (oddsResult.success && oddsResult.data) {
+        allOddsData = oddsResult.data;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch all odds:', error);
+    }
 
-    betsToAdd.forEach(({ bet, index }, i) => {
-      const oddsData = oddsResults[i].status === 'fulfilled'
-        ? oddsResults[i].value
+    betsToAdd.forEach(({ bet, index }) => {
+      const oddsData = allOddsData
+        ? extractOdds(allOddsData, bet.bet_type as BetType, bet.horse_numbers)
         : { odds: undefined, oddsMin: undefined, oddsMax: undefined };
 
       const addResult = addItem({
