@@ -38,6 +38,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || '';
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
   prompt: string;
+  race_id?: string;
   session_id?: string;
   agent_data?: AgentData;
 }
@@ -467,6 +468,7 @@ class ApiClient {
     const prompt = `レースID ${raceId} について、予算${budget}円で買い目提案を生成してください。${optionText}`;
     const request: AgentCoreConsultationRequest = {
       prompt,
+      race_id: raceId,
     };
     if (options?.agentData) {
       request.agent_data = options.agentData;
