@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.domain.entities import Agent
-from src.domain.enums import AgentStyle
 from src.domain.identifiers import UserId
 from src.domain.ports.agent_repository import AgentRepository
 from src.domain.value_objects import BettingPreference
@@ -31,7 +30,6 @@ class UpdateAgentUseCase:
     def execute(
         self,
         user_id: str,
-        base_style: str | None = None,
         betting_preference: dict | None = None,
         custom_instructions: str | None = _UNSET,
     ) -> UpdateAgentResult:
@@ -39,7 +37,6 @@ class UpdateAgentUseCase:
 
         Args:
             user_id: ユーザーID
-            base_style: 新しいスタイル（solid/longshot/data/pace）
             betting_preference: 好み設定（辞書形式）
             custom_instructions: 追加指示（sentinel _UNSET で未指定を区別）
 
@@ -55,9 +52,6 @@ class UpdateAgentUseCase:
 
         if agent is None:
             raise AgentNotFoundError(f"Agent not found for user: {user_id}")
-
-        if base_style is not None:
-            agent.update_style(AgentStyle(base_style))
 
         if betting_preference is not None:
             pref = BettingPreference.from_dict(betting_preference)
