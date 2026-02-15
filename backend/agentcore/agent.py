@@ -38,18 +38,13 @@ logger.info("BedrockAgentCoreApp created")
 # NOTE: AgentCore Runtime は各セッションを独立した microVM で実行するため、
 # 並行リクエストによる競合状態（race condition）は発生しない。
 # スレッドロックは不要。
-_consultation_agents: dict[str, Any] = {}
-_bet_proposal_agent = None
+_agent = None
 
 
-def _create_agent(system_prompt: str, tools: list | None = None) -> Any:
+def _create_agent(system_prompt: str, tools: list) -> Any:
     """指定されたシステムプロンプトとツールでエージェントを作成する."""
     from strands import Agent
     from strands.models import BedrockModel
-
-    if tools is None:
-        from tool_router import get_tools_for_category
-        tools = get_tools_for_category("full_analysis")
 
     bedrock_model = BedrockModel(
         model_id=os.environ.get("BEDROCK_MODEL_ID", "jp.anthropic.claude-haiku-4-5-20251001-v1:0"),
@@ -66,55 +61,15 @@ def _create_agent(system_prompt: str, tools: list | None = None) -> Any:
     return agent
 
 
-def _get_agent(
-    request_type: str | None = None,
-    character_type: str | None = None,
-    category: str | None = None,
-    agent_data: dict | None = None,
-) -> Any:
+def _get_agent() -> Any:
     """エージェントを遅延初期化して取得する."""
-    global _consultation_agents, _bet_proposal_agent
-
-    if request_type == "bet_proposal":
-        if _bet_proposal_agent is None:
-            logger.info("Lazy initializing bet_proposal agent...")
-            from prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
-            from tool_router import get_tools_for_category
-            ev_tools = get_tools_for_category("ev_proposal")
-            _bet_proposal_agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT, tools=ev_tools)
-        return _bet_proposal_agent
-
-    from tool_router import get_tools_for_category
-
-    resolved_category = category or "full_analysis"
-
-    # エージェントデータがある場合はエージェント固有プロンプトを使用
-    if agent_data:
-        agent_name = agent_data.get("name", "agent")
-        agent_style = agent_data.get("base_style", "data")
-        cache_key = f"agent:{agent_name}:{agent_style}:{resolved_category}"
-
-        if cache_key not in _consultation_agents:
-            logger.info(f"Lazy initializing agent-raising agent: {agent_name} ({agent_style}), category: {resolved_category}")
-            from prompts.consultation import get_agent_system_prompt
-            system_prompt = get_agent_system_prompt(agent_data)
-            tools = get_tools_for_category(resolved_category)
-            _consultation_agents[cache_key] = _create_agent(system_prompt, tools=tools)
-        return _consultation_agents[cache_key]
-
-    # フォールバック: 従来のキャラクタータイプベースのプロンプト
-    from prompts.characters import CHARACTER_PROMPTS, DEFAULT_CHARACTER
-
-    char_key = character_type if character_type in CHARACTER_PROMPTS else DEFAULT_CHARACTER
-    cache_key = f"{char_key}:{resolved_category}"
-
-    if cache_key not in _consultation_agents:
-        logger.info(f"Lazy initializing consultation agent for character: {char_key}, category: {resolved_category}")
-        from prompts.consultation import get_system_prompt
-        system_prompt = get_system_prompt(char_key)
-        tools = get_tools_for_category(resolved_category)
-        _consultation_agents[cache_key] = _create_agent(system_prompt, tools=tools)
-    return _consultation_agents[cache_key]
+    global _agent
+    if _agent is None:
+        logger.info("Lazy initializing agent...")
+        from prompts.bet_proposal import BET_PROPOSAL_SYSTEM_PROMPT
+        from tool_router import get_tools
+        _agent = _create_agent(BET_PROPOSAL_SYSTEM_PROMPT, tools=get_tools())
+    return _agent
 
 
 @app.entrypoint
@@ -130,22 +85,15 @@ def invoke(payload: dict, context: Any) -> dict:
         "cart_items": [...],  # オプション: カート内容
         "runners_data": [...],  # オプション: 出走馬データ
         "session_id": "...",  # オプション: セッションID
-        "type": "bet_proposal",  # オプション: "bet_proposal" で買い目提案専用プロンプトを使用
-        "character_type": "analyst",  # オプション: AIキャラクター（analyst/intuition/conservative/aggressive）
-        "agent_data": {  # オプション: エージェント育成データ（character_typeより優先）
+        "agent_data": {  # オプション: エージェント育成データ
             "name": "エージェント名",
-            "base_style": "solid/longshot/data/pace",
-            "stats": {"data_analysis": 40, "pace_reading": 30, "risk_management": 50, "intuition": 20},
-            "performance": {"total_bets": 0, "wins": 0, "total_invested": 0, "total_return": 0},
-            "level": 1
+            "betting_preference": {...}
         }
     }
     """
     user_message = payload.get("prompt", "")
     cart_items = payload.get("cart_items", [])
     runners_data = payload.get("runners_data", [])
-    request_type = payload.get("type")
-    character_type = payload.get("character_type")
     agent_data = payload.get("agent_data")
 
     # 好み設定をev_proposerツールに注入（preferred_bet_typesの解決に使用）
@@ -165,9 +113,6 @@ def invoke(payload: dict, context: Any) -> dict:
     if not user_message and cart_items:
         user_message = "カートの買い目についてAI指数と照らし合わせて分析し、リスクや弱点を指摘してください。"
 
-    # 質問カテゴリ分類用に生のプロンプトを保持（成績/カート/出走馬データの装飾前）
-    raw_prompt = user_message
-
     # ユーザー成績コンテキストを追加
     betting_summary = payload.get("betting_summary")
     if betting_summary:
@@ -184,21 +129,8 @@ def invoke(payload: dict, context: Any) -> dict:
         runners_summary = _format_runners_summary(runners_data)
         user_message = f"【出走馬データ】\n{runners_summary}\n\n{user_message}"
 
-    # 質問カテゴリを分類（装飾前の生のプロンプトで分類）
-    from tool_router import classify_question, CATEGORY_INSTRUCTIONS
-    category = classify_question(
-        raw_prompt, has_cart=bool(cart_items), has_runners=bool(runners_data),
-    )
-    logger.info(f"Question category: {category}")
-
-    # カテゴリ別のプロンプト補助指示を前置き（bet_proposalは専用プロンプトがあるためスキップ）
-    if request_type != "bet_proposal":
-        category_instruction = CATEGORY_INSTRUCTIONS.get(category)
-        if category_instruction:
-            user_message = f"{category_instruction}\n\n{user_message}"
-
-    # エージェント実行（カテゴリ別ツール選択で遅延初期化）
-    agent = _get_agent(request_type, character_type, category=category, agent_data=agent_data)
+    # エージェント実行
+    agent = _get_agent()
     result = agent(user_message)
 
     # レスポンスからテキストを抽出
@@ -218,7 +150,6 @@ def invoke(payload: dict, context: Any) -> dict:
         "session_id": getattr(context, "session_id", None),
         "suggested_questions": suggested_questions,
         "bet_actions": bet_actions,
-        "question_category": category,
     }
 
 
