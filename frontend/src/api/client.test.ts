@@ -549,7 +549,6 @@ describe('ApiClient', () => {
           bet_type: 'win',
           horse_numbers: [1],
           amount: 100,
-          bet_method: 'normal',
         },
       ])
     })
@@ -590,7 +589,7 @@ describe('ApiClient', () => {
       expect(result.data?.status).toBe('PENDING')
     })
 
-    it('updatedAtが空文字のときcreatedAtにフォールバックする', async () => {
+    it('updatedAtが空文字のときそのまま空文字を返す', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ([{
@@ -608,7 +607,7 @@ describe('ApiClient', () => {
       const result = await client.getPurchaseHistory()
 
       expect(result.success).toBe(true)
-      expect(result.data?.[0].updatedAt).toBe('2026-02-07T10:00:00')
+      expect(result.data?.[0].updatedAt).toBe('')
     })
   })
 

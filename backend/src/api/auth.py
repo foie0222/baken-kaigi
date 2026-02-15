@@ -14,14 +14,10 @@ def get_authenticated_user_id(event: dict) -> UserId | None:
     Returns:
         ユーザーID（未認証の場合はNone）
     """
-    try:
-        claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-        sub = claims.get("sub")
-        if sub:
-            return UserId(sub)
-    except (AttributeError, TypeError):
-        # event構造が想定外の場合（値がdictでない等）は未認証として扱う
-        pass
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    sub = claims.get("sub")
+    if sub:
+        return UserId(sub)
     return None
 
 

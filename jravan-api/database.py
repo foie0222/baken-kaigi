@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 # PC-KEIBA Database 接続設定
 DB_CONFIG = {
-    "host": os.environ.get("PCKEIBA_HOST", "localhost"),
-    "port": int(os.environ.get("PCKEIBA_PORT", "5432")),
-    "database": os.environ.get("PCKEIBA_DATABASE", "postgres"),
-    "user": os.environ.get("PCKEIBA_USER", "postgres"),
+    "host": os.environ["PCKEIBA_HOST"],
+    "port": int(os.environ["PCKEIBA_PORT"]),
+    "database": os.environ["PCKEIBA_DATABASE"],
+    "user": os.environ["PCKEIBA_USER"],
 }
 
 # 競馬場コード → 名前のマッピング
@@ -80,12 +80,7 @@ GRADE_CODE_MAP = {"A": "G1", "B": "G2", "C": "G3", "D": "L", "E": "OP"}
 @contextmanager
 def get_db():
     """DB 接続のコンテキストマネージャー."""
-    password = os.environ.get("PCKEIBA_PASSWORD")
-    if password is None:
-        raise EnvironmentError(
-            "PCKEIBA_PASSWORD environment variable is required. "
-            "Please set it before running the application."
-        )
+    password = os.environ["PCKEIBA_PASSWORD"]
 
     conn = None
     try:

@@ -22,7 +22,7 @@ interface AgentCardProps {
 export function AgentCard({ agent }: AgentCardProps) {
   const navigate = useNavigate();
   const styleInfo = AGENT_STYLE_MAP[agent.base_style];
-  const levelTitle = LEVEL_TITLES[agent.level] || '駆け出し';
+  const levelTitle = LEVEL_TITLES[agent.level];
 
   return (
     <button
@@ -47,14 +47,14 @@ export function AgentCard({ agent }: AgentCardProps) {
         width: 48,
         height: 48,
         borderRadius: '50%',
-        background: `${styleInfo?.color || '#666'}15`,
+        background: `${styleInfo.color}15`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: 24,
         flexShrink: 0,
       }}>
-        {styleInfo?.icon || '\u{1F916}'}
+        {styleInfo.icon}
       </div>
 
       {/* 名前・レベル */}
@@ -66,12 +66,12 @@ export function AgentCard({ agent }: AgentCardProps) {
           <span style={{
             fontSize: 11,
             fontWeight: 600,
-            color: styleInfo?.color || '#666',
-            background: `${styleInfo?.color || '#666'}12`,
+            color: styleInfo.color,
+            background: `${styleInfo.color}12`,
             padding: '2px 8px',
             borderRadius: 10,
           }}>
-            {styleInfo?.label || agent.base_style}
+            {styleInfo.label}
           </span>
         </div>
         <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>

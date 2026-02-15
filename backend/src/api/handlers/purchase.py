@@ -395,10 +395,8 @@ def submit_purchase_handler(event: dict, context: Any) -> dict:
         )
 
     # フロントエンドから送信されたカートアイテムのバリデーションとDynamoDB同期
-    items = body.get("items")
-    if items is None:
-        items = []
-    elif not isinstance(items, list):
+    items = body.get("items", [])
+    if not isinstance(items, list):
         return bad_request_response("items must be a list", event=event)
 
     normalized_items: list[dict[str, Any]] = []

@@ -40,7 +40,7 @@ export function ProposalCard({ bet, onAddToCart, isAdded }: ProposalCardProps) {
         <div className="proposal-bet-display">{bet.bet_display}</div>
         <div className="proposal-details">
           <span className="proposal-detail-item">
-            {bet.bet_count ?? 1}点 / {(bet.amount ?? 0).toLocaleString()}円
+            {bet.bet_count}点 / {bet.amount.toLocaleString()}円
           </span>
           <span className="proposal-detail-item">
             推定オッズ: {isOddsConfirmed ? `${bet.composite_odds.toFixed(1)}倍` : '未確定'}

@@ -70,7 +70,7 @@ class DynamoDBAgentRepository(AgentRepository):
     @staticmethod
     def _from_dynamodb_item(item: dict) -> Agent:
         """DynamoDB アイテムから Agent を復元する."""
-        perf_data = item.get("performance", {})
+        perf_data = item["performance"]
 
         return Agent(
             agent_id=AgentId(item["agent_id"]),
@@ -78,10 +78,10 @@ class DynamoDBAgentRepository(AgentRepository):
             name=AgentName(item["name"]),
             base_style=AgentStyle(item["base_style"]),
             performance=AgentPerformance(
-                total_bets=int(perf_data.get("total_bets", 0)),
-                wins=int(perf_data.get("wins", 0)),
-                total_invested=int(perf_data.get("total_invested", 0)),
-                total_return=int(perf_data.get("total_return", 0)),
+                total_bets=int(perf_data["total_bets"]),
+                wins=int(perf_data["wins"]),
+                total_invested=int(perf_data["total_invested"]),
+                total_return=int(perf_data["total_return"]),
             ),
             betting_preference=BettingPreference.from_dict(item.get("betting_preference")),
             custom_instructions=item.get("custom_instructions"),

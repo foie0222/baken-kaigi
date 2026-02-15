@@ -85,7 +85,7 @@ class DynamoDBPurchaseOrderRepository(PurchaseOrderRepository):
                 number=line["number"],
                 amount=int(line["amount"]),
             )
-            for line in item.get("bet_lines", [])
+            for line in item["bet_lines"]
         ]
 
         return PurchaseOrder(

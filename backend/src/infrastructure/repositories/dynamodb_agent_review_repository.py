@@ -77,7 +77,7 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
     @staticmethod
     def _from_dynamodb_item(item: dict) -> AgentReview:
         """DynamoDB アイテムから AgentReview を復元する."""
-        bet_results_raw = item.get("bet_results", "[]")
+        bet_results_raw = item["bet_results"]
         if isinstance(bet_results_raw, str):
             bet_results_data = json.loads(bet_results_raw)
         else:
@@ -94,7 +94,7 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
             for r in bet_results_data
         ]
 
-        stats_change = item.get("stats_change", {})
+        stats_change = item["stats_change"]
         stats_change = {k: int(v) for k, v in stats_change.items()}
 
         return AgentReview(
@@ -107,7 +107,7 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
             total_invested=int(item["total_invested"]),
             total_return=int(item["total_return"]),
             review_text=item["review_text"],
-            learnings=item.get("learnings", []),
+            learnings=item["learnings"],
             stats_change=stats_change,
             created_at=datetime.fromisoformat(item["created_at"]),
         )
