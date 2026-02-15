@@ -8,7 +8,6 @@ from src.application.use_cases import (
     GetAgentUseCase,
     UpdateAgentUseCase,
 )
-from src.domain.enums import AgentStyle
 from src.domain.value_objects import BettingPreference
 from src.infrastructure.repositories.in_memory_agent_repository import InMemoryAgentRepository
 
@@ -22,40 +21,25 @@ class TestCreateAgentUseCase:
     def test_エージェントを作成できる(self):
         repo = self._make_repository()
         use_case = CreateAgentUseCase(repo)
-        result = use_case.execute("usr_001", "ハヤテ", "solid")
+        result = use_case.execute("usr_001", "ハヤテ")
 
         assert result.agent.name.value == "ハヤテ"
-        assert result.agent.base_style == AgentStyle.SOLID
-        assert result.agent.performance.total_bets == 0
-        assert result.agent.level == 1
+        assert result.agent.betting_preference == BettingPreference.default()
         assert result.agent.agent_id.value.startswith("agt_")
-
-    def test_各スタイルでエージェントを作成できる(self):
-        for i, style in enumerate(["solid", "longshot", "data", "pace"]):
-            repo = self._make_repository()
-            use_case = CreateAgentUseCase(repo)
-            result = use_case.execute(f"usr_{i}", "テスト", style)
-            assert result.agent.base_style.value == style
 
     def test_同一ユーザーで2体目はエラー(self):
         repo = self._make_repository()
         use_case = CreateAgentUseCase(repo)
-        use_case.execute("usr_001", "ハヤテ", "solid")
+        use_case.execute("usr_001", "ハヤテ")
 
         with pytest.raises(AgentAlreadyExistsError):
-            use_case.execute("usr_001", "シンプウ", "data")
-
-    def test_不正なスタイルはエラー(self):
-        repo = self._make_repository()
-        use_case = CreateAgentUseCase(repo)
-        with pytest.raises(ValueError):
-            use_case.execute("usr_001", "ハヤテ", "invalid_style")
+            use_case.execute("usr_001", "シンプウ")
 
     def test_空の名前はエラー(self):
         repo = self._make_repository()
         use_case = CreateAgentUseCase(repo)
         with pytest.raises(ValueError):
-            use_case.execute("usr_001", "", "solid")
+            use_case.execute("usr_001", "")
 
 
 class TestGetAgentUseCase:
@@ -64,13 +48,12 @@ class TestGetAgentUseCase:
     def test_エージェントを取得できる(self):
         repo = InMemoryAgentRepository()
         create_uc = CreateAgentUseCase(repo)
-        create_uc.execute("usr_001", "ハヤテ", "data")
+        create_uc.execute("usr_001", "ハヤテ")
 
         get_uc = GetAgentUseCase(repo)
         result = get_uc.execute("usr_001")
 
         assert result.agent.name.value == "ハヤテ"
-        assert result.agent.base_style == AgentStyle.DATA
 
     def test_存在しないユーザーはエラー(self):
         repo = InMemoryAgentRepository()
@@ -83,31 +66,12 @@ class TestGetAgentUseCase:
 class TestUpdateAgentUseCase:
     """エージェント更新ユースケースのテスト."""
 
-    def test_スタイルを更新できる(self):
-        repo = InMemoryAgentRepository()
-        create_uc = CreateAgentUseCase(repo)
-        create_uc.execute("usr_001", "ハヤテ", "solid")
-
-        update_uc = UpdateAgentUseCase(repo)
-        result = update_uc.execute("usr_001", base_style="data")
-
-        assert result.agent.base_style == AgentStyle.DATA
-
     def test_存在しないユーザーはエラー(self):
         repo = InMemoryAgentRepository()
         update_uc = UpdateAgentUseCase(repo)
 
         with pytest.raises(AgentNotFoundError):
-            update_uc.execute("usr_nonexistent", base_style="data")
-
-    def test_不正なスタイルはエラー(self):
-        repo = InMemoryAgentRepository()
-        create_uc = CreateAgentUseCase(repo)
-        create_uc.execute("usr_001", "ハヤテ", "solid")
-
-        update_uc = UpdateAgentUseCase(repo)
-        with pytest.raises(ValueError):
-            update_uc.execute("usr_001", base_style="invalid")
+            update_uc.execute("usr_nonexistent")
 
 
 class TestUpdateAgentPreferenceUseCase:
@@ -115,7 +79,7 @@ class TestUpdateAgentPreferenceUseCase:
 
     def test_好み設定を更新できる(self):
         repo = InMemoryAgentRepository()
-        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ", "solid")
+        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ")
         uc = UpdateAgentUseCase(repo)
 
         result = uc.execute(
@@ -128,9 +92,9 @@ class TestUpdateAgentPreferenceUseCase:
         assert result.agent.betting_preference.bet_type_preference.value == "trio_focused"
         assert result.agent.custom_instructions == "三連単が好き"
 
-    def test_好み設定のみ更新でbase_styleは変わらない(self):
+    def test_好み設定のみ更新できる(self):
         repo = InMemoryAgentRepository()
-        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ", "solid")
+        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ")
         uc = UpdateAgentUseCase(repo)
 
         result = uc.execute(
@@ -139,20 +103,4 @@ class TestUpdateAgentPreferenceUseCase:
                 "bet_type_preference": "wide_focused",
             },
         )
-        assert result.agent.base_style == AgentStyle.SOLID
         assert result.agent.betting_preference.bet_type_preference.value == "wide_focused"
-
-    def test_base_styleと好み設定を同時に更新できる(self):
-        repo = InMemoryAgentRepository()
-        CreateAgentUseCase(repo).execute("usr_001", "ハヤテ", "solid")
-        uc = UpdateAgentUseCase(repo)
-
-        result = uc.execute(
-            "usr_001",
-            base_style="longshot",
-            betting_preference={
-                "bet_type_preference": "exacta_focused",
-            },
-        )
-        assert result.agent.base_style == AgentStyle.LONGSHOT
-        assert result.agent.betting_preference.bet_type_preference.value == "exacta_focused"
