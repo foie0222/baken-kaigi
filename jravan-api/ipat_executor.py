@@ -52,7 +52,8 @@ class IpatExecutor:
             if result.returncode == 0:
                 return {"success": True}
             else:
-                return {"success": False, "message": result.stdout}
+                message = result.stdout.strip() or result.stderr.strip() or f"ipatgo.exe exited with code {result.returncode}"
+                return {"success": False, "message": message}
         except subprocess.TimeoutExpired:
             return {"success": False, "message": "ipatgo.exe timed out"}
         finally:
@@ -74,7 +75,8 @@ class IpatExecutor:
             return {"success": False, "message": "ipatgo.exe timed out"}
 
         if result.returncode != 0:
-            return {"success": False, "message": result.stdout}
+            message = result.stdout.strip() or result.stderr.strip() or f"ipatgo.exe exited with code {result.returncode}"
+            return {"success": False, "message": message}
 
         data = self._parse_stat_ini()
         return {"success": True, **data}

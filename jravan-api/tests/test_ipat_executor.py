@@ -195,6 +195,76 @@ limit_vote_amount=100000
 
         assert result["success"] is False
 
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
+    @patch("subprocess.run")
+    def test_vote失敗時にstdoutが空ならstderrを返す(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
+        """ipatgo.exe失敗時にstdoutが空ならstderrをメッセージとして返す."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="IPAT session expired")
+
+        bet_lines = [
+            {
+                "opdt": "20260201",
+                "rcoursecd": "05",
+                "rno": "11",
+                "denomination": "tansyo",
+                "method": "NORMAL",
+                "multi": "",
+                "number": "03",
+                "bet_price": "100",
+            },
+        ]
+
+        result = self.executor.vote("ABcd1234", "12345678", "1234", "5678", bet_lines)
+
+        assert result["success"] is False
+        assert result["message"] == "IPAT session expired"
+
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
+    @patch("subprocess.run")
+    def test_vote失敗時にstdoutもstderrも空ならexit_codeを返す(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
+        """ipatgo.exe失敗時に両方空ならexit codeをメッセージとして返す."""
+        mock_run.return_value = MagicMock(returncode=2, stdout="", stderr="")
+
+        bet_lines = [
+            {
+                "opdt": "20260201",
+                "rcoursecd": "05",
+                "rno": "11",
+                "denomination": "tansyo",
+                "method": "NORMAL",
+                "multi": "",
+                "number": "03",
+                "bet_price": "100",
+            },
+        ]
+
+        result = self.executor.vote("ABcd1234", "12345678", "1234", "5678", bet_lines)
+
+        assert result["success"] is False
+        assert result["message"] == "ipatgo.exe exited with code 2"
+
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
+    @patch("subprocess.run")
+    def test_stat失敗時にstdoutが空ならstderrを返す(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
+        """stat失敗時にstdoutが空ならstderrをメッセージとして返す."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Connection refused")
+
+        result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
+
+        assert result["success"] is False
+        assert result["message"] == "Connection refused"
+
+    @patch("ipat_executor.IpatExecutor._check_ipatgo", return_value=None)
+    @patch("subprocess.run")
+    def test_stat失敗時にstdoutもstderrも空ならexit_codeを返す(self, mock_run: MagicMock, _mock_check: MagicMock) -> None:
+        """stat失敗時に両方空ならexit codeをメッセージとして返す."""
+        mock_run.return_value = MagicMock(returncode=3, stdout="", stderr="")
+
+        result = self.executor.stat("ABcd1234", "12345678", "1234", "5678")
+
+        assert result["success"] is False
+        assert result["message"] == "ipatgo.exe exited with code 3"
+
     def test_parse_stat_iniで正しくパースされる(self) -> None:
         """_parse_stat_iniでstat.iniが正しくパースされることを確認."""
         ini_content = """[stat]

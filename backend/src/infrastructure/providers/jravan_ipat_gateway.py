@@ -91,7 +91,7 @@ class JraVanIpatGateway(IpatGateway):
             data = response.json()
             if not data.get("success", False):
                 raise IpatGatewayError(
-                    f"Failed to get balance: {data.get('message', 'Unknown error')}"
+                    f"Failed to get balance: {data.get('message') or 'Unknown error'}"
                 )
             return IpatBalance(
                 bet_dedicated_balance=data["bet_dedicated_balance"],

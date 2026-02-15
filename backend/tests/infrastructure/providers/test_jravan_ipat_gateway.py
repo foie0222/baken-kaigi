@@ -241,6 +241,40 @@ class TestJraVanIpatGateway(unittest.TestCase):
         assert payload["bet_lines"][0]["rno"] == "11"
 
     @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_残高取得_空メッセージでUnknown_errorにフォールバック(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """success:falseでmessageが空文字の場合、'Unknown error'にフォールバックする."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"success": False, "message": ""}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        with self.assertRaises(IpatGatewayError) as cm:
+            self.gateway.get_balance(self.credentials)
+        assert "Unknown error" in str(cm.exception)
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
+    def test_残高取得_messageキーなしでUnknown_errorにフォールバック(
+        self, mock_session_cls: MagicMock
+    ) -> None:
+        """success:falseでmessageキーがない場合も'Unknown error'にフォールバックする."""
+        mock_session = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"success": False}
+        mock_session.post.return_value = mock_response
+        mock_session_cls.return_value = mock_session
+        self.gateway._session = mock_session
+
+        with self.assertRaises(IpatGatewayError) as cm:
+            self.gateway.get_balance(self.credentials)
+        assert "Unknown error" in str(cm.exception)
+
+    @patch("src.infrastructure.providers.jravan_ipat_gateway.requests.Session")
     def test_HTTPエラーで例外(self, mock_session_cls: MagicMock) -> None:
         import requests
 
