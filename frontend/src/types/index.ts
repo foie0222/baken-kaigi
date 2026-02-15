@@ -233,25 +233,51 @@ export const BetTypeRequiredHorses: Record<BetType, number> = {
   trifecta: 3,
 };
 
-// 券種 → APIオッズ名マッピング
-// バックエンドでは wide を正準名として使用するため、quinella_place を wide にマッピング
-export const BetTypeToApiName: Record<BetType, string> = {
-  win: 'win',
-  place: 'place',
-  quinella: 'quinella',
-  quinella_place: 'wide',
-  exacta: 'exacta',
-  trio: 'trio',
-  trifecta: 'trifecta',
-};
+// 全券種オッズAPIレスポンス
+export interface AllOddsResponse {
+  race_id: string;
+  win: Record<string, number>;
+  place: Record<string, { min: number; max: number }>;
+  quinella: Record<string, number>;
+  quinella_place: Record<string, number>;
+  exacta: Record<string, number>;
+  trio: Record<string, number>;
+  trifecta: Record<string, number>;
+}
 
-// オッズ取得APIレスポンス
-export interface BetOddsResponse {
-  bet_type: string;
-  horse_numbers: number[];
-  odds: number | null;
-  odds_min: number | null;
-  odds_max: number | null;
+// 昇順ソートする券種（着順を問わない）
+const SORTED_BET_TYPES = new Set(['quinella', 'quinella_place', 'trio']);
+
+/**
+ * AllOddsResponseから指定した買い目のオッズを抽出する.
+ */
+export function extractOdds(
+  allOdds: AllOddsResponse,
+  betType: BetType,
+  horseNumbers: number[],
+): { odds?: number; oddsMin?: number; oddsMax?: number } {
+  if (betType === 'place') {
+    const key = String(horseNumbers[0]);
+    const entry = allOdds.place[key];
+    if (!entry) return {};
+    return { oddsMin: entry.min, oddsMax: entry.max };
+  }
+
+  // 単勝は馬番のみ、馬連/ワイド/三連複は昇順、馬単/三連単は着順のまま
+  let key: string;
+  if (horseNumbers.length === 1) {
+    key = String(horseNumbers[0]);
+  } else if (SORTED_BET_TYPES.has(betType)) {
+    key = [...horseNumbers].sort((a, b) => a - b).join('-');
+  } else {
+    key = horseNumbers.join('-');
+  }
+
+  const oddsMap = allOdds[betType] as Record<string, number>;
+  if (!oddsMap) return {};
+
+  const odds = oddsMap[key];
+  return odds != null ? { odds } : {};
 }
 
 // 券種が着順を考慮するかどうか

@@ -611,65 +611,54 @@ describe('ApiClient', () => {
     })
   })
 
-  describe('getBetOdds', () => {
-    it('オッズを正常に取得できる', async () => {
+  describe('getAllOdds', () => {
+    it('全券種オッズを正常に取得できる', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ odds: 15.3 }),
+        json: async () => ({
+          race_id: 'race_001',
+          win: { '1': 3.5 },
+          place: { '1': { min: 1.2, max: 1.5 } },
+          quinella: {},
+          quinella_place: {},
+          exacta: {},
+          trio: {},
+          trifecta: {},
+        }),
       })
 
       const client = await getApiClient()
-      const result = await client.getBetOdds('race_001', 'quinella', [1, 2])
+      const result = await client.getAllOdds('race_001')
 
       expect(result.success).toBe(true)
-      expect(result.data?.odds).toBe(15.3)
+      expect(result.data?.win['1']).toBe(3.5)
+      expect(result.data?.place['1'].min).toBe(1.2)
     })
 
-    it('馬番が空の場合エラーを返す', async () => {
-      const client = await getApiClient()
-      const result = await client.getBetOdds('race_001', 'win', [])
-
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('Horse numbers must not be empty')
-    })
-
-    it('APIエラー時にエラーを返す', async () => {
+    it('APIエラー時はエラーを返す', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
-        json: async () => ({ error: 'Race not found' }),
+        json: async () => ({ message: 'Not found' }),
       })
 
       const client = await getApiClient()
-      const result = await client.getBetOdds('invalid_race', 'win', [1])
+      const result = await client.getAllOdds('invalid_race')
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Race not found')
     })
 
-    it('ネットワークエラー時にエラーを返す', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network Error'))
-
-      const client = await getApiClient()
-      const result = await client.getBetOdds('race_001', 'win', [1])
-
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('Network Error')
-    })
-
-    it('URLパラメータが正しくエンコードされる', async () => {
+    it('race_idがURLエンコードされる', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ odds: 5.2 }),
+        json: async () => ({ race_id: 'race/001', win: {}, place: {}, quinella: {}, quinella_place: {}, exacta: {}, trio: {}, trifecta: {} }),
       })
 
       const client = await getApiClient()
-      await client.getBetOdds('race/001', 'trifecta', [3, 5, 7])
+      await client.getAllOdds('race/001')
 
       const calledUrl = mockFetch.mock.calls[0][0]
       expect(calledUrl).toContain('race%2F001')
-      expect(calledUrl).toContain('bet_type=trifecta')
-      expect(calledUrl).toContain('horses=3%2C5%2C7')
     })
   })
 
@@ -801,5 +790,41 @@ describe('ApiClient', () => {
 
       expect(result.success).toBe(false)
     })
+  })
+})
+
+// extractOdds のユニットテスト
+import { extractOdds, type AllOddsResponse } from '../types'
+
+describe('extractOdds', () => {
+  const allOdds: AllOddsResponse = {
+    race_id: 'test',
+    win: { '1': 3.5, '2': 12.0 },
+    place: { '1': { min: 1.2, max: 1.5 } },
+    quinella: { '1-2': 64.8 },
+    quinella_place: { '1-2': 10.5 },
+    exacta: { '1-2': 128.5 },
+    trio: { '1-2-3': 341.9 },
+    trifecta: { '1-2-3': 2048.3 },
+  }
+
+  it('単勝オッズを抽出できる', () => {
+    expect(extractOdds(allOdds, 'win', [1])).toEqual({ odds: 3.5 })
+  })
+
+  it('複勝オッズを抽出できる', () => {
+    expect(extractOdds(allOdds, 'place', [1])).toEqual({ oddsMin: 1.2, oddsMax: 1.5 })
+  })
+
+  it('馬連オッズを昇順キーで抽出できる', () => {
+    expect(extractOdds(allOdds, 'quinella', [2, 1])).toEqual({ odds: 64.8 })
+  })
+
+  it('馬単オッズを着順キーで抽出できる', () => {
+    expect(extractOdds(allOdds, 'exacta', [1, 2])).toEqual({ odds: 128.5 })
+  })
+
+  it('存在しないキーは空を返す', () => {
+    expect(extractOdds(allOdds, 'win', [99])).toEqual({})
   })
 })

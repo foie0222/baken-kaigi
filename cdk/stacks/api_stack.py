@@ -820,17 +820,17 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
-        # 買い目オッズAPI
-        get_bet_odds_fn = lambda_.Function(
+        # 全券種オッズAPI
+        get_all_odds_fn = lambda_.Function(
             self,
-            "GetBetOddsFunction",
-            handler="src.api.handlers.races.get_bet_odds",
+            "GetAllOddsFunction",
+            handler="src.api.handlers.races.get_all_odds",
             code=lambda_.Code.from_asset(
                 str(project_root / "backend"),
                 exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
             ),
-            function_name="baken-kaigi-get-bet-odds",
-            description="買い目オッズ取得",
+            function_name="baken-kaigi-get-all-odds",
+            description="全券種オッズ一括取得",
             **lambda_common_props,
         )
 
@@ -1304,10 +1304,10 @@ class BakenKaigiApiStack(Stack):
             "GET", apigw.LambdaIntegration(get_race_results_fn), api_key_required=True
         )
 
-        # /races/{race_id}/bet-odds
-        race_bet_odds = race.add_resource("bet-odds")
-        race_bet_odds.add_method(
-            "GET", apigw.LambdaIntegration(get_bet_odds_fn), api_key_required=True
+        # /races/{race_id}/odds
+        race_odds = race.add_resource("odds")
+        race_odds.add_method(
+            "GET", apigw.LambdaIntegration(get_all_odds_fn), api_key_required=True
         )
 
         # /horses

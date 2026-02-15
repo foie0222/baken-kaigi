@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from src.domain.identifiers import RaceId
 from src.domain.ports import (
     AncestorData,
-    BetOddsData,
+    AllOddsData,
     AptitudeSummaryData,
     ConditionAptitudeData,
     CourseAptitudeData,
@@ -1568,6 +1568,6 @@ class MockRaceDataProvider(RaceDataProvider):
         """生産者成績統計を取得する（モック実装）."""
         return None
 
-    def get_bet_odds(self, race_id: RaceId, bet_type: str, horse_numbers: list[int]) -> BetOddsData | None:
-        """指定した買い目のオッズを取得する（モック実装）."""
+    def get_all_odds(self, race_id: RaceId) -> AllOddsData | None:
+        """全券種のオッズを一括取得する（モック実装）."""
         return None

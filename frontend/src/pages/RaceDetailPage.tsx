@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { useCartStore } from '../stores/cartStore';
 import type { RaceDetail, BetType, BetMethod, ColumnSelections } from '../types';
-import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered, BetTypeToApiName, getVenueName } from '../types';
+import { BetTypeLabels, BetTypeRequiredHorses, BetTypeOrdered, extractOdds, getVenueName } from '../types';
 import { apiClient } from '../api/client';
 import { toJapaneseError } from '../stores/purchaseStore';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
@@ -135,12 +135,12 @@ export function RaceDetailPage() {
     let oddsMin: number | undefined;
     let oddsMax: number | undefined;
     try {
-      const apiName = BetTypeToApiName[betType];
-      const oddsResult = await apiClient.getBetOdds(race.id, apiName, horseNumbersDisplay);
+      const oddsResult = await apiClient.getAllOdds(race.id);
       if (oddsResult.success && oddsResult.data) {
-        odds = oddsResult.data.odds ?? undefined;
-        oddsMin = oddsResult.data.odds_min ?? undefined;
-        oddsMax = oddsResult.data.odds_max ?? undefined;
+        const extracted = extractOdds(oddsResult.data, betType, horseNumbersDisplay);
+        odds = extracted.odds;
+        oddsMin = extracted.oddsMin;
+        oddsMax = extracted.oddsMax;
       }
     } catch (error: unknown) {
       console.warn('Failed to fetch odds when adding item to cart:', error);
