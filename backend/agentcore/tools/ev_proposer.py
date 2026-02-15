@@ -60,19 +60,17 @@ def _resolve_bet_types(betting_preference: dict | None) -> list[str]:
 
 def _resolve_ev_filter(
     betting_preference: dict | None,
-) -> tuple[float, float, float, float]:
+) -> tuple[float, float]:
     """好み設定から確率/EVフィルター値を解決する.
 
     Returns:
-        (min_probability, max_probability, min_ev, max_ev)
+        (min_probability, min_ev)
     """
     if not betting_preference:
-        return (0.01, 0.50, 1.0, 10.0)
+        return (0.0, 0.0)
     return (
-        float(betting_preference.get("min_probability", 0.01)),
-        float(betting_preference.get("max_probability", 0.50)),
-        float(betting_preference.get("min_ev", 1.0)),
-        float(betting_preference.get("max_ev", 10.0)),
+        float(betting_preference.get("min_probability", 0.0)),
+        float(betting_preference.get("min_ev", 0.0)),
     )
 
 
@@ -260,10 +258,10 @@ def _generate_ev_candidates(
     bet_types: list[str],
     total_runners: int,
     all_odds: dict,
-    ev_filter: tuple[float, float, float, float] | None = None,
+    ev_filter: tuple[float, float] | None = None,
 ) -> list[dict]:
     """全組合せのEVを計算し、フィルター条件を満たすものを返す."""
-    min_prob_filter, max_prob_filter, min_ev_filter, max_ev_filter = ev_filter or (0.01, 0.50, 1.0, 10.0)
+    min_prob_filter, min_ev_filter = ev_filter or (0.0, 0.0)
 
     eligible = sorted(
         [hn for hn, p in win_probs.items() if p >= min_prob_filter],
@@ -282,7 +280,7 @@ def _generate_ev_candidates(
                 )
                 real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
                 ev = prob * real_odds if real_odds > 0 else 0.0
-                if min_ev_filter <= ev <= max_ev_filter and min_prob_filter <= prob <= max_prob_filter:
+                if ev >= min_ev_filter and prob >= min_prob_filter:
                     candidates.append(_build_candidate(
                         horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
@@ -297,7 +295,7 @@ def _generate_ev_candidates(
                 )
                 real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
                 ev = prob * real_odds if real_odds > 0 else 0.0
-                if min_ev_filter <= ev <= max_ev_filter and min_prob_filter <= prob <= max_prob_filter:
+                if ev >= min_ev_filter and prob >= min_prob_filter:
                     candidates.append(_build_candidate(
                         horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
@@ -312,7 +310,7 @@ def _generate_ev_candidates(
                 )
                 real_odds = _lookup_real_odds(horse_numbers, bet_type, all_odds)
                 ev = prob * real_odds if real_odds > 0 else 0.0
-                if min_ev_filter <= ev <= max_ev_filter and min_prob_filter <= prob <= max_prob_filter:
+                if ev >= min_ev_filter and prob >= min_prob_filter:
                     candidates.append(_build_candidate(
                         horse_numbers, bet_type, prob, real_odds, ev, runners_map,
                     ))
@@ -418,7 +416,7 @@ def _propose_bets_impl(
         "total_amount": total_amount,
         "budget_remaining": max(0, budget_remaining),
         "analysis_comment": analysis_comment,
-        "proposal_reasoning": f"確率{ev_filter[0]*100:.0f}%-{ev_filter[1]*100:.0f}%・EV{ev_filter[2]:.1f}-{ev_filter[3]:.1f}の範囲で{len(bets)}点選定",
+        "proposal_reasoning": f"確率{ev_filter[0]*100:.0f}%以上・EV{ev_filter[1]:.1f}以上で{len(bets)}点選定",
         "disclaimer": "この提案はデータ分析に基づくものであり、的中を保証するものではありません。",
     }
 
