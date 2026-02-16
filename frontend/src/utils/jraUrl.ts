@@ -29,7 +29,7 @@ export function buildJraShutsubaUrl(race: RaceForJraUrl): string | null {
   }
 
   // race.id から日付を取得（形式: YYYYMMDDXXRR、12桁数字）
-  if (!/^\d{8}/.test(race.id)) {
+  if (!/^\d{12}$/.test(race.id)) {
     return null;
   }
   const datePart = race.id.substring(0, 8); // "20260124"
