@@ -251,6 +251,7 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
 # DynamoDB リソース（コネクション再利用）
 _dynamodb_resource = None
 _AGENT_TABLE_NAME = os.environ.get("AGENT_TABLE_NAME", "baken-kaigi-agent")
+_AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
 
 
 def _fetch_agent_data(user_id: str) -> dict | None:
@@ -272,7 +273,7 @@ def _fetch_agent_data(user_id: str) -> dict | None:
 
     global _dynamodb_resource
     if _dynamodb_resource is None:
-        _dynamodb_resource = boto3.resource("dynamodb")
+        _dynamodb_resource = boto3.resource("dynamodb", region_name=_AWS_REGION)
     table = _dynamodb_resource.Table(_AGENT_TABLE_NAME)
 
     try:
