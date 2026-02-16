@@ -29,7 +29,6 @@ BET_PROPOSAL_SYSTEM_PROMPT = """あなたは競馬の買い目提案を生成す
   - 馬番（number）も考慮する。外枠の逃げ馬がいる場合は先行争いが激化しやすい
   - 距離（distance）や競馬場（venue）も加味する
 - スピード指数（speed_index）が突出している馬の確率を上げる
-- 近走成績（recent_form）が良い馬の確率を上げる
 - `consensus` の `consensus_level` が「大きな乖離」の場合は大きく調整しない
 - **合計が1.0になるように正規化すること**
 

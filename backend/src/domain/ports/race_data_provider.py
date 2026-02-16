@@ -44,19 +44,6 @@ class RunnerData:
 
 
 @dataclass(frozen=True)
-class PerformanceData:
-    """過去成績データ."""
-
-    race_date: datetime
-    race_name: str
-    venue: str
-    finish_position: int
-    distance: int
-    track_condition: str
-    time: str
-
-
-@dataclass(frozen=True)
 class JockeyStatsData:
     """騎手のコース成績データ."""
 
@@ -505,11 +492,6 @@ class RaceDataProvider(ABC):
     @abstractmethod
     def get_runners(self, race_id: RaceId) -> list[RunnerData]:
         """出走馬情報を取得する."""
-        pass
-
-    @abstractmethod
-    def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
-        """馬の過去成績を取得する."""
         pass
 
     @abstractmethod

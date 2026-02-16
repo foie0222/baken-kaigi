@@ -52,7 +52,6 @@ def get_last_proposal_result() -> dict | None:
 WEIGHT_AI_SCORE = 0.5
 WEIGHT_ODDS_GAP = 0.3
 WEIGHT_SPEED_INDEX = 0.20
-WEIGHT_FORM = 0.15
 
 # 券種選定: 難易度と券種のマッピング
 DIFFICULTY_BET_TYPES = {
@@ -165,16 +164,9 @@ BET_TYPE_ODDS_MULTIPLIER = {
     "trifecta": 4.0,         # 三連単: ∛(o1*o2*o3) * 4.0（着順指定で非常に高い）
 }
 
-# 着順→スコアのマッピング（近走フォーム用）
-FINISH_POSITION_SCORES = {1: 100, 2: 85, 3: 70, 4: 55, 5: 45}
-# 6-9着=30, 10着以降=15 は _finish_position_to_score で処理
-
-# 近走重み（最新=5, 2走前=4, ... 5走前=1）
-FORM_RECENCY_WEIGHTS = [5, 4, 3, 2, 1]
-
 _DEFAULT_CONFIG = {
     "weight_ai_score": WEIGHT_AI_SCORE, "weight_odds_gap": WEIGHT_ODDS_GAP,
-    "weight_speed_index": WEIGHT_SPEED_INDEX, "weight_form": WEIGHT_FORM,
+    "weight_speed_index": WEIGHT_SPEED_INDEX,
     "allocation_high": ALLOCATION_HIGH, "allocation_medium": ALLOCATION_MEDIUM,
     "allocation_low": ALLOCATION_LOW,
     "max_bets": MAX_BETS, "torigami_threshold": TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
@@ -186,7 +178,7 @@ _DEFAULT_CONFIG = {
 
 
 # =============================================================================
-# スピード指数・近走フォームスコア
+# スピード指数スコア
 # =============================================================================
 
 
@@ -247,69 +239,6 @@ def _calculate_speed_index_score(
     return round(score, 1)
 
 
-def _finish_position_to_score(pos: int) -> float:
-    """着順をスコアに変換する."""
-    if pos in FINISH_POSITION_SCORES:
-        return float(FINISH_POSITION_SCORES[pos])
-    elif 6 <= pos <= 9:
-        return 30.0
-    else:
-        return 15.0
-
-
-def _calculate_form_score(
-    horse_number: int,
-    past_performance_data: dict | None,
-) -> float | None:
-    """近走成績からフォームスコアを計算する.
-
-    直近5走の着順をスコア化し、近走ほど重みを大きくして加重平均を計算する。
-
-    Args:
-        horse_number: 馬番
-        past_performance_data: get_past_performance の結果（sources を含む辞書）
-
-    Returns:
-        スコア（0-100）。データなしの場合は None。
-    """
-    if not past_performance_data:
-        return None
-
-    sources = past_performance_data.get("sources", [])
-    if not sources:
-        return None
-
-    # 全ソースから該当馬の過去成績を探す（最初に見つかったものを使用）
-    past_races = None
-    for source in sources:
-        for horse in source.get("horses", []):
-            if int(horse.get("horse_number", 0)) == horse_number:
-                past_races = horse.get("past_races", [])
-                break
-        if past_races is not None:
-            break
-
-    if not past_races:
-        return None
-
-    # 直近5走まで
-    recent = past_races[:5]
-
-    total_weighted_score = 0.0
-    total_weight = 0.0
-    for i, race in enumerate(recent):
-        pos = int(race.get("finish_position", 99))
-        score = _finish_position_to_score(pos)
-        weight = FORM_RECENCY_WEIGHTS[i]
-        total_weighted_score += score * weight
-        total_weight += weight
-
-    if total_weight == 0:
-        return None
-
-    return round(total_weighted_score / total_weight, 1)
-
-
 # =============================================================================
 # Phase 2: 軸馬選定
 # =============================================================================
@@ -322,12 +251,10 @@ def _calculate_composite_score(
     weight_ai_score: float = WEIGHT_AI_SCORE,
     weight_odds_gap: float = WEIGHT_ODDS_GAP,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
-    weight_form: float = WEIGHT_FORM,
     unified_probs: dict[int, float] | None = None,
 ) -> float:
-    """AI指数順位 x オッズ乖離 (+ スピード指数 + 近走フォーム) の複合スコアを計算する.
+    """AI指数順位 x オッズ乖離 (+ スピード指数) の複合スコアを計算する.
 
     データがある成分のみ動的に重み再正規化を行い、
     データなし時は既存2成分と完全同一の結果を返す。
@@ -337,7 +264,6 @@ def _calculate_composite_score(
         runners_data: 出走馬データ
         ai_predictions: AI予想データ
         speed_index_data: スピード指数データ（Noneなら無視）
-        past_performance_data: 過去成績データ（Noneなら無視）
 
     Returns:
         複合スコア（0-100）
@@ -383,9 +309,6 @@ def _calculate_composite_score(
     speed_score = _calculate_speed_index_score(horse_number, speed_index_data)
     if speed_score is not None:
         components.append((speed_score, weight_speed_index))
-    form_score = _calculate_form_score(horse_number, past_performance_data)
-    if form_score is not None:
-        components.append((form_score, weight_form))
 
     total_weight = sum(w for _, w in components)
     composite = sum(s * (w / total_weight) for s, w in components)
@@ -399,9 +322,7 @@ def _select_axis_horses(
     weight_ai_score: float = WEIGHT_AI_SCORE,
     weight_odds_gap: float = WEIGHT_ODDS_GAP,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
-    weight_form: float = WEIGHT_FORM,
     unified_probs: dict[int, float] | None = None,
 ) -> list[dict]:
     """軸馬を自動選定する.
@@ -430,9 +351,7 @@ def _select_axis_horses(
                     hn, runners_data, ai_predictions,
                     weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
                     speed_index_data=speed_index_data,
-                    past_performance_data=past_performance_data,
                     weight_speed_index=weight_speed_index,
-                    weight_form=weight_form,
                     unified_probs=unified_probs,
                 )
                 result.append({
@@ -451,9 +370,7 @@ def _select_axis_horses(
             hn, runners_data, ai_predictions,
             weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
             speed_index_data=speed_index_data,
-            past_performance_data=past_performance_data,
             weight_speed_index=weight_speed_index,
-            weight_form=weight_form,
             unified_probs=unified_probs,
         )
         scored.append({
@@ -609,9 +526,7 @@ def _generate_bet_candidates(
     weight_ai_score: float = WEIGHT_AI_SCORE,
     weight_odds_gap: float = WEIGHT_ODDS_GAP,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
     weight_speed_index: float = WEIGHT_SPEED_INDEX,
-    weight_form: float = WEIGHT_FORM,
     unified_probs: dict[int, float] | None = None,
     max_partners: int = MAX_PARTNERS,
 ) -> list[dict]:
@@ -643,9 +558,7 @@ def _generate_bet_candidates(
             hn, runners_data, ai_predictions,
             weight_ai_score=weight_ai_score, weight_odds_gap=weight_odds_gap,
             speed_index_data=speed_index_data,
-            past_performance_data=past_performance_data,
             weight_speed_index=weight_speed_index,
-            weight_form=weight_form,
             unified_probs=unified_probs,
         )
         partner_scores.append({
@@ -1368,7 +1281,6 @@ def _generate_bet_proposal_impl(
     axis_horses: list[int] | None = None,
     max_bets: int | None = None,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
     unified_probs: dict[int, float] | None = None,
     bankroll: int = 0,
 ) -> dict:
@@ -1408,9 +1320,7 @@ def _generate_bet_proposal_impl(
         weight_ai_score=config["weight_ai_score"],
         weight_odds_gap=config["weight_odds_gap"],
         speed_index_data=speed_index_data,
-        past_performance_data=past_performance_data,
         weight_speed_index=config["weight_speed_index"],
-        weight_form=config["weight_form"],
         unified_probs=unified_probs,
     )
 
@@ -1462,9 +1372,7 @@ def _generate_bet_proposal_impl(
         weight_ai_score=config["weight_ai_score"],
         weight_odds_gap=config["weight_odds_gap"],
         speed_index_data=speed_index_data,
-        past_performance_data=past_performance_data,
         weight_speed_index=config["weight_speed_index"],
-        weight_form=config["weight_form"],
         unified_probs=unified_probs,
         max_partners=config["max_partners"],
     )
@@ -1498,7 +1406,6 @@ def _generate_bet_proposal_impl(
         runners_data=runners_data,
         skip_gate_threshold=config["skip_gate_threshold"],
         speed_index_data=speed_index_data,
-        past_performance_data=past_performance_data,
     )
 
     # 分析コメント生成
@@ -1544,7 +1451,6 @@ def _build_narration_context(
     ai_predictions: list[dict],
     runners_data: list[dict],
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
 ) -> dict:
     """LLMナレーション用のコンテキストdictを構築する."""
     # AI順位・スコアマップ（Decimal対策）
@@ -1575,10 +1481,6 @@ def _build_narration_context(
             si_score = _calculate_speed_index_score(hn, speed_index_data)
             if si_score is not None:
                 enriched["speed_index_score"] = float(si_score)
-        if past_performance_data:
-            form_s = _calculate_form_score(hn, past_performance_data)
-            if form_s is not None:
-                enriched["form_score"] = float(form_s)
         enriched_axis.append(enriched)
 
     # 相手馬を抽出
@@ -1624,8 +1526,6 @@ def _build_narration_context(
         ctx["preferred_bet_types"] = preferred_bet_types
     if speed_index_data:
         ctx["speed_index_raw"] = speed_index_data
-    if past_performance_data:
-        ctx["past_performance_raw"] = past_performance_data
     return ctx
 
 
@@ -1683,7 +1583,6 @@ def _generate_proposal_reasoning_template(
     skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
     max_partners: int = MAX_PARTNERS,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
 ) -> str:
     """提案根拠テキストを4セクションで生成する（テンプレート版）.
 
@@ -1740,10 +1639,6 @@ def _generate_proposal_reasoning_template(
             si_score = _calculate_speed_index_score(hn, speed_index_data)
             if si_score is not None:
                 details.append(f"スピード指数評価{si_score:.0f}pt")
-        if past_performance_data:
-            form_s = _calculate_form_score(hn, past_performance_data)
-            if form_s is not None:
-                details.append(f"近走フォーム{form_s:.0f}pt")
 
         if details:
             desc += "。" + "、".join(details)
@@ -1856,7 +1751,6 @@ def _generate_proposal_reasoning(
     runners_data: list[dict],
     skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
 ) -> str:
     """提案根拠テキストを4セクションで生成する（LLMナレーション版）."""
     context = _build_narration_context(
@@ -1869,7 +1763,6 @@ def _generate_proposal_reasoning(
         ai_predictions=ai_predictions,
         runners_data=runners_data,
         speed_index_data=speed_index_data,
-        past_performance_data=past_performance_data,
     )
     result = _invoke_haiku_narrator(context)
     if result is not None:
@@ -1886,7 +1779,6 @@ def _generate_proposal_reasoning(
         runners_data=runners_data,
         skip_gate_threshold=skip_gate_threshold,
         speed_index_data=speed_index_data,
-        past_performance_data=past_performance_data,
     )
 
 
@@ -2004,13 +1896,6 @@ def generate_bet_proposal(
         if isinstance(si_result, dict) and "error" not in si_result:
             speed_index_data = si_result
 
-        # 過去成績データ取得
-        from .past_performance import get_past_performance
-        past_performance_data = None
-        pp_result = get_past_performance(race_id)
-        if isinstance(pp_result, dict) and "error" not in pp_result:
-            past_performance_data = pp_result
-
         result = _generate_bet_proposal_impl(
             race_id=race_id,
             budget=budget,
@@ -2025,7 +1910,6 @@ def generate_bet_proposal(
             axis_horses=axis_horses,
             max_bets=max_bets,
             speed_index_data=speed_index_data,
-            past_performance_data=past_performance_data,
             unified_probs=unified_probs or None,
             bankroll=bankroll,
         )

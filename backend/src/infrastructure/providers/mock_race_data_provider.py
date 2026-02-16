@@ -28,7 +28,6 @@ from src.domain.ports import (
     OddsTimestampData,
     PastRaceStats,
     PedigreeData,
-    PerformanceData,
     PopularityStats,
     PositionAptitudeData,
     RaceData,
@@ -365,47 +364,6 @@ class MockRaceDataProvider(RaceDataProvider):
             waku_assignments.append(waku)
 
         return waku_assignments
-
-    def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
-        """馬の過去成績を取得する."""
-        import random
-
-        random.seed(_stable_hash(horse_id) % (2**32))
-
-        performances = []
-        base_date = datetime.now(timezone.utc)
-
-        # 過去5走を生成
-        for i in range(5):
-            race_date = base_date - timedelta(days=30 * (i + 1))
-            venue = random.choice(self.VENUES)
-            distance = random.choice([1200, 1400, 1600, 1800, 2000, 2200, 2400])
-            finish = random.choices(
-                range(1, 19),
-                weights=[10, 8, 7, 6, 5, 4, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 1, 1],
-            )[0]
-
-            minutes = distance // 1000
-            seconds = (distance % 1000) / 100 * 6 + random.uniform(0, 5)
-            time_str = f"{minutes}:{seconds:04.1f}"
-
-            track_conditions = ["良", "稍重", "重", "不良"]
-            track_condition = random.choices(
-                track_conditions, weights=[6, 2, 1, 1]
-            )[0]
-
-            perf = PerformanceData(
-                race_date=race_date,
-                race_name=f"{venue}{distance}m {random.choice(self.RACE_NAMES)}",
-                venue=venue,
-                finish_position=finish,
-                distance=distance,
-                track_condition=track_condition,
-                time=time_str,
-            )
-            performances.append(perf)
-
-        return performances
 
     def get_jockey_stats(self, jockey_id: str, course: str) -> JockeyStatsData | None:
         """騎手のコース成績を取得する."""

@@ -5,7 +5,6 @@ from .identifiers import CartId, ItemId, RaceId, UserId
 from .ports import (
     CartRepository,
     JockeyStatsData,
-    PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
@@ -41,7 +40,6 @@ __all__ = [
     # Ports
     "CartRepository",
     "JockeyStatsData",
-    "PerformanceData",
     "RaceData",
     "RaceDataProvider",
     "RunnerData",

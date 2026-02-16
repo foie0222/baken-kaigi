@@ -29,7 +29,6 @@ def analyze_race_for_betting(race_id: str) -> dict:
     try:
         from .ai_prediction import get_ai_prediction
         from .pace_analysis import _get_running_styles
-        from .past_performance import get_past_performance
         from .race_data import _extract_race_conditions, _fetch_race_detail
         from .speed_index import get_speed_index
 
@@ -53,12 +52,6 @@ def analyze_race_for_betting(race_id: str) -> dict:
         if isinstance(si_result, dict) and "error" not in si_result:
             speed_index_data = si_result
 
-        # 過去成績取得
-        past_performance_data = None
-        pp_result = get_past_performance(race_id)
-        if isinstance(pp_result, dict) and "error" not in pp_result:
-            past_performance_data = pp_result
-
         return _analyze_race_impl(
             race_id=race_id,
             race_name=race.get("race_name", ""),
@@ -71,7 +64,6 @@ def analyze_race_for_betting(race_id: str) -> dict:
             ai_result=ai_result,
             running_styles=running_styles,
             speed_index_data=speed_index_data,
-            past_performance_data=past_performance_data,
         )
     except Exception as e:
         logger.exception("analyze_race_for_betting failed")
@@ -90,7 +82,6 @@ def _analyze_race_impl(
     ai_result: dict,
     running_styles: list[dict] | None = None,
     speed_index_data: dict | None = None,
-    past_performance_data: dict | None = None,
 ) -> dict:
     """レース分析の実装（テスト用に公開）.
 
@@ -106,7 +97,6 @@ def _analyze_race_impl(
         ai_result: AI予想結果 (sources配列, consensus)
         running_styles: 脚質データ
         speed_index_data: スピード指数データ
-        past_performance_data: 過去成績データ
 
     Returns:
         レース分析結果 (race_info, horses)
@@ -158,16 +148,6 @@ def _analyze_race_impl(
                 avg = sum(float(idx.get("value", 0)) for idx in indices) / len(indices)
                 si_map[hn] = {"latest": latest, "avg": round(avg, 1)}
 
-    # 過去成績マップ
-    pp_map = {}
-    if past_performance_data and "horses" in past_performance_data:
-        for h in past_performance_data["horses"]:
-            hn = h.get("horse_number")
-            perfs = h.get("performances", [])
-            if hn and perfs:
-                form = [int(p.get("finish_position", 99)) for p in perfs[:5]]
-                pp_map[hn] = form
-
     # AI予想マップ（全ソース: スコア+順位）
     ai_predictions_map: dict[int, dict] = {}
     for source in sources:
@@ -195,7 +175,6 @@ def _analyze_race_impl(
                 "ai_predictions": ai_predictions_map.get(hn, {}),
                 "running_style": style or None,
                 "speed_index": si_map.get(hn),
-                "recent_form": pp_map.get(hn),
             }
         )
 

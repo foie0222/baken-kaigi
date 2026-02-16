@@ -3,7 +3,6 @@ from abc import ABC
 
 from src.domain.ports import (
     JockeyStatsData,
-    PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
@@ -43,20 +42,6 @@ class TestRaceDataProvider:
             popularity=1,
         )
         assert data.horse_name == "ディープインパクト"
-
-    def test_PerformanceDataを生成できる(self) -> None:
-        """PerformanceDataを生成できることを確認."""
-        from datetime import datetime
-        data = PerformanceData(
-            race_date=datetime(2024, 4, 1),
-            race_name="皐月賞",
-            venue="中山",
-            finish_position=1,
-            distance=2000,
-            track_condition="良",
-            time="1:59.5",
-        )
-        assert data.finish_position == 1
 
     def test_JockeyStatsDataを生成できる(self) -> None:
         """JockeyStatsDataを生成できることを確認."""

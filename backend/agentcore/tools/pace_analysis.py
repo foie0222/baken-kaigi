@@ -65,9 +65,7 @@ def _get_running_styles(race_id: str) -> list[dict]:
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        logger.error(
-            "Failed to get running styles: url=%s, error=%s", url, e
-        )
+        logger.error("Failed to get running styles: url=%s, error=%s", url, e)
         return []
 
 
@@ -103,25 +101,25 @@ def _analyze_race_development_impl(
     for runner in running_styles_data:
         style = runner.get("running_style", "不明")
         if style in runners_by_style:
-            runners_by_style[style].append({
-                "horse_number": runner.get("horse_number"),
-                "horse_name": runner.get("horse_name"),
-            })
+            runners_by_style[style].append(
+                {
+                    "horse_number": runner.get("horse_number"),
+                    "horse_name": runner.get("horse_name"),
+                }
+            )
         else:
-            runners_by_style["不明"].append({
-                "horse_number": runner.get("horse_number"),
-                "horse_name": runner.get("horse_name"),
-            })
+            runners_by_style["不明"].append(
+                {
+                    "horse_number": runner.get("horse_number"),
+                    "horse_name": runner.get("horse_name"),
+                }
+            )
 
     front_runner_count = len(runners_by_style["逃げ"])
     total_runners = len(running_styles_data)
 
     # 脚質構成サマリー（各脚質の頭数）
-    running_style_summary = {
-        style: len(horses)
-        for style, horses in runners_by_style.items()
-        if len(horses) > 0
-    }
+    running_style_summary = {style: len(horses) for style, horses in runners_by_style.items() if len(horses) > 0}
 
     return {
         "race_id": race_id,
@@ -231,7 +229,7 @@ def _analyze_odds_gap(runners_data: list[dict]) -> dict | None:
     """
     # オッズ順にソート
     sorted_runners = sorted(
-        [r for r in runners_data if r.get("odds") and r.get("odds") > 0],
+        [r for r in runners_data if float(r.get("odds") or 0) > 0],
         key=lambda x: x["odds"],
     )
 
@@ -413,31 +411,28 @@ def _analyze_race_characteristics_impl(
     runners_by_style = development["runners_by_style"]
 
     # 2. レース難易度判定
-    difficulty = _assess_race_difficulty(
-        total_runners, race_conditions, venue, runners_data
-    )
+    difficulty = _assess_race_difficulty(total_runners, race_conditions, venue, runners_data)
 
     # 3. 枠順分析（選択馬）
-    target_numbers = horse_numbers or [
-        r.get("horse_number") for r in running_styles_data
-    ]
+    target_numbers = horse_numbers or [r.get("horse_number") for r in running_styles_data]
     target_numbers_set = set(target_numbers)
     post_position_analysis = []
     for runner in running_styles_data:
-        hn = runner.get("horse_number")
-        if hn not in target_numbers_set:
+        raw_hn = runner.get("horse_number")
+        if raw_hn is None or raw_hn not in target_numbers_set:
             continue
+        hn = int(raw_hn)
         post = _analyze_post_position(hn, total_runners, surface)
-        post_position_analysis.append({
-            "horse_number": hn,
-            "horse_name": runner.get("horse_name"),
-            **post,
-        })
+        post_position_analysis.append(
+            {
+                "horse_number": hn,
+                "horse_name": runner.get("horse_name"),
+                **post,
+            }
+        )
 
     # 4. 展開サマリー生成
-    summary = _generate_development_summary(
-        runners_by_style, difficulty, surface, total_runners
-    )
+    summary = _generate_development_summary(runners_by_style, difficulty, surface, total_runners)
 
     return {
         "race_id": race_id,

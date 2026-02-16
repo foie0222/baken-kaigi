@@ -151,7 +151,7 @@ class TestAnalyzeRaceImpl:
         # consensus の検証（1ソースの場合はNone）
         assert "consensus" in result["race_info"]
 
-    def test_スピード指数と過去成績が含まれる(self):
+    def test_スピード指数が含まれる(self):
         runners = _make_runners(3)
         ai_preds = _make_ai_predictions(3)
         ai_result = {"sources": [{"source": "jiro8", "predictions": ai_preds}]}
@@ -160,13 +160,6 @@ class TestAnalyzeRaceImpl:
             "horses": [
                 {"horse_number": 1, "indices": [{"value": 105}]},
                 {"horse_number": 2, "indices": [{"value": 98}, {"value": 100}]},
-            ]
-        }
-        past_performance_data = {
-            "horses": [
-                {"horse_number": 1, "performances": [
-                    {"finish_position": 1}, {"finish_position": 3},
-                ]},
             ]
         }
 
@@ -182,13 +175,11 @@ class TestAnalyzeRaceImpl:
             ai_result=ai_result,
             running_styles=[],
             speed_index_data=speed_index_data,
-            past_performance_data=past_performance_data,
         )
 
         horse1 = next(h for h in result["horses"] if h["number"] == 1)
         assert horse1["speed_index"] is not None
         assert horse1["speed_index"]["latest"] == 105
-        assert horse1["recent_form"] == [1, 3]
 
     def test_ai_predictionsにスコアと順位が含まれる(self):
         runners = _make_runners(3)

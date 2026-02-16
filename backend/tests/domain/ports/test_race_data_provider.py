@@ -88,10 +88,6 @@ class MockRaceDataProvider(RaceDataProvider):
         """出走馬情報を取得する."""
         return self._runners.get(str(race_id), [])
 
-    def get_past_performance(self, horse_id: str) -> list:
-        """馬の過去成績を取得する."""
-        return []
-
     def get_jockey_stats(self, jockey_id: str, course: str):
         """騎手のコース成績を取得する."""
         return None
