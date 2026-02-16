@@ -43,7 +43,7 @@ def _make_event(body: dict, headers: dict | None = None) -> dict:
 def _make_bet_proposal_body(race_id: str = "202502011201", session_id: str | None = None) -> dict:
     """買い目提案リクエストボディを構築."""
     body = {
-        "prompt": f"レースID {race_id} について、予算3000円でgenerate_bet_proposalツールを使って買い目提案を生成してください。",
+        "race_id": race_id,
     }
     if session_id:
         body["session_id"] = session_id
@@ -101,17 +101,6 @@ class TestIdentifyUser:
         assert user_key == "guest:unknown"
         assert tier == "anonymous"
 
-
-class TestExtractRaceIds:
-    """_extract_race_ids 関数のテスト."""
-
-    def test_プロンプトからレースIDを抽出できる(self):
-        from agentcore_handler import _extract_race_ids
-
-        body = {"prompt": "レースID 202502011201 について、予算3000円で提案してください。"}
-        result = _extract_race_ids(body)
-
-        assert result == {"202502011201"}
 
 class TestCheckAndRecordUsage:
     """_check_and_record_usage 関数のテスト."""

@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -437,4 +438,101 @@ class TestExtractBetActions:
         assert questions[0] == "穴馬を探して"
         assert questions[1] == "展開予想は？"
 
+
+# =============================================================================
+# _fetch_agent_data のテスト
+# =============================================================================
+
+
+class TestFetchAgentData:
+    """_fetch_agent_data 関数のテスト."""
+
+    def _import_fetch(self):
+        """_fetch_agent_data をインポートする（agentcore.agent の副作用を回避）."""
+        mock_bedrock = MagicMock()
+        mock_boto3 = MagicMock()
+        with patch.dict("sys.modules", {
+            "bedrock_agentcore": mock_bedrock,
+            "bedrock_agentcore.runtime": mock_bedrock.runtime,
+            "boto3": mock_boto3,
+            "boto3.dynamodb": MagicMock(),
+            "boto3.dynamodb.conditions": MagicMock(),
+        }):
+            # キャッシュをクリアして再インポート
+            if "agentcore.agent" in sys.modules:
+                del sys.modules["agentcore.agent"]
+            sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "agentcore"))
+            import agentcore.agent as agent_mod
+            # テストごとにコネクションをリセット
+            agent_mod._dynamodb_resource = None
+            return agent_mod._fetch_agent_data, agent_mod, mock_boto3
+
+    def test_ゲストユーザーの場合Noneを返す(self):
+        """guest:xxx 形式のuser_idの場合はNoneを返す."""
+        fetch, _, _ = self._import_fetch()
+        assert fetch("guest:abc-123") is None
+
+    def test_空文字列の場合Noneを返す(self):
+        """空のuser_idの場合はNoneを返す."""
+        fetch, _, _ = self._import_fetch()
+        assert fetch("") is None
+
+    def test_user_idが空のuser接頭辞の場合Noneを返す(self):
+        """user: のみでsub部分が空の場合はNoneを返す."""
+        fetch, _, _ = self._import_fetch()
+        assert fetch("user:") is None
+
+    def test_認証ユーザーのagent_dataを取得できる(self):
+        """user:xxx 形式のuser_idでDynamoDBからデータを取得できる."""
+        fetch, agent_mod, mock_boto3 = self._import_fetch()
+
+        mock_table = MagicMock()
+        mock_table.query.return_value = {
+            "Items": [{"user_id": "abc-123", "betting_preference": {"bet_type_preference": "trio_focused"}}],
+        }
+        mock_resource = MagicMock()
+        mock_resource.Table.return_value = mock_table
+        mock_boto3.resource.return_value = mock_resource
+
+        result = fetch("user:abc-123")
+
+        assert result is not None
+        assert result["user_id"] == "abc-123"
+        assert result["betting_preference"]["bet_type_preference"] == "trio_focused"
+        mock_table.query.assert_called_once()
+        # GSI名を確認
+        call_kwargs = mock_table.query.call_args.kwargs
+        assert call_kwargs["IndexName"] == "user_id-index"
+
+    def test_DynamoDBにデータがない場合Noneを返す(self):
+        """DynamoDBにエージェントデータがない場合はNoneを返す."""
+        fetch, agent_mod, mock_boto3 = self._import_fetch()
+
+        mock_table = MagicMock()
+        mock_table.query.return_value = {"Items": []}
+        mock_resource = MagicMock()
+        mock_resource.Table.return_value = mock_table
+        mock_boto3.resource.return_value = mock_resource
+
+        result = fetch("user:abc-123")
+
+        assert result is None
+
+    def test_DynamoDB例外時はNoneを返す(self):
+        """DynamoDBクエリが例外を投げた場合はNoneを返す."""
+        fetch, agent_mod, mock_boto3 = self._import_fetch()
+
+        mock_table = MagicMock()
+        from botocore.exceptions import ClientError
+        mock_table.query.side_effect = ClientError(
+            {"Error": {"Code": "InternalServerError", "Message": "DynamoDB error"}},
+            "Query",
+        )
+        mock_resource = MagicMock()
+        mock_resource.Table.return_value = mock_table
+        mock_boto3.resource.return_value = mock_resource
+
+        result = fetch("user:abc-123")
+
+        assert result is None
 

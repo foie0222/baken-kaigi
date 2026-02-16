@@ -22,7 +22,6 @@ import type {
   PendingLossLimitChange,
   LossLimitCheckResult,
   Agent,
-  AgentData,
   AgentReview,
   BettingPreference,
 } from '../types';
@@ -37,10 +36,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
-  prompt: string;
-  race_id?: string;
-  session_id?: string;
-  agent_data?: AgentData;
+  race_id: string;
 }
 
 export interface BetAction {
@@ -445,34 +441,10 @@ class ApiClient {
   // AI買い目提案
   async requestBetProposal(
     raceId: string,
-    budget: number,
-    options?: {
-      preferredBetTypes?: BetType[];
-      axisHorses?: number[];
-      maxBets?: number;
-      agentData?: AgentData;
-    }
   ): Promise<ApiResponse<BetProposalResponse>> {
-    const optionParts: string[] = [];
-    if (options?.preferredBetTypes?.length) {
-      optionParts.push(`希望券種: ${options.preferredBetTypes.join(', ')}`);
-    }
-    if (options?.axisHorses?.length) {
-      optionParts.push(`注目馬: ${options.axisHorses.join(', ')}番`);
-    }
-    if (options?.maxBets) {
-      optionParts.push(`買い目点数上限(max_bets): ${options.maxBets}点`);
-    }
-    const optionText = optionParts.length > 0 ? ` ${optionParts.join('。')}。` : '';
-
-    const prompt = `レースID ${raceId} について、予算${budget}円で買い目提案を生成してください。${optionText}`;
     const request: AgentCoreConsultationRequest = {
-      prompt,
       race_id: raceId,
     };
-    if (options?.agentData) {
-      request.agent_data = options.agentData;
-    }
     const result = await this.consultWithAgent(request);
 
     if (!result.success || !result.data) {

@@ -151,17 +151,6 @@ def _get_jst_date() -> str:
     return datetime.now(_JST).strftime("%Y-%m-%d")
 
 
-def _extract_race_ids(body: dict) -> set[str]:
-    """リクエストボディからレースIDのユニークセットを抽出する."""
-    race_ids: set[str] = set()
-
-    # prompt からレースIDを抽出（12桁数字パターン: YYYYMMDDVVRR）
-    prompt = body.get("prompt", "")
-    for match in re.findall(r"\d{12}", prompt):
-        race_ids.add(match)
-
-    return race_ids
-
 
 def _check_and_record_usage(
     user_key: str,
@@ -270,10 +259,8 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     POST /api/consultation
 
     Request Body:
-        prompt: ユーザーメッセージ
-        race_id: レースID（オプション）
+        race_id: レースID
         session_id: セッションID（オプション）
-        agent_data: エージェント育成データ（オプション）
 
     Returns:
         message: AI からの応答
@@ -293,8 +280,11 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     except ValueError as e:
         return _make_response({"error": str(e)}, 400, event=event)
 
-    if "prompt" not in body:
-        return _make_response({"error": "prompt is required"}, 400, event=event)
+    race_id = body.get("race_id", "")
+    if not race_id:
+        return _make_response({"error": "race_id is required"}, 400, event=event)
+    if not re.fullmatch(r"\d{12}", race_id):
+        return _make_response({"error": "race_id must be a 12-digit number"}, 400, event=event)
 
     # ========================================
     # 利用制限チェック
@@ -304,26 +294,20 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
 
     # セッション継続（session_id あり）の場合は制限チェックスキップ
     if not existing_session_id:
-        race_ids = _extract_race_ids(body)
-        if race_ids:
-            jst_date = _get_jst_date()
-            limit_error = _check_and_record_usage(user_key, tier, race_ids, jst_date)
-            if limit_error:
-                return _make_response(limit_error, 429, event=event)
+        race_ids = {race_id}
+        jst_date = _get_jst_date()
+        limit_error = _check_and_record_usage(user_key, tier, race_ids, jst_date)
+        if limit_error:
+            return _make_response(limit_error, 429, event=event)
 
     # セッション ID（既存または新規生成）
     session_id = existing_session_id or str(uuid.uuid4())
 
     # AgentCore 用のペイロードを構築
     payload = {
-        "prompt": body.get("prompt", ""),
-        "race_id": body.get("race_id", ""),
+        "race_id": race_id,
+        "user_id": user_key,
     }
-
-    # エージェントデータを中継
-    agent_data = body.get("agent_data")
-    if agent_data and isinstance(agent_data, dict):
-        payload["agent_data"] = agent_data
 
     try:
         # boto3 クライアント設定

@@ -6,27 +6,13 @@ import { useCartStore, type AddItemResult } from '../../stores/cartStore';
 import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useAgentStore } from '../../stores/agentStore';
-import { MIN_BET_AMOUNT, MAX_BET_AMOUNT } from '../../constants/betting';
-import { BetTypeLabels, extractOdds, type BetType, type AllOddsResponse } from '../../types';
-import type { RaceDetail, BetProposalResponse, AgentData } from '../../types';
+import { extractOdds, type BetType, type AllOddsResponse } from '../../types';
+import type { RaceDetail, BetProposalResponse } from '../../types';
 import './BetProposalSheet.css';
 
 interface BetProposalContentProps {
   race: RaceDetail;
 }
-
-const BUDGET_PRESETS = [1000, 3000, 5000, 10000];
-const MAX_BETS_PRESETS = [3, 5, 8] as const;
-
-const BET_TYPE_OPTIONS: { value: BetType; label: string }[] = [
-  { value: 'quinella', label: BetTypeLabels.quinella },
-  { value: 'quinella_place', label: BetTypeLabels.quinella_place },
-  { value: 'exacta', label: BetTypeLabels.exacta },
-  { value: 'trio', label: BetTypeLabels.trio },
-  { value: 'trifecta', label: BetTypeLabels.trifecta },
-  { value: 'win', label: BetTypeLabels.win },
-  { value: 'place', label: BetTypeLabels.place },
-];
 
 export function BetProposalContent({ race }: BetProposalContentProps) {
   const navigate = useNavigate();
@@ -36,13 +22,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
   const agent = useAgentStore((state) => state.agent);
   const hasFetched = useAgentStore((state) => state.hasFetched);
   const fetchAgent = useAgentStore((state) => state.fetchAgent);
-  const getAgentData = useAgentStore((state) => state.getAgentData);
-  const [budget, setBudget] = useState(3000);
-  const [customBudget, setCustomBudget] = useState('');
-  const [isCustomBudget, setIsCustomBudget] = useState(false);
-  const [selectedBetTypes, setSelectedBetTypes] = useState<BetType[]>([]);
-  const [maxBets, setMaxBets] = useState<number | null>(null);
-  const [axisInput, setAxisInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BetProposalResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,37 +43,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     }
   }, [isAuthenticated, hasFetched, fetchAgent]);
 
-  const handleBetTypeToggle = (betType: BetType) => {
-    setSelectedBetTypes((prev) =>
-      prev.includes(betType)
-        ? prev.filter((t) => t !== betType)
-        : [...prev, betType]
-    );
-  };
-
-  const handleMaxBetsToggle = (value: number) => {
-    setMaxBets((prev) => (prev === value ? null : value));
-  };
-
-  const handleBudgetPreset = (preset: number) => {
-    setBudget(preset);
-    setIsCustomBudget(false);
-    setCustomBudget('');
-  };
-
-  const handleCustomBudgetChange = (value: string) => {
-    setCustomBudget(value);
-    setIsCustomBudget(true);
-    const parsed = parseInt(value, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      setBudget(parsed);
-    }
-  };
-
-  const effectiveBudget = isCustomBudget
-    ? (parseInt(customBudget, 10) || 0)
-    : budget;
-
   const resetState = () => {
     setResult(null);
     setError(null);
@@ -105,48 +53,12 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
     if (loading) return;
     setError(null);
     setRateLimited(false);
-    if (effectiveBudget < MIN_BET_AMOUNT) {
-      setError(`予算は${MIN_BET_AMOUNT.toLocaleString()}円以上を指定してください`);
-      return;
-    }
-    if (effectiveBudget > MAX_BET_AMOUNT) {
-      setError(`予算は${MAX_BET_AMOUNT.toLocaleString()}円以下を指定してください`);
-      return;
-    }
     setLoading(true);
     setResult(null);
     setAddedIndices(new Set());
 
     try {
-      // 出走馬に存在する馬番のみ抽出し、重複を除去
-      const validNumbers = new Set(race.horses.map((h) => h.number));
-      const axisHorses = [...new Set(
-        axisInput
-          .split(/[,\s、]+/)
-          .map((s) => parseInt(s.trim(), 10))
-          .filter((n) => !isNaN(n) && validNumbers.has(n))
-      )];
-
-      const options: {
-        preferredBetTypes?: BetType[];
-        axisHorses?: number[];
-        maxBets?: number;
-        agentData?: AgentData;
-      } = {};
-
-      const agentData = getAgentData();
-      if (agentData) {
-        options.agentData = agentData;
-      }
-      if (axisHorses.length > 0) options.axisHorses = axisHorses;
-      if (selectedBetTypes.length > 0) options.preferredBetTypes = selectedBetTypes;
-      if (maxBets !== null) options.maxBets = maxBets;
-
-      const response = await apiClient.requestBetProposal(
-        race.id,
-        effectiveBudget,
-        options,
-      );
+      const response = await apiClient.requestBetProposal(race.id);
 
       if (!isMountedRef.current) return;
 
@@ -290,7 +202,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       {!result && !loading && (
         <div className="proposal-form">
           {agent ? (
-            /* エージェント設定済み: ボタンのみ */
             <button
               className="proposal-generate-btn"
               onClick={handleGenerate}
@@ -299,96 +210,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
               {agent.name}に提案してもらう
             </button>
           ) : (
-            /* エージェント未設定: 従来のフルフォーム */
-            <>
-              {/* 予算 */}
-              <div className="proposal-form-group">
-                <label className="proposal-label">予算</label>
-                <div className="proposal-budget-presets">
-                  {BUDGET_PRESETS.map((preset) => (
-                    <button
-                      key={preset}
-                      className={`proposal-preset-btn ${!isCustomBudget && budget === preset ? 'active' : ''}`}
-                      onClick={() => handleBudgetPreset(preset)}
-                    >
-                      {preset.toLocaleString()}円
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className={`proposal-budget-custom-input ${isCustomBudget ? 'active' : ''}`}
-                  value={customBudget}
-                  onChange={(e) => handleCustomBudgetChange(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="自由入力（円）"
-                />
-              </div>
-
-              {/* 希望券種 */}
-              <div className="proposal-form-group">
-                <label className="proposal-label">
-                  希望券種
-                  <span className="proposal-label-hint">未選択で自動選定</span>
-                </label>
-                <div className="proposal-bet-type-chips">
-                  {BET_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      className={`proposal-bet-type-chip ${selectedBetTypes.includes(opt.value) ? 'active' : ''}`}
-                      aria-pressed={selectedBetTypes.includes(opt.value)}
-                      onClick={() => handleBetTypeToggle(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 買い目上限 */}
-              <div className="proposal-form-group">
-                <label className="proposal-label">
-                  買い目上限
-                  <span className="proposal-label-hint">未選択でおまかせ</span>
-                </label>
-                <div className="proposal-budget-presets">
-                  {MAX_BETS_PRESETS.map((preset) => (
-                    <button
-                      key={preset}
-                      className={`proposal-preset-btn ${maxBets === preset ? 'active' : ''}`}
-                      aria-pressed={maxBets === preset}
-                      onClick={() => handleMaxBetsToggle(preset)}
-                    >
-                      {preset}点
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 注目馬 */}
-              <div className="proposal-form-group">
-                <label className="proposal-label" htmlFor="axis-horses-input">
-                  注目馬（任意）
-                  <span className="proposal-label-hint">カンマ区切りで馬番を入力</span>
-                </label>
-                <input
-                  id="axis-horses-input"
-                  type="text"
-                  className="proposal-axis-input"
-                  value={axisInput}
-                  onChange={(e) => setAxisInput(e.target.value)}
-                  placeholder="例: 3, 7"
-                />
-              </div>
-
-              <button
-                className="proposal-generate-btn"
-                onClick={handleGenerate}
-                disabled={loading}
-              >
-                提案を生成
-              </button>
-            </>
+            <p className="proposal-no-agent-message">
+              エージェントを設定すると買い目提案を利用できます
+            </p>
           )}
         </div>
       )}
@@ -493,7 +317,7 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
             className="proposal-back-btn"
             onClick={resetState}
           >
-            条件を変更して再提案
+            再提案
           </button>
 
           {result.disclaimer && (

@@ -52,9 +52,8 @@ describe('RaceDetailPage', () => {
     it('初期表示でAI提案フォームが表示される', async () => {
       render(<RaceDetailPage />)
 
-      // AI提案フォームの要素が表示される
-      expect(await screen.findByText('予算')).toBeInTheDocument()
-      expect(screen.getByText('提案を生成')).toBeInTheDocument()
+      // エージェント未設定の場合、設定を促すメッセージが表示される
+      expect(await screen.findByText('エージェントを設定すると買い目提案を利用できます')).toBeInTheDocument()
     })
 
     it('「手動で買い目を選ぶ」リンクが表示される', async () => {
@@ -86,8 +85,7 @@ describe('RaceDetailPage', () => {
       const backBtn = screen.getByText('← AI提案に戻る')
       await user.click(backBtn)
 
-      expect(await screen.findByText('予算')).toBeInTheDocument()
-      expect(screen.getByText('提案を生成')).toBeInTheDocument()
+      expect(await screen.findByText('エージェントを設定すると買い目提案を利用できます')).toBeInTheDocument()
     })
   })
 

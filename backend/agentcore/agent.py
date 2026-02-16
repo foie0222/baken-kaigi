@@ -10,6 +10,10 @@ import re
 import sys
 from typing import Any
 
+import boto3
+from boto3.dynamodb.conditions import Key
+from botocore.exceptions import BotoCoreError, ClientError
+
 # AgentCore Runtime ではCloudWatchメトリクス送信を有効化
 os.environ.setdefault("EMIT_CLOUDWATCH_METRICS", "true")
 
@@ -77,31 +81,20 @@ def invoke(payload: dict, context: Any) -> dict:
 
     payload 形式:
     {
-        "prompt": "ユーザーメッセージ",
-        "race_id": "...",  # オプション: レースID
-        "session_id": "...",  # オプション: セッションID
-        "agent_data": {  # オプション: エージェント育成データ
-            "name": "エージェント名",
-            "betting_preference": {...}
-        }
+        "race_id": "...",  # レースID
+        "user_id": "...",  # ユーザー識別子（"user:xxx" or "guest:xxx"）
     }
     """
-    user_message = payload.get("prompt", "")
     race_id = payload.get("race_id", "")
-    agent_data = payload.get("agent_data")
+    user_id = payload.get("user_id", "")
 
-    # 好み設定をev_proposerツールに注入（preferred_bet_typesの解決に使用）
+    # DynamoDB から agent_data を取得し、好み設定をev_proposerツールに注入
     from tools.ev_proposer import set_betting_preference
+    agent_data = _fetch_agent_data(user_id)
     betting_preference = agent_data.get("betting_preference") if agent_data else None
     set_betting_preference(betting_preference)
 
     # 入力バリデーション
-    if not user_message:
-        return {
-            "message": "メッセージを入力してください。",
-            "session_id": getattr(context, "session_id", None),
-            "suggested_questions": [],
-        }
     if not race_id:
         return {
             "message": "レースIDが必要です。",
@@ -109,8 +102,8 @@ def invoke(payload: dict, context: Any) -> dict:
             "suggested_questions": [],
         }
 
-    # レースIDをコンテキストとして追加
-    user_message = f"【対象レースID】{race_id}\n\n{user_message}"
+    # プロンプトを内部構築
+    user_message = f"レースID {race_id} について買い目提案を生成してください。"
 
     # エージェント実行
     agent = _get_agent()
@@ -253,6 +246,50 @@ def _ensure_bet_proposal_separator(message_text: str) -> str:
         logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
 
     return inject_bet_proposal_separator(message_text, effective_result)
+
+
+# DynamoDB リソース（コネクション再利用）
+_dynamodb_resource = None
+_AGENT_TABLE_NAME = os.environ.get("AGENT_TABLE_NAME", "baken-kaigi-agent")
+
+
+def _fetch_agent_data(user_id: str) -> dict | None:
+    """DynamoDB からエージェントデータを取得する.
+
+    Args:
+        user_id: ユーザー識別子（"user:xxx" or "guest:xxx"）
+
+    Returns:
+        エージェントデータの dict。見つからなければ None。
+    """
+    if not user_id or not user_id.startswith("user:"):
+        return None
+
+    # "user:xxx" -> "xxx"（Cognito sub）
+    cognito_sub = user_id[5:]
+    if not cognito_sub:
+        return None
+
+    global _dynamodb_resource
+    if _dynamodb_resource is None:
+        _dynamodb_resource = boto3.resource("dynamodb")
+    table = _dynamodb_resource.Table(_AGENT_TABLE_NAME)
+
+    try:
+        response = table.query(
+            IndexName="user_id-index",
+            KeyConditionExpression=Key("user_id").eq(cognito_sub),
+            Limit=1,
+        )
+    except (ClientError, BotoCoreError):
+        logger.exception("Failed to fetch agent data for user_id=%s", user_id)
+        return None
+
+    items = response.get("Items", [])
+    if not items:
+        return None
+
+    return items[0]
 
 
 if __name__ == "__main__":
