@@ -1,7 +1,6 @@
 """展開分析・レース特性分析ツール.
 
-レースの展開を予想し、脚質と展開の相性を分析する。
-レース難易度判定、枠順の有利不利、展開サマリーも生成する。
+脚質構成を集計し、レース難易度判定、枠順の有利不利、展開サマリーを生成する。
 """
 
 import logging
@@ -13,13 +12,6 @@ from .jravan_client import get_api_url, get_headers
 
 logger = logging.getLogger(__name__)
 
-
-# ペース予想結果と有利脚質のマッピング
-PACE_FAVORABLE_STYLES = {
-    "ハイ": ["差し", "追込"],
-    "ミドル": ["先行", "差し"],
-    "スロー": ["逃げ", "先行"],
-}
 
 # 競馬場別の荒れやすさ補正値（JRA 2019-2024年 1番人気勝率の偏差に基づく）
 # 福島・中京・小倉: 1番人気勝率が全国平均より低い（荒れやすい）
@@ -79,84 +71,18 @@ def _get_running_styles(race_id: str) -> list[dict]:
         return []
 
 
-def _predict_pace(front_runners: int, total_runners: int) -> str:
-    """逃げ・先行馬の頭数からペースを予想.
-
-    Args:
-        front_runners: 逃げ馬の頭数
-        total_runners: 出走馬総数
-
-    Returns:
-        予想ペース（"ハイ", "ミドル", "スロー"）
-    """
-    if total_runners == 0:
-        return "不明"
-
-    # 逃げ馬が3頭以上 → ハイペース傾向
-    # 逃げ馬が1頭 or 0頭 → スローペース傾向（0頭は先行馬が押し出されて逃げ）
-    # 逃げ馬が2頭 → ミドルペース
-    if front_runners >= 3:
-        return "ハイ"
-    elif front_runners <= 1:
-        return "スロー"
-    else:
-        return "ミドル"
-
-
-def _generate_pace_analysis(
-    predicted_pace: str,
-    front_runner_count: int,
-    runners_by_style: dict[str, list[dict]],
-) -> str:
-    """ペース予想に基づく分析コメントを生成する.
-
-    Args:
-        predicted_pace: 予想ペース（"ハイ", "ミドル", "スロー", "不明"）
-        front_runner_count: 逃げ馬の頭数
-        runners_by_style: 脚質別の出走馬辞書
-
-    Returns:
-        分析コメント文字列
-    """
-    escaper_names = [r["horse_name"] for r in runners_by_style.get("逃げ", [])]
-
-    if predicted_pace == "ハイ":
-        comment = (
-            f"逃げ馬が{front_runner_count}頭いるため、ハイペースが予想されます。"
-            "前が潰れやすく、差し・追込馬に展開利がある可能性が高いです。"
-        )
-    elif predicted_pace == "スロー":
-        if escaper_names:
-            comment = (
-                f"逃げ馬は{escaper_names[0]}のみでスローペースが予想されます。"
-                "前残りしやすい展開で、逃げ・先行馬が有利な可能性があります。"
-            )
-        else:
-            comment = (
-                "明確な逃げ馬が不在で、スローペースが予想されます。"
-                "前残りしやすい展開で、先行馬が有利な可能性があります。"
-            )
-    else:
-        comment = (
-            f"逃げ馬が{front_runner_count}頭でミドルペースが予想されます。"
-            "どの脚質にも展開利があり、各馬の能力が問われる展開です。"
-        )
-
-    return comment
-
-
 def _analyze_race_development_impl(
     race_id: str,
     running_styles_data: list[dict],
 ) -> dict:
-    """レースの展開を予想する（実装）.
+    """レースの展開を分析する（実装）.
 
     Args:
         race_id: レースID
         running_styles_data: 出走馬の脚質データリスト
 
     Returns:
-        展開予想結果の辞書（脚質別馬リスト、予想ペース、有利脚質、分析コメント）
+        展開分析結果の辞書（脚質別馬リスト、逃げ馬頭数、脚質構成サマリー）
     """
     if not running_styles_data:
         return {
@@ -187,101 +113,22 @@ def _analyze_race_development_impl(
                 "horse_name": runner.get("horse_name"),
             })
 
-    # 逃げ馬の頭数
     front_runner_count = len(runners_by_style["逃げ"])
     total_runners = len(running_styles_data)
 
-    # ペース予想
-    predicted_pace = _predict_pace(front_runner_count, total_runners)
-
-    # 有利な脚質
-    favorable_styles = PACE_FAVORABLE_STYLES.get(predicted_pace, [])
-
-    # 分析コメント
-    analysis = _generate_pace_analysis(
-        predicted_pace, front_runner_count, runners_by_style
-    )
+    # 脚質構成サマリー（各脚質の頭数）
+    running_style_summary = {
+        style: len(horses)
+        for style, horses in runners_by_style.items()
+        if len(horses) > 0
+    }
 
     return {
         "race_id": race_id,
         "runners_by_style": runners_by_style,
         "front_runner_count": front_runner_count,
         "total_runners": total_runners,
-        "predicted_pace": predicted_pace,
-        "favorable_styles": favorable_styles,
-        "analysis": analysis,
-    }
-
-
-def _analyze_running_style_match_impl(
-    race_id: str,
-    horse_numbers: list[int],
-    running_styles_data: list[dict],
-    predicted_pace: str,
-) -> dict:
-    """選択馬の脚質と展開の相性を分析する（実装）.
-
-    Args:
-        race_id: レースID
-        horse_numbers: 分析対象の馬番リスト
-        running_styles_data: 出走馬の脚質データリスト
-        predicted_pace: 予想ペース
-
-    Returns:
-        脚質相性分析結果の辞書（予想ペース、各馬の相性評価とコメント）
-    """
-    if not running_styles_data:
-        return {
-            "error": "脚質データが取得できませんでした",
-            "race_id": race_id,
-        }
-
-    favorable_styles = PACE_FAVORABLE_STYLES.get(predicted_pace, [])
-
-    horses_analysis = []
-    for runner in running_styles_data:
-        horse_number = runner.get("horse_number")
-        if horse_number not in horse_numbers:
-            continue
-
-        running_style = runner.get("running_style", "不明")
-
-        # 相性判定
-        if predicted_pace == "不明":
-            # ペース予想が不明な場合は有利不利を判定しない
-            pace_compatibility = "不明"
-            comment = "ペース予想が困難なため、脚質の有利不利は判断できません"
-        elif running_style in favorable_styles:
-            pace_compatibility = "有利"
-            comment = f"{predicted_pace}ペース予想で{running_style}脚質は好展開"
-        elif running_style == "自在":
-            pace_compatibility = "中立"
-            comment = "自在脚質のためどの展開にも対応可能"
-        elif running_style == "不明":
-            pace_compatibility = "不明"
-            comment = "脚質データなし"
-        else:
-            pace_compatibility = "不利"
-            if predicted_pace == "ハイ":
-                comment = f"ハイペース予想で{running_style}馬は厳しい展開"
-            elif predicted_pace == "スロー":
-                comment = f"スローペース予想で{running_style}馬は脚を余す可能性あり"
-            else:
-                comment = f"ミドルペースで{running_style}馬はやや不利"
-
-        horses_analysis.append({
-            "horse_number": horse_number,
-            "horse_name": runner.get("horse_name"),
-            "running_style": running_style,
-            "pace_compatibility": pace_compatibility,
-            "comment": comment,
-        })
-
-    return {
-        "race_id": race_id,
-        "predicted_pace": predicted_pace,
-        "favorable_styles": favorable_styles,
-        "horses": horses_analysis,
+        "running_style_summary": running_style_summary,
     }
 
 
@@ -483,7 +330,6 @@ def _analyze_post_position(
 
 
 def _generate_development_summary(
-    predicted_pace: str,
     runners_by_style: dict[str, list[dict]],
     difficulty: dict,
     surface: str,
@@ -492,7 +338,6 @@ def _generate_development_summary(
     """展開予想の自然言語サマリーを生成する.
 
     Args:
-        predicted_pace: 予想ペース
         runners_by_style: 脚質別馬リスト
         difficulty: 難易度判定結果
         surface: 馬場（"芝" or "ダート"）
@@ -503,29 +348,23 @@ def _generate_development_summary(
     """
     escaper_names = [r["horse_name"] for r in runners_by_style.get("逃げ", [])]
     leader_names = [r["horse_name"] for r in runners_by_style.get("先行", [])]
+    escaper_count = len(escaper_names)
 
     parts = []
 
-    # ペースの描写
-    if predicted_pace == "ハイ":
-        if len(escaper_names) >= 3:
-            names = "・".join(escaper_names[:3])
-            parts.append(f"{names}ら{len(escaper_names)}頭が逃げを主張し、ハイペースが濃厚")
-        else:
-            parts.append("逃げ馬が複数おり、ハイペースが予想される")
-        parts.append("前が潰れる展開で差し・追込馬に展開利")
-    elif predicted_pace == "スロー":
-        if escaper_names:
-            parts.append(f"{escaper_names[0]}がハナを主張し、スローペースが予想される")
-            parts.append("前残りしやすい展開で逃げ・先行馬が有利")
-        else:
-            parts.append("明確な逃げ馬不在でスローペースが予想される")
-            if leader_names:
-                parts.append(f"{leader_names[0]}あたりが押し出されてハナに立つ可能性")
-            parts.append("先行馬が有利な展開")
+    # 脚質構成ベースの描写
+    if escaper_count >= 3:
+        names = "・".join(escaper_names[:3])
+        parts.append(f"逃げ馬が{escaper_count}頭（{names}）と多い構成")
+    elif escaper_count == 2:
+        names = "・".join(escaper_names)
+        parts.append(f"逃げ馬が2頭（{names}）の構成")
+    elif escaper_count == 1:
+        parts.append(f"逃げ馬は{escaper_names[0]}の1頭のみ")
     else:
-        parts.append("逃げ馬が2頭でミドルペース想定")
-        parts.append("能力がストレートに問われる展開")
+        parts.append("明確な逃げ馬が不在")
+        if leader_names:
+            parts.append(f"{leader_names[0]}あたりが押し出されてハナに立つ可能性")
 
     # 枠順の傾向
     if surface == "芝":
@@ -565,13 +404,12 @@ def _analyze_race_characteristics_impl(
     Returns:
         総合分析結果
     """
-    # 1. 展開予想
+    # 1. 展開分析
     development = _analyze_race_development_impl(race_id, running_styles_data)
     if "error" in development:
         return development
 
     total_runners = development["total_runners"]
-    predicted_pace = development["predicted_pace"]
     runners_by_style = development["runners_by_style"]
 
     # 2. レース難易度判定
@@ -596,29 +434,21 @@ def _analyze_race_characteristics_impl(
             **post,
         })
 
-    # 4. 脚質相性分析（選択馬）
-    style_match = _analyze_running_style_match_impl(
-        race_id, target_numbers, running_styles_data, predicted_pace
-    )
-
-    # 5. 展開サマリー生成
+    # 4. 展開サマリー生成
     summary = _generate_development_summary(
-        predicted_pace, runners_by_style, difficulty, surface, total_runners
+        runners_by_style, difficulty, surface, total_runners
     )
 
     return {
         "race_id": race_id,
         "development": {
-            "predicted_pace": predicted_pace,
-            "favorable_styles": development["favorable_styles"],
+            "running_style_summary": development["running_style_summary"],
             "runners_by_style": runners_by_style,
             "front_runner_count": development["front_runner_count"],
             "total_runners": total_runners,
-            "analysis": development["analysis"],
         },
         "difficulty": difficulty,
         "post_position": post_position_analysis,
-        "style_match": style_match.get("horses", []),
         "summary": summary,
     }
 

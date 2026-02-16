@@ -587,7 +587,6 @@ class TestOutputFormat:
         )
         summary = result["race_summary"]
         assert "difficulty_stars" in summary
-        assert "predicted_pace" in summary
         assert "ai_consensus_level" in summary
         assert "skip_score" in summary
         assert "skip_recommendation" in summary
@@ -1254,7 +1253,6 @@ class TestGenerateProposalReasoning:
         return dict(
             axis_horses=axis_horses,
             difficulty=difficulty,
-            predicted_pace="ミドル",
             ai_consensus="概ね合意",
             skip=skip,
             bets=bets,
@@ -1396,7 +1394,6 @@ class TestBuildNarrationContext:
         return dict(
             axis_horses=axis_horses,
             difficulty=difficulty,
-            predicted_pace="ミドル",
             ai_consensus="概ね合意",
             skip=skip,
             bets=bets,
@@ -1411,7 +1408,7 @@ class TestBuildNarrationContext:
         ctx = _build_narration_context(**args)
         required_keys = {
             "axis_horses", "partner_horses", "difficulty",
-            "predicted_pace", "ai_consensus", "skip", "bets",
+            "ai_consensus", "skip", "bets",
         }
         assert required_keys.issubset(ctx.keys())
 
@@ -1484,7 +1481,6 @@ class TestInvokeHaikuNarrator:
                 {"horse_number": 3, "horse_name": "テスト馬3", "ai_rank": 3, "max_expected_value": 1.5},
             ],
             "difficulty": {"difficulty_stars": 3, "difficulty_label": "標準"},
-            "predicted_pace": "ミドル",
             "ai_consensus": "概ね合意",
             "skip": {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
             "bets": [
@@ -2484,7 +2480,6 @@ class TestLlmNarrationIntegration:
                 {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
             ],
             difficulty={"difficulty_stars": 3, "difficulty_label": "標準"},
-            predicted_pace="ミドル",
             ai_consensus="概ね合意",
             skip={"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
             bets=[

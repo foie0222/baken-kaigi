@@ -346,7 +346,6 @@ def _propose_bets_impl(
     race_conditions: list[str] | None = None,
     venue: str = "",
     skip_score: int = 0,
-    predicted_pace: str = "",
     ai_consensus: str = "",
     all_odds: dict | None = None,
 ) -> dict:
@@ -361,7 +360,7 @@ def _propose_bets_impl(
 
     # 見送り判定
     if confidence_factor == 0.0:
-        return _build_skip_result(race_id, race_name, skip_score, venue, predicted_pace, ai_consensus)
+        return _build_skip_result(race_id, race_name, skip_score, venue, ai_consensus)
 
     # 0. 実オッズ取得
     if all_odds is None:
@@ -406,7 +405,6 @@ def _propose_bets_impl(
     narration_context = {
         "race_name": race_name,
         "difficulty": difficulty,
-        "predicted_pace": predicted_pace,
         "ai_consensus": ai_consensus,
         "skip_score": skip_score,
         "bets": bets,
@@ -421,7 +419,6 @@ def _propose_bets_impl(
         "race_summary": {
             "race_name": race_name,
             "difficulty_stars": difficulty,
-            "predicted_pace": predicted_pace or "不明",
             "ai_consensus_level": ai_consensus or "不明",
             "skip_score": skip_score,
             "skip_recommendation": "見送り推奨" if skip_score >= 7 else "",
@@ -454,7 +451,6 @@ def propose_bets(
     race_conditions: list[str] | None = None,
     venue: str = "",
     skip_score: int = 0,
-    predicted_pace: str = "",
     ai_consensus: str = "",
     runners_data: list[dict] | None = None,
     total_runners: int = 0,
@@ -476,7 +472,6 @@ def propose_bets(
         race_conditions: レース条件リスト
         venue: 競馬場名
         skip_score: 見送りスコア（0-10）
-        predicted_pace: ペース予想
         ai_consensus: AI合議レベル
         runners_data: 出走馬データ（馬名・オッズ表示用）
         total_runners: 出走頭数
@@ -521,7 +516,6 @@ def propose_bets(
             race_conditions=race_conditions,
             venue=venue,
             skip_score=skip_score,
-            predicted_pace=predicted_pace,
             ai_consensus=ai_consensus,
         )
 
@@ -551,7 +545,7 @@ def _build_proposal_reasoning(
 
 def _build_skip_result(
     race_id: str, race_name: str, skip_score: int,
-    venue: str, predicted_pace: str, ai_consensus: str,
+    venue: str, ai_consensus: str,
 ) -> dict:
     """見送り時の結果を返す."""
     return {
@@ -559,7 +553,6 @@ def _build_skip_result(
         "race_summary": {
             "race_name": race_name,
             "difficulty_stars": 0,
-            "predicted_pace": predicted_pace or "不明",
             "ai_consensus_level": ai_consensus or "不明",
             "skip_score": skip_score,
             "skip_recommendation": "見送り推奨",
