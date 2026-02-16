@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def analyze_race_for_betting(race_id: str) -> dict:
     """レースを分析し、各馬のAI予想生データと分析情報を返す。
 
-    AI指数（各ソースのスコア・順位）、脚質、スピード指数、過去成績を取得し、
+    AI指数（各ソースのスコア・順位）、脚質、スピード指数を取得し、
     LLMが各ソースの生データを直接見て勝率を判断する。
 
     Args:
@@ -24,7 +24,7 @@ def analyze_race_for_betting(race_id: str) -> dict:
     Returns:
         dict: レース分析結果
             - race_info: レース基本情報（難易度、脚質構成、見送りスコア、コンセンサス等）
-            - horses: 各馬の情報（AI予想、脚質、スピード指数、近走成績）
+            - horses: 各馬の情報（AI予想、脚質、スピード指数）
     """
     try:
         from .ai_prediction import get_ai_prediction
@@ -57,7 +57,7 @@ def analyze_race_for_betting(race_id: str) -> dict:
             race_name=race.get("race_name", ""),
             venue=race.get("venue", ""),
             distance=race.get("distance", ""),
-            surface=race.get("surface", ""),
+            surface=race.get("track_type", ""),
             total_runners=race.get("horse_count", len(runners_data)),
             race_conditions=race_conditions,
             runners_data=runners_data,
@@ -137,16 +137,19 @@ def _analyze_race_impl(
     # 脚質マップ
     style_map = {rs.get("horse_number"): rs.get("running_style", "") for rs in running_styles}
 
-    # スピード指数マップ
-    si_map = {}
-    if speed_index_data and "horses" in speed_index_data:
-        for h in speed_index_data["horses"]:
-            hn = h.get("horse_number")
-            indices = h.get("indices", [])
-            if hn and indices:
-                latest = float(indices[0].get("value", 0))
-                avg = sum(float(idx.get("value", 0)) for idx in indices) / len(indices)
-                si_map[hn] = {"latest": latest, "avg": round(avg, 1)}
+    # スピード指数マップ（全ソースの指数を馬番ごとに集約）
+    si_map: dict[int, dict] = {}
+    if speed_index_data and "sources" in speed_index_data:
+        for source_data in speed_index_data["sources"]:
+            source_name = source_data.get("source", "")
+            for idx_entry in source_data.get("indices", []):
+                hn = idx_entry.get("horse_number")
+                value = idx_entry.get("value")
+                if hn is not None and value is not None:
+                    hn = int(hn)
+                    if hn not in si_map:
+                        si_map[hn] = {}
+                    si_map[hn][source_name] = float(value)
 
     # AI予想マップ（全ソース: スコア+順位）
     ai_predictions_map: dict[int, dict] = {}

@@ -230,14 +230,14 @@ def _analyze_odds_gap(runners_data: list[dict]) -> dict | None:
     # オッズ順にソート
     sorted_runners = sorted(
         [r for r in runners_data if float(r.get("odds") or 0) > 0],
-        key=lambda x: x["odds"],
+        key=lambda x: float(x.get("odds") or 0),
     )
 
     if len(sorted_runners) < 4:
         return None
 
     # 上位4頭のオッズを取得
-    top4_odds = [r["odds"] for r in sorted_runners[:4]]
+    top4_odds = [float(r.get("odds") or 0) for r in sorted_runners[:4]]
 
     # ゼロ除算防御（オッズが0以下のデータは上でフィルタ済みだが念のため）
     if top4_odds[0] <= 0 or top4_odds[2] <= 0:

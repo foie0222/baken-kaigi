@@ -157,9 +157,14 @@ class TestAnalyzeRaceImpl:
         ai_result = {"sources": [{"source": "jiro8", "predictions": ai_preds}]}
 
         speed_index_data = {
-            "horses": [
-                {"horse_number": 1, "indices": [{"value": 105}]},
-                {"horse_number": 2, "indices": [{"value": 98}, {"value": 100}]},
+            "sources": [
+                {
+                    "source": "jiro8-speed",
+                    "indices": [
+                        {"horse_number": 1, "rank": 1, "value": 105},
+                        {"horse_number": 2, "rank": 2, "value": 98},
+                    ],
+                },
             ]
         }
 
@@ -179,7 +184,7 @@ class TestAnalyzeRaceImpl:
 
         horse1 = next(h for h in result["horses"] if h["number"] == 1)
         assert horse1["speed_index"] is not None
-        assert horse1["speed_index"]["latest"] == 105
+        assert horse1["speed_index"]["jiro8-speed"] == 105
 
     def test_ai_predictionsにスコアと順位が含まれる(self):
         runners = _make_runners(3)
