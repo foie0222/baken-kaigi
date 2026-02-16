@@ -449,7 +449,6 @@ class TestFetchAgentData:
 
     def _import_fetch(self):
         """_fetch_agent_data をインポートする（agentcore.agent の副作用を回避）."""
-        import importlib
         mock_bedrock = MagicMock()
         mock_boto3 = MagicMock()
         with patch.dict("sys.modules", {
@@ -524,7 +523,11 @@ class TestFetchAgentData:
         fetch, agent_mod, mock_boto3 = self._import_fetch()
 
         mock_table = MagicMock()
-        mock_table.query.side_effect = Exception("DynamoDB error")
+        from botocore.exceptions import ClientError
+        mock_table.query.side_effect = ClientError(
+            {"Error": {"Code": "InternalServerError", "Message": "DynamoDB error"}},
+            "Query",
+        )
         mock_resource = MagicMock()
         mock_resource.Table.return_value = mock_table
         mock_boto3.resource.return_value = mock_resource

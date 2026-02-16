@@ -283,6 +283,8 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     race_id = body.get("race_id", "")
     if not race_id:
         return _make_response({"error": "race_id is required"}, 400, event=event)
+    if not re.fullmatch(r"\d{12}", race_id):
+        return _make_response({"error": "race_id must be a 12-digit number"}, 400, event=event)
 
     # ========================================
     # 利用制限チェック

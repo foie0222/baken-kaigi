@@ -318,6 +318,20 @@ class TestInvokeAgentcore:
             body = json.loads(response["body"])
             assert "race_id is required" in body["error"]
 
+    def test_returns_400_when_race_id_invalid_format(self):
+        """race_id が12桁数字でない場合は400エラーを返す."""
+        with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
+            from agentcore_handler import invoke_agentcore
+
+            event = {"body": '{"race_id": "not-a-valid-id"}'}
+            context = MagicMock()
+
+            response = invoke_agentcore(event, context)
+
+            assert response["statusCode"] == 400
+            body = json.loads(response["body"])
+            assert "12-digit" in body["error"]
+
     def test_returns_400_when_invalid_json_body(self):
         """不正なJSONボディの場合は400エラーを返す."""
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):

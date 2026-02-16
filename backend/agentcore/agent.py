@@ -12,6 +12,7 @@ from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import BotoCoreError, ClientError
 
 # AgentCore Runtime ではCloudWatchメトリクス送信を有効化
 os.environ.setdefault("EMIT_CLOUDWATCH_METRICS", "true")
@@ -278,8 +279,9 @@ def _fetch_agent_data(user_id: str) -> dict | None:
         response = table.query(
             IndexName="user_id-index",
             KeyConditionExpression=Key("user_id").eq(cognito_sub),
+            Limit=1,
         )
-    except Exception:
+    except (ClientError, BotoCoreError):
         logger.exception("Failed to fetch agent data for user_id=%s", user_id)
         return None
 
