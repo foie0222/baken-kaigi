@@ -2023,7 +2023,7 @@ def generate_bet_proposal(
     budget指定時は従来の信頼度別配分を使用する。
 
     Args:
-        race_id: レースID (例: "20260201_05_11")
+        race_id: レースID (例: "202602010511")
         budget: 予算（円）。従来モード。
         bankroll: 1日の総資金（円）。ダッチング配分モード。
         preferred_bet_types: 券種の指定リスト (省略時はレース難易度から自動選定)

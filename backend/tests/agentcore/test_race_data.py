@@ -30,7 +30,7 @@ def mock_get_api_url():
 def _make_api_response(race_overrides=None, runners=None):
     """テスト用APIレスポンスを生成するヘルパー."""
     race = {
-        "race_id": "20260125_06_11",
+        "race_id": "202601250611",
         "race_name": "テストレース",
         "venue": "東京",
         "track_type": "芝",
@@ -112,7 +112,7 @@ class TestGetRaceRunners:
         mock_response.json.return_value = _make_api_response()
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert "runners_data" in result
         assert "race_conditions" in result
@@ -131,7 +131,7 @@ class TestGetRaceRunners:
         mock_response.json.return_value = _make_api_response()
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert len(result["runners_data"]) == 3
         runner = result["runners_data"][0]
@@ -148,7 +148,7 @@ class TestGetRaceRunners:
         mock_response.json.return_value = _make_api_response()
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert result["venue"] == "東京"
         assert result["surface"] == "芝"
@@ -166,7 +166,7 @@ class TestGetRaceRunners:
         )
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert "g1" in result["race_conditions"]
 
@@ -183,7 +183,7 @@ class TestGetRaceRunners:
         )
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert "handicap" in result["race_conditions"]
         assert "maiden_new" in result["race_conditions"]
@@ -196,7 +196,7 @@ class TestGetRaceRunners:
         mock_response.json.return_value = {}
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert result["runners_data"] == []
         assert result["race_conditions"] == []
@@ -209,7 +209,7 @@ class TestGetRaceRunners:
         """異常系: RequestException発生時はerrorを含む辞書を返す."""
         mock_get.side_effect = requests.RequestException("Connection failed")
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
@@ -222,7 +222,7 @@ class TestGetRaceRunners:
         mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert "error" in result
         assert "API呼び出しに失敗しました" in result["error"]
@@ -237,6 +237,6 @@ class TestGetRaceRunners:
         mock_response.json.return_value = api_response
         mock_get.return_value = mock_response
 
-        result = get_race_runners("20260125_06_11")
+        result = get_race_runners("202601250611")
 
         assert result["total_runners"] == 3  # runnersが3頭

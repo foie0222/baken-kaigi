@@ -206,17 +206,16 @@ class MockRaceDataProvider(RaceDataProvider):
             return self._races[race_id_str]
 
         # レースIDをパースして情報を生成
-        # フォーマット: YYYYMMDD_VENUE_RACE_NUMBER (例: 20240120_tokyo_01)
-        parts = race_id_str.split("_")
-        if len(parts) < 3:
+        # フォーマット: YYYYMMDDXXRR（12桁数字、例: 202401200101）
+        if len(race_id_str) < 12:
             return None
 
         try:
-            date_str = parts[0]
-            venue = parts[1]
-            race_num = int(parts[2])
+            date_str = race_id_str[:8]
+            venue = race_id_str[8:10]
+            race_num = int(race_id_str[10:12])
             target_date = datetime.strptime(date_str, "%Y%m%d")
-        except (ValueError, IndexError):
+        except ValueError:
             return None
 
         # レースデータを生成
@@ -239,7 +238,7 @@ class MockRaceDataProvider(RaceDataProvider):
         for v in venues_to_use:
             venue_lower = v.lower()
             for race_num in range(1, 13):  # 1R〜12R
-                race_id = f"{date_str}_{venue_lower}_{race_num:02d}"
+                race_id = f"{date_str}{venue_lower}{race_num:02d}"
                 race = self._generate_race_data(race_id, target_date, v, race_num)
                 races.append(race)
                 self._races[race_id] = race
@@ -700,7 +699,7 @@ class MockRaceDataProvider(RaceDataProvider):
             pop = random.randint(1, total_runners)
 
             perf = HorsePerformanceData(
-                race_id=f"{race_date.strftime('%Y%m%d')}_{venue.lower()}_{random.randint(1,12):02d}",
+                race_id=f"{race_date.strftime('%Y%m%d')}{venue.lower()}{random.randint(1,12):02d}",
                 race_date=race_date.strftime("%Y%m%d"),
                 race_name=f"{venue}{distance}m {random.choice(self.RACE_NAMES)}",
                 venue=venue,

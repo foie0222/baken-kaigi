@@ -133,7 +133,7 @@ class TestGetAllOdds:
             ("010203020483023",), # o6: sanrentan 2048.3倍
         ]
 
-        result = get_all_odds("20260215_06_11")
+        result = get_all_odds("202602150611")
 
         assert result is not None
         # 単勝
@@ -170,7 +170,7 @@ class TestGetAllOdds:
             (None,),  # o6
         ]
 
-        result = get_all_odds("20260215_06_11")
+        result = get_all_odds("202602150611")
 
         assert result is not None
         assert result["win"]["1"] == 3.5
@@ -194,6 +194,6 @@ class TestGetAllOdds:
             (None,),  # o6
         ]
 
-        result = get_all_odds("20260215_06_11")
+        result = get_all_odds("202602150611")
 
         assert result is None

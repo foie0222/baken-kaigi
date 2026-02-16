@@ -53,7 +53,7 @@ class TestGetRunners:
             },
         ]
 
-        result = get_runners_by_race("20260105_09_01")
+        result = get_runners_by_race("202601050901")
 
         assert len(result) == 1
         assert result[0]["odds"] == 3.5
@@ -87,7 +87,7 @@ class TestGetRunners:
             },
         ]
 
-        result = get_runners_by_race("20260105_09_01")
+        result = get_runners_by_race("202601050901")
 
         assert len(result) == 1
         assert result[0]["odds"] is None
@@ -137,7 +137,7 @@ class TestGetRunners:
             },
         ]
 
-        result = get_runners_by_race("20260105_09_01")
+        result = get_runners_by_race("202601050901")
 
         assert len(result) == 2
         # jvd_o1のオッズが優先される
@@ -190,7 +190,7 @@ class TestGetRunners:
             },
         ]
 
-        result = get_runners_by_race("20260105_09_01")
+        result = get_runners_by_race("202601050901")
 
         assert len(result) == 2
         # jvd_o1からオッズが取得される
@@ -287,10 +287,10 @@ class TestGetOddsHistory:
             ("0100300102006502", "02091030"),
         ]
 
-        result = get_odds_history("20260209_09_01")
+        result = get_odds_history("202602090901")
 
         assert result is not None
-        assert result["race_id"] == "20260209_09_01"
+        assert result["race_id"] == "202602090901"
         assert len(result["odds_history"]) == 2
 
         # 1つ目のスナップショット
@@ -322,7 +322,7 @@ class TestGetOddsHistory:
         mock_cursor.fetchall.return_value = []
         mock_cursor.fetchone.return_value = ("0100350102005802", "02091500")
 
-        result = get_odds_history("20260209_09_01")
+        result = get_odds_history("202602090901")
 
         assert result is not None
         assert len(result["odds_history"]) == 1
@@ -349,7 +349,7 @@ class TestGetOddsHistory:
         mock_cursor.fetchall.return_value = []
         mock_cursor.fetchone.return_value = None
 
-        result = get_odds_history("20260209_09_01")
+        result = get_odds_history("202602090901")
 
         assert result is not None
         assert len(result["odds_history"]) == 1
@@ -370,7 +370,7 @@ class TestGetOddsHistory:
         mock_cursor.fetchall.return_value = []
         mock_cursor.fetchone.return_value = None
 
-        result = get_odds_history("20260209_09_01")
+        result = get_odds_history("202602090901")
 
         assert result is None
 

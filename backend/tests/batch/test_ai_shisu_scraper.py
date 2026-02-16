@@ -213,18 +213,18 @@ class TestGenerateRaceId:
     def test_正しい形式でrace_idを生成(self):
         """正常系: JRA-VANスタイルのrace_idを生成."""
         race_id = generate_race_id("20260131", "東京", 11)
-        assert race_id == "20260131_05_11"
+        assert race_id == "202601310511"
 
     def test_レース番号が1桁でもゼロパディング(self):
         """正常系: レース番号が1桁でも2桁にゼロパディング."""
         race_id = generate_race_id("20260131", "小倉", 1)
-        assert race_id == "20260131_10_01"
+        assert race_id == "202601311001"
 
     def test_すべての競馬場コード(self):
         """正常系: すべてのJRA競馬場でrace_idを生成."""
         for venue, code in VENUE_CODE_MAP.items():
             race_id = generate_race_id("20260131", venue, 12)
-            assert race_id == f"20260131_{code}_12"
+            assert race_id == f"20260131{code}12"
 
 
 class TestSavePredictions:
@@ -241,7 +241,7 @@ class TestSavePredictions:
 
         save_predictions(
             table=mock_table,
-            race_id="20260131_05_11",
+            race_id="202601310511",
             venue="東京",
             race_number=11,
             predictions=predictions,
@@ -252,7 +252,7 @@ class TestSavePredictions:
         call_args = mock_table.put_item.call_args
         item = call_args.kwargs["Item"]
 
-        assert item["race_id"] == "20260131_05_11"
+        assert item["race_id"] == "202601310511"
         assert item["source"] == "ai-shisu"
         assert item["venue"] == "東京"
         assert item["race_number"] == 11
@@ -306,7 +306,7 @@ class TestScrapeRaces:
         # 保存時の race_id が当日（2/9）であることを確認
         call_args = mock_table.return_value.put_item.call_args
         item = call_args.kwargs["Item"]
-        assert item["race_id"] == "20260209_08_01"
+        assert item["race_id"] == "202602090801"
 
     @patch("batch.ai_shisu_scraper.time.sleep")
     @patch("batch.ai_shisu_scraper.get_dynamodb_table")
@@ -342,7 +342,7 @@ class TestScrapeRaces:
         assert results["races_scraped"] == 1
         call_args = mock_table.return_value.put_item.call_args
         item = call_args.kwargs["Item"]
-        assert item["race_id"] == "20260209_08_01"
+        assert item["race_id"] == "202602090801"
 
 
 class TestHandler:

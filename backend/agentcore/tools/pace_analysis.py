@@ -638,7 +638,7 @@ def analyze_race_characteristics(
     展開から見た各馬の有利不利を分析し、自然言語サマリーを生成する。
 
     Args:
-        race_id: レースID (例: "20260201_05_11")
+        race_id: レースID (例: "202602010511")
         horse_numbers: 分析対象の馬番リスト（省略時は全馬）
         race_conditions: レース条件リスト（"handicap", "maiden_new", "maiden",
             "hurdle", "g1", "g2", "g3", "fillies_mares"）

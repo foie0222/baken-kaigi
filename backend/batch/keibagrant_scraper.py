@@ -466,7 +466,7 @@ def parse_pdf_horses(pdf_text: str) -> list[dict]:
 def generate_race_id(date_str: str, venue: str, race_number: int) -> str:
     """JRA-VANスタイルのrace_idを生成."""
     venue_code = VENUE_CODE_MAP.get(venue, "00")
-    return f"{date_str}_{venue_code}_{race_number:02d}"
+    return f"{date_str}{venue_code}{race_number:02d}"
 
 
 def save_race_data(

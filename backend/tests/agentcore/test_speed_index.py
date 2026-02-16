@@ -52,7 +52,7 @@ class TestGetSpeedIndex:
         """正常系: DynamoDBからデータを取得できる."""
         mock_dynamodb_table.get_item.return_value = {
             "Item": {
-                "race_id": "20260208_05_11",
+                "race_id": "202602080511",
                 "source": "jiro8-speed",
                 "venue": "東京",
                 "race_number": 11,
@@ -65,9 +65,9 @@ class TestGetSpeedIndex:
             }
         }
 
-        result = get_speed_index(race_id="20260208_05_11", source="jiro8-speed")
+        result = get_speed_index(race_id="202602080511", source="jiro8-speed")
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert result["source"] == "jiro8-speed"
         assert result["venue"] == "東京"
         assert result["race_number"] == 11
@@ -81,9 +81,9 @@ class TestGetSpeedIndex:
         """異常系: データが存在しない場合はエラーメッセージを返す."""
         mock_dynamodb_table.get_item.return_value = {}
 
-        result = get_speed_index(race_id="20260208_05_99", source="jiro8-speed")
+        result = get_speed_index(race_id="202602080599", source="jiro8-speed")
 
-        assert result["race_id"] == "20260208_05_99"
+        assert result["race_id"] == "202602080599"
         assert result["source"] == "jiro8-speed"
         assert "error" in result
         assert "スピード指数データが見つかりません" in result["error"]
@@ -97,7 +97,7 @@ class TestGetSpeedIndex:
             "GetItem"
         )
 
-        result = get_speed_index(race_id="20260208_05_11", source="jiro8-speed")
+        result = get_speed_index(race_id="202602080511", source="jiro8-speed")
 
         assert "error" in result
         assert "DynamoDBエラー" in result["error"]
@@ -111,14 +111,14 @@ class TestGetSpeedIndexMultiSource:
         """source=None で呼ぶと全ソースを取得しコンセンサスを付加する."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260208_05_11", "jiro8-speed", [(5, 90.2), (3, 85.5), (8, 80.0), (1, 75.0)]),
-                _make_source_item("20260208_05_11", "kichiuma-speed", [(5, 92.0), (3, 88.0), (8, 82.0), (1, 70.0)]),
+                _make_source_item("202602080511", "jiro8-speed", [(5, 90.2), (3, 85.5), (8, 80.0), (1, 75.0)]),
+                _make_source_item("202602080511", "kichiuma-speed", [(5, 92.0), (3, 88.0), (8, 82.0), (1, 70.0)]),
             ]
         }
 
-        result = get_speed_index(race_id="20260208_05_11", source=None)
+        result = get_speed_index(race_id="202602080511", source=None)
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert len(result["sources"]) == 2
         assert "consensus" in result
         assert "error" not in result
@@ -128,13 +128,13 @@ class TestGetSpeedIndexMultiSource:
         """1ソースのみの場合、sourcesに1つ。consensusは付加しない."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260208_05_11", "jiro8-speed", [(5, 90.2), (3, 85.5), (8, 80.0)]),
+                _make_source_item("202602080511", "jiro8-speed", [(5, 90.2), (3, 85.5), (8, 80.0)]),
             ]
         }
 
-        result = get_speed_index(race_id="20260208_05_11", source=None)
+        result = get_speed_index(race_id="202602080511", source=None)
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert len(result["sources"]) == 1
         assert "consensus" not in result
         assert "error" not in result
@@ -142,12 +142,12 @@ class TestGetSpeedIndexMultiSource:
     def test_source指定時は従来通り単一ソース返却(self, mock_dynamodb_table):
         """source指定の場合、従来と同じ形式で返す（後方互換）."""
         mock_dynamodb_table.get_item.return_value = {
-            "Item": _make_source_item("20260208_05_11", "jiro8-speed", [(5, 90.2), (3, 85.5)])
+            "Item": _make_source_item("202602080511", "jiro8-speed", [(5, 90.2), (3, 85.5)])
         }
 
-        result = get_speed_index(race_id="20260208_05_11", source="jiro8-speed")
+        result = get_speed_index(race_id="202602080511", source="jiro8-speed")
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert result["source"] == "jiro8-speed"
         assert "indices" in result
         assert "sources" not in result
@@ -158,9 +158,9 @@ class TestGetSpeedIndexMultiSource:
         """全ソース取得でデータがない場合."""
         mock_dynamodb_table.query.return_value = {"Items": []}
 
-        result = get_speed_index(race_id="20260208_05_99", source=None)
+        result = get_speed_index(race_id="202602080599", source=None)
 
-        assert result["race_id"] == "20260208_05_99"
+        assert result["race_id"] == "202602080599"
         assert "error" in result
         assert result["sources"] == []
 
@@ -172,7 +172,7 @@ class TestGetSpeedIndexMultiSource:
             "Query"
         )
 
-        result = get_speed_index(race_id="20260208_05_11", source=None)
+        result = get_speed_index(race_id="202602080511", source=None)
 
         assert "error" in result
         assert "DynamoDBエラー" in result["error"]
@@ -182,11 +182,11 @@ class TestGetSpeedIndexMultiSource:
         """引数なしで呼んだ場合、source=None として全ソース取得になる."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260208_05_11", "jiro8-speed", [(5, 90.2), (3, 85.5), (8, 80.0)]),
+                _make_source_item("202602080511", "jiro8-speed", [(5, 90.2), (3, 85.5), (8, 80.0)]),
             ]
         }
 
-        result = get_speed_index(race_id="20260208_05_11")
+        result = get_speed_index(race_id="202602080511")
 
         mock_dynamodb_table.query.assert_called_once()
         assert "sources" in result
@@ -284,7 +284,7 @@ class TestListSpeedIndicesForDate:
         mock_dynamodb_table.scan.return_value = {
             "Items": [
                 {
-                    "race_id": "20260208_05_11",
+                    "race_id": "202602080511",
                     "source": "jiro8-speed",
                     "venue": "東京",
                     "race_number": 11,
@@ -295,7 +295,7 @@ class TestListSpeedIndicesForDate:
                     "scraped_at": "2026-02-08T06:00:00+09:00",
                 },
                 {
-                    "race_id": "20260208_08_12",
+                    "race_id": "202602080812",
                     "source": "jiro8-speed",
                     "venue": "京都",
                     "race_number": 12,
@@ -336,9 +336,9 @@ class TestListSpeedIndicesForDate:
         """正常系: レースが競馬場名・レース番号でソートされる."""
         mock_dynamodb_table.scan.return_value = {
             "Items": [
-                {"race_id": "20260208_05_12", "source": "jiro8-speed", "venue": "東京", "race_number": 12, "indices": []},
-                {"race_id": "20260208_08_11", "source": "jiro8-speed", "venue": "京都", "race_number": 11, "indices": []},
-                {"race_id": "20260208_05_11", "source": "jiro8-speed", "venue": "東京", "race_number": 11, "indices": []},
+                {"race_id": "202602080512", "source": "jiro8-speed", "venue": "東京", "race_number": 12, "indices": []},
+                {"race_id": "202602080811", "source": "jiro8-speed", "venue": "京都", "race_number": 11, "indices": []},
+                {"race_id": "202602080511", "source": "jiro8-speed", "venue": "東京", "race_number": 11, "indices": []},
             ]
         }
 

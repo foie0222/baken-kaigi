@@ -90,7 +90,7 @@ def analyze_race_for_betting(race_id: str) -> dict:
     propose_bets に渡す。
 
     Args:
-        race_id: レースID (例: "20260201_05_11")
+        race_id: レースID (例: "202602010511")
 
     Returns:
         dict: レース分析結果

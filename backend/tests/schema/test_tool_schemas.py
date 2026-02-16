@@ -130,7 +130,7 @@ class TestBetAnalysisSchema:
     def test_正常なデータを検証(self):
         """正常なデータが検証を通過する."""
         data = {
-            "race_id": "20260125_06_11",
+            "race_id": "202601250611",
             "bet_type": "win",
             "bet_type_name": "単勝",
             "total_runners": 16,
@@ -152,7 +152,7 @@ class TestBetAnalysisSchema:
             "amount_feedback": {"warnings": [], "info": []},
         }
         result = BetAnalysis(**data)
-        assert result.race_id == "20260125_06_11"
+        assert result.race_id == "202601250611"
         assert result.bet_type == "win"
 
     def test_出走頭数が負の場合はエラー(self):
@@ -180,7 +180,7 @@ class TestRaceDataSchema:
         """正常なデータが検証を通過する."""
         data = {
             "race": {
-                "race_id": "20260125_06_11",
+                "race_id": "202601250611",
                 "race_name": "テストレース",
             },
             "runners": [
@@ -246,7 +246,7 @@ class TestOddsAnalysisSchema:
     def test_正常なデータを検証(self):
         """正常なデータが検証を通過する."""
         data = {
-            "race_id": "20260125_06_11",
+            "race_id": "202601250611",
             "horse_number": 1,
             "horse_name": "テスト馬",
             "current_odds": 5.5,

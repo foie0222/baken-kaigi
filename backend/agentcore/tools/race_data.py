@@ -60,7 +60,7 @@ def get_race_runners(race_id: str) -> dict:
     必ず最初にこのツールを呼んで、返却値を分析ツールの引数に渡してください。
 
     Args:
-        race_id: レースID (例: "20260125_06_11")
+        race_id: レースID (例: "202601250611")
 
     Returns:
         dict:

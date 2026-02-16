@@ -475,7 +475,7 @@ class TestSkipGate:
             for i in range(1, 19)
         ]
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=10000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -494,7 +494,7 @@ class TestSkipGate:
         runners = _make_runners(8)
         ai_preds = _make_ai_predictions(8)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=10000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -559,7 +559,7 @@ class TestOutputFormat:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -579,7 +579,7 @@ class TestOutputFormat:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -597,7 +597,7 @@ class TestOutputFormat:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -617,7 +617,7 @@ class TestOutputFormat:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -630,7 +630,7 @@ class TestOutputFormat:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -701,7 +701,7 @@ class TestIntegration:
         ai_preds = _make_ai_predictions(12)
         styles = _make_running_styles(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=10000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -712,7 +712,7 @@ class TestIntegration:
             running_styles=styles,
         )
         assert "error" not in result
-        assert result["race_id"] == "20260201_05_11"
+        assert result["race_id"] == "202602010511"
         assert result["race_summary"]["difficulty_stars"] >= 1
         assert len(result["proposed_bets"]) > 0
         assert result["total_amount"] > 0
@@ -723,7 +723,7 @@ class TestIntegration:
         runners = _make_runners(16)
         ai_preds = _make_ai_predictions(16)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -740,7 +740,7 @@ class TestIntegration:
         runners = _make_runners(14)
         ai_preds = _make_ai_predictions(14)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -757,7 +757,7 @@ class TestIntegration:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=3000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -776,7 +776,7 @@ class TestIntegration:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=3000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -938,7 +938,7 @@ class TestDecimalCompatibility:
         runners = _make_runners(12)
         ai_preds = _make_decimal_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260208_05_11",
+            race_id="202602080511",
             budget=3000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -983,7 +983,7 @@ class TestPopularityNoneHandling:
             r["popularity"] = None
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260208_05_01",
+            race_id="202602080501",
             budget=3000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -1000,7 +1000,7 @@ class TestPopularityNoneHandling:
             r["popularity"] = None
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260208_05_01",
+            race_id="202602080501",
             budget=3000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -1183,7 +1183,7 @@ class TestMaxBetsParameter:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=5000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -1197,7 +1197,7 @@ class TestMaxBetsParameter:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=10000,
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -1210,7 +1210,7 @@ class TestMaxBetsParameter:
         runners = _make_runners(12)
         ai_preds = _make_ai_predictions(12)
         result = _generate_bet_proposal_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             budget=10000,
             runners_data=runners,
             ai_predictions=ai_preds,

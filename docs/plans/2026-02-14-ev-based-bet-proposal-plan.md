@@ -331,7 +331,7 @@ class TestAnalyzeRaceImpl:
         running_styles = _make_running_styles(6)
 
         result = _analyze_race_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             race_name="東京11R テスト重賞",
             venue="東京",
             distance="1600m",
@@ -344,7 +344,7 @@ class TestAnalyzeRaceImpl:
         )
 
         # race_info の検証
-        assert result["race_info"]["race_id"] == "20260201_05_11"
+        assert result["race_info"]["race_id"] == "202602010511"
         assert result["race_info"]["race_name"] == "東京11R テスト重賞"
         assert result["race_info"]["total_runners"] == 6
         assert "difficulty" in result["race_info"]
@@ -375,7 +375,7 @@ class TestAnalyzeRaceImpl:
         }
 
         result = _analyze_race_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             race_name="テスト",
             venue="東京",
             distance="1600m",
@@ -1227,7 +1227,7 @@ def analyze_race_for_betting(race_id: str) -> dict:
     LLMが勝率を判断するための材料を提供する。
 
     Args:
-        race_id: レースID (例: "20260201_05_11")
+        race_id: レースID (例: "202602010511")
 
     Returns:
         分析結果:
@@ -1304,7 +1304,7 @@ def propose_bets(
     確率×推定オッズの期待値が1.0以上の買い目を選定する。
 
     Args:
-        race_id: レースID (例: "20260201_05_11")
+        race_id: レースID (例: "202602010511")
         win_probabilities: 各馬の勝率 (例: {"1": 0.25, "3": 0.18, "5": 0.12})
         budget: 予算（円）。従来モード。
         bankroll: 1日の総資金（円）。ダッチング配分モード。
