@@ -131,11 +131,8 @@ class TestAnalyzeRaceImpl:
         assert result["race_info"]["race_id"] == "202602010511"
         assert result["race_info"]["race_name"] == "東京11R テスト重賞"
         assert result["race_info"]["total_runners"] == 6
-        assert "difficulty" in result["race_info"]
         assert "running_style_summary" in result["race_info"]
-        assert "skip_score" in result["race_info"]
         assert "ai_consensus" in result["race_info"]
-        assert "confidence_factor" in result["race_info"]
 
         # horses の検証
         assert len(result["horses"]) == 6

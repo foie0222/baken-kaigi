@@ -197,7 +197,6 @@ class TestProposeBetsImpl:
         )
 
         if result["proposed_bets"]:
-            assert "confidence_factor" in result
             assert "race_budget" in result
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
@@ -230,8 +229,6 @@ class TestProposeBetsImpl:
         # RaceSummary のフィールド
         summary = result["race_summary"]
         assert "race_name" in summary
-        assert "difficulty_stars" in summary
-
         # ProposedBet のフィールド
         if result["proposed_bets"]:
             bet = result["proposed_bets"][0]

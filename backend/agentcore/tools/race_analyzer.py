@@ -23,7 +23,7 @@ def analyze_race_for_betting(race_id: str) -> dict:
 
     Returns:
         dict: レース分析結果
-            - race_info: レース基本情報（難易度、脚質構成、見送りスコア、コンセンサス等）
+            - race_info: レース基本情報（脚質構成、コンセンサス等）
             - horses: 各馬の情報（AI予想、脚質、スピード指数）
     """
     try:
@@ -101,9 +101,7 @@ def _analyze_race_impl(
     Returns:
         レース分析結果 (race_info, horses)
     """
-    from .bet_proposal import _assess_ai_consensus, _calculate_confidence_factor
-    from .pace_analysis import _assess_race_difficulty
-    from .risk_analysis import _assess_skip_recommendation
+    from .bet_proposal import _assess_ai_consensus
 
     running_styles = running_styles or []
 
@@ -113,25 +111,11 @@ def _analyze_race_impl(
         style = rs.get("running_style", "不明")
         running_style_summary[style] = running_style_summary.get(style, 0) + 1
 
-    # レース難易度
-    difficulty = _assess_race_difficulty(total_runners, race_conditions, venue, runners_data)
-
-    # 見送りスコア
+    # AI合議
     ai_predictions = []
     sources = ai_result.get("sources", [])
     if sources:
         ai_predictions = sources[0].get("predictions", [])
-    skip = _assess_skip_recommendation(
-        total_runners,
-        race_conditions,
-        venue,
-        runners_data,
-        ai_predictions,
-    )
-    skip_score = skip.get("skip_score", 0)
-    confidence_factor = _calculate_confidence_factor(skip_score)
-
-    # AI合議
     ai_consensus = _assess_ai_consensus(ai_predictions) if ai_predictions else "データなし"
 
     # 脚質マップ
@@ -189,11 +173,8 @@ def _analyze_race_impl(
             "distance": distance,
             "surface": surface,
             "total_runners": total_runners,
-            "difficulty": difficulty,
             "running_style_summary": running_style_summary,
-            "skip_score": skip_score,
             "ai_consensus": ai_consensus,
-            "confidence_factor": confidence_factor,
             "consensus": ai_result.get("consensus"),
         },
         "horses": horses,

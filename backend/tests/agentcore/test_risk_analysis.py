@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
 from tools.risk_analysis import (
-    _assess_skip_recommendation,
     _analyze_excluded_horses,
     _generate_risk_scenarios,
     _diagnose_betting_bias,
@@ -47,105 +46,6 @@ def _make_ai_predictions(count: int) -> list[dict]:
             "score": 400 - (i - 1) * 30,
         })
     return preds
-
-
-# =============================================================================
-# Phase 1: 見送り推奨テスト
-# =============================================================================
-
-
-class TestAssessSkipRecommendation:
-    """見送り推奨のテスト."""
-
-    def test_大荒れ条件は見送り推奨(self):
-        """ハンデ戦 + 多頭数 + 荒れやすい競馬場 + AI混戦 → 見送り推奨."""
-        runners = _make_runners(18)
-        # AI上位5頭が混戦（スコア差小）
-        ai_preds = [
-            {"horse_number": i, "horse_name": f"テスト馬{i}", "rank": i, "score": 300 - (i - 1) * 5}
-            for i in range(1, 19)
-        ]
-        result = _assess_skip_recommendation(
-            total_runners=18,
-            race_conditions=["handicap"],
-            venue="福島",
-            runners_data=runners,
-            ai_predictions=ai_preds,
-        )
-        assert result["skip_score"] >= 7
-        assert result["recommendation"] == "見送り推奨"
-
-    def test_G1少頭数は見送り非推奨(self):
-        """G1 + 少頭数 → 見送りを推奨しない."""
-        runners = _make_runners(8)
-        ai_preds = _make_ai_predictions(8)
-        result = _assess_skip_recommendation(
-            total_runners=8,
-            race_conditions=["g1"],
-            venue="東京",
-            runners_data=runners,
-            ai_predictions=ai_preds,
-        )
-        assert result["skip_score"] < 7
-        assert result["recommendation"] != "見送り推奨"
-
-    def test_AI混戦時はスコア上昇(self):
-        """AI予想上位が僅差 → 予測困難でスコア上昇."""
-        runners = _make_runners(16)
-        # AI上位5頭のスコア差が小さい（混戦）
-        ai_preds = [
-            {"horse_number": i, "horse_name": f"テスト馬{i}", "rank": i, "score": 300 - (i - 1) * 5}
-            for i in range(1, 17)
-        ]
-        result = _assess_skip_recommendation(
-            total_runners=16,
-            race_conditions=[],
-            venue="東京",
-            runners_data=runners,
-            ai_predictions=ai_preds,
-        )
-        # 混戦なので通常よりスコアが上がる
-        assert result["skip_score"] >= 4
-
-    def test_ハンデ多頭数は高スコア(self):
-        """ハンデ戦 + 多頭数 → スコアが高い."""
-        runners = _make_runners(18)
-        ai_preds = _make_ai_predictions(18)
-        result = _assess_skip_recommendation(
-            total_runners=18,
-            race_conditions=["handicap"],
-            venue="東京",
-            runners_data=runners,
-            ai_predictions=ai_preds,
-        )
-        assert result["skip_score"] >= 5
-
-    def test_スコアは0から10の範囲(self):
-        """スコアは0-10に収まる."""
-        runners = _make_runners(12)
-        ai_preds = _make_ai_predictions(12)
-        result = _assess_skip_recommendation(
-            total_runners=12,
-            race_conditions=[],
-            venue="東京",
-            runners_data=runners,
-            ai_predictions=ai_preds,
-        )
-        assert 0 <= result["skip_score"] <= 10
-
-    def test_理由リストが返される(self):
-        """判定理由がリストで返される."""
-        runners = _make_runners(18)
-        ai_preds = _make_ai_predictions(18)
-        result = _assess_skip_recommendation(
-            total_runners=18,
-            race_conditions=["handicap"],
-            venue="福島",
-            runners_data=runners,
-            ai_predictions=ai_preds,
-        )
-        assert isinstance(result["reasons"], list)
-        assert len(result["reasons"]) > 0
 
 
 # =============================================================================
@@ -452,7 +352,6 @@ class TestAnalyzeRiskFactorsImpl:
         )
         assert "risk_scenarios" in result
         assert "excluded_horses" in result
-        assert "skip_recommendation" in result
         assert "betting_bias" in result
         assert "near_miss" in result
 
@@ -486,7 +385,6 @@ class TestAnalyzeRiskFactorsImpl:
             cart_items=[],
         )
         assert "risk_scenarios" in result
-        assert "skip_recommendation" in result
 
     def test_実データ形式の統合テスト(self):
         """実際のデータ形式に近いデータで統合テスト."""
@@ -526,4 +424,3 @@ class TestAnalyzeRiskFactorsImpl:
         )
         assert result["risk_scenarios"]["scenarios"]
         assert result["excluded_horses"]["excluded_horses"]
-        assert result["skip_recommendation"]["skip_score"] >= 0

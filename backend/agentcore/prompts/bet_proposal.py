@@ -45,7 +45,6 @@ propose_bets(
     race_name=<race_info.race_name>,
     race_conditions=<レース条件>,
     venue=<race_info.venue>,
-    skip_score=<race_info.skip_score>,
     ai_consensus=<race_info.ai_consensus>,
     runners_data=<出走馬データ（DynamoDBから取得）>,
     total_runners=<race_info.total_runners>,
