@@ -107,24 +107,6 @@ class BakenKaigiApiStack(Stack):
             time_to_live_attribute="ttl",
         )
 
-        # 馬柱（過去成績）テーブル
-        past_performances_table = dynamodb.Table(
-            self,
-            "PastPerformancesTable",
-            table_name="baken-kaigi-past-performances",
-            partition_key=dynamodb.Attribute(
-                name="race_id",
-                type=dynamodb.AttributeType.STRING,
-            ),
-            sort_key=dynamodb.Attribute(
-                name="source",
-                type=dynamodb.AttributeType.STRING,
-            ),
-            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY,
-            time_to_live_attribute="ttl",
-        )
-
         # Agent テーブル
         agent_table = dynamodb.Table(
             self,
@@ -431,7 +413,6 @@ class BakenKaigiApiStack(Stack):
         # DynamoDB 読み取り権限
         ai_predictions_table.grant_read_data(agentcore_runtime_role)
         speed_indices_table.grant_read_data(agentcore_runtime_role)
-        past_performances_table.grant_read_data(agentcore_runtime_role)
 
         # API Gateway - API Key 取得権限
         agentcore_runtime_role.add_to_policy(
@@ -523,7 +504,6 @@ class BakenKaigiApiStack(Stack):
             "CART_TABLE_NAME": cart_table.table_name,
             "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             "SPEED_INDICES_TABLE_NAME": speed_indices_table.table_name,
-            "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
             "USER_TABLE_NAME": user_table.table_name,
             "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
             "BETTING_RECORD_TABLE_NAME": betting_record_table.table_name,
@@ -1727,7 +1707,6 @@ class BakenKaigiApiStack(Stack):
         # AI予想テーブルへの読み取り権限
         ai_predictions_table.grant_read_data(agentcore_consultation_fn)
         speed_indices_table.grant_read_data(agentcore_consultation_fn)
-        past_performances_table.grant_read_data(agentcore_consultation_fn)
 
         # 利用制限テーブルへの読み書き権限
         usage_tracking_table.grant_read_write_data(agentcore_consultation_fn)

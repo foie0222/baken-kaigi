@@ -52,9 +52,6 @@ class BakenKaigiBatchStack(Stack):
         speed_indices_table = dynamodb.Table.from_table_name(
             self, "SpeedIndicesTable", "baken-kaigi-speed-indices"
         )
-        past_performances_table = dynamodb.Table.from_table_name(
-            self, "PastPerformancesTable", "baken-kaigi-past-performances"
-        )
 
         # ========================================
         # Lambda Layer（バッチ処理用依存関係）
@@ -245,29 +242,6 @@ class BakenKaigiBatchStack(Stack):
             },
         )
         speed_indices_table.grant_write_data(daily_speed_scraper_fn)
-
-        # ========================================
-        # 馬柱スクレイパー Lambda
-        # ========================================
-
-        # 競馬グラント スクレイパー
-        keibagrant_scraper_fn = lambda_.Function(
-            self,
-            "KeibagrantScraperFunction",
-            handler="batch.keibagrant_scraper.handler",
-            code=backend_code,
-            function_name="baken-kaigi-keibagrant-scraper",
-            description="競馬グラント 馬柱スクレイピング（keibagrant.jp / 土日朝）",
-            timeout=Duration.seconds(300),
-            memory_size=512,
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            layers=[batch_deps_layer],
-            environment={
-                "PYTHONPATH": "/var/task:/opt/python",
-                "PAST_PERFORMANCES_TABLE_NAME": past_performances_table.table_name,
-            },
-        )
-        past_performances_table.grant_write_data(keibagrant_scraper_fn)
 
         # ========================================
         # EventBridge ルール（AI予想スクレイパー）
@@ -467,31 +441,6 @@ class BakenKaigiBatchStack(Stack):
             ),
         )
         daily_speed_rule.add_target(targets.LambdaFunction(daily_speed_scraper_fn))
-
-        # ========================================
-        # EventBridge ルール（馬柱スクレイパー）
-        # ========================================
-
-        # 競馬グラント（土日 6:20 JST = 金土 21:20 UTC）
-        keibagrant_rule = events.Rule(
-            self,
-            "KeibagrantScraperRule",
-            rule_name="baken-kaigi-keibagrant-scraper-rule",
-            description="競馬グラント馬柱スクレイピングを土日6:20 JSTに実行（当日分）",
-            schedule=events.Schedule.cron(
-                minute="20",
-                hour="21",
-                month="*",
-                week_day="FRI,SAT",
-                year="*",
-            ),
-        )
-        keibagrant_rule.add_target(
-            targets.LambdaFunction(
-                keibagrant_scraper_fn,
-                event=events.RuleTargetInput.from_object({"offset_days": 0}),
-            )
-        )
 
         # ========================================
         # JRAチェックサム自動更新バッチ

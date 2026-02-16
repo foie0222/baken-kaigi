@@ -71,7 +71,6 @@ class TestAssessSkipRecommendation:
             venue="福島",
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ハイ",
         )
         assert result["skip_score"] >= 7
         assert result["recommendation"] == "見送り推奨"
@@ -86,7 +85,6 @@ class TestAssessSkipRecommendation:
             venue="東京",
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ミドル",
         )
         assert result["skip_score"] < 7
         assert result["recommendation"] != "見送り推奨"
@@ -105,7 +103,6 @@ class TestAssessSkipRecommendation:
             venue="東京",
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ミドル",
         )
         # 混戦なので通常よりスコアが上がる
         assert result["skip_score"] >= 4
@@ -120,7 +117,6 @@ class TestAssessSkipRecommendation:
             venue="東京",
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ハイ",
         )
         assert result["skip_score"] >= 5
 
@@ -134,7 +130,6 @@ class TestAssessSkipRecommendation:
             venue="東京",
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ミドル",
         )
         assert 0 <= result["skip_score"] <= 10
 
@@ -148,7 +143,6 @@ class TestAssessSkipRecommendation:
             venue="福島",
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ハイ",
         )
         assert isinstance(result["reasons"], list)
         assert len(result["reasons"]) > 0
@@ -258,21 +252,6 @@ class TestAnalyzeExcludedHorses:
 class TestGenerateRiskScenarios:
     """リスクシナリオ生成のテスト."""
 
-    def test_前崩れシナリオ_逃げ馬3頭以上(self):
-        """先行馬を選択 + 逃げ馬3頭以上 → 前崩れシナリオ."""
-        runners = _make_runners(16)
-        # 馬番1,2が先行馬で選択されている想定
-        result = _generate_risk_scenarios(
-            runners_data=runners,
-            horse_numbers=[1, 2],
-            ai_predictions=_make_ai_predictions(16),
-            predicted_pace="ハイ",
-            race_conditions=[],
-        )
-        # ハイペースなので前崩れシナリオが含まれる
-        scenario_types = [s["type"] for s in result["scenarios"]]
-        assert "前崩れ" in scenario_types
-
     def test_穴馬番狂わせシナリオ(self):
         """AI上位馬が未選択 → 穴馬番狂わせシナリオ."""
         runners = _make_runners(16)
@@ -282,7 +261,6 @@ class TestGenerateRiskScenarios:
             runners_data=runners,
             horse_numbers=[10, 11, 12],
             ai_predictions=ai_preds,
-            predicted_pace="ミドル",
             race_conditions=[],
         )
         scenario_types = [s["type"] for s in result["scenarios"]]
@@ -295,7 +273,6 @@ class TestGenerateRiskScenarios:
             runners_data=runners,
             horse_numbers=[1, 2, 3],
             ai_predictions=_make_ai_predictions(16),
-            predicted_pace="ミドル",
             race_conditions=[],
         )
         scenario_types = [s["type"] for s in result["scenarios"]]
@@ -308,7 +285,6 @@ class TestGenerateRiskScenarios:
             runners_data=runners,
             horse_numbers=[1, 2, 3],
             ai_predictions=_make_ai_predictions(18),
-            predicted_pace="ハイ",
             race_conditions=["handicap"],
         )
         assert 2 <= len(result["scenarios"]) <= 3
@@ -319,7 +295,6 @@ class TestGenerateRiskScenarios:
             runners_data=[],
             horse_numbers=[],
             ai_predictions=[],
-            predicted_pace="不明",
             race_conditions=[],
         )
         assert "scenarios" in result
@@ -332,7 +307,6 @@ class TestGenerateRiskScenarios:
             runners_data=runners,
             horse_numbers=[1, 2, 3],
             ai_predictions=_make_ai_predictions(16),
-            predicted_pace="ミドル",
             race_conditions=["handicap"],
         )
         scenario_types = [s["type"] for s in result["scenarios"]]
@@ -467,7 +441,6 @@ class TestAnalyzeRiskFactorsImpl:
             horse_numbers=[1, 2, 3],
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ミドル",
             race_conditions=[],
             venue="東京",
             total_runners=16,
@@ -492,7 +465,6 @@ class TestAnalyzeRiskFactorsImpl:
             horse_numbers=[1, 2, 3],
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="ミドル",
             race_conditions=[],
             venue="東京",
             total_runners=16,
@@ -508,7 +480,6 @@ class TestAnalyzeRiskFactorsImpl:
             horse_numbers=[],
             runners_data=[],
             ai_predictions=[],
-            predicted_pace="不明",
             race_conditions=[],
             venue="",
             total_runners=0,
@@ -544,7 +515,6 @@ class TestAnalyzeRiskFactorsImpl:
             horse_numbers=[1, 3, 5],
             runners_data=runners,
             ai_predictions=ai_preds,
-            predicted_pace="スロー",
             race_conditions=["g1"],
             venue="東京",
             total_runners=8,

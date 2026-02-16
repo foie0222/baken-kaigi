@@ -15,7 +15,6 @@ from src.domain.ports import (
     OddsHistoryData,
     PastRaceStats,
     PedigreeData,
-    PerformanceData,
     RaceData,
     RaceDataProvider,
     RunnerData,
@@ -64,9 +63,6 @@ class MockRaceDataProvider(RaceDataProvider):
 
     def get_runners(self, race_id: RaceId) -> list[RunnerData]:
         return self._runners.get(str(race_id), [])
-
-    def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
-        return []
 
     def get_jockey_stats(self, jockey_id: str, course: str) -> JockeyStatsData | None:
         return None

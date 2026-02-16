@@ -41,7 +41,6 @@ from src.domain.ports import (
     PastRaceStats,
     PayoutData,
     PedigreeData,
-    PerformanceData,
     PopularityStats,
     PositionAptitudeData,
     RaceData,
@@ -158,28 +157,6 @@ class JraVanRaceDataProvider(RaceDataProvider):
             logger.exception("Failed to get runners for %s", race_id)
             raise JraVanApiError(f"Failed to get runners: {e}") from e
 
-    def get_past_performance(self, horse_id: str) -> list[PerformanceData]:
-        """馬の過去成績を取得する.
-
-        注意: 現在のAPIでは未実装のため、空リストを返す。
-        """
-        try:
-            response = self._session.get(
-                f"{self._base_url}/horses/{horse_id}/performances",
-                timeout=self._timeout,
-            )
-            if response.status_code == 404:
-                # エンドポイント未実装の場合は空リストを返す
-                return []
-            response.raise_for_status()
-
-            performances_data = response.json()
-            return [self._to_performance_data(p) for p in performances_data]
-        except requests.RequestException as e:
-            # API未実装やネットワークエラーの場合は空リストを返す
-            logger.warning(f"Could not get performances for horse {horse_id}: {e}")
-            return []
-
     def get_jockey_stats(self, jockey_id: str, course: str) -> JockeyStatsData | None:
         """騎手のコース成績を取得する.
 
@@ -244,18 +221,6 @@ class JraVanRaceDataProvider(RaceDataProvider):
             odds=data["odds"],
             popularity=data["popularity"],
             waku_ban=data.get("waku_ban", 0),
-        )
-
-    def _to_performance_data(self, data: dict) -> PerformanceData:
-        """API レスポンスを PerformanceData に変換する."""
-        return PerformanceData(
-            race_date=datetime.fromisoformat(data["race_date"]),
-            race_name=data["race_name"],
-            venue=data["venue"],
-            finish_position=data["finish_position"],
-            distance=data["distance"],
-            track_condition=data["track_condition"],
-            time=data["time"],
         )
 
     def _to_jockey_stats_data(self, data: dict) -> JockeyStatsData:

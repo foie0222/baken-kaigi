@@ -12,7 +12,6 @@ TOOL_NAMES = [
     "get_ai_prediction",
     "get_speed_index",
     "list_speed_indices_for_date",
-    "get_past_performance",
     "get_race_runners",
     "analyze_bet_selection",
     "analyze_odds_movement",

@@ -20,13 +20,16 @@ BET_PROPOSAL_SYSTEM_PROMPT = """あなたは競馬の買い目提案を生成す
 分析結果を見て、各馬の勝率（win_probabilities）を判断する。
 
 **判断の指針:**
-- `base_win_probability` をベースにする
-- ペース予想（predicted_pace）と脚質（running_style）の相性を考慮する
-  - ハイペース → 差し・追込の確率UP、逃げ・先行DOWN
-  - スローペース → 逃げ・先行の確率UP、差し・追込DOWN
+- 各馬の `ai_predictions` を見て、各ソースのスコアと順位から総合的に勝率を判断する
+  - 複数ソースで上位に来ている馬は勝率を高くする
+  - ソース間で評価が割れている馬は `consensus` の `divergence_horses` を参考にする
+- `running_style_summary` と各馬の `running_style` からペースを自ら判断し、勝率に反映する
+  - 逃げ馬が3頭以上 → ハイペース傾向。差し・追込の確率UP、逃げ・先行DOWN
+  - 逃げ馬が0〜1頭 → スローペース傾向。逃げ・先行の確率UP、差し・追込DOWN
+  - 馬番（number）も考慮する。外枠の逃げ馬がいる場合は先行争いが激化しやすい
+  - 距離（distance）や競馬場（venue）も加味する
 - スピード指数（speed_index）が突出している馬の確率を上げる
-- 近走成績（recent_form）が良い馬の確率を上げる
-- AI合議（ai_consensus）が「混戦」の場合は大きく調整しない
+- `consensus` の `consensus_level` が「大きな乖離」の場合は大きく調整しない
 - **合計が1.0になるように正規化すること**
 
 ### ステップ3: 買い目提案の生成
@@ -43,7 +46,6 @@ propose_bets(
     race_conditions=<レース条件>,
     venue=<race_info.venue>,
     skip_score=<race_info.skip_score>,
-    predicted_pace=<race_info.predicted_pace>,
     ai_consensus=<race_info.ai_consensus>,
     runners_data=<出走馬データ（DynamoDBから取得）>,
     total_runners=<race_info.total_runners>,

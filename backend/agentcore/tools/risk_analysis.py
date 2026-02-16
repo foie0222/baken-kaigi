@@ -35,7 +35,6 @@ def _assess_skip_recommendation(
     venue: str = "",
     runners_data: list[dict] | None = None,
     ai_predictions: list[dict] | None = None,
-    predicted_pace: str = "",
 ) -> dict:
     """レースの見送り推奨度を判定する.
 
@@ -48,7 +47,6 @@ def _assess_skip_recommendation(
         venue: 競馬場名
         runners_data: 出走馬データ
         ai_predictions: AI予想データ
-        predicted_pace: 予想ペース
 
     Returns:
         見送り推奨結果（skip_score, recommendation, reasons）
@@ -107,11 +105,6 @@ def _assess_skip_recommendation(
     if total_runners >= 16:
         skip_score += 1
         reasons.append(f"{total_runners}頭立ての多頭数レース")
-
-    # 5. ハイペースボーナス（前が崩れやすく予測困難）
-    if predicted_pace == "ハイ":
-        skip_score += 1
-        reasons.append("ハイペース予想で展開が読みにくい")
 
     # スコアを0-10に収める
     skip_score = max(0, min(10, skip_score))
@@ -221,7 +214,6 @@ def _generate_risk_scenarios(
     runners_data: list[dict],
     horse_numbers: list[int],
     ai_predictions: list[dict] | None = None,
-    predicted_pace: str = "",
     race_conditions: list[str] | None = None,
 ) -> dict:
     """買い目が外れるパターンを2-3シナリオで生成する.
@@ -230,7 +222,6 @@ def _generate_risk_scenarios(
         runners_data: 出走馬データ
         horse_numbers: 選択された馬番リスト
         ai_predictions: AI予想データ
-        predicted_pace: 予想ペース
         race_conditions: レース条件リスト
 
     Returns:
@@ -250,18 +241,6 @@ def _generate_risk_scenarios(
         r for r in runners_data if r.get("horse_number") in selected_set
     ]
     selected_popularities = [r.get("popularity") or 99 for r in selected_runners]
-
-    # --- 前崩れシナリオ ---
-    if predicted_pace == "ハイ":
-        # 選択馬に先行型がいるかチェック（人気上位=先行しがちと仮定）
-        scenarios.append({
-            "type": "前崩れ",
-            "description": "ハイペースで前が総崩れするシナリオ",
-            "detail": "逃げ・先行馬が3頭以上でハイペース予想。"
-                      "前が潰れて差し・追込馬が台頭する展開",
-            "risk_for_selection": "選択馬に先行脚質がいる場合、"
-                                 "展開不利で大きく着順を下げる可能性",
-        })
 
     # --- 穴馬番狂わせシナリオ ---
     if ai_predictions:
@@ -472,7 +451,6 @@ def _analyze_risk_factors_impl(
     horse_numbers: list[int],
     runners_data: list[dict],
     ai_predictions: list[dict] | None = None,
-    predicted_pace: str = "",
     race_conditions: list[str] | None = None,
     venue: str = "",
     total_runners: int = 18,
@@ -485,7 +463,6 @@ def _analyze_risk_factors_impl(
         horse_numbers: 選択した馬番リスト
         runners_data: 出走馬データ
         ai_predictions: AI予想データ
-        predicted_pace: 予想ペース
         race_conditions: レース条件リスト
         venue: 競馬場名
         total_runners: 出走頭数
@@ -502,7 +479,6 @@ def _analyze_risk_factors_impl(
         runners_data=runners_data,
         horse_numbers=horse_numbers,
         ai_predictions=ai_predictions,
-        predicted_pace=predicted_pace,
         race_conditions=race_conditions,
     )
 
@@ -521,7 +497,6 @@ def _analyze_risk_factors_impl(
         venue=venue,
         runners_data=runners_data,
         ai_predictions=ai_predictions,
-        predicted_pace=predicted_pace,
     )
 
     # 4. バイアス診断
@@ -552,7 +527,6 @@ def analyze_risk_factors(
     runners_data: list[dict],
     total_runners: int,
     ai_predictions: list[dict] | None = None,
-    predicted_pace: str = "",
     race_conditions: list[str] | None = None,
     venue: str = "",
     cart_items: list[dict] | None = None,
@@ -572,8 +546,6 @@ def analyze_risk_factors(
         runners_data: 出走馬データ（odds, popularity を含む）
         total_runners: 出走頭数
         ai_predictions: AI予想データ（get_ai_predictionの結果）
-        predicted_pace: 予想ペース（"ハイ", "ミドル", "スロー"）
-            analyze_race_characteristicsの結果から取得
         race_conditions: レース条件リスト
         venue: 競馬場名
         cart_items: カートデータ（バイアス診断に使用）
@@ -591,7 +563,6 @@ def analyze_risk_factors(
         horse_numbers=horse_numbers,
         runners_data=runners_data,
         ai_predictions=ai_predictions,
-        predicted_pace=predicted_pace,
         race_conditions=race_conditions,
         venue=venue,
         total_runners=total_runners,
