@@ -449,14 +449,22 @@ class TestFetchAgentData:
 
     def _import_fetch(self):
         """_fetch_agent_data をインポートする（agentcore.agent の副作用を回避）."""
+        import botocore.exceptions as real_botocore_exceptions
         mock_bedrock = MagicMock()
         mock_boto3 = MagicMock()
+        mock_botocore_exceptions = MagicMock()
+        mock_botocore_exceptions.ClientError = real_botocore_exceptions.ClientError
+        mock_botocore_exceptions.BotoCoreError = real_botocore_exceptions.BotoCoreError
+        mock_botocore = MagicMock()
+        mock_botocore.exceptions = mock_botocore_exceptions
         with patch.dict("sys.modules", {
             "bedrock_agentcore": mock_bedrock,
             "bedrock_agentcore.runtime": mock_bedrock.runtime,
             "boto3": mock_boto3,
             "boto3.dynamodb": MagicMock(),
             "boto3.dynamodb.conditions": MagicMock(),
+            "botocore": mock_botocore,
+            "botocore.exceptions": mock_botocore_exceptions,
         }):
             # キャッシュをクリアして再インポート
             if "agentcore.agent" in sys.modules:
