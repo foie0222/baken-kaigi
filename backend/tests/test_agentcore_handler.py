@@ -304,8 +304,8 @@ class TestInvokeAgentcore:
             body = json.loads(response["body"])
             assert "AGENTCORE_AGENT_ARN" in body["error"]
 
-    def test_returns_400_when_prompt_missing(self):
-        """prompt が含まれていない場合は400エラーを返す."""
+    def test_returns_400_when_race_id_missing(self):
+        """race_id が含まれていない場合は400エラーを返す."""
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
             from agentcore_handler import invoke_agentcore
 
@@ -316,7 +316,7 @@ class TestInvokeAgentcore:
 
             assert response["statusCode"] == 400
             body = json.loads(response["body"])
-            assert "prompt is required" in body["error"]
+            assert "race_id is required" in body["error"]
 
     def test_returns_400_when_invalid_json_body(self):
         """不正なJSONボディの場合は400エラーを返す."""
@@ -372,7 +372,7 @@ class TestSuggestedQuestions:
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
             from agentcore_handler import invoke_agentcore
 
-            body = {"prompt": "分析して"}
+            body = {"race_id": "202602150101"}
             event = {"body": json.dumps(body)}
             context = MagicMock()
 
@@ -401,7 +401,7 @@ class TestSuggestedQuestions:
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
             from agentcore_handler import invoke_agentcore
 
-            body = {"prompt": "テスト"}
+            body = {"race_id": "202602150101"}
             event = {"body": json.dumps(body)}
             context = MagicMock()
 
@@ -430,7 +430,7 @@ class TestSuggestedQuestions:
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
             from agentcore_handler import invoke_agentcore
 
-            body = {"prompt": "分析して"}
+            body = {"race_id": "202602150101"}
             event = {"body": json.dumps(body)}
             context = MagicMock()
 
@@ -459,15 +459,17 @@ class TestSuggestedQuestions:
             assert response_body["message"] == "ネストされた分析結果"
             assert response_body["suggested_questions"] == ["ネスト質問1？", "ネスト質問2？"]
 
-class TestAgentData中継:
-    """invoke_agentcore が agent_data を AgentCore に中継することの検証."""
+class TestPayload構築:
+    """invoke_agentcore が race_id + user_id のみの payload を送信することの検証."""
 
-    def _invoke_and_get_payload(self, body: dict) -> dict:
+    def _invoke_and_get_payload(self, body: dict, event_extra: dict | None = None) -> dict:
         """共通: invoke_agentcore を呼んで送信された payload を返す."""
         with patch("agentcore_handler.AGENTCORE_AGENT_ARN", "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/test"):
             from agentcore_handler import invoke_agentcore
 
             event = {"body": json.dumps(body)}
+            if event_extra:
+                event.update(event_extra)
             context = MagicMock()
 
             mock_client = MagicMock()
@@ -487,17 +489,21 @@ class TestAgentData中継:
             call_args = mock_client.invoke_agent_runtime.call_args
             return json.loads(call_args.kwargs["payload"])
 
-    def test_agent_dataがpayloadに含まれる(self):
-        """agent_data がリクエストに含まれる場合、payload に中継される."""
-        agent_data = {
-            "name": "ハヤテ",
-            "betting_preference": {"bet_type_preference": "trio_focused"},
-        }
-        payload = self._invoke_and_get_payload({"prompt": "分析して", "agent_data": agent_data})
-        assert payload["agent_data"] == agent_data
-
-    def test_agent_dataがない場合payloadに含まれない(self):
-        """agent_data が指定されない場合、payload にエージェント情報は含まれない."""
-        payload = self._invoke_and_get_payload({"prompt": "分析して"})
+    def test_payloadにrace_idとuser_idが含まれる(self):
+        """payload には race_id と user_id のみ含まれる."""
+        payload = self._invoke_and_get_payload({"race_id": "202602150101"})
+        assert payload["race_id"] == "202602150101"
+        assert payload["user_id"] == "guest:unknown"
+        assert "prompt" not in payload
         assert "agent_data" not in payload
+
+    def test_認証ユーザーのuser_idがpayloadに含まれる(self):
+        """認証ユーザーの場合、user_id が "user:xxx" 形式で含まれる."""
+        import base64
+        jwt_payload = json.dumps({"sub": "abc-123", "custom:tier": "free"}).encode()
+        token_payload = base64.urlsafe_b64encode(jwt_payload).decode().rstrip("=")
+        token = f"header.{token_payload}.signature"
+        event_extra = {"headers": {"Authorization": f"Bearer {token}"}}
+        payload = self._invoke_and_get_payload({"race_id": "202602150101"}, event_extra)
+        assert payload["user_id"] == "user:abc-123"
 

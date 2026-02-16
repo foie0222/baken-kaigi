@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '../../test/utils'
 import { BetProposalSheet } from './BetProposalSheet'
-import { MAX_BET_AMOUNT } from '../../constants/betting'
-import type { RaceDetail, Agent, AgentData } from '../../types'
+import type { RaceDetail, Agent } from '../../types'
 
 // apiClientモック
 vi.mock('../../api/client', () => ({
@@ -33,11 +32,10 @@ vi.mock('../../stores/authStore', () => ({
 
 // agentStoreモック（テスト毎にmockAgentで切り替え可能）
 let mockAgent: Agent | null = null
-const mockGetAgentData = vi.fn().mockReturnValue(null)
 const mockFetchAgent = vi.fn()
 vi.mock('../../stores/agentStore', () => ({
-  useAgentStore: (selector: (s: { agent: Agent | null; hasFetched: boolean; fetchAgent: typeof mockFetchAgent; getAgentData: typeof mockGetAgentData }) => unknown) =>
-    selector({ agent: mockAgent, hasFetched: true, fetchAgent: mockFetchAgent, getAgentData: mockGetAgentData }),
+  useAgentStore: (selector: (s: { agent: Agent | null; hasFetched: boolean; fetchAgent: typeof mockFetchAgent }) => unknown) =>
+    selector({ agent: mockAgent, hasFetched: true, fetchAgent: mockFetchAgent }),
 }))
 
 const mockRace: RaceDetail = {
@@ -74,144 +72,24 @@ const mockAgentObj: Agent = {
   updated_at: '2024-01-01T00:00:00',
 }
 
-const mockAgentDataObj: AgentData = {
-  name: 'うまもん',
-  betting_preference: { bet_type_preference: 'auto' },
-}
 
 describe('BetProposalSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAgent = null
-    mockGetAgentData.mockReturnValue(null)
   })
 
-  it('予算プリセットと生成ボタンが表示される', () => {
+  it('エージェント未設定時はエージェント設定を促すメッセージが表示される', () => {
     render(
       <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
     )
 
-    expect(screen.getByText('1,000円')).toBeInTheDocument()
-    expect(screen.getByText('3,000円')).toBeInTheDocument()
-    expect(screen.getByText('提案を生成')).toBeInTheDocument()
-  })
-
-  it('注目馬入力のラベルがinputに関連付いている', () => {
-    render(
-      <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
-    )
-
-    const input = screen.getByLabelText(/注目馬/)
-    expect(input).toBeInTheDocument()
-    expect(input.id).toBe('axis-horses-input')
-  })
-
-  it('自由入力でMAX_BET_AMOUNTを超える予算を指定するとエラーが表示される', async () => {
-    const { user } = render(
-      <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
-    )
-
-    const customInput = screen.getByPlaceholderText('自由入力（円）')
-    await user.clear(customInput)
-    await user.type(customInput, String(MAX_BET_AMOUNT + 1))
-
-    await user.click(screen.getByText('提案を生成'))
-
-    expect(screen.getByText(`予算は${MAX_BET_AMOUNT.toLocaleString()}円以下を指定してください`)).toBeInTheDocument()
-  })
-
-  it('自由入力でMAX_BET_AMOUNTちょうどの予算は生成を許可する', async () => {
-    const { apiClient } = await import('../../api/client')
-    const mockRequest = vi.mocked(apiClient.requestBetProposal)
-    mockRequest.mockResolvedValueOnce({
-      success: true,
-      data: {
-        race_id: 'race_001',
-        race_summary: {
-          race_name: 'テストレース',
-          difficulty_stars: 3,
-          predicted_pace: 'ミドル',
-          ai_consensus_level: '概ね合意',
-          skip_score: 3,
-          skip_recommendation: '通常判断',
-        },
-        proposed_bets: [],
-        total_amount: 0,
-        budget_remaining: MAX_BET_AMOUNT,
-        analysis_comment: '',
-        proposal_reasoning: '',
-        disclaimer: '',
-      },
-    })
-
-    const { user } = render(
-      <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
-    )
-
-    const customInput = screen.getByPlaceholderText('自由入力（円）')
-    await user.clear(customInput)
-    await user.type(customInput, String(MAX_BET_AMOUNT))
-
-    await user.click(screen.getByText('提案を生成'))
-
-    expect(mockRequest).toHaveBeenCalledWith(
-      'race_001',
-      MAX_BET_AMOUNT,
-      expect.any(Object)
-    )
-  })
-
-  it('生成ボタンクリックでAPIが呼ばれる', async () => {
-    const { apiClient } = await import('../../api/client')
-    const mockRequest = vi.mocked(apiClient.requestBetProposal)
-    mockRequest.mockResolvedValueOnce({
-      success: true,
-      data: {
-        race_id: 'race_001',
-        race_summary: {
-          race_name: 'テストレース',
-          difficulty_stars: 3,
-          predicted_pace: 'ミドル',
-          ai_consensus_level: '概ね合意',
-          skip_score: 3,
-          skip_recommendation: '通常判断',
-        },
-        proposed_bets: [{
-          bet_type: 'quinella' as const,
-          horse_numbers: [1, 2],
-          bet_display: '1-2',
-          amount: 1000,
-          bet_count: 1,
-          confidence: 'high' as const,
-          expected_value: 1.2,
-          composite_odds: 5.0,
-          reasoning: 'テスト根拠',
-        }],
-        total_amount: 1000,
-        budget_remaining: 2000,
-        analysis_comment: 'テスト分析',
-        proposal_reasoning: '【軸馬選定】1番テスト馬1を軸に選定\n\n【券種】馬連を自動選定\n\n【組み合わせ】相手は2番テスト馬2を選定\n\n【リスク】積極参戦レベル',
-        disclaimer: '免責事項',
-      },
-    })
-
-    const { user } = render(
-      <BetProposalSheet isOpen={true} onClose={vi.fn()} race={mockRace} />
-    )
-
-    await user.click(screen.getByText('提案を生成'))
-
-    expect(mockRequest).toHaveBeenCalledWith(
-      'race_001',
-      3000,
-      {}
-    )
+    expect(screen.getByText('エージェントを設定すると買い目提案を利用できます')).toBeInTheDocument()
   })
 
   describe('エージェント設定済みの場合', () => {
     beforeEach(() => {
       mockAgent = mockAgentObj
-      mockGetAgentData.mockReturnValue(mockAgentDataObj)
     })
 
     it('ボタンテキストにエージェント名が表示される', () => {
@@ -233,7 +111,7 @@ describe('BetProposalSheet', () => {
       expect(screen.queryByPlaceholderText('例: 3, 7')).not.toBeInTheDocument()
     })
 
-    it('生成ボタンクリックでagentDataがAPIに渡される', async () => {
+    it('生成ボタンクリックでAPIがraceIdのみで呼ばれる', async () => {
       const { apiClient } = await import('../../api/client')
       const mockRequest = vi.mocked(apiClient.requestBetProposal)
       mockRequest.mockResolvedValueOnce({
@@ -263,11 +141,7 @@ describe('BetProposalSheet', () => {
 
       await user.click(screen.getByText('うまもんに提案してもらう'))
 
-      expect(mockRequest).toHaveBeenCalledWith(
-        'race_001',
-        3000,
-        expect.objectContaining({ agentData: mockAgentDataObj })
-      )
+      expect(mockRequest).toHaveBeenCalledWith('race_001')
     })
   })
 })

@@ -221,7 +221,7 @@ describe('ApiClient', () => {
       const client = await getApiClient('http://localhost:3000', '')
 
       const result = await client.consultWithAgent({
-        prompt: 'テスト',
+        race_id: 'race_001',
       })
 
       expect(result.success).toBe(false)
@@ -239,7 +239,7 @@ describe('ApiClient', () => {
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
       const result = await client.consultWithAgent({
-        prompt: 'カートの買い目を分析してください',
+        race_id: 'race_001',
       })
 
       expect(result.success).toBe(true)
@@ -310,7 +310,7 @@ describe('ApiClient', () => {
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
       const result = await client.consultWithAgent({
-        prompt: 'テスト',
+        race_id: 'race_001',
       })
 
       expect(result.success).toBe(false)
@@ -402,7 +402,7 @@ describe('ApiClient', () => {
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation', 'test-api-key')
       await client.consultWithAgent({
-        prompt: 'テスト',
+        race_id: 'race_001',
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
@@ -688,7 +688,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000)
+      const result = await client.requestBetProposal('race_001')
 
       expect(result.success).toBe(true)
       expect(result.data?.proposed_bets).toHaveLength(1)
@@ -704,7 +704,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000)
+      const result = await client.requestBetProposal('race_001')
 
       expect(result.success).toBe(true)
       expect(result.data?.proposed_bets).toHaveLength(1)
@@ -731,7 +731,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000)
+      const result = await client.requestBetProposal('race_001')
 
       expect(result.success).toBe(true)
       expect(result.data?.proposed_bets[0].bet_count).toBe(1)
@@ -744,7 +744,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000)
+      const result = await client.requestBetProposal('race_001')
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('セパレータなしの応答')
@@ -758,7 +758,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000)
+      const result = await client.requestBetProposal('race_001')
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('提案データの解析に失敗しました')
@@ -772,7 +772,7 @@ describe('ApiClient', () => {
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
-      const result = await client.requestBetProposal('race_001', 3000)
+      const result = await client.requestBetProposal('race_001')
 
       expect(result.success).toBe(false)
     })
