@@ -231,10 +231,10 @@ def generate_race_id(date_str: str, venue: str, race_number: int) -> str:
         race_number: レース番号 (例: 11)
 
     Returns:
-        str: race_id (例: "20260208_05_11")
+        str: race_id (例: "202602080511")
     """
     venue_code = VENUE_CODE_MAP.get(venue, "00")
-    return f"{date_str}_{venue_code}_{race_number:02d}"
+    return f"{date_str}{venue_code}{race_number:02d}"
 
 
 def save_predictions(

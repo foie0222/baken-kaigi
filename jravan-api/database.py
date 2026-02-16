@@ -124,18 +124,17 @@ def init_db():
 
 def _make_race_id(kaisai_nen: str, kaisai_tsukihi: str, keibajo_code: str, race_bango: str) -> str:
     """レースIDを生成する."""
-    return f"{kaisai_nen}{kaisai_tsukihi}_{keibajo_code}_{race_bango}"
+    return f"{kaisai_nen}{kaisai_tsukihi}{keibajo_code}{race_bango}"
 
 
 def _parse_race_id(race_id: str) -> tuple[str, str, str, str]:
     """レースIDをパースして (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango) を返す."""
-    # Format: YYYYMMDD_XX_RR
-    parts = race_id.split("_")
-    if len(parts) != 3:
+    # Format: YYYYMMDDXXRR (12桁数字)
+    if len(race_id) != 12 or not race_id.isdigit():
         raise ValueError(f"Invalid race_id format: {race_id}")
-    date_str = parts[0]  # YYYYMMDD
-    keibajo_code = parts[1]  # XX
-    race_bango = parts[2]  # RR
+    date_str = race_id[:8]  # YYYYMMDD
+    keibajo_code = race_id[8:10]  # XX
+    race_bango = race_id[10:12]  # RR
     kaisai_nen = date_str[:4]
     kaisai_tsukihi = date_str[4:8]
     return kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango
@@ -219,7 +218,7 @@ def get_race_by_id(race_id: str) -> dict | None:
     """レース詳細を取得.
 
     Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
+        race_id: レースID（12桁数字）
     """
     try:
         kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
@@ -263,7 +262,7 @@ def get_runners_by_race(race_id: str) -> list[dict]:
     2. jvd_seテーブルの確定オッズ
 
     Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
+        race_id: レースID（12桁数字）
     """
     try:
         kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango = _parse_race_id(race_id)
@@ -994,7 +993,7 @@ def get_odds_history(race_id: str) -> dict | None:
     3. jvd_se: 確定オッズ（レース後）
 
     Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
+        race_id: レースID（12桁数字）
 
     Returns:
         オッズ履歴データ。データがない場合はNone。
@@ -1117,7 +1116,7 @@ def get_all_odds(race_id: str) -> dict | None:
     jvd_o1〜o6 から単勝・複勝・馬連・ワイド・馬単・三連複・三連単を取得。
 
     Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
+        race_id: レースID（12桁数字）
 
     Returns:
         全券種オッズを含む辞書。全テーブルが空の場合はNone。
@@ -1234,7 +1233,7 @@ def get_runners_with_running_style(race_id: str) -> list[dict]:
     jvd_se.kyakushitsu_hantei と jvd_um.kyakushitsu_keiko を結合して取得。
 
     Args:
-        race_id: レースID（YYYYMMDD_XX_RR形式）
+        race_id: レースID（12桁数字）
 
     Returns:
         出走馬の脚質情報リスト

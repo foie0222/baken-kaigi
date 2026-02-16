@@ -68,7 +68,7 @@ class TestGetPastPerformance:
         ]
         mock_dynamodb_table.get_item.return_value = {
             "Item": {
-                "race_id": "20260208_05_11",
+                "race_id": "202602080511",
                 "source": "keibagrant",
                 "venue": "東京",
                 "race_number": 11,
@@ -78,9 +78,9 @@ class TestGetPastPerformance:
             }
         }
 
-        result = get_past_performance(race_id="20260208_05_11", source="keibagrant")
+        result = get_past_performance(race_id="202602080511", source="keibagrant")
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert result["source"] == "keibagrant"
         assert result["venue"] == "東京"
         assert result["race_number"] == 11
@@ -94,7 +94,7 @@ class TestGetPastPerformance:
         """正常系: TTL属性は返却結果に含まれない."""
         mock_dynamodb_table.get_item.return_value = {
             "Item": {
-                "race_id": "20260208_05_11",
+                "race_id": "202602080511",
                 "source": "keibagrant",
                 "venue": "東京",
                 "race_number": 11,
@@ -104,7 +104,7 @@ class TestGetPastPerformance:
             }
         }
 
-        result = get_past_performance(race_id="20260208_05_11", source="keibagrant")
+        result = get_past_performance(race_id="202602080511", source="keibagrant")
 
         assert "ttl" not in result
 
@@ -112,9 +112,9 @@ class TestGetPastPerformance:
         """異常系: データが存在しない場合はエラーメッセージを返す."""
         mock_dynamodb_table.get_item.return_value = {}
 
-        result = get_past_performance(race_id="20260208_05_99", source="keibagrant")
+        result = get_past_performance(race_id="202602080599", source="keibagrant")
 
-        assert result["race_id"] == "20260208_05_99"
+        assert result["race_id"] == "202602080599"
         assert result["source"] == "keibagrant"
         assert "error" in result
         assert "馬柱データが見つかりません" in result["error"]
@@ -128,7 +128,7 @@ class TestGetPastPerformance:
             "GetItem"
         )
 
-        result = get_past_performance(race_id="20260208_05_11", source="keibagrant")
+        result = get_past_performance(race_id="202602080511", source="keibagrant")
 
         assert "error" in result
         assert "DynamoDBエラー" in result["error"]
@@ -138,10 +138,10 @@ class TestGetPastPerformance:
         """正常系: horsesに馬番・馬名・血統・近走が含まれる."""
         horse = _make_horse(8, "テスト馬", sire="キングカメハメハ", dam="テスト母", dam_sire="サンデーサイレンス")
         mock_dynamodb_table.get_item.return_value = {
-            "Item": _make_source_item("20260208_05_11", "keibagrant", [horse])
+            "Item": _make_source_item("202602080511", "keibagrant", [horse])
         }
 
-        result = get_past_performance(race_id="20260208_05_11", source="keibagrant")
+        result = get_past_performance(race_id="202602080511", source="keibagrant")
 
         h = result["horses"][0]
         assert h["horse_number"] == 8
@@ -161,16 +161,16 @@ class TestGetPastPerformanceMultiSource:
         mock_dynamodb_table.query.return_value = {
             "Items": [
                 _make_source_item(
-                    "20260208_05_11",
+                    "202602080511",
                     "keibagrant",
                     [_make_horse(1, "馬A"), _make_horse(5, "馬B")],
                 ),
             ]
         }
 
-        result = get_past_performance(race_id="20260208_05_11", source=None)
+        result = get_past_performance(race_id="202602080511", source=None)
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert len(result["sources"]) == 1
         assert result["sources"][0]["source"] == "keibagrant"
         assert len(result["sources"][0]["horses"]) == 2
@@ -181,9 +181,9 @@ class TestGetPastPerformanceMultiSource:
         """全ソース取得でデータがない場合."""
         mock_dynamodb_table.query.return_value = {"Items": []}
 
-        result = get_past_performance(race_id="20260208_05_99", source=None)
+        result = get_past_performance(race_id="202602080599", source=None)
 
-        assert result["race_id"] == "20260208_05_99"
+        assert result["race_id"] == "202602080599"
         assert "error" in result
         assert result["sources"] == []
 
@@ -195,7 +195,7 @@ class TestGetPastPerformanceMultiSource:
             "Query"
         )
 
-        result = get_past_performance(race_id="20260208_05_11", source=None)
+        result = get_past_performance(race_id="202602080511", source=None)
 
         assert "error" in result
         assert "DynamoDBエラー" in result["error"]
@@ -204,12 +204,12 @@ class TestGetPastPerformanceMultiSource:
     def test_source指定時は従来通り単一ソース返却(self, mock_dynamodb_table):
         """source指定の場合、従来と同じ形式で返す."""
         mock_dynamodb_table.get_item.return_value = {
-            "Item": _make_source_item("20260208_05_11", "keibagrant", [_make_horse(1, "馬A")])
+            "Item": _make_source_item("202602080511", "keibagrant", [_make_horse(1, "馬A")])
         }
 
-        result = get_past_performance(race_id="20260208_05_11", source="keibagrant")
+        result = get_past_performance(race_id="202602080511", source="keibagrant")
 
-        assert result["race_id"] == "20260208_05_11"
+        assert result["race_id"] == "202602080511"
         assert result["source"] == "keibagrant"
         assert "horses" in result
         assert "sources" not in result
@@ -219,11 +219,11 @@ class TestGetPastPerformanceMultiSource:
         """引数なしで呼んだ場合、source=None として全ソース取得になる."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260208_05_11", "keibagrant", [_make_horse(1, "馬A")]),
+                _make_source_item("202602080511", "keibagrant", [_make_horse(1, "馬A")]),
             ]
         }
 
-        result = get_past_performance(race_id="20260208_05_11")
+        result = get_past_performance(race_id="202602080511")
 
         mock_dynamodb_table.query.assert_called_once()
         assert "sources" in result
@@ -233,7 +233,7 @@ class TestGetPastPerformanceMultiSource:
         mock_dynamodb_table.query.return_value = {
             "Items": [
                 {
-                    "race_id": "20260208_05_11",
+                    "race_id": "202602080511",
                     "source": "keibagrant",
                     "venue": "東京",
                     "race_number": 11,
@@ -244,7 +244,7 @@ class TestGetPastPerformanceMultiSource:
             ]
         }
 
-        result = get_past_performance(race_id="20260208_05_11", source=None)
+        result = get_past_performance(race_id="202602080511", source=None)
 
         # sourcesの各アイテムにttlがないこと
         for s in result["sources"]:

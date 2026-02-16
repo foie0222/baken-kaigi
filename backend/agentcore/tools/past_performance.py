@@ -92,7 +92,7 @@ def get_past_performance(race_id: str, source: str | None = None) -> dict:
     各出走馬の近5走成績、血統情報を含む。
 
     Args:
-        race_id: レースID (例: "20260131_05_11")
+        race_id: レースID (例: "202601310511")
         source: データソース名。Noneの場合は全ソースを取得。
                 利用可能ソース: "keibagrant"
 

@@ -442,7 +442,7 @@ class TestAnalyzeNearMiss:
     def test_スタブメッセージが返される(self):
         """スタブはレース結果確定後に利用可能というメッセージを返す."""
         result = _analyze_near_miss(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             horse_numbers=[1, 2, 3],
             bet_type="trio",
         )
@@ -463,7 +463,7 @@ class TestAnalyzeRiskFactorsImpl:
         runners = _make_runners(16)
         ai_preds = _make_ai_predictions(16)
         result = _analyze_risk_factors_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             horse_numbers=[1, 2, 3],
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -472,7 +472,7 @@ class TestAnalyzeRiskFactorsImpl:
             venue="東京",
             total_runners=16,
             cart_items=[
-                {"raceId": "20260201_05_11", "betType": "trio",
+                {"raceId": "202602010511", "betType": "trio",
                  "horseNumbers": [1, 2, 3], "amount": 500,
                  "runners_data": runners},
             ],
@@ -488,7 +488,7 @@ class TestAnalyzeRiskFactorsImpl:
         runners = _make_runners(16)
         ai_preds = _make_ai_predictions(16)
         result = _analyze_risk_factors_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             horse_numbers=[1, 2, 3],
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -504,7 +504,7 @@ class TestAnalyzeRiskFactorsImpl:
     def test_エラーハンドリング(self):
         """空データでもエラーにならない."""
         result = _analyze_risk_factors_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             horse_numbers=[],
             runners_data=[],
             ai_predictions=[],
@@ -540,7 +540,7 @@ class TestAnalyzeRiskFactorsImpl:
             {"horse_number": 15, "horse_name": "シャフリヤール", "rank": 8, "score": 150},
         ]
         result = _analyze_risk_factors_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             horse_numbers=[1, 3, 5],
             runners_data=runners,
             ai_predictions=ai_preds,
@@ -549,7 +549,7 @@ class TestAnalyzeRiskFactorsImpl:
             venue="東京",
             total_runners=8,
             cart_items=[
-                {"raceId": "20260201_05_11", "betType": "trio",
+                {"raceId": "202602010511", "betType": "trio",
                  "horseNumbers": [1, 3, 5], "amount": 1000,
                  "runners_data": runners},
             ],

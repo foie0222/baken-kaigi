@@ -71,6 +71,12 @@ class MockRaceDataProvider(RaceDataProvider):
 
     # サンプルの開催場
     VENUES = ["東京", "中山", "阪神", "京都", "中京", "小倉", "新潟", "札幌"]
+    VENUE_CODES: dict[str, str] = {
+        "東京": "05", "中山": "06", "阪神": "09", "京都": "08",
+        "中京": "07", "小倉": "10", "新潟": "04", "札幌": "01",
+        "函館": "02", "福島": "03",
+    }
+    CODE_TO_VENUE: dict[str, str] = {v: k for k, v in VENUE_CODES.items()}
 
     # サンプルの馬名
     HORSE_NAMES = [
@@ -206,17 +212,17 @@ class MockRaceDataProvider(RaceDataProvider):
             return self._races[race_id_str]
 
         # レースIDをパースして情報を生成
-        # フォーマット: YYYYMMDD_VENUE_RACE_NUMBER (例: 20240120_tokyo_01)
-        parts = race_id_str.split("_")
-        if len(parts) < 3:
+        # フォーマット: YYYYMMDDXXRR（12桁数字、例: 202401200101）
+        if len(race_id_str) != 12 or not race_id_str.isdigit():
             return None
 
         try:
-            date_str = parts[0]
-            venue = parts[1]
-            race_num = int(parts[2])
+            date_str = race_id_str[:8]
+            venue_code = race_id_str[8:10]
+            venue = self.CODE_TO_VENUE.get(venue_code, "東京")
+            race_num = int(race_id_str[10:12])
             target_date = datetime.strptime(date_str, "%Y%m%d")
-        except (ValueError, IndexError):
+        except ValueError:
             return None
 
         # レースデータを生成
@@ -237,9 +243,9 @@ class MockRaceDataProvider(RaceDataProvider):
         venues_to_use = [venue] if venue else self.VENUES[:3]  # デフォルトは3会場
 
         for v in venues_to_use:
-            venue_lower = v.lower()
+            venue_code = self.VENUE_CODES[v]
             for race_num in range(1, 13):  # 1R〜12R
-                race_id = f"{date_str}_{venue_lower}_{race_num:02d}"
+                race_id = f"{date_str}{venue_code}{race_num:02d}"
                 race = self._generate_race_data(race_id, target_date, v, race_num)
                 races.append(race)
                 self._races[race_id] = race
@@ -700,7 +706,7 @@ class MockRaceDataProvider(RaceDataProvider):
             pop = random.randint(1, total_runners)
 
             perf = HorsePerformanceData(
-                race_id=f"{race_date.strftime('%Y%m%d')}_{venue.lower()}_{random.randint(1,12):02d}",
+                race_id=f"{race_date.strftime('%Y%m%d')}{self.VENUE_CODES.get(venue, '05')}{random.randint(1,12):02d}",
                 race_date=race_date.strftime("%Y%m%d"),
                 race_name=f"{venue}{distance}m {random.choice(self.RACE_NAMES)}",
                 venue=venue,

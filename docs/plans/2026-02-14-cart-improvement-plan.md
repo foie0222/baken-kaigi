@@ -163,7 +163,7 @@ def get_bet_odds(
 **Step 3: 手動テスト**
 
 ```bash
-curl "http://localhost:8000/races/20260215_05_01/bet-odds?bet_type=win&horses=3"
+curl "http://localhost:8000/races/202602150501/bet-odds?bet_type=win&horses=3"
 ```
 
 **Step 4: コミット**

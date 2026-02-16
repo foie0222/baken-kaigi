@@ -180,7 +180,7 @@ class TestAnalyzeRaceImpl:
         running_styles = _make_running_styles(6)
 
         result = _analyze_race_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             race_name="東京11R テスト重賞",
             venue="東京",
             distance="1600m",
@@ -193,7 +193,7 @@ class TestAnalyzeRaceImpl:
         )
 
         # race_info の検証
-        assert result["race_info"]["race_id"] == "20260201_05_11"
+        assert result["race_info"]["race_id"] == "202602010511"
         assert result["race_info"]["race_name"] == "東京11R テスト重賞"
         assert result["race_info"]["total_runners"] == 6
         assert "difficulty" in result["race_info"]
@@ -224,7 +224,7 @@ class TestAnalyzeRaceImpl:
         }
 
         result = _analyze_race_impl(
-            race_id="20260201_05_11",
+            race_id="202602010511",
             race_name="テスト",
             venue="東京",
             distance="1600m",

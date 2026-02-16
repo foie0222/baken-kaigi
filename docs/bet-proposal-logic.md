@@ -160,7 +160,7 @@ flowchart TD
 ```python
 {
     "race_info": {
-        "race_id": "20260215_06_11",
+        "race_id": "202602150611",
         "race_name": "フェブラリーS",
         "venue": "東京",
         "distance": "1600",
@@ -235,7 +235,7 @@ win_probabilities = {
 
 ```python
 {
-    "race_id": "20260215_06_11",
+    "race_id": "202602150611",
     "win":            {"1": 3.5, "2": 5.8, ...},                  # 単勝
     "place":          {"1": {"min": 1.2, "max": 1.5}, ...},       # 複勝
     "quinella":       {"1-2": 64.8, "1-3": 155.2, ...},           # 馬連

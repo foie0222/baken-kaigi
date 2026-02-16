@@ -180,7 +180,7 @@ def get_speed_index(race_id: str, source: str | None = None) -> dict:
     外部スピード指数サービスからスクレイピングしたデータをDynamoDBから取得する。
 
     Args:
-        race_id: レースID (例: "20260131_05_11")
+        race_id: レースID (例: "202601310511")
         source: データソース名。Noneの場合は全ソースを取得しコンセンサス分析を付加。
                 指定した場合は単一ソースを返す。
                 利用可能ソース: "jiro8-speed", "kichiuma-speed", "daily-speed"

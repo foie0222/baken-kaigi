@@ -5,7 +5,7 @@ describe('buildJraShutsubaUrl', () => {
   describe('正常ケース', () => {
     it('全てのフィールドが揃っている場合、正しいURLを生成する', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: '01',
         kaisaiNichime: '08',
         jraChecksum: 243, // 0xF3
@@ -22,7 +22,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('レース番号が2桁の場合も正しく処理する', () => {
       const race = {
-        id: '20260124_06_11',
+        id: '202601240611',
         kaisaiKai: '02',
         kaisaiNichime: '05',
         jraChecksum: 15, // 0x0F
@@ -39,7 +39,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('チェックサムが0の場合も正しく処理する', () => {
       const race = {
-        id: '20260124_05_03',
+        id: '202601240503',
         kaisaiKai: '01',
         kaisaiNichime: '01',
         jraChecksum: 0,
@@ -56,7 +56,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('小倉(venue=10)の場合、venue4digitが0110になる', () => {
       const race = {
-        id: '20260207_10_01',
+        id: '202602071001',
         kaisaiKai: '01',
         kaisaiNichime: '05',
         jraChecksum: 228, // 0xE4
@@ -73,7 +73,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('venueコードが1桁の場合、2桁にパディングされる', () => {
       const race = {
-        id: '20260124_05_01',
+        id: '202601240501',
         kaisaiKai: '3',
         kaisaiNichime: '2',
         jraChecksum: 255, // 0xFF
@@ -92,7 +92,7 @@ describe('buildJraShutsubaUrl', () => {
   describe('nullを返すケース', () => {
     it('kaisaiKaiがundefinedの場合、nullを返す', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: undefined,
         kaisaiNichime: '08',
         jraChecksum: 243,
@@ -105,7 +105,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('kaisaiKaiが空文字の場合、nullを返す', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: '',
         kaisaiNichime: '08',
         jraChecksum: 243,
@@ -118,7 +118,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('kaisaiNichimeがundefinedの場合、nullを返す', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: '01',
         kaisaiNichime: undefined,
         jraChecksum: 243,
@@ -131,7 +131,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('kaisaiNichimeが空文字の場合、nullを返す', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: '01',
         kaisaiNichime: '',
         jraChecksum: 243,
@@ -144,7 +144,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('jraChecksumがnullの場合、nullを返す', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: '01',
         kaisaiNichime: '08',
         jraChecksum: null,
@@ -157,7 +157,7 @@ describe('buildJraShutsubaUrl', () => {
 
     it('jraChecksumがundefinedの場合、nullを返す', () => {
       const race = {
-        id: '20260124_06_01',
+        id: '202601240601',
         kaisaiKai: '01',
         kaisaiNichime: '08',
         jraChecksum: undefined,

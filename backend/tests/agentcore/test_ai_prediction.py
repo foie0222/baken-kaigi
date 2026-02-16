@@ -34,7 +34,7 @@ class TestGetAiPrediction:
         """正常系: DynamoDBからデータを取得できる."""
         mock_dynamodb_table.get_item.return_value = {
             "Item": {
-                "race_id": "20260131_05_11",
+                "race_id": "202601310511",
                 "source": "ai-shisu",
                 "venue": "東京",
                 "race_number": 11,
@@ -47,9 +47,9 @@ class TestGetAiPrediction:
             }
         }
 
-        result = get_ai_prediction(race_id="20260131_05_11", source="ai-shisu")
+        result = get_ai_prediction(race_id="202601310511", source="ai-shisu")
 
-        assert result["race_id"] == "20260131_05_11"
+        assert result["race_id"] == "202601310511"
         assert result["source"] == "AI-A"  # 匿名化される
         assert result["venue"] == "東京"
         assert result["race_number"] == 11
@@ -63,9 +63,9 @@ class TestGetAiPrediction:
         """異常系: データが存在しない場合はエラーメッセージを返す."""
         mock_dynamodb_table.get_item.return_value = {}
 
-        result = get_ai_prediction(race_id="20260131_05_99", source="ai-shisu")
+        result = get_ai_prediction(race_id="202601310599", source="ai-shisu")
 
-        assert result["race_id"] == "20260131_05_99"
+        assert result["race_id"] == "202601310599"
         assert result["source"] == "AI-A"  # 匿名化される
         assert "error" in result
         assert "AI予想データが見つかりません" in result["error"]
@@ -79,7 +79,7 @@ class TestGetAiPrediction:
             "GetItem"
         )
 
-        result = get_ai_prediction(race_id="20260131_05_11", source="ai-shisu")
+        result = get_ai_prediction(race_id="202601310511", source="ai-shisu")
 
         assert "error" in result
         assert "DynamoDBエラー" in result["error"]
@@ -89,7 +89,7 @@ class TestGetAiPrediction:
         """正常系: カスタムソースを指定した場合."""
         mock_dynamodb_table.get_item.return_value = {
             "Item": {
-                "race_id": "20260131_05_11",
+                "race_id": "202601310511",
                 "source": "custom-source",
                 "venue": "東京",
                 "race_number": 11,
@@ -98,10 +98,10 @@ class TestGetAiPrediction:
             }
         }
 
-        result = get_ai_prediction(race_id="20260131_05_11", source="custom-source")
+        result = get_ai_prediction(race_id="202601310511", source="custom-source")
 
         mock_dynamodb_table.get_item.assert_called_once_with(
-            Key={"race_id": "20260131_05_11", "source": "custom-source"}
+            Key={"race_id": "202601310511", "source": "custom-source"}
         )
         assert result["source"] == "AI-A"  # 匿名化される
 
@@ -114,7 +114,7 @@ class TestListAiPredictionsForDate:
         mock_dynamodb_table.scan.return_value = {
             "Items": [
                 {
-                    "race_id": "20260131_05_11",
+                    "race_id": "202601310511",
                     "source": "ai-shisu",
                     "venue": "東京",
                     "race_number": 11,
@@ -127,7 +127,7 @@ class TestListAiPredictionsForDate:
                     "scraped_at": "2026-01-31T06:00:00+09:00",
                 },
                 {
-                    "race_id": "20260131_08_12",
+                    "race_id": "202601310812",
                     "source": "ai-shisu",
                     "venue": "京都",
                     "race_number": 12,
@@ -168,9 +168,9 @@ class TestListAiPredictionsForDate:
         """正常系: レースが競馬場名・レース番号でソートされる."""
         mock_dynamodb_table.scan.return_value = {
             "Items": [
-                {"race_id": "20260131_05_12", "source": "ai-shisu", "venue": "東京", "race_number": 12, "predictions": []},
-                {"race_id": "20260131_08_11", "source": "ai-shisu", "venue": "京都", "race_number": 11, "predictions": []},
-                {"race_id": "20260131_05_11", "source": "ai-shisu", "venue": "東京", "race_number": 11, "predictions": []},
+                {"race_id": "202601310512", "source": "ai-shisu", "venue": "東京", "race_number": 12, "predictions": []},
+                {"race_id": "202601310811", "source": "ai-shisu", "venue": "京都", "race_number": 11, "predictions": []},
+                {"race_id": "202601310511", "source": "ai-shisu", "venue": "東京", "race_number": 11, "predictions": []},
             ]
         }
 
@@ -215,14 +215,14 @@ class TestGetAiPredictionMultiSource:
         """source=None で呼ぶと全ソースを取得しコンセンサスを付加する."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260131_05_11", "ai-shisu", [(8, 691), (3, 650), (5, 600), (1, 550)]),
-                _make_source_item("20260131_05_11", "muryou-keiba-ai", [(8, 700), (3, 680), (5, 620), (1, 500)]),
+                _make_source_item("202601310511", "ai-shisu", [(8, 691), (3, 650), (5, 600), (1, 550)]),
+                _make_source_item("202601310511", "muryou-keiba-ai", [(8, 700), (3, 680), (5, 620), (1, 500)]),
             ]
         }
 
-        result = get_ai_prediction(race_id="20260131_05_11", source=None)
+        result = get_ai_prediction(race_id="202601310511", source=None)
 
-        assert result["race_id"] == "20260131_05_11"
+        assert result["race_id"] == "202601310511"
         assert len(result["sources"]) == 2
         # ソース名は匿名化される（ai-shisu→AI-A, muryou-keiba-ai→AI-B）
         source_names = {s["source"] for s in result["sources"]}
@@ -236,13 +236,13 @@ class TestGetAiPredictionMultiSource:
         """1ソースのみの場合、sourcesに1つ。consensusは付加しない."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260131_05_11", "ai-shisu", [(8, 691), (3, 650), (5, 600)]),
+                _make_source_item("202601310511", "ai-shisu", [(8, 691), (3, 650), (5, 600)]),
             ]
         }
 
-        result = get_ai_prediction(race_id="20260131_05_11", source=None)
+        result = get_ai_prediction(race_id="202601310511", source=None)
 
-        assert result["race_id"] == "20260131_05_11"
+        assert result["race_id"] == "202601310511"
         assert len(result["sources"]) == 1
         assert result["sources"][0]["source"] == "AI-A"  # 匿名化される
         assert "consensus" not in result
@@ -251,13 +251,13 @@ class TestGetAiPredictionMultiSource:
     def test_source指定時は従来通り単一ソース返却(self, mock_dynamodb_table):
         """source指定の場合、従来と同じ形式で返す（後方互換）."""
         mock_dynamodb_table.get_item.return_value = {
-            "Item": _make_source_item("20260131_05_11", "ai-shisu", [(8, 691), (3, 650)])
+            "Item": _make_source_item("202601310511", "ai-shisu", [(8, 691), (3, 650)])
         }
 
-        result = get_ai_prediction(race_id="20260131_05_11", source="ai-shisu")
+        result = get_ai_prediction(race_id="202601310511", source="ai-shisu")
 
         # 従来形式: source, predictions がトップレベル
-        assert result["race_id"] == "20260131_05_11"
+        assert result["race_id"] == "202601310511"
         assert result["source"] == "AI-A"  # 匿名化される
         assert "predictions" in result
         assert "sources" not in result
@@ -269,9 +269,9 @@ class TestGetAiPredictionMultiSource:
         """全ソース取得でデータがない場合."""
         mock_dynamodb_table.query.return_value = {"Items": []}
 
-        result = get_ai_prediction(race_id="20260131_05_99", source=None)
+        result = get_ai_prediction(race_id="202601310599", source=None)
 
-        assert result["race_id"] == "20260131_05_99"
+        assert result["race_id"] == "202601310599"
         assert "error" in result
         assert result["sources"] == []
 
@@ -283,7 +283,7 @@ class TestGetAiPredictionMultiSource:
             "Query"
         )
 
-        result = get_ai_prediction(race_id="20260131_05_11", source=None)
+        result = get_ai_prediction(race_id="202601310511", source=None)
 
         assert "error" in result
         assert "DynamoDBエラー" in result["error"]
@@ -293,12 +293,12 @@ class TestGetAiPredictionMultiSource:
         """引数なしで呼んだ場合、source=None として全ソース取得になる."""
         mock_dynamodb_table.query.return_value = {
             "Items": [
-                _make_source_item("20260131_05_11", "ai-shisu", [(8, 691), (3, 650), (5, 600)]),
+                _make_source_item("202601310511", "ai-shisu", [(8, 691), (3, 650), (5, 600)]),
             ]
         }
 
         # source引数を省略して呼ぶ
-        result = get_ai_prediction(race_id="20260131_05_11")
+        result = get_ai_prediction(race_id="202601310511")
 
         # queryが呼ばれる（全ソース取得）
         mock_dynamodb_table.query.assert_called_once()
@@ -430,7 +430,7 @@ class TestAnonymizeSources:
     def test_全ソース結果の匿名化(self):
         """sources[].sourceとconsensus.divergence_horses[].ranksが匿名化される."""
         result = {
-            "race_id": "20260131_05_11",
+            "race_id": "202601310511",
             "sources": [
                 {"source": "ai-shisu", "predictions": []},
                 {"source": "muryou-keiba-ai", "predictions": []},
@@ -453,7 +453,7 @@ class TestAnonymizeSources:
     def test_consensusなしの場合(self):
         """1ソースでconsensusがない場合もsourceは匿名化される."""
         result = {
-            "race_id": "20260131_05_11",
+            "race_id": "202601310511",
             "sources": [
                 {"source": "ai-shisu", "predictions": []},
             ],
@@ -467,7 +467,7 @@ class TestAnonymizeSources:
     def test_空sourcesの場合(self):
         """sourcesが空の場合はそのまま返す."""
         result = {
-            "race_id": "20260131_05_11",
+            "race_id": "202601310511",
             "sources": [],
             "error": "データなし",
         }
@@ -481,7 +481,7 @@ class TestAnonymizeSources:
         """DynamoDBの返却順が変わってもラベルの割り当ては安定する."""
         # muryou-keiba-aiが先に来るケース
         result1 = {
-            "race_id": "20260131_05_11",
+            "race_id": "202601310511",
             "sources": [
                 {"source": "muryou-keiba-ai", "predictions": []},
                 {"source": "ai-shisu", "predictions": []},
@@ -489,7 +489,7 @@ class TestAnonymizeSources:
         }
         # ai-shisuが先に来るケース
         result2 = {
-            "race_id": "20260131_05_11",
+            "race_id": "202601310511",
             "sources": [
                 {"source": "ai-shisu", "predictions": []},
                 {"source": "muryou-keiba-ai", "predictions": []},

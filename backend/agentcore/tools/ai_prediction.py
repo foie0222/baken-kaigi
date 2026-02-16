@@ -244,7 +244,7 @@ def get_ai_prediction(race_id: str, source: str | None = None) -> dict:
     ソース名は匿名ラベル（AI-A, AI-B等）に変換されて返される。
 
     Args:
-        race_id: レースID (例: "20260131_05_11")
+        race_id: レースID (例: "202601310511")
         source: データソース名。Noneの場合は全ソースを取得しコンセンサス分析を付加。
                 指定した場合は従来通り単一ソースを返す。
 

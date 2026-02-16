@@ -28,12 +28,11 @@ export function buildJraShutsubaUrl(race: RaceForJraUrl): string | null {
     return null;
   }
 
-  // race.id から日付を取得（形式: YYYYMMDD_XX_RR）
-  const dateMatch = /^(\d{8})_/.exec(race.id);
-  if (!dateMatch) {
+  // race.id から日付を取得（形式: YYYYMMDDXXRR、12桁数字）
+  if (!/^\d{12}$/.test(race.id)) {
     return null;
   }
-  const datePart = dateMatch[1]; // "20260124"
+  const datePart = race.id.substring(0, 8); // "20260124"
   const year = datePart.slice(0, 4); // "2026"
 
   // race.number から数字部分を取得（形式: "8R" → "08"）

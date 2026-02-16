@@ -64,7 +64,7 @@ test.describe("コンサルテーションフロー", () => {
 test.describe("レース分析フロー", () => {
   test("レース詳細ページで馬情報を確認", async ({ page }) => {
     // サンプルのレース詳細ページに移動（実際のraceIdが必要）
-    await page.goto("/races/20260125_06_11");
+    await page.goto("/races/202601250611");
 
     // ページが表示されることを確認（404でも正常なレスポンスとして扱う）
     await expect(page.locator("body")).toBeVisible();

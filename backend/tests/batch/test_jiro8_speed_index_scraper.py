@@ -151,18 +151,18 @@ class TestGenerateRaceId:
     def test_正しい形式でrace_idを生成(self):
         """正常系: JRA-VANスタイルのrace_idを生成."""
         race_id = generate_race_id("20260208", "東京", 11)
-        assert race_id == "20260208_05_11"
+        assert race_id == "202602080511"
 
     def test_レース番号が1桁でもゼロパディング(self):
         """正常系: レース番号が1桁でも2桁にゼロパディング."""
         race_id = generate_race_id("20260208", "京都", 1)
-        assert race_id == "20260208_08_01"
+        assert race_id == "202602080801"
 
     def test_すべての競馬場コード(self):
         """正常系: すべてのJRA競馬場でrace_idを生成."""
         for venue, code in VENUE_CODE_MAP.items():
             race_id = generate_race_id("20260208", venue, 12)
-            assert race_id == f"20260208_{code}_12"
+            assert race_id == f"20260208{code}12"
 
 
 class TestSaveIndices:
@@ -179,7 +179,7 @@ class TestSaveIndices:
 
         save_indices(
             table=mock_table,
-            race_id="20260208_05_11",
+            race_id="202602080511",
             venue="東京",
             race_number=11,
             indices=indices,
@@ -190,7 +190,7 @@ class TestSaveIndices:
         call_args = mock_table.put_item.call_args
         item = call_args.kwargs["Item"]
 
-        assert item["race_id"] == "20260208_05_11"
+        assert item["race_id"] == "202602080511"
         assert item["source"] == "jiro8-speed"
         assert item["venue"] == "東京"
         assert item["race_number"] == 11
@@ -208,7 +208,7 @@ class TestSaveIndices:
 
         save_indices(
             table=mock_table,
-            race_id="20260208_05_11",
+            race_id="202602080511",
             venue="東京",
             race_number=11,
             indices=indices,

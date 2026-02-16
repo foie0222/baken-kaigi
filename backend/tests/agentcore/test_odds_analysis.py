@@ -53,7 +53,7 @@ class TestAnalyzeOddsMovement:
         mock_get.return_value = mock_response
 
         result = analyze_odds_movement(
-            race_id="20260125_06_11",
+            race_id="202601250611",
             horse_numbers=[1],
         )
 
@@ -66,7 +66,7 @@ class TestAnalyzeOddsMovement:
         mock_get.side_effect = requests.RequestException("Connection failed")
 
         result = analyze_odds_movement(
-            race_id="20260125_06_11",
+            race_id="202601250611",
             horse_numbers=[1],
         )
 
