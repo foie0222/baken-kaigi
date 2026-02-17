@@ -12,7 +12,6 @@ from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
-from botocore.exceptions import BotoCoreError, ClientError
 
 # AgentCore Runtime ではCloudWatchメトリクス送信を有効化
 os.environ.setdefault("EMIT_CLOUDWATCH_METRICS", "true")
@@ -87,22 +86,21 @@ def invoke(payload: dict, context: Any) -> dict:
     """
     race_id = payload.get("race_id", "")
     user_id = payload.get("user_id", "")
-    logger.info("invoke called with race_id=%s, user_id=%s", race_id, user_id)
 
-    # DynamoDB から agent_data を取得し、好み設定をev_proposerツールに注入
-    from tools.ev_proposer import set_betting_preference
-    agent_data = _fetch_agent_data(user_id)
-    betting_preference = agent_data.get("betting_preference") if agent_data else None
-    logger.info("betting_preference=%s", betting_preference)
-    set_betting_preference(betting_preference)
-
-    # 入力バリデーション
+    # 入力バリデーション（外部アクセス前に実施）
     if not race_id:
         return {
             "message": "レースIDが必要です。",
             "session_id": getattr(context, "session_id", None),
             "suggested_questions": [],
         }
+
+    # DynamoDB から agent_data を取得し、好み設定をev_proposerツールに注入
+    from tools.ev_proposer import set_betting_preference
+    agent_data = _fetch_agent_data(user_id)
+    betting_preference = agent_data.get("betting_preference") if agent_data else None
+    logger.debug("betting_preference=%s", betting_preference)
+    set_betting_preference(betting_preference)
 
     # プロンプトを内部構築
     user_message = f"レースID {race_id} について買い目提案を生成してください。"
@@ -286,10 +284,10 @@ def _fetch_agent_data(user_id: str) -> dict | None:
 
     items = response.get("Items", [])
     if not items:
-        logger.info("No agent data found for user_id=%s", user_id)
+        logger.debug("No agent data found for user_id=%s", user_id)
         return None
 
-    logger.info("Agent data found for user_id=%s, keys=%s", user_id, list(items[0].keys()))
+    logger.debug("Agent data found for user_id=%s", user_id)
     return items[0]
 
 
