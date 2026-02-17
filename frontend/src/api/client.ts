@@ -37,6 +37,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || '';
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
   race_id: string;
+  user_id?: string;
 }
 
 export interface BetAction {
@@ -271,10 +272,27 @@ class ApiClient {
     }
 
     try {
+      // user_id をペイロードに付与（AgentCoreが好み設定を参照するため）
+      const payload: AgentCoreConsultationRequest = { ...request };
+      if (!payload.user_id) {
+        try {
+          const session = await fetchAuthSession();
+          const sub = session.tokens?.idToken?.payload?.sub;
+          if (sub) {
+            payload.user_id = `user:${sub}`;
+          }
+        } catch {
+          // 未認証
+        }
+        if (!payload.user_id) {
+          payload.user_id = `guest:${getOrCreateGuestId()}`;
+        }
+      }
+
       const response = await fetch(this.agentCoreEndpoint, {
         method: 'POST',
         headers: await this.createHeaders(),
-        body: JSON.stringify(request),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();

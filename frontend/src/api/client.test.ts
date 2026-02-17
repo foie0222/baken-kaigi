@@ -247,6 +247,23 @@ describe('ApiClient', () => {
       expect(result.data?.session_id).toBe('session_123')
     })
 
+    it('AgentCoreリクエストにuser_idが自動付与される', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: '応答',
+          session_id: 'sess',
+        }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      await client.consultWithAgent({ race_id: 'race_001' })
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(body.user_id).toBeDefined()
+      expect(body.race_id).toBe('race_001')
+    })
+
     it('isAgentCoreAvailableが正しく動作する', async () => {
       const clientWithoutEndpoint = await getApiClient('http://localhost:3000', '')
       expect(clientWithoutEndpoint.isAgentCoreAvailable()).toBe(false)
