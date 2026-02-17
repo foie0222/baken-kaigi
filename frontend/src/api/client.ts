@@ -46,25 +46,12 @@ export interface BetAction {
   params: Record<string, unknown>;
 }
 
-export interface UsageInfo {
-  consulted_races: number;
-  max_races: number;
-  remaining_races: number;
-  tier: 'anonymous' | 'free' | 'premium';
-}
-
 export interface AgentCoreConsultationResponse {
   message: string;
   session_id: string;
   suggested_questions?: string[];
   bet_actions?: BetAction[];
   confidence?: number;
-  usage?: UsageInfo;
-}
-
-export interface RateLimitError {
-  error: { message: string; code: string };
-  usage: UsageInfo;
 }
 
 class ApiClient {
@@ -314,14 +301,6 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        // 429: 利用制限超過 — usage 情報を含めて返す
-        if (response.status === 429 && data.usage) {
-          return {
-            success: false,
-            error: this.extractErrorMessage(data, response.status),
-            data: { usage: data.usage } as unknown as AgentCoreConsultationResponse,
-          };
-        }
         return {
           success: false,
           error: this.extractErrorMessage(data, response.status),

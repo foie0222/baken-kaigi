@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ProposalCard } from './ProposalCard';
-import { apiClient, type UsageInfo } from '../../api/client';
+import { apiClient } from '../../api/client';
 import { useCartStore, type AddItemResult } from '../../stores/cartStore';
 import { useAppStore } from '../../stores/appStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,7 +14,6 @@ interface BetProposalContentProps {
 }
 
 export function BetProposalContent({ race }: BetProposalContentProps) {
-  const navigate = useNavigate();
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useAppStore((state) => state.showToast);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -26,8 +24,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
   const [result, setResult] = useState<BetProposalResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addedIndices, setAddedIndices] = useState<Set<number>>(new Set());
-  const [usage, setUsage] = useState<UsageInfo | null>(null);
-  const [rateLimited, setRateLimited] = useState(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -52,7 +48,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
   const handleGenerate = async () => {
     if (loading) return;
     setError(null);
-    setRateLimited(false);
     setLoading(true);
     setResult(null);
     setAddedIndices(new Set());
@@ -65,12 +60,6 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       if (response.success && response.data) {
         setResult(response.data);
       } else {
-        // 429 利用制限の場合は usage 情報を取得
-        const responseData = response.data as unknown as { usage?: UsageInfo } | undefined;
-        if (responseData?.usage) {
-          setUsage(responseData.usage);
-          setRateLimited(true);
-        }
         setError(response.error || '提案の生成に失敗しました');
       }
     } catch {
@@ -227,26 +216,9 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
       {error && (
         <div className="proposal-error">
           <p>{error}</p>
-          {rateLimited ? (
-            <div className="proposal-rate-limit">
-              {usage && (
-                <p className="proposal-usage-badge">
-                  本日 {usage.consulted_races}/{usage.max_races} レース利用済み
-                </p>
-              )}
-              {!isAuthenticated ? (
-                <button className="proposal-cta-btn" onClick={() => navigate('/signup/age')}>
-                  会員登録（無料）で1日3レースまで予想可能
-                </button>
-              ) : (
-                <p className="proposal-limit-message">明日になると予想枠がリセットされます</p>
-              )}
-            </div>
-          ) : (
-            <button className="proposal-retry-btn" onClick={handleGenerate}>
-              再試行
-            </button>
-          )}
+          <button className="proposal-retry-btn" onClick={handleGenerate}>
+            再試行
+          </button>
         </div>
       )}
 

@@ -100,16 +100,27 @@ jobs:
       - name: Install AgentCore CLI and uv
         run: pip install bedrock-agentcore-starter-toolkit uv
 
+      - name: Get execution role ARN from CloudFormation
+        id: cfn-role
+        run: |
+          ROLE_ARN=$(aws cloudformation list-exports --query 'Exports[?Name==`AgentCoreRuntimeRoleArn`].Value' --output text)
+          if [ -z "$ROLE_ARN" ] || [ "$ROLE_ARN" = "None" ]; then
+            echo "::error::AgentCoreRuntimeRoleArn not found in CloudFormation exports"
+            exit 1
+          fi
+          echo "role_arn=$ROLE_ARN" >> "$GITHUB_OUTPUT"
+          echo "Execution role: $ROLE_ARN"
+
       - name: Generate AgentCore config for CI
         working-directory: backend/agentcore
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-          AGENTCORE_EXECUTION_ROLE: ${{ secrets.AGENTCORE_EXECUTION_ROLE }}
+          AGENTCORE_EXECUTION_ROLE: ${{ steps.cfn-role.outputs.role_arn }}
           AGENTCORE_S3_BUCKET: ${{ secrets.AGENTCORE_S3_BUCKET }}
           AGENTCORE_AGENT_ID: ${{ secrets.AGENTCORE_AGENT_ID }}
         run: |
           # CI環境用の設定ファイルを生成（相対パス使用）
-          # 注: AWS関連の値はGitHub Secretsから取得
+          # 注: execution_roleはCDKのCloudFormation Exportから取得
           cat > .bedrock_agentcore.yaml << EOF
           default_agent: baken_kaigi_cli
           agents:

@@ -1,6 +1,6 @@
 """AgentCore 相談 API ハンドラー.
 
-AgentCore Runtime にリクエストをプロキシし、利用制限を管理する。
+AgentCore Runtime にリクエストをプロキシする。
 このファイルは他のバックエンドモジュールに依存せず、独立して動作する。
 """
 import base64
@@ -8,9 +8,7 @@ import json
 import logging
 import os
 import re
-import time
 import uuid
-from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import boto3
@@ -28,33 +26,6 @@ AGENTCORE_AGENT_ARN = os.environ.get("AGENTCORE_AGENT_ARN")
 
 # AWS リージョン
 AWS_REGION = os.environ.get("AWS_REGION", "ap-northeast-1")
-
-# 利用制限テーブル
-USAGE_TRACKING_TABLE_NAME = os.environ.get("USAGE_TRACKING_TABLE_NAME")
-
-# 利用制限: tier ごとの1日あたりの最大レース数
-_TIER_LIMITS = {
-    "anonymous": 1,
-    "free": 3,
-    "premium": None,  # 無制限
-}
-
-# JST タイムゾーン
-_JST = timezone(timedelta(hours=9))
-
-# ゲストID のバリデーションパターン（UUID形式）
-_GUEST_ID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
-
-# DynamoDB リソース（Lambda 実行間で再利用）
-_dynamodb_resource = None
-
-
-def _get_dynamodb_table():
-    """利用制限追跡テーブルのDynamoDBリソースを取得（コネクション再利用）."""
-    global _dynamodb_resource
-    if _dynamodb_resource is None:
-        _dynamodb_resource = boto3.resource("dynamodb", region_name=AWS_REGION)
-    return _dynamodb_resource.Table(USAGE_TRACKING_TABLE_NAME)
 
 # CORS 許可オリジン
 _ALLOWED_ORIGINS = [
@@ -106,11 +77,17 @@ def _get_body(event: dict) -> dict:
         raise ValueError(f"Invalid JSON body: {e}")
 
 
-def _identify_user(event: dict) -> tuple[str, str]:
-    """リクエストからユーザーキーとtierを特定する.
+_GUEST_ID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _identify_user(event: dict) -> str:
+    """リクエストからユーザーキーを特定する.
 
     Returns:
-        (user_key, tier): ユーザーキーとtier
+        user_key: ユーザーキー文字列
     """
     headers = event.get("headers") or {}
 
@@ -130,127 +107,17 @@ def _identify_user(event: dict) -> tuple[str, str]:
                 payload = json.loads(base64.urlsafe_b64decode(payload_b64))
                 sub = payload.get("sub", "")
                 if sub:
-                    tier = payload.get("custom:tier", "free")
-                    if tier == "premium":
-                        return f"user:{sub}", "premium"
-                    return f"user:{sub}", "free"
+                    return f"user:{sub}"
         except (json.JSONDecodeError, UnicodeDecodeError, IndexError):
             logger.warning("Failed to decode JWT payload")
 
     # X-Guest-Id ヘッダーからゲストIDを取得（UUID形式のみ受け入れ）
     guest_id = headers.get("X-Guest-Id") or headers.get("x-guest-id") or ""
     if guest_id and _GUEST_ID_PATTERN.match(guest_id):
-        return f"guest:{guest_id}", "anonymous"
+        return f"guest:{guest_id}"
 
     # どちらもない場合は匿名扱い
-    return "guest:unknown", "anonymous"
-
-
-def _get_jst_date() -> str:
-    """現在のJST日付を文字列で返す (例: '2026-02-13')."""
-    return datetime.now(_JST).strftime("%Y-%m-%d")
-
-
-
-def _check_and_record_usage(
-    user_key: str,
-    tier: str,
-    race_ids: set[str],
-    date: str,
-) -> dict | None:
-    """利用制限をチェックし、許可された場合は利用を記録する.
-
-    Returns:
-        None: 利用可能
-        dict: 利用制限超過時のエラーレスポンスボディ
-    """
-    if not USAGE_TRACKING_TABLE_NAME:
-        return None  # テーブル未設定時はスキップ
-
-    max_races = _TIER_LIMITS.get(tier)
-    if max_races is None:
-        # 無制限（premium）
-        return None
-
-    table = _get_dynamodb_table()
-
-    # 既存の利用状況を取得
-    try:
-        resp = table.get_item(Key={"user_key": user_key, "date": date})
-    except ClientError:
-        logger.exception("Usage tracking table read error")
-        return None  # DB障害時は許可（フェイルオープン）
-
-    item = resp.get("Item", {})
-    existing_races: set[str] = set(item.get("consulted_race_ids", []) or [])
-
-    # 新規レースのみ抽出（既に相談済みのレースはカウントしない）
-    new_races = race_ids - existing_races
-
-    if not new_races:
-        # すべて既存のレース → 制限チェック不要
-        return None
-
-    # 新規レースを追加した場合の合計が制限を超えるか
-    total_after = len(existing_races) + len(new_races)
-    if total_after > max_races:
-        consulted = len(existing_races)
-        usage = {
-            "consulted_races": consulted,
-            "max_races": max_races,
-            "remaining_races": max(0, max_races - consulted),
-            "tier": tier,
-        }
-        return {
-            "error": {
-                "message": "本日の予想枠を使い切りました",
-                "code": "RATE_LIMIT_EXCEEDED",
-            },
-            "usage": usage,
-        }
-
-    # 利用を記録
-    ttl = int(time.time()) + 48 * 3600  # 48時間後
-    updated_races = existing_races | new_races
-
-    try:
-        table.put_item(Item={
-            "user_key": user_key,
-            "date": date,
-            "consulted_race_ids": updated_races,
-            "ttl": ttl,
-        })
-    except ClientError:
-        logger.exception("Usage tracking table write error")
-        # 書き込み失敗でも処理は続行
-
-    return None
-
-
-def _make_usage_info(user_key: str, tier: str, date: str) -> dict | None:
-    """現在の利用状況を取得する."""
-    if not USAGE_TRACKING_TABLE_NAME:
-        return None
-
-    max_races = _TIER_LIMITS.get(tier)
-    if max_races is None:
-        return {"consulted_races": 0, "max_races": 0, "remaining_races": 0, "tier": "premium"}
-
-    table = _get_dynamodb_table()
-
-    try:
-        resp = table.get_item(Key={"user_key": user_key, "date": date})
-    except ClientError:
-        return None
-
-    item = resp.get("Item", {})
-    consulted = len(set(item.get("consulted_race_ids", []) or []))
-    return {
-        "consulted_races": consulted,
-        "max_races": max_races,
-        "remaining_races": max(0, max_races - consulted),
-        "tier": tier,
-    }
+    return "guest:unknown"
 
 
 def invoke_agentcore(event: dict, context: Any) -> dict:
@@ -286,22 +153,10 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
     if not re.fullmatch(r"\d{12}", race_id):
         return _make_response({"error": "race_id must be a 12-digit number"}, 400, event=event)
 
-    # ========================================
-    # 利用制限チェック
-    # ========================================
-    user_key, tier = _identify_user(event)
-    existing_session_id = body.get("session_id")
-
-    # セッション継続（session_id あり）の場合は制限チェックスキップ
-    if not existing_session_id:
-        race_ids = {race_id}
-        jst_date = _get_jst_date()
-        limit_error = _check_and_record_usage(user_key, tier, race_ids, jst_date)
-        if limit_error:
-            return _make_response(limit_error, 429, event=event)
+    user_key = _identify_user(event)
 
     # セッション ID（既存または新規生成）
-    session_id = existing_session_id or str(uuid.uuid4())
+    session_id = body.get("session_id") or str(uuid.uuid4())
 
     # AgentCore 用のペイロードを構築
     payload = {
@@ -367,11 +222,6 @@ def invoke_agentcore(event: dict, context: Any) -> dict:
         suggested = result.get("suggested_questions")
         if suggested:
             response_body["suggested_questions"] = suggested
-
-        # 利用状況をレスポンスに付与
-        usage = _make_usage_info(user_key, tier, _get_jst_date())
-        if usage:
-            response_body["usage"] = usage
 
         return _make_response(response_body, event=event)
 
