@@ -20,12 +20,6 @@ from .bet_analysis import (
     _harville_exacta,
     _harville_trifecta,
 )
-from .pace_analysis import (
-    _assess_race_difficulty,
-)
-from .risk_analysis import (
-    _assess_skip_recommendation,
-)
 
 # =============================================================================
 # ツール結果キャッシュ（セパレータ復元用）
@@ -53,15 +47,6 @@ WEIGHT_AI_SCORE = 0.5
 WEIGHT_ODDS_GAP = 0.3
 WEIGHT_SPEED_INDEX = 0.20
 
-# 券種選定: 難易度と券種のマッピング
-DIFFICULTY_BET_TYPES = {
-    1: ["quinella", "exacta"],
-    2: ["quinella", "exacta"],
-    3: ["quinella", "trio"],
-    4: ["trio", "quinella_place"],
-    5: ["quinella_place"],
-}
-
 # 予算配分: 信頼度別の配分比率
 ALLOCATION_HIGH = 0.50
 ALLOCATION_MEDIUM = 0.30
@@ -69,12 +54,6 @@ ALLOCATION_LOW = 0.20
 
 # トリガミ除外閾値
 TORIGAMI_COMPOSITE_ODDS_THRESHOLD = 2.0
-
-# 見送りゲート閾値
-SKIP_GATE_THRESHOLD = 7
-
-# 見送り時の予算削減比率
-SKIP_BUDGET_REDUCTION = 0.5
 
 # 相手馬の最大数
 MAX_PARTNERS = 4
@@ -128,27 +107,9 @@ NARRATOR_SYSTEM_PROMPT = """あなたは競馬データアナリストです。
 
 ## トーン制御
 - AI合議が「明確な上位」「概ね合意」→ 確信的に語る
-- AI合議が「やや接戦」「混戦」→ 慎重に、リスクにも触れながら語る
-- 見送りスコア≥7 → 警戒的に、予算削減を強調"""
+- AI合議が「やや接戦」「混戦」→ 慎重に、リスクにも触れながら語る"""
 
 logger = logging.getLogger(__name__)
-
-
-def _calculate_confidence_factor(skip_score: int) -> float:
-    """見送りスコアから信頼度係数を算出する.
-
-    見送りスコア(0-10)を0.0-2.0の連続値にマッピング。
-    スコア9以上は見送り（0.0）。
-
-    Args:
-        skip_score: 見送りスコア（0-10）
-
-    Returns:
-        信頼度係数（0.0-2.0）
-    """
-    if skip_score >= 9:
-        return 0.0
-    return max(0.0, 2.0 - skip_score * (1.75 / 8))
 
 
 # オッズ乖離スコア: AI上位なのに人気が低い馬にボーナス
@@ -170,8 +131,6 @@ _DEFAULT_CONFIG = {
     "allocation_high": ALLOCATION_HIGH, "allocation_medium": ALLOCATION_MEDIUM,
     "allocation_low": ALLOCATION_LOW,
     "max_bets": MAX_BETS, "torigami_threshold": TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
-    "skip_gate_threshold": SKIP_GATE_THRESHOLD,
-    "difficulty_bet_types": DIFFICULTY_BET_TYPES,
     "base_rate": DEFAULT_BASE_RATE,
     "max_partners": MAX_PARTNERS,
 }
@@ -382,34 +341,6 @@ def _select_axis_horses(
     # スコア降順でソート
     scored.sort(key=lambda x: x["composite_score"], reverse=True)
     return scored[:MAX_AXIS_HORSES]
-
-
-# =============================================================================
-# Phase 3: 券種自動選定
-# =============================================================================
-
-
-def _select_bet_types_by_difficulty(
-    difficulty_stars: int,
-    preferred_bet_types: list[str] | None = None,
-    difficulty_bet_types: dict | None = None,
-) -> list[str]:
-    """レース難易度から推奨券種を選定する.
-
-    Args:
-        difficulty_stars: レース難易度（1-5）
-        preferred_bet_types: ユーザー指定の券種リスト
-        difficulty_bet_types: ペルソナ別の難易度→券種マッピング
-
-    Returns:
-        推奨券種リスト
-    """
-    if preferred_bet_types:
-        return preferred_bet_types
-
-    mapping = difficulty_bet_types if difficulty_bet_types is not None else DIFFICULTY_BET_TYPES
-    stars = max(1, min(5, difficulty_stars))
-    return mapping[stars]
 
 
 # =============================================================================
@@ -1324,30 +1255,12 @@ def _generate_bet_proposal_impl(
         unified_probs=unified_probs,
     )
 
-    # Phase 3: レース難易度判定 + 券種選定
-    difficulty = _assess_race_difficulty(
-        total_runners, race_conditions, venue, runners_data
-    )
-    bet_types = _select_bet_types_by_difficulty(
-        difficulty["difficulty_stars"], preferred_bet_types,
-        difficulty_bet_types=config["difficulty_bet_types"],
-    )
+    # Phase 3: 券種選定
+    bet_types = preferred_bet_types if preferred_bet_types else ["quinella", "quinella_place", "exacta", "trio"]
 
-    # Phase 6: 見送りゲート
-    skip = _assess_skip_recommendation(
-        total_runners=total_runners,
-        race_conditions=race_conditions,
-        venue=venue,
-        runners_data=runners_data,
-        ai_predictions=ai_predictions,
-    )
-
-    # bankrollモード: confidence_factorでレース予算を算出
-    confidence_factor = 0.0
     race_budget = 0
     if use_bankroll:
-        confidence_factor = _calculate_confidence_factor(skip["skip_score"])
-        raw_budget = bankroll * config["base_rate"] * confidence_factor
+        raw_budget = bankroll * config["base_rate"]
         raw_race_budget = int(math.floor(raw_budget / MIN_BET_AMOUNT) * MIN_BET_AMOUNT)
         max_race_budget_cap = int(
             math.floor((bankroll * MAX_RACE_BUDGET_RATIO) / MIN_BET_AMOUNT) * MIN_BET_AMOUNT
@@ -1356,8 +1269,6 @@ def _generate_bet_proposal_impl(
         effective_budget = race_budget
     else:
         effective_budget = budget
-        if skip["skip_score"] >= config["skip_gate_threshold"]:
-            effective_budget = int(budget * SKIP_BUDGET_REDUCTION)
 
     # Phase 4: 買い目生成
     bets = _generate_bet_candidates(
@@ -1397,31 +1308,24 @@ def _generate_bet_proposal_impl(
     # 提案根拠テキスト生成
     proposal_reasoning = _generate_proposal_reasoning(
         axis_horses=selected_axis,
-        difficulty=difficulty,
         ai_consensus=ai_consensus,
-        skip=skip,
         bets=bets,
         preferred_bet_types=preferred_bet_types,
         ai_predictions=ai_predictions,
         runners_data=runners_data,
-        skip_gate_threshold=config["skip_gate_threshold"],
         speed_index_data=speed_index_data,
     )
 
     # 分析コメント生成
     analysis_comment = _generate_analysis_comment(
-        selected_axis, difficulty, skip, ai_consensus, bets,
-        skip_gate_threshold=config["skip_gate_threshold"],
+        selected_axis, ai_consensus, bets,
     )
 
     result = {
         "race_id": race_id,
         "race_summary": {
             "race_name": race_name,
-            "difficulty_stars": difficulty["difficulty_stars"],
             "ai_consensus_level": ai_consensus,
-            "skip_score": skip["skip_score"],
-            "skip_recommendation": skip["recommendation"],
         },
         "proposed_bets": bets,
         "total_amount": total_amount,
@@ -1433,7 +1337,6 @@ def _generate_bet_proposal_impl(
 
     if use_bankroll:
         result["race_budget"] = race_budget
-        result["confidence_factor"] = confidence_factor
         result["bankroll_usage_pct"] = round(
             total_amount / bankroll * 100, 2
         ) if bankroll > 0 else 0
@@ -1443,9 +1346,7 @@ def _generate_bet_proposal_impl(
 
 def _build_narration_context(
     axis_horses: list[dict],
-    difficulty: dict,
     ai_consensus: str,
-    skip: dict,
     bets: list[dict],
     preferred_bet_types: list[str] | None,
     ai_predictions: list[dict],
@@ -1508,9 +1409,7 @@ def _build_narration_context(
     ctx = {
         "axis_horses": enriched_axis,
         "partner_horses": partners,
-        "difficulty": difficulty,
         "ai_consensus": ai_consensus,
-        "skip": skip,
         "bets": [
             {
                 "bet_type_name": b.get("bet_type_name", ""),
@@ -1573,14 +1472,11 @@ def _invoke_haiku_narrator(context: dict) -> str | None:
 
 def _generate_proposal_reasoning_template(
     axis_horses: list[dict],
-    difficulty: dict,
     ai_consensus: str,
-    skip: dict,
     bets: list[dict],
     preferred_bet_types: list[str] | None,
     ai_predictions: list[dict],
     runners_data: list[dict],
-    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
     max_partners: int = MAX_PARTNERS,
     speed_index_data: dict | None = None,
 ) -> str:
@@ -1588,14 +1484,11 @@ def _generate_proposal_reasoning_template(
 
     Args:
         axis_horses: 軸馬リスト（horse_number, horse_name, composite_score）
-        difficulty: 難易度dict（difficulty_stars, difficulty_label）
         ai_consensus: AI合議レベル文字列
-        skip: 見送り判定dict（skip_score, reasons, recommendation）
         bets: 生成された買い目リスト
         preferred_bet_types: ユーザー指定の券種（None可）
         ai_predictions: AI予想データ
         runners_data: 出走馬データ
-        skip_gate_threshold: 見送りゲート閾値
 
     Returns:
         提案根拠テキスト（4セクション、改行区切り）
@@ -1647,18 +1540,13 @@ def _generate_proposal_reasoning_template(
     sections.append("【軸馬選定】" + "。".join(axis_parts))
 
     # --- 券種選定 ---
-    stars = difficulty.get("difficulty_stars", 3)
-    label = difficulty.get("difficulty_label", "")
     bet_type_names_in_bets = list(dict.fromkeys(b.get("bet_type_name", "") for b in bets))
 
     if preferred_bet_types:
         pref_names = [BET_TYPE_NAMES.get(bt, bt) for bt in preferred_bet_types]
         ticket_desc = f"ユーザー指定により{'・'.join(pref_names)}を選定"
     else:
-        ticket_desc = (
-            f"レース難易度{'★' * stars}（{label}）のため"
-            f"{'・'.join(bet_type_names_in_bets)}を自動選定"
-        )
+        ticket_desc = f"{'・'.join(bet_type_names_in_bets)}を選定"
 
     # 上位馬のスコア差に基づく補足
     sorted_preds = sorted(ai_predictions, key=lambda x: float(x.get("score", 0)), reverse=True)
@@ -1715,15 +1603,6 @@ def _generate_proposal_reasoning_template(
     elif ai_consensus == "混戦":
         risk_parts.append("上位馬の力差が小さく波乱含み")
 
-    skip_score = skip.get("skip_score", 0)
-    risk_parts.append(f"見送りスコア{skip_score}/10")
-    if skip_score >= skip_gate_threshold:
-        risk_parts.append("高リスクのため予算50%削減で提案")
-    elif skip_score >= 5:
-        risk_parts.append("慎重な検討を推奨")
-    else:
-        risk_parts.append("積極参戦レベル")
-
     # トリガミリスクの確認（Decimal対策でfloat変換、閾値は定数を使用）
     has_torigami_risk = any(
         float(b.get("composite_odds", 0)) > 0
@@ -1742,22 +1621,17 @@ def _generate_proposal_reasoning_template(
 
 def _generate_proposal_reasoning(
     axis_horses: list[dict],
-    difficulty: dict,
     ai_consensus: str,
-    skip: dict,
     bets: list[dict],
     preferred_bet_types: list[str] | None,
     ai_predictions: list[dict],
     runners_data: list[dict],
-    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
     speed_index_data: dict | None = None,
 ) -> str:
     """提案根拠テキストを4セクションで生成する（LLMナレーション版）."""
     context = _build_narration_context(
         axis_horses=axis_horses,
-        difficulty=difficulty,
         ai_consensus=ai_consensus,
-        skip=skip,
         bets=bets,
         preferred_bet_types=preferred_bet_types,
         ai_predictions=ai_predictions,
@@ -1770,25 +1644,19 @@ def _generate_proposal_reasoning(
     # フォールバック: テンプレート生成
     return _generate_proposal_reasoning_template(
         axis_horses=axis_horses,
-        difficulty=difficulty,
         ai_consensus=ai_consensus,
-        skip=skip,
         bets=bets,
         preferred_bet_types=preferred_bet_types,
         ai_predictions=ai_predictions,
         runners_data=runners_data,
-        skip_gate_threshold=skip_gate_threshold,
         speed_index_data=speed_index_data,
     )
 
 
 def _generate_analysis_comment(
     axis_horses: list[dict],
-    difficulty: dict,
-    skip: dict,
     ai_consensus: str,
     bets: list[dict],
-    skip_gate_threshold: int = SKIP_GATE_THRESHOLD,
 ) -> str:
     """分析ナラティブを生成する."""
     parts = []
@@ -1797,18 +1665,8 @@ def _generate_analysis_comment(
     axis_names = [f"{a['horse_number']}番" for a in axis_horses]
     parts.append(f"軸馬: {'・'.join(axis_names)}")
 
-    # 難易度
-    stars = "★" * difficulty["difficulty_stars"] + "☆" * (5 - difficulty["difficulty_stars"])
-    parts.append(f"レース難易度: {stars}（{difficulty['difficulty_label']}）")
-
     # AI合議
     parts.append(f"AI合議: {ai_consensus}")
-
-    # 見送り
-    if skip["skip_score"] >= skip_gate_threshold:
-        parts.append(f"見送りスコア{skip['skip_score']}/10。予算を50%削減して提案")
-    elif skip["skip_score"] >= 5:
-        parts.append(f"見送りスコア{skip['skip_score']}/10。慎重な検討を推奨")
 
     # 買い目数
     parts.append(f"提案{len(bets)}点")
@@ -1832,7 +1690,7 @@ def generate_bet_proposal(
 ) -> dict:
     """レース分析に基づき、買い目の提案を一括生成する.
 
-    AI指数・レース難易度・展開予想を統合し、
+    AI指数・展開予想を統合し、
     軸馬選定 → 券種選定 → 買い目生成 → 予算配分を自動で行う。
 
     bankroll指定時はダッチング方式（均等払い戻し配分）で配分する。
@@ -1842,20 +1700,20 @@ def generate_bet_proposal(
         race_id: レースID (例: "202602010511")
         budget: 予算（円）。従来モード。
         bankroll: 1日の総資金（円）。ダッチング配分モード。
-        preferred_bet_types: 券種の指定リスト (省略時はレース難易度から自動選定)
+        preferred_bet_types: 券種の指定リスト (省略時はデフォルト券種を使用)
             "win", "place", "quinella", "quinella_place", "exacta", "trio", "trifecta"
         axis_horses: 軸馬の馬番リスト (省略時はAI指数上位から自動選定)
         max_bets: 買い目点数上限 (省略時はデフォルト値 8)
 
     Returns:
         提案結果:
-        - race_summary: レース概要（難易度、ペース、AI合議、見送りスコア）
+        - race_summary: レース概要（AI合議）
         - proposed_bets: 提案買い目リスト（券種、馬番、金額、期待値、合成オッズ）
         - total_amount: 合計金額
         - budget_remaining: 残り予算
         - analysis_comment: 分析ナラティブ
         - disclaimer: 免責事項
-        (bankrollモード時は追加: race_budget, confidence_factor, bankroll_usage_pct)
+        (bankrollモード時は追加: race_budget, bankroll_usage_pct)
     """
     global _last_proposal_result
     _last_proposal_result = None  # 呼び出し単位でキャッシュをリセット

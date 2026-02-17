@@ -13,13 +13,10 @@ sys.modules["strands"] = mock_strands
 
 from tools.pace_analysis import (
     _analyze_race_development_impl,
-    _assess_race_difficulty,
     _analyze_odds_gap,
     _analyze_post_position,
     _generate_development_summary,
     _analyze_race_characteristics_impl,
-    VENUE_UPSET_FACTOR,
-    RACE_CONDITION_UPSET,
 )
 
 
@@ -61,81 +58,6 @@ class TestAnalyzeRaceDevelopmentImpl:
 
         assert result["running_style_summary"] == {"逃げ": 1, "先行": 2, "差し": 1}
         assert result["front_runner_count"] == 1
-
-
-class TestAssessRaceDifficulty:
-    """レース難易度判定のテスト."""
-
-    def test_少頭数で堅いレース(self):
-        result = _assess_race_difficulty(6)
-        assert result["difficulty_stars"] <= 2
-        assert any("少頭数" in f for f in result["factors"])
-
-    def test_多頭数で荒れやすい(self):
-        result = _assess_race_difficulty(18)
-        # 頭数+1、オフセット+2 → ★3
-        assert result["difficulty_stars"] >= 3
-        assert any("多頭数" in f for f in result["factors"])
-
-    def test_ハンデ戦で荒れ度上昇(self):
-        result = _assess_race_difficulty(12, race_conditions=["handicap"])
-        assert any("ハンデ戦" in f for f in result["factors"])
-        # ハンデ戦(+2)で標準頭数(±0)、オフセット+2 → ★4
-        assert result["difficulty_stars"] >= 4
-
-    def test_G1で堅い傾向(self):
-        result = _assess_race_difficulty(16, race_conditions=["g1"])
-        assert any("G1" in f for f in result["factors"])
-
-    def test_福島開催で荒れ度上昇(self):
-        result = _assess_race_difficulty(12, venue="福島")
-        assert any("福島" in f for f in result["factors"])
-
-    def test_京都開催で堅い傾向(self):
-        result = _assess_race_difficulty(12, venue="京都")
-        assert any("京都" in f for f in result["factors"])
-
-    def test_難易度は1から5の範囲(self):
-        # 極端に堅いケース
-        result_low = _assess_race_difficulty(6, race_conditions=["g1"], venue="京都")
-        assert 1 <= result_low["difficulty_stars"] <= 5
-
-        # 極端に荒れるケース
-        result_high = _assess_race_difficulty(
-            18, race_conditions=["handicap", "hurdle"], venue="福島"
-        )
-        assert 1 <= result_high["difficulty_stars"] <= 5
-
-    def test_ラベルが正しい(self):
-        result = _assess_race_difficulty(12)
-        assert result["difficulty_label"] in [
-            "堅いレース", "やや堅い", "標準", "荒れ模様", "大荒れ注意"
-        ]
-
-    def test_オッズは難易度判定に影響しない(self):
-        runners = [
-            {"odds": 3.0, "popularity": 1},
-            {"odds": 3.5, "popularity": 2},
-            {"odds": 5.0, "popularity": 3},
-            {"odds": 7.0, "popularity": 4},
-        ]
-        result_with_odds = _assess_race_difficulty(12, runners_data=runners)
-        result_without_odds = _assess_race_difficulty(12)
-        assert result_with_odds["difficulty_stars"] == result_without_odds["difficulty_stars"]
-
-    def test_16頭立て通常レースは標準難易度(self):
-        """16頭立てだけで★5にならないことを確認."""
-        result = _assess_race_difficulty(16)
-        # 頭数+1、オフセット+2 → ★3（以前は★5だった）
-        assert result["difficulty_stars"] == 3
-
-    def test_16頭ハンデ福島で高難易度(self):
-        """複数の荒れ要因が重なった場合に★5になる."""
-        result = _assess_race_difficulty(
-            16, race_conditions=["handicap"], venue="福島"
-        )
-        # 頭数+1、ハンデ+2、福島+1 = upset_score 4、+2 → ★5（上限）
-        assert result["difficulty_stars"] == 5
 
 
 class TestAnalyzeOddsGap:
@@ -243,13 +165,11 @@ class TestGenerateDevelopmentSummary:
             "差し": [],
             "追込": [],
         }
-        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
         summary = _generate_development_summary(
-            runners_by_style, difficulty, "芝", 16
+            runners_by_style, "芝", 16
         )
         assert "逃げ馬が3頭" in summary
         assert "馬A" in summary
-        assert "★★★" in summary
 
     def test_逃げ馬1頭のサマリー(self):
         runners_by_style = {
@@ -258,9 +178,8 @@ class TestGenerateDevelopmentSummary:
             "差し": [],
             "追込": [],
         }
-        difficulty = {"difficulty_stars": 2, "difficulty_label": "やや堅い"}
         summary = _generate_development_summary(
-            runners_by_style, difficulty, "ダート", 12
+            runners_by_style, "ダート", 12
         )
         assert "スプリンター" in summary
         assert "1頭のみ" in summary
@@ -273,9 +192,8 @@ class TestGenerateDevelopmentSummary:
             "差し": [],
             "追込": [],
         }
-        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
         summary = _generate_development_summary(
-            runners_by_style, difficulty, "芝", 10
+            runners_by_style, "芝", 10
         )
         assert "逃げ馬が不在" in summary
         assert "先行馬A" in summary
@@ -287,9 +205,8 @@ class TestGenerateDevelopmentSummary:
             "差し": [],
             "追込": [],
         }
-        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
         summary = _generate_development_summary(
-            runners_by_style, difficulty, "芝", 14
+            runners_by_style, "芝", 14
         )
         assert "逃げ馬が2頭" in summary
 
@@ -314,7 +231,6 @@ class TestAnalyzeRaceCharacteristicsImpl:
             surface="芝",
         )
         assert "development" in result
-        assert "difficulty" in result
         assert "post_position" in result
         assert "summary" in result
 
@@ -328,16 +244,6 @@ class TestAnalyzeRaceCharacteristicsImpl:
         assert dev["running_style_summary"] == {"逃げ": 1, "先行": 1, "差し": 1, "追込": 1, "自在": 1}
         assert dev["front_runner_count"] == 1
         assert dev["total_runners"] == 5
-
-    def test_難易度判定が含まれる(self):
-        result = _analyze_race_characteristics_impl(
-            "test_race",
-            self._make_running_styles(),
-            race_conditions=["handicap"],
-            venue="福島",
-            surface="芝",
-        )
-        assert result["difficulty"]["difficulty_stars"] >= 3
 
     def test_枠順分析が選択馬のみ(self):
         result = _analyze_race_characteristics_impl(
@@ -365,18 +271,3 @@ class TestAnalyzeRaceCharacteristicsImpl:
         result = _analyze_race_characteristics_impl("test_race", [])
         assert "error" in result
 
-    def test_オッズは難易度判定に影響しない(self):
-        runners_data = [
-            {"odds": 2.0, "popularity": 1},
-            {"odds": 3.5, "popularity": 2},
-            {"odds": 5.0, "popularity": 3},
-            {"odds": 20.0, "popularity": 4},
-        ]
-        result = _analyze_race_characteristics_impl(
-            "test_race",
-            self._make_running_styles(),
-            runners_data=runners_data,
-            surface="芝",
-        )
-        # オッズは難易度判定に使用しないため断層factorは含まれない
-        assert not any("断層" in f for f in result["difficulty"]["factors"])

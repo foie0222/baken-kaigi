@@ -1,6 +1,6 @@
 """リスク分析・心理バイアス対策ツール.
 
-買い目のリスクシナリオ、除外馬分析、バイアス診断、見送り推奨、ニアミス分析を統合。
+買い目のリスクシナリオ、除外馬分析、バイアス診断、ニアミス分析を統合。
 """
 
 from strands import tool
@@ -11,118 +11,11 @@ from .bet_analysis import (
 )
 from .common import log_tool_execution
 from .constants import (
-    AI_SCORE_CLOSE_GAP,
-    AI_SCORE_MODERATE_GAP,
     FAVORITE_BIAS_RATIO,
     HIGH_PAYOUT_TYPE_RATIO,
     LONGSHOT_BIAS_RATIO,
     OVER_INVESTMENT_THRESHOLD,
 )
-from .pace_analysis import (
-    _assess_race_difficulty,
-    _analyze_odds_gap,
-)
-
-
-# =============================================================================
-# Feature 4: 見送り推奨
-# =============================================================================
-
-
-def _assess_skip_recommendation(
-    total_runners: int,
-    race_conditions: list[str] | None = None,
-    venue: str = "",
-    runners_data: list[dict] | None = None,
-    ai_predictions: list[dict] | None = None,
-) -> dict:
-    """レースの見送り推奨度を判定する.
-
-    pace_analysis._assess_race_difficulty()のスコアをベースに、
-    AI予想のスコア分散とオッズ団子状態をチェックして総合判定する。
-
-    Args:
-        total_runners: 出走頭数
-        race_conditions: レース条件リスト
-        venue: 競馬場名
-        runners_data: 出走馬データ
-        ai_predictions: AI予想データ
-
-    Returns:
-        見送り推奨結果（skip_score, recommendation, reasons）
-    """
-    race_conditions = race_conditions or []
-    runners_data = runners_data or []
-    ai_predictions = ai_predictions or []
-
-    reasons = []
-    skip_score = 0
-
-    # 1. レース難易度ベーススコア（_assess_race_difficultyを再利用）
-    difficulty = _assess_race_difficulty(
-        total_runners, race_conditions, venue, runners_data
-    )
-    # difficulty_starsは1-5、スキップスコアに変換
-    stars = difficulty["difficulty_stars"]
-    if stars >= 5:
-        skip_score += 4
-        reasons.append(f"レース難易度★5（{difficulty['difficulty_label']}）")
-    elif stars >= 4:
-        skip_score += 3
-        reasons.append(f"レース難易度★4（{difficulty['difficulty_label']}）")
-    elif stars >= 3:
-        skip_score += 1
-    elif stars <= 2:
-        skip_score -= 1
-
-    # 2. AI予想のスコア分散（上位混戦チェック）
-    if ai_predictions:
-        sorted_preds = sorted(
-            ai_predictions, key=lambda x: x.get("score", 0), reverse=True
-        )
-        if len(sorted_preds) >= 5:
-            top5_scores = [p.get("score", 0) for p in sorted_preds[:5]]
-            top_spread = top5_scores[0] - top5_scores[4]
-            if top_spread <= AI_SCORE_CLOSE_GAP:
-                skip_score += 3
-                reasons.append(
-                    f"AI上位5頭のスコア差が{top_spread}ptと僅差（混戦）"
-                )
-            elif top_spread <= AI_SCORE_MODERATE_GAP:
-                skip_score += 1
-                reasons.append(
-                    f"AI上位5頭のスコア差が{top_spread}ptとやや接戦"
-                )
-
-    # 3. オッズ団子状態チェック
-    if runners_data:
-        odds_gap = _analyze_odds_gap(runners_data)
-        if odds_gap and odds_gap["adjustment"] > 0:
-            skip_score += 1
-            reasons.append(odds_gap["comment"])
-
-    # 4. 多頭数ボーナス
-    if total_runners >= 16:
-        skip_score += 1
-        reasons.append(f"{total_runners}頭立ての多頭数レース")
-
-    # スコアを0-10に収める
-    skip_score = max(0, min(10, skip_score))
-
-    # 推奨判定
-    if skip_score >= 7:
-        recommendation = "見送り推奨"
-    elif skip_score >= 5:
-        recommendation = "慎重に検討"
-    else:
-        recommendation = "通常判断"
-
-    return {
-        "skip_score": skip_score,
-        "recommendation": recommendation,
-        "reasons": reasons,
-        "difficulty": difficulty,
-    }
 
 
 # =============================================================================
@@ -469,7 +362,7 @@ def _analyze_risk_factors_impl(
         cart_items: カートデータ
 
     Returns:
-        5つの分析結果を統合した辞書
+        4つの分析結果を統合した辞書
     """
     race_conditions = race_conditions or []
     cart_items = cart_items or []
@@ -490,19 +383,10 @@ def _analyze_risk_factors_impl(
         total_runners=total_runners,
     )
 
-    # 3. 見送り推奨
-    skip_recommendation = _assess_skip_recommendation(
-        total_runners=total_runners,
-        race_conditions=race_conditions,
-        venue=venue,
-        runners_data=runners_data,
-        ai_predictions=ai_predictions,
-    )
-
-    # 4. バイアス診断
+    # 3. バイアス診断
     betting_bias = _diagnose_betting_bias(cart_items)
 
-    # 5. ニアミス分析（スタブ）
+    # 4. ニアミス分析（スタブ）
     near_miss = _analyze_near_miss(
         race_id=race_id,
         horse_numbers=horse_numbers,
@@ -513,7 +397,6 @@ def _analyze_risk_factors_impl(
         "race_id": race_id,
         "risk_scenarios": risk_scenarios,
         "excluded_horses": excluded_horses,
-        "skip_recommendation": skip_recommendation,
         "betting_bias": betting_bias,
         "near_miss": near_miss,
     }
@@ -533,12 +416,11 @@ def analyze_risk_factors(
 ) -> dict:
     """買い目のリスク分析・心理バイアス対策を行う.
 
-    5つの分析を統合して実行する:
+    4つの分析を統合して実行する:
     1. リスクシナリオ提示: 買い目が外れるパターンを2-3シナリオで提示
     2. 除外馬リスク分析: 選択外の上位馬に「外す理由」と「勝つ確率」を提示
     3. バイアス診断: カート全体の偏り（穴馬偏重、本命偏重等）を検出
-    4. 見送り推奨: レース条件・AI混戦度から見送りスコアを算出
-    5. ニアミス分析: レース結果確定後に利用可能（現在はスタブ）
+    4. ニアミス分析: レース結果確定後に利用可能（現在はスタブ）
 
     Args:
         race_id: レースID
@@ -554,7 +436,6 @@ def analyze_risk_factors(
         統合分析結果:
         - risk_scenarios: リスクシナリオ（2-3件）
         - excluded_horses: 除外馬リスク（上位5頭）
-        - skip_recommendation: 見送り推奨（スコア0-10、7以上で見送り推奨）
         - betting_bias: バイアス診断（穴馬偏重、本命偏重、高配当券種偏重、過大投資）
         - near_miss: ニアミス分析（現在はスタブ）
     """

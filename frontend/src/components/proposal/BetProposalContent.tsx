@@ -255,15 +255,8 @@ export function BetProposalContent({ race }: BetProposalContentProps) {
           <div className="proposal-summary-card">
             <div className="proposal-summary-title">{result.race_summary.race_name}</div>
             <div className="proposal-summary-details">
-              <span>難易度: {'★'.repeat(result.race_summary.difficulty_stars)}{'☆'.repeat(5 - result.race_summary.difficulty_stars)}</span>
-              <span>ペース: {result.race_summary.predicted_pace}</span>
               <span>AI一致度: {result.race_summary.ai_consensus_level}</span>
             </div>
-            {result.race_summary.skip_score >= 7 && (
-              <div className="proposal-skip-warning">
-                {result.race_summary.skip_recommendation}
-              </div>
-            )}
           </div>
 
           {result.proposal_reasoning && (

@@ -11,11 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 from tools.bet_proposal import (
     _build_narration_context,
     _calculate_composite_score,
-    _calculate_confidence_factor,
     _calculate_speed_index_score,
     _invoke_haiku_narrator,
     _select_axis_horses,
-    _select_bet_types_by_difficulty,
     _generate_bet_candidates,
     _assign_relative_confidence,
     _allocate_budget,
@@ -29,7 +27,6 @@ from tools.bet_proposal import (
     _calculate_combination_ev,
     _DEFAULT_CONFIG,
     MAX_PARTNERS,
-    SKIP_GATE_THRESHOLD,
     TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
 )
 
@@ -163,45 +160,6 @@ class TestSelectAxisHorses:
 # =============================================================================
 # 券種自動選定テスト
 # =============================================================================
-
-
-class TestSelectBetTypesByDifficulty:
-    """券種選定のテスト."""
-
-    def test_難易度1_2は馬連馬単(self):
-        """難易度★1-2では馬連・馬単が推奨される."""
-        result = _select_bet_types_by_difficulty(1)
-        assert "quinella" in result or "exacta" in result
-        result2 = _select_bet_types_by_difficulty(2)
-        assert "quinella" in result2 or "exacta" in result2
-
-    def test_難易度3は馬連と三連複(self):
-        """難易度★3では馬連+三連複が推奨される."""
-        result = _select_bet_types_by_difficulty(3)
-        assert "quinella" in result
-        assert "trio" in result
-
-    def test_難易度4_5はワイドor三連複(self):
-        """難易度★4-5ではワイドまたは三連複が推奨される."""
-        result4 = _select_bet_types_by_difficulty(4)
-        assert "trio" in result4 or "quinella_place" in result4
-        result5 = _select_bet_types_by_difficulty(5)
-        assert "quinella_place" in result5
-
-    def test_ユーザー指定が優先される(self):
-        """preferred_bet_typesが指定された場合はそれを使う."""
-        result = _select_bet_types_by_difficulty(1, preferred_bet_types=["trifecta"])
-        assert result == ["trifecta"]
-
-    def test_範囲外の難易度はクランプされる(self):
-        """難易度0以下は1、6以上は5にクランプ."""
-        result_low = _select_bet_types_by_difficulty(0)
-        result_1 = _select_bet_types_by_difficulty(1)
-        assert result_low == result_1
-
-        result_high = _select_bet_types_by_difficulty(10)
-        result_5 = _select_bet_types_by_difficulty(5)
-        assert result_high == result_5
 
 
 # =============================================================================
@@ -461,51 +419,6 @@ class TestTorigamiExclusion:
 # =============================================================================
 
 
-@patch("tools.bet_proposal._invoke_haiku_narrator", return_value=None)
-class TestSkipGate:
-    """見送りゲートのテスト."""
-
-    def test_見送りスコア7以上で予算半減(self, mock_narrator):
-        """見送りスコアが7以上の場合、予算が50%削減される."""
-        runners = _make_runners(18)
-        # 混戦AI予想
-        ai_preds = [
-            {"horse_number": i, "horse_name": f"テスト馬{i}", "rank": i, "score": 300 - (i - 1) * 5}
-            for i in range(1, 19)
-        ]
-        result = _generate_bet_proposal_impl(
-            race_id="202602010511",
-            budget=10000,
-            runners_data=runners,
-            ai_predictions=ai_preds,
-            race_conditions=["handicap"],
-            venue="福島",
-            total_runners=18,
-            running_styles=_make_running_styles(18),
-        )
-        # 見送りスコアが7以上であれば予算半減
-        if result["race_summary"]["skip_score"] >= SKIP_GATE_THRESHOLD:
-            # total_amount + budget_remaining <= 5000 (10000 * 0.5)
-            assert result["total_amount"] + result["budget_remaining"] <= 5000
-
-    def test_通常レースでは予算削減なし(self, mock_narrator):
-        """通常レースでは予算は削減されない."""
-        runners = _make_runners(8)
-        ai_preds = _make_ai_predictions(8)
-        result = _generate_bet_proposal_impl(
-            race_id="202602010511",
-            budget=10000,
-            runners_data=runners,
-            ai_predictions=ai_preds,
-            race_conditions=["g1"],
-            venue="東京",
-            total_runners=8,
-        )
-        assert result["race_summary"]["skip_score"] < SKIP_GATE_THRESHOLD
-        # 予算削減なし
-        assert result["total_amount"] + result["budget_remaining"] <= 10000
-
-
 # =============================================================================
 # AI合議レベルテスト
 # =============================================================================
@@ -585,10 +498,7 @@ class TestOutputFormat:
             total_runners=12,
         )
         summary = result["race_summary"]
-        assert "difficulty_stars" in summary
         assert "ai_consensus_level" in summary
-        assert "skip_score" in summary
-        assert "skip_recommendation" in summary
 
     def test_proposed_betsの各要素に必須フィールドがある(self, mock_narrator):
         """各買い目に必須フィールドが含まれる."""
@@ -711,7 +621,6 @@ class TestIntegration:
         )
         assert "error" not in result
         assert result["race_id"] == "202602010511"
-        assert result["race_summary"]["difficulty_stars"] >= 1
         assert len(result["proposed_bets"]) > 0
         assert result["total_amount"] > 0
         assert result["total_amount"] <= 10000
@@ -1227,7 +1136,7 @@ class TestMaxBetsParameter:
 class TestGenerateProposalReasoning:
     """_generate_proposal_reasoning のテスト."""
 
-    def _make_reasoning_args(self, *, skip_score: int = 3, preferred_bet_types=None):
+    def _make_reasoning_args(self, *, preferred_bet_types=None):
         """テスト用の共通引数を生成する."""
         runners = _make_runners(6)
         ai_preds = _make_ai_predictions(6)
@@ -1235,8 +1144,6 @@ class TestGenerateProposalReasoning:
             {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
             {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 72.0},
         ]
-        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
-        skip = {"skip_score": skip_score, "reasons": [], "recommendation": "参戦推奨"}
         bets = [
             {
                 "bet_type": "quinella", "bet_type_name": "馬連",
@@ -1251,9 +1158,7 @@ class TestGenerateProposalReasoning:
         ]
         return dict(
             axis_horses=axis_horses,
-            difficulty=difficulty,
             ai_consensus="概ね合意",
-            skip=skip,
             bets=bets,
             preferred_bet_types=preferred_bet_types,
             ai_predictions=ai_preds,
@@ -1283,13 +1188,6 @@ class TestGenerateProposalReasoning:
         assert "【組み合わせ】" in result
         assert "【リスク】" in result
 
-    def test_券種が自動選定の場合に難易度が言及される(self, mock_narrator):
-        """preferred_bet_types未指定時はレース難易度が言及される."""
-        args = self._make_reasoning_args(preferred_bet_types=None)
-        result = _generate_proposal_reasoning(**args)
-        assert "レース難易度" in result
-        assert "自動選定" in result
-
     def test_券種がユーザー指定の場合にその旨が言及される(self, mock_narrator):
         """preferred_bet_types指定時は「ユーザー指定」が言及される."""
         args = self._make_reasoning_args(preferred_bet_types=["quinella"])
@@ -1303,18 +1201,6 @@ class TestGenerateProposalReasoning:
         # 相手馬3番（期待値1.8）が含まれるはず
         assert "3番" in result
         assert "期待値" in result
-
-    def test_見送りスコアが高い場合にリスク言及が含まれる(self, mock_narrator):
-        """見送りスコアが閾値以上の場合に予算削減の言及がある."""
-        args = self._make_reasoning_args(skip_score=8)
-        result = _generate_proposal_reasoning(**args)
-        assert "予算50%削減" in result
-
-    def test_見送りスコアが低い場合に積極参戦が含まれる(self, mock_narrator):
-        """見送りスコアが低い場合は積極参戦レベルと表示される."""
-        args = self._make_reasoning_args(skip_score=2)
-        result = _generate_proposal_reasoning(**args)
-        assert "積極参戦" in result
 
     def test_AI合議レベルが含まれる(self, mock_narrator):
         """リスクセクションにAI合議レベルが含まれる."""
@@ -1381,8 +1267,6 @@ class TestBuildNarrationContext:
             {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
             {"horse_number": 2, "horse_name": "テスト馬2", "composite_score": 72.0},
         ]
-        difficulty = {"difficulty_stars": 3, "difficulty_label": "標準"}
-        skip = {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"}
         bets = [
             {
                 "bet_type": "quinella", "bet_type_name": "馬連",
@@ -1392,9 +1276,7 @@ class TestBuildNarrationContext:
         ]
         return dict(
             axis_horses=axis_horses,
-            difficulty=difficulty,
             ai_consensus="概ね合意",
-            skip=skip,
             bets=bets,
             preferred_bet_types=None,
             ai_predictions=ai_preds,
@@ -1406,8 +1288,8 @@ class TestBuildNarrationContext:
         args = self._make_reasoning_args()
         ctx = _build_narration_context(**args)
         required_keys = {
-            "axis_horses", "partner_horses", "difficulty",
-            "ai_consensus", "skip", "bets",
+            "axis_horses", "partner_horses",
+            "ai_consensus", "bets",
         }
         assert required_keys.issubset(ctx.keys())
 
@@ -1470,9 +1352,7 @@ class TestInvokeHaikuNarrator:
             "partner_horses": [
                 {"horse_number": 3, "horse_name": "テスト馬3", "ai_rank": 3, "max_expected_value": 1.5},
             ],
-            "difficulty": {"difficulty_stars": 3, "difficulty_label": "標準"},
             "ai_consensus": "概ね合意",
-            "skip": {"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
             "bets": [
                 {
                     "bet_type_name": "馬連", "horse_numbers": [1, 3],
@@ -2115,32 +1995,6 @@ class TestAssessAiConsensusWithUnifiedProbs:
         assert result == "概ね合意"
 
 
-class TestCalculateConfidenceFactor:
-    """信頼度係数算出のテスト."""
-
-    def test_見送りスコア0で最大値(self):
-        assert _calculate_confidence_factor(0) == 2.0
-
-    def test_見送りスコア5で約0_9(self):
-        result = _calculate_confidence_factor(5)
-        assert 0.85 <= result <= 0.95
-
-    def test_見送りスコア8で最低正値(self):
-        result = _calculate_confidence_factor(8)
-        assert 0.2 <= result <= 0.3
-
-    def test_見送りスコア9で見送り(self):
-        assert _calculate_confidence_factor(9) == 0.0
-
-    def test_見送りスコア10で見送り(self):
-        assert _calculate_confidence_factor(10) == 0.0
-
-    def test_スコアが高いほどfactorが小さい(self):
-        factors = [_calculate_confidence_factor(s) for s in range(9)]
-        for i in range(len(factors) - 1):
-            assert factors[i] >= factors[i + 1]
-
-
 class TestAllocateBudgetDutching:
     """ダッチング方式予算配分のテスト."""
 
@@ -2278,7 +2132,6 @@ class TestBankrollMode:
             total_runners=8,
         )
         assert result["race_budget"] > 0
-        assert result["confidence_factor"] > 0
 
     def test_budget指定で従来動作(self, mock_narrator):
         """budget指定時は従来の信頼度別配分が使われる."""
@@ -2355,9 +2208,7 @@ class TestLlmNarrationIntegration:
             axis_horses=[
                 {"horse_number": 1, "horse_name": "テスト馬1", "composite_score": 85.0},
             ],
-            difficulty={"difficulty_stars": 3, "difficulty_label": "標準"},
             ai_consensus="概ね合意",
-            skip={"skip_score": 3, "reasons": [], "recommendation": "参戦推奨"},
             bets=[
                 {
                     "bet_type": "quinella", "bet_type_name": "馬連",

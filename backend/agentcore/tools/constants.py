@@ -60,10 +60,6 @@ WEIGHT_CHANGE_C = 14    # 10-14kg: 大幅変動
 # リスク分析閾値 (risk_analysis.py)
 # =============================================================================
 
-# 見送り推奨: AI上位5頭のスコア差
-AI_SCORE_CLOSE_GAP = 30       # 混戦と判定する閾値
-AI_SCORE_MODERATE_GAP = 60    # やや接戦と判定する閾値
-
 # バイアス診断
 LONGSHOT_BIAS_RATIO = 0.6           # 穴馬偏重と判定する比率
 FAVORITE_BIAS_RATIO = 0.8           # 本命偏重と判定する比率

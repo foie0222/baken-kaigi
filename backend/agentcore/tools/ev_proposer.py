@@ -18,13 +18,11 @@ from .bet_proposal import (
     MIN_BET_AMOUNT,
     MAX_RACE_BUDGET_RATIO,
     DEFAULT_BASE_RATE,
-    _calculate_confidence_factor,
     _allocate_budget,
     _allocate_budget_dutching,
     _invoke_haiku_narrator,
 )
 from .jravan_client import cached_get, get_api_url
-from .pace_analysis import _assess_race_difficulty
 
 logger = logging.getLogger(__name__)
 
@@ -345,7 +343,6 @@ def _propose_bets_impl(
     race_name: str = "",
     race_conditions: list[str] | None = None,
     venue: str = "",
-    skip_score: int = 0,
     ai_consensus: str = "",
     all_odds: dict | None = None,
 ) -> dict:
@@ -356,11 +353,6 @@ def _propose_bets_impl(
     effective_max_bets = max_bets or DEFAULT_MAX_BETS
 
     use_bankroll = bankroll > 0
-    confidence_factor = _calculate_confidence_factor(skip_score)
-
-    # 見送り判定
-    if confidence_factor == 0.0:
-        return _build_skip_result(race_id, race_name, skip_score, venue, ai_consensus)
 
     # 0. 実オッズ取得
     if all_odds is None:
@@ -379,13 +371,11 @@ def _propose_bets_impl(
     # 3. 予算計算
     if use_bankroll:
         base_rate = DEFAULT_BASE_RATE
-        race_budget = int(bankroll * base_rate * confidence_factor)
+        race_budget = int(bankroll * base_rate)
         race_budget = min(race_budget, int(bankroll * MAX_RACE_BUDGET_RATIO))
         effective_budget = race_budget
     else:
         effective_budget = budget
-        if skip_score >= 7:
-            effective_budget = int(budget * 0.5)
         race_budget = 0
 
     # 4. 予算配分
@@ -398,15 +388,10 @@ def _propose_bets_impl(
     total_amount = sum(b.get("amount", 0) for b in bets)
     budget_remaining = effective_budget - total_amount
 
-    # 5. 難易度
-    difficulty = _assess_race_difficulty(total_runners, race_conditions, venue, runners_data)
-
-    # 6. ナレーション（_invoke_haiku_narrator は context: dict 1引数）
+    # 5. ナレーション（_invoke_haiku_narrator は context: dict 1引数）
     narration_context = {
         "race_name": race_name,
-        "difficulty": difficulty,
         "ai_consensus": ai_consensus,
-        "skip_score": skip_score,
         "bets": bets,
         "runners_data": runners_data,
     }
@@ -418,10 +403,7 @@ def _propose_bets_impl(
         "race_id": race_id,
         "race_summary": {
             "race_name": race_name,
-            "difficulty_stars": difficulty,
             "ai_consensus_level": ai_consensus or "不明",
-            "skip_score": skip_score,
-            "skip_recommendation": "見送り推奨" if skip_score >= 7 else "",
         },
         "proposed_bets": bets,
         "total_amount": total_amount,
@@ -433,7 +415,6 @@ def _propose_bets_impl(
 
     if use_bankroll:
         result["race_budget"] = race_budget
-        result["confidence_factor"] = confidence_factor
         result["bankroll_usage_pct"] = round(total_amount / bankroll * 100, 2) if bankroll > 0 else 0
 
     return result
@@ -450,7 +431,6 @@ def propose_bets(
     race_name: str = "",
     race_conditions: list[str] | None = None,
     venue: str = "",
-    skip_score: int = 0,
     ai_consensus: str = "",
     runners_data: list[dict] | None = None,
     total_runners: int = 0,
@@ -471,7 +451,6 @@ def propose_bets(
         race_name: レース名（表示用）
         race_conditions: レース条件リスト
         venue: 競馬場名
-        skip_score: 見送りスコア（0-10）
         ai_consensus: AI合議レベル
         runners_data: 出走馬データ（馬名・オッズ表示用）
         total_runners: 出走頭数
@@ -515,7 +494,6 @@ def propose_bets(
             race_name=race_name,
             race_conditions=race_conditions,
             venue=venue,
-            skip_score=skip_score,
             ai_consensus=ai_consensus,
         )
 
@@ -541,26 +519,3 @@ def _build_proposal_reasoning(
     else:
         ev_part = f"期待値{min_ev:.1f}以上"
     return f"{prob_part}・{ev_part}で{bet_count}点選定"
-
-
-def _build_skip_result(
-    race_id: str, race_name: str, skip_score: int,
-    venue: str, ai_consensus: str,
-) -> dict:
-    """見送り時の結果を返す."""
-    return {
-        "race_id": race_id,
-        "race_summary": {
-            "race_name": race_name,
-            "difficulty_stars": 0,
-            "ai_consensus_level": ai_consensus or "不明",
-            "skip_score": skip_score,
-            "skip_recommendation": "見送り推奨",
-        },
-        "proposed_bets": [],
-        "total_amount": 0,
-        "budget_remaining": 0,
-        "analysis_comment": f"見送りスコア{skip_score}/10。投資を見送ります。",
-        "proposal_reasoning": "見送りスコアが高いため提案なし",
-        "disclaimer": "この提案はデータ分析に基づくものであり、的中を保証するものではありません。",
-    }

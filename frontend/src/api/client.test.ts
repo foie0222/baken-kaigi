@@ -656,11 +656,7 @@ describe('ApiClient', () => {
     const mockProposal = {
       race_summary: {
         race_name: 'テストレース',
-        difficulty_stars: 3,
-        predicted_pace: 'ミドル',
         ai_consensus_level: '概ね合意',
-        skip_score: 3,
-        skip_recommendation: '通常判断',
       },
       proposed_bets: [{
         bet_type: 'quinella',
