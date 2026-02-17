@@ -255,7 +255,7 @@ class TestGitHubOidcStack:
         )
 
     def test_iam_role_agentcore_pass_role_policy(self, template):
-        """AgentCore PassRole権限が設定されること."""
+        """AgentCore PassRole権限がCDK管理ロールに対して設定されること."""
         from aws_cdk.assertions import Match
 
         template.has_resource_properties(
@@ -268,6 +268,9 @@ class TestGitHubOidcStack:
                                 {
                                     "Sid": "AgentCorePassRole",
                                     "Action": "iam:PassRole",
+                                    "Resource": Match.string_like_regexp(
+                                        ".*:role/baken-kaigi-agentcore-runtime-role$"
+                                    ),
                                 }
                             ),
                         ]
