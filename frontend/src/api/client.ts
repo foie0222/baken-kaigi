@@ -37,6 +37,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || '';
 // AgentCore 相談リクエスト/レスポンス型
 export interface AgentCoreConsultationRequest {
   race_id: string;
+  user_id?: string;
 }
 
 export interface BetAction {
@@ -271,10 +272,43 @@ class ApiClient {
     }
 
     try {
+      // 認証セッションを1回だけ取得し、ヘッダーとuser_idの両方に使う
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.apiKey) {
+        headers['x-api-key'] = this.apiKey;
+      }
+
+      const payload: AgentCoreConsultationRequest = { ...request };
+      let isAuthenticated = false;
+      try {
+        const session = await fetchAuthSession();
+        const idToken = session.tokens?.idToken;
+        if (idToken) {
+          headers['Authorization'] = `Bearer ${idToken.toString()}`;
+          isAuthenticated = true;
+          if (!payload.user_id) {
+            const sub = idToken.payload?.sub;
+            if (sub) {
+              payload.user_id = `user:${sub}`;
+            }
+          }
+        }
+      } catch {
+        // 未認証
+      }
+
+      if (!isAuthenticated) {
+        const guestId = getOrCreateGuestId();
+        headers['X-Guest-Id'] = guestId;
+        if (!payload.user_id) {
+          payload.user_id = `guest:${guestId}`;
+        }
+      }
+
       const response = await fetch(this.agentCoreEndpoint, {
         method: 'POST',
-        headers: await this.createHeaders(),
-        body: JSON.stringify(request),
+        headers,
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
