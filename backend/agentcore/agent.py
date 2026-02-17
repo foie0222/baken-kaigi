@@ -87,11 +87,13 @@ def invoke(payload: dict, context: Any) -> dict:
     """
     race_id = payload.get("race_id", "")
     user_id = payload.get("user_id", "")
+    logger.info("invoke called with race_id=%s, user_id=%s", race_id, user_id)
 
     # DynamoDB から agent_data を取得し、好み設定をev_proposerツールに注入
     from tools.ev_proposer import set_betting_preference
     agent_data = _fetch_agent_data(user_id)
     betting_preference = agent_data.get("betting_preference") if agent_data else None
+    logger.info("betting_preference=%s", betting_preference)
     set_betting_preference(betting_preference)
 
     # 入力バリデーション
@@ -276,20 +278,18 @@ def _fetch_agent_data(user_id: str) -> dict | None:
         _dynamodb_resource = boto3.resource("dynamodb", region_name=_AWS_REGION)
     table = _dynamodb_resource.Table(_AGENT_TABLE_NAME)
 
-    try:
-        response = table.query(
-            IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(cognito_sub),
-            Limit=1,
-        )
-    except (ClientError, BotoCoreError):
-        logger.exception("Failed to fetch agent data for user_id=%s", user_id)
-        return None
+    response = table.query(
+        IndexName="user_id-index",
+        KeyConditionExpression=Key("user_id").eq(cognito_sub),
+        Limit=1,
+    )
 
     items = response.get("Items", [])
     if not items:
+        logger.info("No agent data found for user_id=%s", user_id)
         return None
 
+    logger.info("Agent data found for user_id=%s, keys=%s", user_id, list(items[0].keys()))
     return items[0]
 
 

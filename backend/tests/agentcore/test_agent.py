@@ -526,8 +526,8 @@ class TestFetchAgentData:
 
         assert result is None
 
-    def test_DynamoDB例外時はNoneを返す(self):
-        """DynamoDBクエリが例外を投げた場合はNoneを返す."""
+    def test_DynamoDB例外時は例外が伝播する(self):
+        """DynamoDBクエリが例外を投げた場合はそのまま伝播する."""
         fetch, agent_mod, mock_boto3 = self._import_fetch()
 
         mock_table = MagicMock()
@@ -540,7 +540,7 @@ class TestFetchAgentData:
         mock_resource.Table.return_value = mock_table
         mock_boto3.resource.return_value = mock_resource
 
-        result = fetch("user:abc-123")
-
-        assert result is None
+        import pytest
+        with pytest.raises(ClientError):
+            fetch("user:abc-123")
 
