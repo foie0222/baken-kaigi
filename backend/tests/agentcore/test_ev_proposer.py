@@ -14,6 +14,7 @@ from tools.ev_proposer import (
     _resolve_ev_filter,
     _build_proposal_reasoning,
     DEFAULT_BET_TYPES,
+    EV_THRESHOLD,
 )
 
 
@@ -148,9 +149,14 @@ class TestProposeBetsImpl:
         set_betting_preference(None)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
-    def test_max_betsで買い目数が制限される(self, mock_narrator):
+    def test_フィルタ条件を満たす全候補が買い目上限なしで選定される(self, mock_narrator):
+        """max_bets 撤廃: フィルタ条件を満たす全候補が上限なしで返される."""
         runners = _make_runners(8)
-        win_probs = {1: 0.35, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.05, 6: 0.04, 7: 0.03, 8: 0.03}
+        win_probs = {1: 0.30, 2: 0.20, 3: 0.15, 4: 0.12, 5: 0.08, 6: 0.06, 7: 0.05, 8: 0.04}
+
+        # min_ev=0.0 で全候補を通過させ、旧上限10件を超えることを検証
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({"min_ev": 0.0})
 
         result = _propose_bets_impl(
             race_id="test",
@@ -158,11 +164,14 @@ class TestProposeBetsImpl:
             runners_data=runners,
             total_runners=8,
             budget=10000,
-            max_bets=3,
             all_odds=_make_all_odds(runners),
         )
 
-        assert len(result["proposed_bets"]) <= 3
+        bets = result["proposed_bets"]
+        # 旧 DEFAULT_MAX_BETS=10 の上限を超えて全件返される
+        assert len(bets) > 10, f"上限撤廃により10件超の候補が返されるべき（実際: {len(bets)}件）"
+
+        set_betting_preference(None)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
     def test_preferred_bet_typesで券種がフィルタされる(self, mock_narrator):
@@ -408,13 +417,13 @@ class TestResolveBetTypes:
 class TestResolveEvFilter:
     """_resolve_ev_filter のテスト."""
 
-    def test_Noneの場合はデフォルト値(self):
+    def test_Noneの場合はデフォルトEV閾値が適用される(self):
         result = _resolve_ev_filter(None)
-        assert result == (0.0, 0.0, None, None)
+        assert result == (0.0, 1.0, None, None)
 
-    def test_空辞書の場合はデフォルト値(self):
+    def test_空辞書の場合はデフォルトEV閾値が適用される(self):
         result = _resolve_ev_filter({})
-        assert result == (0.0, 0.0, None, None)
+        assert result == (0.0, 1.0, None, None)
 
     def test_フィルター値が反映される(self):
         pref = {
@@ -430,7 +439,7 @@ class TestResolveEvFilter:
     def test_一部だけ指定の場合は残りデフォルト(self):
         pref = {"min_probability": 0.03}
         result = _resolve_ev_filter(pref)
-        assert result == (0.03, 0.0, None, None)
+        assert result == (0.03, 1.0, None, None)
 
     def test_maxがNoneの場合は上限なし(self):
         pref = {
