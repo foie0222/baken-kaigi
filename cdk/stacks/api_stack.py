@@ -1829,5 +1829,6 @@ class BakenKaigiApiStack(Stack):
             self,
             "AgentCoreRuntimeRoleArn",
             value=agentcore_runtime_role.role_arn,
+            export_name="AgentCoreRuntimeRoleArn",
             description="AgentCore Runtime IAM Role ARN",
         )
