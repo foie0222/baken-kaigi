@@ -413,6 +413,7 @@ class BakenKaigiApiStack(Stack):
         # DynamoDB 読み取り権限
         ai_predictions_table.grant_read_data(agentcore_runtime_role)
         speed_indices_table.grant_read_data(agentcore_runtime_role)
+        agent_table.grant_read_data(agentcore_runtime_role)
 
         # API Gateway - API Key 取得権限
         agentcore_runtime_role.add_to_policy(
