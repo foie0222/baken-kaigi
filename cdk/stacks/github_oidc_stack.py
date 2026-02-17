@@ -117,7 +117,7 @@ class GitHubOidcStack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=["iam:PassRole"],
                 resources=[
-                    f"arn:aws:iam::{Stack.of(self).account}:role/AmazonBedrockAgentCoreSDKRuntime-*",
+                    f"arn:aws:iam::{Stack.of(self).account}:role/baken-kaigi-agentcore-runtime-role",
                 ],
             )
         )
