@@ -49,7 +49,6 @@ propose_bets(
     runners_data=<出走馬データ（DynamoDBから取得）>,
     total_runners=<race_info.total_runners>,
     preferred_bet_types=<ユーザー指定があれば>,
-    max_bets=<ユーザー指定があれば>,
 )
 ```
 

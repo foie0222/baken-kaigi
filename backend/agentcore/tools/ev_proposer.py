@@ -66,12 +66,12 @@ def _resolve_ev_filter(
         max は None = 上限なし
     """
     if not betting_preference:
-        return (0.0, 0.0, None, None)
+        return (0.0, EV_THRESHOLD, None, None)
     max_prob_raw = betting_preference.get("max_probability")
     max_ev_raw = betting_preference.get("max_ev")
     return (
         float(betting_preference.get("min_probability", 0.0)),
-        float(betting_preference.get("min_ev", 0.0)),
+        float(betting_preference.get("min_ev", EV_THRESHOLD)),
         float(max_prob_raw) if max_prob_raw is not None else None,
         float(max_ev_raw) if max_ev_raw is not None else None,
     )
@@ -99,10 +99,6 @@ DEFAULT_BET_TYPES = ["quinella", "exacta", "quinella_place", "trio"]
 
 # 組合せ生成対象の最小確率（これ以下の馬は組合せに含めない）
 MIN_PROB_FOR_COMBINATION = 0.02
-
-# デフォルト買い目上限
-DEFAULT_MAX_BETS = 10
-
 
 def _fetch_all_odds(race_id: str) -> dict:
     """JRA-VAN APIから全券種オッズを取得."""
@@ -339,7 +335,6 @@ def _propose_bets_impl(
     budget: int = 0,
     bankroll: int = 0,
     preferred_bet_types: list[str] | None = None,
-    max_bets: int | None = None,
     race_name: str = "",
     race_conditions: list[str] | None = None,
     venue: str = "",
@@ -350,7 +345,6 @@ def _propose_bets_impl(
     race_conditions = race_conditions or []
     runners_map = {int(r.get("horse_number", 0)): r for r in runners_data}
     bet_types = preferred_bet_types or DEFAULT_BET_TYPES
-    effective_max_bets = max_bets or DEFAULT_MAX_BETS
 
     use_bankroll = bankroll > 0
 
@@ -358,15 +352,12 @@ def _propose_bets_impl(
     if all_odds is None:
         all_odds = _fetch_all_odds(race_id)
 
-    # 1. EV計算+買い目候補生成
+    # 1. EV計算+買い目候補生成（フィルタ条件を満たす全候補）
     ev_filter = _resolve_ev_filter(_current_betting_preference)
-    candidates = _generate_ev_candidates(
+    bets = _generate_ev_candidates(
         win_probabilities, runners_map, bet_types, total_runners, all_odds,
         ev_filter=ev_filter,
     )
-
-    # 2. 上限で切る
-    bets = candidates[:effective_max_bets]
 
     # 3. 予算計算
     if use_bankroll:
@@ -427,7 +418,6 @@ def propose_bets(
     budget: int = 0,
     bankroll: int = 0,
     preferred_bet_types: list[str] | None = None,
-    max_bets: int | None = None,
     race_name: str = "",
     race_conditions: list[str] | None = None,
     venue: str = "",
@@ -439,7 +429,8 @@ def propose_bets(
 
     analyze_race_for_betting の結果を見てLLMが各馬の勝率を判断した後、
     この関数に勝率を渡す。確率×オッズで期待値(EV)を計算し、
-    EV > 1.0 の組合せを買い目として選定・予算配分する。
+    フィルタ条件（デフォルト EV >= 1.0）を満たす全組合せを買い目として
+    選定・予算配分する。
 
     Args:
         race_id: レースID
@@ -447,7 +438,6 @@ def propose_bets(
         budget: 従来モード予算（円）
         bankroll: bankrollモード総資金（円）
         preferred_bet_types: 券種フィルタ (例: ["quinella", "trio"])
-        max_bets: 買い目上限
         race_name: レース名（表示用）
         race_conditions: レース条件リスト
         venue: 競馬場名
@@ -490,7 +480,6 @@ def propose_bets(
             budget=budget,
             bankroll=bankroll,
             preferred_bet_types=preferred_bet_types,
-            max_bets=max_bets,
             race_name=race_name,
             race_conditions=race_conditions,
             venue=venue,

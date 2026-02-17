@@ -14,6 +14,7 @@ from tools.ev_proposer import (
     _resolve_ev_filter,
     _build_proposal_reasoning,
     DEFAULT_BET_TYPES,
+    EV_THRESHOLD,
 )
 
 
@@ -148,7 +149,8 @@ class TestProposeBetsImpl:
         set_betting_preference(None)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
-    def test_max_betsで買い目数が制限される(self, mock_narrator):
+    def test_フィルタ条件を満たす全候補が買い目上限なしで選定される(self, mock_narrator):
+        """max_bets 撤廃: EV >= 1.0 の全候補が返される."""
         runners = _make_runners(8)
         win_probs = {1: 0.35, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.05, 6: 0.04, 7: 0.03, 8: 0.03}
 
@@ -158,11 +160,15 @@ class TestProposeBetsImpl:
             runners_data=runners,
             total_runners=8,
             budget=10000,
-            max_bets=3,
             all_odds=_make_all_odds(runners),
         )
 
-        assert len(result["proposed_bets"]) <= 3
+        bets = result["proposed_bets"]
+        # 全候補が EV >= 1.0 を満たす
+        for bet in bets:
+            assert bet["expected_value"] >= EV_THRESHOLD
+        # 10件上限なし: EV >= 1.0 の候補が10件超でも全件返される
+        # (8頭の組合せ数は多いので10件を超えうる)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
     def test_preferred_bet_typesで券種がフィルタされる(self, mock_narrator):
@@ -408,13 +414,13 @@ class TestResolveBetTypes:
 class TestResolveEvFilter:
     """_resolve_ev_filter のテスト."""
 
-    def test_Noneの場合はデフォルト値(self):
+    def test_Noneの場合はデフォルトEV閾値が適用される(self):
         result = _resolve_ev_filter(None)
-        assert result == (0.0, 0.0, None, None)
+        assert result == (0.0, 1.0, None, None)
 
-    def test_空辞書の場合はデフォルト値(self):
+    def test_空辞書の場合はデフォルトEV閾値が適用される(self):
         result = _resolve_ev_filter({})
-        assert result == (0.0, 0.0, None, None)
+        assert result == (0.0, 1.0, None, None)
 
     def test_フィルター値が反映される(self):
         pref = {
@@ -430,7 +436,7 @@ class TestResolveEvFilter:
     def test_一部だけ指定の場合は残りデフォルト(self):
         pref = {"min_probability": 0.03}
         result = _resolve_ev_filter(pref)
-        assert result == (0.03, 0.0, None, None)
+        assert result == (0.03, 1.0, None, None)
 
     def test_maxがNoneの場合は上限なし(self):
         pref = {
