@@ -120,11 +120,7 @@ describe('BetProposalSheet', () => {
           race_id: 'race_001',
           race_summary: {
             race_name: 'テストレース',
-            difficulty_stars: 3,
-            predicted_pace: 'ミドル',
             ai_consensus_level: '概ね合意',
-            skip_score: 3,
-            skip_recommendation: '通常判断',
           },
           proposed_bets: [],
           total_amount: 0,

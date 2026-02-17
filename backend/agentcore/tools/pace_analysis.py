@@ -259,7 +259,6 @@ def _generate_development_summary(
 def _analyze_race_characteristics_impl(
     race_id: str,
     running_styles_data: list[dict],
-    runners_data: list[dict] | None = None,
     race_conditions: list[str] | None = None,
     venue: str = "",
     surface: str = "",
@@ -272,7 +271,6 @@ def _analyze_race_characteristics_impl(
     Args:
         race_id: レースID
         running_styles_data: 出走馬の脚質データ
-        runners_data: 出走馬データ（オッズ情報を含む）
         race_conditions: レース条件リスト
         venue: 競馬場名
         surface: 馬場（"芝" or "ダート"）
@@ -330,7 +328,6 @@ def analyze_race_characteristics(
     race_conditions: list[str] | None = None,
     venue: str = "",
     surface: str = "",
-    runners_data: list[dict] | None = None,
 ) -> dict:
     """レースの展開予想・特性分析を総合的に行う.
 
@@ -345,7 +342,6 @@ def analyze_race_characteristics(
         venue: 競馬場名（"東京", "中山", "阪神", "京都", "中京", "小倉", "福島",
             "新潟", "札幌", "函館"）
         surface: 馬場（"芝" or "ダート"）
-        runners_data: 出走馬データ（オッズ情報を含む。オッズ断層分析に使用）
 
     Returns:
         総合分析結果（展開予想、枠順、脚質相性、サマリー）
@@ -354,7 +350,6 @@ def analyze_race_characteristics(
     return _analyze_race_characteristics_impl(
         race_id,
         running_styles,
-        runners_data=runners_data,
         race_conditions=race_conditions,
         venue=venue,
         surface=surface,

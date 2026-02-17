@@ -426,11 +426,7 @@ export interface ProposedBet {
 
 export interface RaceSummary {
   race_name: string;
-  difficulty_stars: number;
-  predicted_pace: string;
   ai_consensus_level: string;
-  skip_score: number;
-  skip_recommendation: string;
 }
 
 export interface BetProposalResponse {
