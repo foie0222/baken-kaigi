@@ -1,5 +1,22 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 
+// aws-amplify/auth のモック（client.ts 内部で使用される fetchAuthSession を制御）
+const mockFetchAuthSession = vi.fn()
+vi.mock('aws-amplify/auth', () => ({
+  fetchAuthSession: (...args: unknown[]) => mockFetchAuthSession(...args),
+  getCurrentUser: vi.fn(),
+  signUp: vi.fn(),
+  confirmSignUp: vi.fn(),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  resetPassword: vi.fn(),
+  confirmResetPassword: vi.fn(),
+  updatePassword: vi.fn(),
+  deleteUser: vi.fn(),
+  signInWithRedirect: vi.fn(),
+  updateUserAttributes: vi.fn(),
+}))
+
 // テスト用のモックデータ
 const mockApiRace = {
   race_id: 'race_001',
@@ -26,6 +43,9 @@ describe('ApiClient', () => {
   beforeEach(() => {
     vi.resetModules()
     mockFetch.mockReset()
+    mockFetchAuthSession.mockReset()
+    // デフォルトは未認証（fetchAuthSession がトークンなしを返す）
+    mockFetchAuthSession.mockResolvedValue({ tokens: undefined })
     globalThis.fetch = mockFetch
   })
 
@@ -247,20 +267,42 @@ describe('ApiClient', () => {
       expect(result.data?.session_id).toBe('session_123')
     })
 
-    it('AgentCoreリクエストにuser_idが自動付与される', async () => {
+    it('認証済みユーザーのリクエストにuser:prefixのuser_idが付与される', async () => {
+      mockFetchAuthSession.mockResolvedValueOnce({
+        tokens: {
+          idToken: {
+            payload: { sub: 'cognito-sub-123' },
+            toString: () => 'mock-id-token',
+          },
+        },
+      })
+
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          message: '応答',
-          session_id: 'sess',
-        }),
+        json: async () => ({ message: '応答', session_id: 'sess' }),
       })
 
       const client = await getApiClient('http://localhost:3000', '/api/consultation')
       await client.consultWithAgent({ race_id: 'race_001' })
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body)
-      expect(body.user_id).toBeDefined()
+      expect(body.user_id).toBe('user:cognito-sub-123')
+      expect(body.race_id).toBe('race_001')
+    })
+
+    it('未認証ユーザーのリクエストにguest:prefixのuser_idが付与される', async () => {
+      mockFetchAuthSession.mockRejectedValueOnce(new Error('Not authenticated'))
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: '応答', session_id: 'sess' }),
+      })
+
+      const client = await getApiClient('http://localhost:3000', '/api/consultation')
+      await client.consultWithAgent({ race_id: 'race_001' })
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(body.user_id).toMatch(/^guest:.+/)
       expect(body.race_id).toBe('race_001')
     })
 
