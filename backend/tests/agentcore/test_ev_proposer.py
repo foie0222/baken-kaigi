@@ -150,9 +150,13 @@ class TestProposeBetsImpl:
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
     def test_フィルタ条件を満たす全候補が買い目上限なしで選定される(self, mock_narrator):
-        """max_bets 撤廃: EV >= 1.0 の全候補が返される."""
+        """max_bets 撤廃: フィルタ条件を満たす全候補が上限なしで返される."""
         runners = _make_runners(8)
-        win_probs = {1: 0.35, 2: 0.25, 3: 0.15, 4: 0.10, 5: 0.05, 6: 0.04, 7: 0.03, 8: 0.03}
+        win_probs = {1: 0.30, 2: 0.20, 3: 0.15, 4: 0.12, 5: 0.08, 6: 0.06, 7: 0.05, 8: 0.04}
+
+        # min_ev=0.0 で全候補を通過させ、旧上限10件を超えることを検証
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({"min_ev": 0.0})
 
         result = _propose_bets_impl(
             race_id="test",
@@ -164,11 +168,10 @@ class TestProposeBetsImpl:
         )
 
         bets = result["proposed_bets"]
-        # 全候補が EV >= 1.0 を満たす
-        for bet in bets:
-            assert bet["expected_value"] >= EV_THRESHOLD
-        # 10件上限なし: EV >= 1.0 の候補が10件超でも全件返される
-        # (8頭の組合せ数は多いので10件を超えうる)
+        # 旧 DEFAULT_MAX_BETS=10 の上限を超えて全件返される
+        assert len(bets) > 10, f"上限撤廃により10件超の候補が返されるべき（実際: {len(bets)}件）"
+
+        set_betting_preference(None)
 
     @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
     def test_preferred_bet_typesで券種がフィルタされる(self, mock_narrator):

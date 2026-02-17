@@ -359,7 +359,7 @@ def _propose_bets_impl(
         ev_filter=ev_filter,
     )
 
-    # 3. 予算計算
+    # 2. 予算計算
     if use_bankroll:
         base_rate = DEFAULT_BASE_RATE
         race_budget = int(bankroll * base_rate)
@@ -369,7 +369,7 @@ def _propose_bets_impl(
         effective_budget = budget
         race_budget = 0
 
-    # 4. 予算配分
+    # 3. 予算配分
     if bets and effective_budget > 0:
         if use_bankroll:
             bets = _allocate_budget_dutching(bets, effective_budget)
@@ -379,11 +379,11 @@ def _propose_bets_impl(
     total_amount = sum(b.get("amount", 0) for b in bets)
     budget_remaining = effective_budget - total_amount
 
-    # 5. ナレーション（_invoke_haiku_narrator は context: dict 1引数）
+    # 4. ナレーション（コスト抑制のため上位10件のみ渡す）
     narration_context = {
         "race_name": race_name,
         "ai_consensus": ai_consensus,
-        "bets": bets,
+        "bets": bets[:10],
         "runners_data": runners_data,
     }
     analysis_comment = _invoke_haiku_narrator(narration_context)
