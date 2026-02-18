@@ -397,6 +397,8 @@ class TestAgentCoreRuntimeRolePermissions:
         """Bedrock呼び出し権限にInvokeModel/InvokeModelWithResponseStreamが含まれること."""
         from aws_cdk.assertions import Match
 
+        # Resource ARN はリージョントークン展開で Fn::Join になるため、
+        # Action と Effect のみ厳密に検証する
         template.has_resource_properties(
             "AWS::IAM::Policy",
             {
@@ -410,9 +412,6 @@ class TestAgentCoreRuntimeRolePermissions:
                                         "bedrock:InvokeModelWithResponseStream",
                                     ],
                                     "Effect": "Allow",
-                                    # Resource はリージョントークン展開で Fn::Join になるため
-                                    # 型のみ検証（配列であること）
-                                    "Resource": Match.any_value(),
                                 }
                             ),
                         ]
@@ -421,8 +420,8 @@ class TestAgentCoreRuntimeRolePermissions:
             },
         )
 
-    def test_cloudwatch_logs_permissions(self, template):
-        """CloudWatch Logs権限にDescribeLogStreams/DescribeLogGroupsが含まれること."""
+    def test_cloudwatch_logs_write_permissions(self, template):
+        """CloudWatch Logs書き込み権限が設定されること."""
         from aws_cdk.assertions import Match
 
         template.has_resource_properties(
@@ -437,10 +436,34 @@ class TestAgentCoreRuntimeRolePermissions:
                                         "logs:CreateLogGroup",
                                         "logs:CreateLogStream",
                                         "logs:PutLogEvents",
+                                    ],
+                                    "Effect": "Allow",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_cloudwatch_logs_describe_permissions(self, template):
+        """CloudWatch Logs Describe権限がResource: *で設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Action": [
                                         "logs:DescribeLogStreams",
                                         "logs:DescribeLogGroups",
                                     ],
                                     "Effect": "Allow",
+                                    "Resource": "*",
                                 }
                             ),
                         ]

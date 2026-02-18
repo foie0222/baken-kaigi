@@ -409,6 +409,9 @@ class BakenKaigiApiStack(Stack):
         # Bedrock モデル呼び出し権限
         # inference profile（jp.anthropic.claude-*）を使用するため、
         # foundation-model/* に加えて inference-profile/* も必要
+        # NOTE: foundation-model はリージョンを * にする必要がある。
+        # inference profile 経由の呼び出しは内部で別リージョン（例: ap-northeast-3）
+        # の foundation-model にルーティングされるため。
         agentcore_runtime_role.add_to_policy(
             iam.PolicyStatement(
                 actions=[
@@ -416,8 +419,8 @@ class BakenKaigiApiStack(Stack):
                     "bedrock:InvokeModelWithResponseStream",
                 ],
                 resources=[
-                    f"arn:aws:bedrock:{self.region}::foundation-model/*",
-                    f"arn:aws:bedrock:{self.region}:*:inference-profile/*",
+                    "arn:aws:bedrock:*::foundation-model/*",
+                    f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/*",
                 ],
             )
         )
@@ -429,10 +432,18 @@ class BakenKaigiApiStack(Stack):
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
                     "logs:PutLogEvents",
+                ],
+                resources=[f"arn:aws:logs:{self.region}:{self.account}:*"],
+            )
+        )
+        # Describe系はリソースレベル制御の制約により Resource: * が必要
+        agentcore_runtime_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
                     "logs:DescribeLogStreams",
                     "logs:DescribeLogGroups",
                 ],
-                resources=[f"arn:aws:logs:{self.region}:{self.account}:*"],
+                resources=["*"],
             )
         )
 
