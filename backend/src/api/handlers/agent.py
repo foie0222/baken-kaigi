@@ -172,6 +172,12 @@ def _update_agent(event: dict) -> dict:
             if min_ev is not None and max_ev < min_ev:
                 return bad_request_response("max_ev must be >= min_ev", event=event)
 
+        # race_budget バリデーション
+        race_budget = betting_preference.get("race_budget")
+        if race_budget is not None:
+            if isinstance(race_budget, bool) or not isinstance(race_budget, int) or not (0 <= race_budget <= 1_000_000):
+                return bad_request_response("race_budget must be an integer between 0 and 1000000", event=event)
+
     # custom_instructions バリデーション
     if custom_instructions is not None:
         if not isinstance(custom_instructions, str):

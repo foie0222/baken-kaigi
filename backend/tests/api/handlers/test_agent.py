@@ -156,6 +156,7 @@ class TestUpdateAgentPreference:
             "min_ev": 0.0,
             "max_probability": None,
             "max_ev": None,
+            "race_budget": 0,
         }
         assert body["custom_instructions"] is None
 
@@ -304,6 +305,73 @@ class TestUpdateAgentPreference:
                 },
                 "custom_instructions": "あ" * 201,
             },
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_race_budgetを設定できる(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={
+                "betting_preference": {
+                    "bet_type_preference": "auto",
+                    "race_budget": 5000,
+                },
+            },
+        )
+        response = agent_handler(event, None)
+        body = json.loads(response["body"])
+        assert response["statusCode"] == 200
+        assert body["betting_preference"]["race_budget"] == 5000
+
+    def test_race_budgetが負の値で400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={"betting_preference": {"race_budget": -1}},
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_race_budgetが上限超えで400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={"betting_preference": {"race_budget": 1000001}},
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_race_budgetがbooleanで400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={"betting_preference": {"race_budget": True}},
+        )
+        response = agent_handler(event, None)
+        assert response["statusCode"] == 400
+
+    def test_race_budgetが小数で400(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={"betting_preference": {"race_budget": 1000.5}},
         )
         response = agent_handler(event, None)
         assert response["statusCode"] == 400

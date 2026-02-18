@@ -95,3 +95,24 @@ class TestAgentBettingPreference:
         )
         agent.update_preference(BettingPreference.default(), None)
         assert agent.custom_instructions is None
+
+    def test_to_dictにrace_budgetが含まれる(self):
+        pref = BettingPreference(
+            bet_type_preference=BetTypePreference.AUTO,
+            race_budget=5000,
+        )
+        d = pref.to_dict()
+        assert d["race_budget"] == 5000
+
+    def test_from_dictでrace_budgetが復元される(self):
+        data = {
+            "bet_type_preference": "auto",
+            "race_budget": 3000,
+        }
+        pref = BettingPreference.from_dict(data)
+        assert pref.race_budget == 3000
+
+    def test_from_dictでrace_budget省略時はデフォルト0(self):
+        data = {"bet_type_preference": "auto"}
+        pref = BettingPreference.from_dict(data)
+        assert pref.race_budget == 0

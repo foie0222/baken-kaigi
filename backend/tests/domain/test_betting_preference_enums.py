@@ -41,6 +41,7 @@ class TestBettingPreference:
             "min_ev": 0.0,
             "max_probability": None,
             "max_ev": None,
+            "race_budget": 0,
         }
 
     def test_from_dictで復元できる(self):
@@ -98,6 +99,7 @@ class TestBettingPreference:
             "min_ev": 1.5,
             "max_probability": 0.30,
             "max_ev": 5.0,
+            "race_budget": 0,
         }
 
     def test_from_dictでフィルターフィールドを復元できる(self):
