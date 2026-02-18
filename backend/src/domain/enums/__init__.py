@@ -1,7 +1,6 @@
 """列挙型モジュール."""
 from .auth_provider import AuthProvider
 from .bet_type import BetType
-from .bet_type_preference import BetTypePreference
 from .betting_record_status import BettingRecordStatus
 from .ipat_bet_type import IpatBetType
 from .ipat_venue_code import IpatVenueCode
@@ -14,7 +13,6 @@ from .warning_level import WarningLevel
 __all__ = [
     "AuthProvider",
     "BetType",
-    "BetTypePreference",
     "BettingRecordStatus",
     "IpatBetType",
     "IpatVenueCode",

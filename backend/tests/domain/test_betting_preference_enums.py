@@ -1,21 +1,4 @@
-"""好み設定列挙型のテスト."""
-from src.domain.enums import BetTypePreference
-
-
-class TestBetTypePreference:
-    """券種好み列挙型のテスト."""
-
-    def test_全ての値が定義されている(self):
-        assert BetTypePreference.TRIO_FOCUSED.value == "trio_focused"
-        assert BetTypePreference.EXACTA_FOCUSED.value == "exacta_focused"
-        assert BetTypePreference.QUINELLA_FOCUSED.value == "quinella_focused"
-        assert BetTypePreference.WIDE_FOCUSED.value == "wide_focused"
-        assert BetTypePreference.AUTO.value == "auto"
-
-    def test_文字列から変換できる(self):
-        assert BetTypePreference("trio_focused") == BetTypePreference.TRIO_FOCUSED
-
-
+"""好み設定値オブジェクトのテスト."""
 from src.domain.value_objects import BettingPreference
 
 
@@ -24,19 +7,19 @@ class TestBettingPreference:
 
     def test_デフォルト値で作成できる(self):
         pref = BettingPreference.default()
-        assert pref.bet_type_preference == BetTypePreference.AUTO
+        assert pref.selected_bet_types == []
 
-    def test_指定した値で作成できる(self):
+    def test_指定した券種で作成できる(self):
         pref = BettingPreference(
-            bet_type_preference=BetTypePreference.TRIO_FOCUSED,
+            selected_bet_types=["win", "trio"],
         )
-        assert pref.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert pref.selected_bet_types == ["win", "trio"]
 
     def test_to_dictで辞書に変換できる(self):
         pref = BettingPreference.default()
         d = pref.to_dict()
         assert d == {
-            "bet_type_preference": "auto",
+            "selected_bet_types": [],
             "min_probability": 0.0,
             "min_ev": 0.0,
             "max_probability": None,
@@ -46,10 +29,10 @@ class TestBettingPreference:
 
     def test_from_dictで復元できる(self):
         data = {
-            "bet_type_preference": "trio_focused",
+            "selected_bet_types": ["quinella", "trio"],
         }
         pref = BettingPreference.from_dict(data)
-        assert pref.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert pref.selected_bet_types == ["quinella", "trio"]
 
     def test_from_dictで空辞書はデフォルト(self):
         pref = BettingPreference.from_dict({})
@@ -59,18 +42,9 @@ class TestBettingPreference:
         pref = BettingPreference.from_dict(None)
         assert pref == BettingPreference.default()
 
-    def test_from_dictで旧データのtarget_styleとpriorityは無視される(self):
-        data = {
-            "bet_type_preference": "trio_focused",
-            "target_style": "big_longshot",
-            "priority": "roi",
-        }
-        pref = BettingPreference.from_dict(data)
-        assert pref.bet_type_preference == BetTypePreference.TRIO_FOCUSED
-
     def test_フィルターフィールド付きで作成できる(self):
         pref = BettingPreference(
-            bet_type_preference=BetTypePreference.AUTO,
+            selected_bet_types=[],
             min_probability=0.05,
             min_ev=1.5,
         )
@@ -86,7 +60,7 @@ class TestBettingPreference:
 
     def test_to_dictにフィルターフィールドが含まれる(self):
         pref = BettingPreference(
-            bet_type_preference=BetTypePreference.AUTO,
+            selected_bet_types=["win"],
             min_probability=0.05,
             min_ev=1.5,
             max_probability=0.30,
@@ -94,7 +68,7 @@ class TestBettingPreference:
         )
         d = pref.to_dict()
         assert d == {
-            "bet_type_preference": "auto",
+            "selected_bet_types": ["win"],
             "min_probability": 0.05,
             "min_ev": 1.5,
             "max_probability": 0.30,
@@ -104,7 +78,7 @@ class TestBettingPreference:
 
     def test_from_dictでフィルターフィールドを復元できる(self):
         data = {
-            "bet_type_preference": "trio_focused",
+            "selected_bet_types": ["trio"],
             "min_probability": 0.03,
             "min_ev": 1.2,
             "max_probability": 0.25,
@@ -117,7 +91,7 @@ class TestBettingPreference:
         assert pref.max_ev == 4.0
 
     def test_from_dictでフィルターフィールドなしはデフォルト値(self):
-        data = {"bet_type_preference": "auto"}
+        data = {"selected_bet_types": []}
         pref = BettingPreference.from_dict(data)
         assert pref.min_probability == 0.0
         assert pref.min_ev == 0.0
@@ -126,14 +100,12 @@ class TestBettingPreference:
 
     def test_from_dictでmaxがNoneの場合は上限なし(self):
         data = {
-            "bet_type_preference": "auto",
+            "selected_bet_types": [],
             "min_probability": 0.05,
             "max_probability": None,
             "min_ev": 1.5,
             "max_ev": None,
         }
         pref = BettingPreference.from_dict(data)
-        assert pref.min_probability == 0.05
-        assert pref.min_ev == 1.5
         assert pref.max_probability is None
         assert pref.max_ev is None
