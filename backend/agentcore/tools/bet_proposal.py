@@ -734,13 +734,14 @@ def _allocate_budget(bets: list[dict], budget: int) -> list[dict]:
                     b["amount"] -= reduction
                     overage -= reduction
 
-    # 余剰予算をEV比率で追加配分（既存ロジックを維持）
+    # 余剰予算をEV比率で追加配分
     remaining = budget - sum(b.get("amount", 0) for b in bets if "amount" in b)
     if remaining >= unit and total_ev > 0:
+        initial_remaining = remaining
         for i, bet in enumerate(bets):
             if remaining < unit:
                 break
-            share = int(math.floor(remaining * evs[i] / total_ev / unit) * unit)
+            share = int(math.floor(initial_remaining * evs[i] / total_ev / unit) * unit)
             if share >= unit:
                 bet["amount"] += share
                 remaining -= share
