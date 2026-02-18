@@ -254,7 +254,11 @@ class TestExtractSuggestedQuestions:
 # 本番実装をインポート（response_utils は外部依存がないピュア関数モジュール）
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
-from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
+from response_utils import (
+    BET_PROPOSALS_SEPARATOR,
+    inject_bet_proposal_separator,
+    replace_or_inject_bet_proposal_json,
+)
 
 
 class TestInjectBetProposalSeparator:
@@ -308,6 +312,77 @@ class TestInjectBetProposalSeparator:
         assert "混戦レースです" in json_part
         parsed = json.loads(json_part)
         assert parsed["analysis_comment"] == "混戦レースです"
+
+
+class TestReplaceOrInjectBetProposalJson:
+    """replace_or_inject_bet_proposal_json 関数のテスト."""
+
+    def test_LLMが截頭したJSONをキャッシュで置換する(self):
+        """LLMがセパレータ付きで截頭JSON出力した場合、キャッシュの全件で置換する."""
+        llm_truncated = json.dumps(
+            {"proposed_bets": [{"bet_type": "win", "horse_numbers": [1]}]},
+            ensure_ascii=False,
+        )
+        llm_text = f"分析コメント\n\n{BET_PROPOSALS_SEPARATOR}\n{llm_truncated}"
+
+        cached_full = {
+            "proposed_bets": [
+                {"bet_type": "win", "horse_numbers": [1]},
+                {"bet_type": "win", "horse_numbers": [2]},
+                {"bet_type": "quinella", "horse_numbers": [1, 2]},
+            ],
+        }
+
+        result = replace_or_inject_bet_proposal_json(llm_text, cached_full)
+
+        # セパレータがある
+        assert BET_PROPOSALS_SEPARATOR in result
+        # テキスト部分は保持
+        assert result.startswith("分析コメント")
+        # JSONはキャッシュの全件
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        parsed = json.loads(json_part)
+        assert len(parsed["proposed_bets"]) == 3
+
+    def test_セパレータがない場合はキャッシュを注入する(self):
+        """LLMがセパレータを出力しなかった場合、キャッシュを注入する."""
+        llm_text = "分析コメントのみ"
+        cached = {"proposed_bets": [{"bet_type": "win"}]}
+
+        result = replace_or_inject_bet_proposal_json(llm_text, cached)
+
+        assert BET_PROPOSALS_SEPARATOR in result
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        parsed = json.loads(json_part)
+        assert len(parsed["proposed_bets"]) == 1
+
+    def test_キャッシュがNoneでセパレータがある場合はLLM版を維持(self):
+        """キャッシュがなくLLMがセパレータ付きJSONを出力した場合はそのまま返す."""
+        llm_json = json.dumps({"proposed_bets": [{"bet_type": "win"}]})
+        llm_text = f"分析\n{BET_PROPOSALS_SEPARATOR}\n{llm_json}"
+
+        result = replace_or_inject_bet_proposal_json(llm_text, None)
+
+        assert result == llm_text
+
+    def test_キャッシュがNoneでセパレータもない場合はそのまま返す(self):
+        """キャッシュもセパレータもない場合はそのまま返す."""
+        llm_text = "エラーが発生しました。"
+
+        result = replace_or_inject_bet_proposal_json(llm_text, None)
+
+        assert result == llm_text
+        assert BET_PROPOSALS_SEPARATOR not in result
+
+    def test_キャッシュがエラーでセパレータがある場合はLLM版を維持(self):
+        """キャッシュがエラーの場合はLLMの出力をそのまま使う."""
+        llm_json = json.dumps({"proposed_bets": []})
+        llm_text = f"分析\n{BET_PROPOSALS_SEPARATOR}\n{llm_json}"
+        cached_error = {"error": "API失敗"}
+
+        result = replace_or_inject_bet_proposal_json(llm_text, cached_error)
+
+        assert result == llm_text
 
 
 # =============================================================================
