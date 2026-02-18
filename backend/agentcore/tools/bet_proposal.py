@@ -47,11 +47,6 @@ WEIGHT_AI_SCORE = 0.5
 WEIGHT_ODDS_GAP = 0.3
 WEIGHT_SPEED_INDEX = 0.20
 
-# 予算配分: 信頼度別の配分比率
-ALLOCATION_HIGH = 0.50
-ALLOCATION_MEDIUM = 0.30
-ALLOCATION_LOW = 0.20
-
 # トリガミ除外閾値
 TORIGAMI_COMPOSITE_ODDS_THRESHOLD = 2.0
 
@@ -128,8 +123,6 @@ BET_TYPE_ODDS_MULTIPLIER = {
 _DEFAULT_CONFIG = {
     "weight_ai_score": WEIGHT_AI_SCORE, "weight_odds_gap": WEIGHT_ODDS_GAP,
     "weight_speed_index": WEIGHT_SPEED_INDEX,
-    "allocation_high": ALLOCATION_HIGH, "allocation_medium": ALLOCATION_MEDIUM,
-    "allocation_low": ALLOCATION_LOW,
     "max_bets": MAX_BETS, "torigami_threshold": TORIGAMI_COMPOSITE_ODDS_THRESHOLD,
     "base_rate": DEFAULT_BASE_RATE,
     "max_partners": MAX_PARTNERS,
@@ -383,68 +376,6 @@ def _estimate_bet_odds(odds_list: list, bet_type: str) -> float:
         return round(valid[0] * multiplier, 1)
 
 
-def _assign_relative_confidence(bets: list[dict]) -> None:
-    """候補リスト内のスコア分布に基づいて信頼度を相対的に割り当てる.
-
-    絶対閾値（>=70で「高」等）ではなく、
-    選ばれた候補内での相対順位で信頼度を決める。
-    これにより候補間で信頼度にばらつきが出る。
-
-    割り当て規則:
-        - 1件: "high"
-        - 2件: 上位 "high", 下位 "medium"
-        - 3件以上: 上位1/3 "high", 中位 "medium", 下位1/3 "low"
-        - 全スコア同値: expected_valueで代替ランク付け
-        - 全スコア・期待値ともに同値: 全て "medium"
-
-    Args:
-        bets: 買い目候補リスト（_composite_scoreキーを持つ）。
-              スコア同値時はexpected_valueキーをフォールバックに使用。
-              リストをin-placeで変更する。
-    """
-    n = len(bets)
-    if n == 0:
-        return
-    if n == 1:
-        bets[0]["confidence"] = "high"
-        return
-
-    scores = [b.get("_composite_score", 0) for b in bets]
-    if max(scores) == min(scores):
-        # スコア同値の場合、期待値でフォールバック
-        ev_scores = [b.get("expected_value", 0) for b in bets]
-        if max(ev_scores) == min(ev_scores):
-            for b in bets:
-                b["confidence"] = "medium"
-            return
-        scores = ev_scores
-
-    # スコア降順でランク付け
-    indexed = sorted(range(n), key=lambda i: scores[i], reverse=True)
-
-    if n == 2:
-        bets[indexed[0]]["confidence"] = "high"
-        bets[indexed[1]]["confidence"] = "medium"
-        return
-
-    # 3件以上: 上位1/3, 中位, 下位1/3
-    high_count = max(1, round(n / 3))
-    # medium は残り（最低0）、low は残りの要素数
-    medium_count = n - high_count - max(1, round(n / 3))
-    if medium_count < 0:
-        # n=3で high_count=1 → lowも1、medium=1 となるため通常は到達しない
-        high_count = 1
-        medium_count = n - 2
-
-    for rank, idx in enumerate(indexed):
-        if rank < high_count:
-            bets[idx]["confidence"] = "high"
-        elif rank < high_count + medium_count:
-            bets[idx]["confidence"] = "medium"
-        else:
-            bets[idx]["confidence"] = "low"
-
-
 def _generate_bet_candidates(
     axis_horses: list[dict],
     runners_data: list[dict],
@@ -544,7 +475,6 @@ def _generate_bet_candidates(
                     "bet_type_name": bet_type_name,
                     "horse_numbers": [axis_hn],
                     "bet_display": str(axis_hn),
-                    "confidence": "medium",
                     "_composite_score": axis["composite_score"],
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": axis_odds,
@@ -619,7 +549,6 @@ def _generate_bet_candidates(
                     "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
                     "horse_numbers": horse_numbers,
                     "bet_display": bet_display,
-                    "confidence": "medium",
                     "_composite_score": avg_score,
                     "expected_value": ev.get("expected_return", 0),
                     "composite_odds": estimated_odds,
@@ -688,7 +617,6 @@ def _generate_bet_candidates(
                         "bet_type_name": BET_TYPE_NAMES.get(bet_type, bet_type),
                         "horse_numbers": horse_numbers,
                         "bet_display": bet_display,
-                        "confidence": "medium",
                         "_composite_score": avg_score,
                         "expected_value": ev.get("expected_return", 0),
                         "composite_odds": estimated_odds,
@@ -703,9 +631,6 @@ def _generate_bet_candidates(
         selected = bets[:max_bets]
     else:
         selected = bets
-
-    # 信頼度を候補リスト内のスコア分布に基づいて相対的に再割り当て
-    _assign_relative_confidence(selected)
 
     # 内部スコアはソート専用のため、ユーザー向けレスポンスからは削除する
     for bet in selected:
@@ -754,23 +679,14 @@ def _generate_bet_reasoning(
 # =============================================================================
 
 
-def _allocate_budget(
-    bets: list[dict],
-    budget: int,
-    allocation_high: float = ALLOCATION_HIGH,
-    allocation_medium: float = ALLOCATION_MEDIUM,
-    allocation_low: float = ALLOCATION_LOW,
-) -> list[dict]:
-    """信頼度別に予算を配分する.
+def _allocate_budget(bets: list[dict], budget: int) -> list[dict]:
+    """予算をEV比例で配分する.
 
     100円単位に丸め、最低100円保証。
 
     Args:
         bets: 買い目候補リスト
         budget: 総予算
-        allocation_high: 高信頼の配分比率
-        allocation_medium: 中信頼の配分比率
-        allocation_low: 穴狙いの配分比率
 
     Returns:
         金額付き買い目リスト
@@ -778,78 +694,36 @@ def _allocate_budget(
     if not bets or budget <= 0:
         return bets
 
-    # 信頼度別に分類
-    high = [b for b in bets if b.get("confidence") == "high"]
-    medium = [b for b in bets if b.get("confidence") == "medium"]
-    value = [b for b in bets if b.get("confidence") == "low"]
-
-    # 各グループの予算枠を計算
-    # 存在するグループのみに配分
-    groups = []
-    if high:
-        groups.append(("high", high, allocation_high))
-    if medium:
-        groups.append(("medium", medium, allocation_medium))
-    if value:
-        groups.append(("low", value, allocation_low))
-
-    if not groups:
-        return bets
+    unit = MIN_BET_AMOUNT
 
     # 予算で買える最大買い目数（最低100円/点）
-    max_affordable = budget // MIN_BET_AMOUNT
+    max_affordable = budget // unit
     if max_affordable <= 0:
         return bets
 
-    # 買い目数が予算を超過する場合、高信頼度順に絞り込み
+    # 買い目数が予算を超過する場合、EV高い順に絞り込み
     if len(bets) > max_affordable:
-        priority = {"high": 0, "medium": 1, "low": 2}
-        bets.sort(key=lambda b: (priority.get(b.get("confidence", "low"), 2), -b.get("expected_value", 0)))
+        bets.sort(key=lambda b: -b.get("expected_value", 0))
         bets = bets[:max_affordable]
-        # 再分類
-        high = [b for b in bets if b.get("confidence") == "high"]
-        medium = [b for b in bets if b.get("confidence") == "medium"]
-        value = [b for b in bets if b.get("confidence") == "low"]
-        groups = []
-        if high:
-            groups.append(("high", high, allocation_high))
-        if medium:
-            groups.append(("medium", medium, allocation_medium))
-        if value:
-            groups.append(("low", value, allocation_low))
-        if not groups:
-            return bets
 
-    # 比率を正規化
-    total_ratio = sum(g[2] for g in groups)
-    normalized = [(g[0], g[1], g[2] / total_ratio) for g in groups]
+    # EV比例配分
+    evs = [max(0, b.get("expected_value", 0)) for b in bets]
+    total_ev = sum(evs)
+    if total_ev > 0:
+        for i, bet in enumerate(bets):
+            raw = budget * evs[i] / total_ev
+            bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
+    else:
+        per_bet = max(unit, int(math.floor(budget / len(bets) / unit) * unit))
+        for bet in bets:
+            bet["amount"] = per_bet
 
-    unit = MIN_BET_AMOUNT  # 丸め単位（100円）
-
-    total_amount = 0
-    for _, group_bets, ratio in normalized:
-        group_budget = int(budget * ratio)
-        # 期待値ベースの傾斜配分
-        evs = [max(0, b.get("expected_value", 0)) for b in group_bets]
-        total_ev = sum(evs)
-        if total_ev > 0:
-            # 期待値に比例して配分（unit単位に丸め、最低unit保証）
-            for i, bet in enumerate(group_bets):
-                raw = group_budget * evs[i] / total_ev
-                bet["amount"] = max(unit, int(math.floor(raw / unit) * unit))
-                total_amount += bet["amount"]
-        else:
-            # 期待値が全て0の場合は均等配分
-            per_bet = max(unit, int(math.floor(group_budget / len(group_bets) / unit) * unit))
-            for bet in group_bets:
-                bet["amount"] = per_bet
-                total_amount += per_bet
-
-    # 予算超過時は低信頼度から金額削減
+    # 予算超過時はEV低い順に削減
+    total_amount = sum(b.get("amount", 0) for b in bets)
     if total_amount > budget:
         overage = total_amount - budget
-        # 低→中→高の順で削減
-        for b in reversed(bets):
+        sorted_by_ev = sorted(bets, key=lambda b: b.get("expected_value", 0))
+        for b in sorted_by_ev:
             if overage <= 0:
                 break
             reducible = b["amount"] - unit
@@ -860,44 +734,16 @@ def _allocate_budget(
                     b["amount"] -= reduction
                     overage -= reduction
 
-    # 余剰予算を期待値比率で追加配分
+    # 余剰予算をEV比率で追加配分（既存ロジックを維持）
     remaining = budget - sum(b.get("amount", 0) for b in bets if "amount" in b)
-    if remaining >= unit:
-        positive_ev_bets = [
-            b for b in bets
-            if "amount" in b and b.get("expected_value", 0) > 0
-        ]
-
-        if positive_ev_bets:
-            # EV比率に応じて余剰を配分（unit単位に丸め）
-            sorted_by_ev = sorted(
-                positive_ev_bets,
-                key=lambda b: b.get("expected_value", 0),
-                reverse=True,
-            )
-            total_positive_ev = sum(b.get("expected_value", 0) for b in positive_ev_bets)
-            initial_remaining = remaining
-            for bet in sorted_by_ev:
-                ev = bet.get("expected_value", 0)
-                add = int(math.floor(initial_remaining * ev / total_positive_ev / unit) * unit)
-                add = min(add, remaining)
-                if add >= unit:
-                    bet["amount"] += add
-                    remaining -= add
-            # 丸め残りはEV最大の買い目に追加
-            if remaining >= unit:
-                top_add = int(remaining // unit) * unit
-                sorted_by_ev[0]["amount"] += top_add
-                remaining -= top_add
-        else:
-            # 全EV=0: 均等に追加配分
-            all_bets = [b for b in bets if "amount" in b]
-            while remaining >= unit:
-                for bet in all_bets:
-                    if remaining < unit:
-                        break
-                    bet["amount"] += unit
-                    remaining -= unit
+    if remaining >= unit and total_ev > 0:
+        for i, bet in enumerate(bets):
+            if remaining < unit:
+                break
+            share = int(math.floor(remaining * evs[i] / total_ev / unit) * unit)
+            if share >= unit:
+                bet["amount"] += share
+                remaining -= share
 
     return bets
 
@@ -1292,12 +1138,7 @@ def _generate_bet_proposal_impl(
     if use_bankroll:
         bets = _allocate_budget_dutching(bets, effective_budget)
     else:
-        bets = _allocate_budget(
-            bets, effective_budget,
-            allocation_high=config["allocation_high"],
-            allocation_medium=config["allocation_medium"],
-            allocation_low=config["allocation_low"],
-        )
+        bets = _allocate_budget(bets, effective_budget)
 
     # 合計金額
     total_amount = sum(b.get("amount", 0) for b in bets)
@@ -1416,7 +1257,6 @@ def _build_narration_context(
                 "horse_numbers": b.get("horse_numbers", []),
                 "expected_value": b.get("expected_value", 0),
                 "composite_odds": float(b.get("composite_odds", 0)),
-                "confidence": b.get("confidence", ""),
             }
             for b in bets
         ],
@@ -1527,7 +1367,7 @@ def _generate_proposal_reasoning_template(
         if odds and odds > 0:
             details.append(f"単勝オッズ{float(odds):.1f}倍")
         if ai_rank <= 3:
-            details.append("AI指数が上位で信頼度が高い")
+            details.append("AI指数が上位")
         if speed_index_data:
             si_score = _calculate_speed_index_score(hn, speed_index_data)
             if si_score is not None:
@@ -1598,9 +1438,7 @@ def _generate_proposal_reasoning_template(
     # --- リスク ---
     risk_parts = []
     risk_parts.append(f"AI合議「{ai_consensus}」")
-    if ai_consensus in ("明確な上位", "概ね合意"):
-        risk_parts.append("上位馬の信頼度は高い")
-    elif ai_consensus == "混戦":
+    if ai_consensus == "混戦":
         risk_parts.append("上位馬の力差が小さく波乱含み")
 
     # トリガミリスクの確認（Decimal対策でfloat変換、閾値は定数を使用）
@@ -1694,7 +1532,7 @@ def generate_bet_proposal(
     軸馬選定 → 券種選定 → 買い目生成 → 予算配分を自動で行う。
 
     bankroll指定時はダッチング方式（均等払い戻し配分）で配分する。
-    budget指定時は従来の信頼度別配分を使用する。
+    budget指定時はEV比例配分を使用する。
 
     Args:
         race_id: レースID (例: "202602010511")

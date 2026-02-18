@@ -7,34 +7,15 @@ interface ProposalCardProps {
   isAdded: boolean;
 }
 
-const confidenceColors: Record<string, string> = {
-  high: '#1a5f2a',
-  medium: '#f59e0b',
-  low: '#9ca3af',
-};
-
-const confidenceLabels: Record<string, string> = {
-  high: '高',
-  medium: '中',
-  low: '低',
-};
-
 const MIN_CONFIRMED_ODDS = 1.0;
 
 export function ProposalCard({ bet, onAddToCart, isAdded }: ProposalCardProps) {
-  const borderColor = confidenceColors[bet.confidence] || '#9ca3af';
   const isOddsConfirmed = bet.composite_odds >= MIN_CONFIRMED_ODDS;
 
   return (
-    <div className="proposal-card" style={{ borderLeftColor: borderColor }}>
+    <div className="proposal-card">
       <div className="proposal-card-header">
         <span className="proposal-bet-type">{BetTypeLabels[bet.bet_type]}</span>
-        <span
-          className="proposal-confidence"
-          style={{ color: borderColor }}
-        >
-          信頼度: {confidenceLabels[bet.confidence]}
-        </span>
       </div>
       <div className="proposal-card-body">
         <div className="proposal-bet-display">{bet.bet_display}</div>

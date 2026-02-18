@@ -9,7 +9,6 @@ const mockBet: ProposedBet = {
   bet_display: '1-2',
   amount: 1000,
   bet_count: 1,
-  confidence: 'high',
   expected_value: 1.2,
   composite_odds: 5.0,
   reasoning: 'テスト根拠テキスト',
@@ -23,7 +22,6 @@ describe('ProposalCard', () => {
 
     expect(screen.getByText('1-2')).toBeInTheDocument()
     expect(screen.getByText('テスト根拠テキスト')).toBeInTheDocument()
-    expect(screen.getByText('信頼度: 高')).toBeInTheDocument()
   })
 
   it('カートに追加ボタンが動作する', async () => {
