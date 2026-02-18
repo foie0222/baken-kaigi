@@ -28,6 +28,7 @@ class TestDynamoDBAgentSerialization:
             "min_ev": 0.0,
             "max_probability": None,
             "max_ev": None,
+            "race_budget": 0,
         }
         assert item["custom_instructions"] == "三連単が好き"
 

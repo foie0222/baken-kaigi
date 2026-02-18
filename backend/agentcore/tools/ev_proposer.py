@@ -338,6 +338,10 @@ def _propose_bets_impl(
     runners_map = {int(r.get("horse_number", 0)): r for r in runners_data}
     bet_types = preferred_bet_types or DEFAULT_BET_TYPES
 
+    # budget=0 の場合、好み設定の race_budget をフォールバックとして使う
+    if budget == 0 and _current_betting_preference:
+        budget = int(_current_betting_preference.get("race_budget", 0))
+
     use_bankroll = bankroll > 0
 
     # 0. 実オッズ取得

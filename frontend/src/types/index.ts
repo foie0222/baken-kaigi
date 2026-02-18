@@ -509,6 +509,7 @@ export interface BettingPreference {
   min_ev?: number;
   max_probability?: number | null;
   max_ev?: number | null;
+  race_budget?: number;  // 1レースあたりの予算（円）
 }
 
 // エージェント

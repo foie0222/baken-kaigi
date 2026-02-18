@@ -522,3 +522,72 @@ class TestEvFilterIntegration:
             assert bet["expected_value"] >= 2.0
 
         set_betting_preference(None)
+
+
+class TestRaceBudgetFallback:
+    """好み設定の race_budget フォールバックのテスト."""
+
+    @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
+    def test_budget未指定時に好み設定のrace_budgetが使われる(self, mock_narrator):
+        """budget=0 のとき _current_betting_preference の race_budget を使う."""
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({"race_budget": 5000, "min_ev": 0.0})
+
+        runners = _make_runners(4)
+        win_probs = {1: 0.40, 2: 0.25, 3: 0.20, 4: 0.15}
+
+        result = _propose_bets_impl(
+            race_id="test",
+            win_probabilities=win_probs,
+            runners_data=runners,
+            total_runners=4,
+            budget=0,
+            all_odds=_make_all_odds(runners),
+        )
+
+        assert result["total_amount"] > 0
+
+        set_betting_preference(None)
+
+    @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
+    def test_budgetが明示指定されていればrace_budgetは使われない(self, mock_narrator):
+        """budget > 0 のときは好み設定の race_budget より明示budgetが優先."""
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference({"race_budget": 10000, "min_ev": 0.0})
+
+        runners = _make_runners(4)
+        win_probs = {1: 0.40, 2: 0.25, 3: 0.20, 4: 0.15}
+
+        result = _propose_bets_impl(
+            race_id="test",
+            win_probabilities=win_probs,
+            runners_data=runners,
+            total_runners=4,
+            budget=3000,
+            all_odds=_make_all_odds(runners),
+        )
+
+        # 3000円予算で配分される（10000円ではない）
+        assert result["total_amount"] <= 3000
+
+        set_betting_preference(None)
+
+    @patch("tools.ev_proposer._invoke_haiku_narrator", return_value=None)
+    def test_好み設定なしでbudget0なら金額0(self, mock_narrator):
+        """好み設定がなくbudget=0の場合はtotal_amount=0."""
+        from tools.ev_proposer import set_betting_preference
+        set_betting_preference(None)
+
+        runners = _make_runners(4)
+        win_probs = {1: 0.40, 2: 0.25, 3: 0.20, 4: 0.15}
+
+        result = _propose_bets_impl(
+            race_id="test",
+            win_probabilities=win_probs,
+            runners_data=runners,
+            total_runners=4,
+            budget=0,
+            all_odds=_make_all_odds(runners),
+        )
+
+        assert result["total_amount"] == 0

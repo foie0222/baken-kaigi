@@ -274,6 +274,7 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
   );
   const [minEv, setMinEv] = useState<number>(agent.betting_preference?.min_ev ?? 0);
   const [maxEv, setMaxEv] = useState<number>(agent.betting_preference?.max_ev ?? 10.0);
+  const [raceBudget, setRaceBudget] = useState<number>(agent.betting_preference?.race_budget ?? 0);
 
   return (
     <div style={{
@@ -343,6 +344,59 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
         onMaxChange={setMaxEv}
       />
 
+      {/* 1レースあたりの予算 */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>1レースあたりの予算</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          {[1000, 3000, 5000, 10000].map((amount) => {
+            const isSelected = raceBudget === amount;
+            return (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => setRaceBudget(amount)}
+                aria-pressed={isSelected}
+                style={{
+                  fontSize: 13,
+                  fontWeight: isSelected ? 600 : 400,
+                  color: isSelected ? '#1a73e8' : '#555',
+                  background: isSelected ? '#e8f0fe' : '#f5f5f5',
+                  border: isSelected ? '1.5px solid #1a73e8' : '1.5px solid transparent',
+                  borderRadius: 20,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {amount.toLocaleString()}円
+              </button>
+            );
+          })}
+        </div>
+        <input
+          type="number"
+          min={0}
+          max={1000000}
+          step={100}
+          value={raceBudget || ''}
+          placeholder="自由入力（円）"
+          onChange={(e) => {
+            const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+            if (!isNaN(val) && val >= 0 && val <= 1000000) {
+              setRaceBudget(val);
+            }
+          }}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            fontSize: 13,
+            border: '1px solid #e5e7eb',
+            borderRadius: 8,
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+
       {/* 追加指示 */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -388,6 +442,7 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
               min_ev: minEv,
               max_probability: maxProb >= 50 ? null : maxProb / 100,
               max_ev: maxEv >= 10.0 ? null : maxEv,
+              race_budget: raceBudget > 0 ? raceBudget : undefined,
             },
             customInstructions === '' ? null : customInstructions,
           );
