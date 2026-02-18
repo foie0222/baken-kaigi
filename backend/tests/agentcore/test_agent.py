@@ -317,8 +317,8 @@ class TestInjectBetProposalSeparator:
 class TestReplaceOrInjectBetProposalJson:
     """replace_or_inject_bet_proposal_json 関数のテスト."""
 
-    def test_LLMが截頭したJSONをキャッシュで置換する(self):
-        """LLMがセパレータ付きで截頭JSON出力した場合、キャッシュの全件で置換する."""
+    def test_LLMが切り詰めたJSONをキャッシュで置換する(self):
+        """LLMがセパレータ付きで切り詰めたJSON出力した場合、キャッシュの全件で置換する."""
         llm_truncated = json.dumps(
             {"proposed_bets": [{"bet_type": "win", "horse_numbers": [1]}]},
             ensure_ascii=False,
@@ -343,6 +343,8 @@ class TestReplaceOrInjectBetProposalJson:
         json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
         parsed = json.loads(json_part)
         assert len(parsed["proposed_bets"]) == 3
+        # LLMが出力した切り詰め版JSON文字列は結果に含まれない
+        assert llm_truncated not in result
 
     def test_セパレータがない場合はキャッシュを注入する(self):
         """LLMがセパレータを出力しなかった場合、キャッシュを注入する."""
@@ -383,6 +385,27 @@ class TestReplaceOrInjectBetProposalJson:
         result = replace_or_inject_bet_proposal_json(llm_text, cached_error)
 
         assert result == llm_text
+
+    def test_セパレータ前後に余分な空白と改行があってもキャッシュなしならそのまま(self):
+        """LLMがセパレータ前後に余分な改行を含めても、キャッシュなしなら変更しない."""
+        llm_json = json.dumps({"proposed_bets": [{"bet_type": "win"}]})
+        llm_text = f"分析行1\n\n分析行2  \n   \n{BET_PROPOSALS_SEPARATOR}\n\n   {llm_json}\n\n"
+
+        result = replace_or_inject_bet_proposal_json(llm_text, None)
+
+        assert result == llm_text
+
+    def test_LLM出力が空白のみでもキャッシュJSONを注入する(self):
+        """LLM出力が空白のみでも、キャッシュがあればセパレータ付きJSONを注入する."""
+        llm_text = "   \n\n\t  "
+        cached = {"proposed_bets": [{"bet_type": "win"}, {"bet_type": "place"}]}
+
+        result = replace_or_inject_bet_proposal_json(llm_text, cached)
+
+        assert BET_PROPOSALS_SEPARATOR in result
+        json_part = result.split(BET_PROPOSALS_SEPARATOR, 1)[1].strip()
+        parsed = json.loads(json_part)
+        assert len(parsed["proposed_bets"]) == 2
 
 
 # =============================================================================

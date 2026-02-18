@@ -39,7 +39,7 @@ def replace_or_inject_bet_proposal_json(
 ) -> str:
     """キャッシュされたツール結果で買い目JSONを常に置換する.
 
-    LLMがセパレータ付きで截頭JSONを出力するケースに対応。
+    LLMがセパレータ付きで切り詰められた（truncated）JSONを出力するケースに対応。
     キャッシュがある場合はLLMのJSON部分を捨ててキャッシュで置換する。
 
     Args:
