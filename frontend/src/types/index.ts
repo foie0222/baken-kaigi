@@ -418,7 +418,6 @@ export interface ProposedBet {
   amount: number;
   bet_count: number;
   bet_display: string;
-  confidence: 'high' | 'medium' | 'low';
   expected_value: number;
   composite_odds: number;
   reasoning: string;

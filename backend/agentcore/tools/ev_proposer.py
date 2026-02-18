@@ -220,13 +220,6 @@ def _build_candidate(
     runners_map: dict,
 ) -> dict:
     """買い目候補の辞書を構築する."""
-    if ev >= 1.5:
-        confidence = "high"
-    elif ev >= 1.2:
-        confidence = "medium"
-    else:
-        confidence = "low"
-
     names = [runners_map.get(hn, {}).get("horse_name", f"{hn}番") for hn in horse_numbers]
     bet_type_name = BET_TYPE_NAMES.get(bet_type, bet_type)
 
@@ -243,7 +236,6 @@ def _build_candidate(
         "amount": 0,
         "bet_count": 1,
         "bet_display": display,
-        "confidence": confidence,
         "expected_value": round(ev, 2),
         "composite_odds": round(estimated_odds, 1),
         "combination_probability": round(probability, 6),

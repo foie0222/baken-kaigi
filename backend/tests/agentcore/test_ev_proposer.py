@@ -244,7 +244,6 @@ class TestProposeBetsImpl:
             assert "bet_type" in bet
             assert "horse_numbers" in bet
             assert "amount" in bet
-            assert "confidence" in bet
             assert "expected_value" in bet
             assert "composite_odds" in bet
             assert "reasoning" in bet

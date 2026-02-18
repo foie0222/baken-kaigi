@@ -51,7 +51,6 @@ export interface AgentCoreConsultationResponse {
   session_id: string;
   suggested_questions?: string[];
   bet_actions?: BetAction[];
-  confidence?: number;
 }
 
 class ApiClient {
