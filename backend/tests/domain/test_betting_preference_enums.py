@@ -107,5 +107,7 @@ class TestBettingPreference:
             "max_ev": None,
         }
         pref = BettingPreference.from_dict(data)
+        assert pref.min_probability == 0.05
+        assert pref.min_ev == 1.5
         assert pref.max_probability is None
         assert pref.max_ev is None

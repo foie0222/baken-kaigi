@@ -148,7 +148,7 @@ def _update_agent(event: dict) -> dict:
         if sbt is not None:
             if not isinstance(sbt, list):
                 return bad_request_response("selected_bet_types must be a list", event=event)
-            if any(t not in _VALID_BET_TYPES for t in sbt):
+            if any(not isinstance(t, str) or t not in _VALID_BET_TYPES for t in sbt):
                 return bad_request_response(
                     f"selected_bet_types must contain only: {', '.join(sorted(_VALID_BET_TYPES))}", event=event
                 )

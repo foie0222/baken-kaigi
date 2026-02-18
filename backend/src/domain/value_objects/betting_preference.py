@@ -40,7 +40,7 @@ class BettingPreference:
         max_ev_raw = data.get("max_ev")
         raw_types = data.get("selected_bet_types")
         return cls(
-            selected_bet_types=list(raw_types) if raw_types else [],
+            selected_bet_types=list(raw_types) if isinstance(raw_types, (list, tuple)) else [],
             min_probability=float(data.get("min_probability", 0.0)),
             min_ev=float(data.get("min_ev", 0.0)),
             max_probability=float(max_prob_raw) if max_prob_raw is not None else None,
