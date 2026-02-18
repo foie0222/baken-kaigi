@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgentStore } from '../stores/agentStore';
-import { BET_TYPE_PREFERENCE_OPTIONS } from '../constants/bettingPreferences';
 import { apiClient } from '../api/client';
-import type { Agent, AgentReview, BetTypePreference } from '../types';
+import type { Agent, AgentReview, BetType } from '../types';
+import { BetTypeLabels } from '../types';
 
 function ReviewCard({ review }: { review: AgentReview }) {
   return (
@@ -263,7 +263,14 @@ function RangeSlider({
 function BettingPreferenceForm({ agent }: { agent: Agent }) {
   const { updateAgent } = useAgentStore();
 
-  const [betTypePref, setBetTypePref] = useState<BetTypePreference>(agent.betting_preference?.bet_type_preference ?? 'auto');
+  const [selectedBetTypes, setSelectedBetTypes] = useState<BetType[]>(
+    agent.betting_preference?.selected_bet_types ?? []
+  );
+  const toggleBetType = (bt: BetType) => {
+    setSelectedBetTypes(prev =>
+      prev.includes(bt) ? prev.filter(t => t !== bt) : [...prev, bt]
+    );
+  };
   const [customInstructions, setCustomInstructions] = useState<string>(agent.custom_instructions ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -287,17 +294,17 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
         好み設定
       </h3>
 
-      {/* 券種の好み */}
+      {/* 購入する券種 */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>券種の好み</div>
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>購入する券種</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {BET_TYPE_PREFERENCE_OPTIONS.map((opt) => {
-            const isSelected = betTypePref === opt.value;
+          {(Object.entries(BetTypeLabels) as [BetType, string][]).map(([value, label]) => {
+            const isSelected = selectedBetTypes.includes(value);
             return (
               <button
-                key={opt.value}
+                key={value}
                 type="button"
-                onClick={() => setBetTypePref(opt.value)}
+                onClick={() => toggleBetType(value)}
                 aria-pressed={isSelected}
                 style={{
                   fontSize: 13,
@@ -311,7 +318,7 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
                   transition: 'all 0.15s',
                 }}
               >
-                {opt.label}
+                {label}
               </button>
             );
           })}
@@ -437,7 +444,7 @@ function BettingPreferenceForm({ agent }: { agent: Agent }) {
           setIsSaving(true);
           const success = await updateAgent(
             {
-              bet_type_preference: betTypePref,
+              selected_bet_types: selectedBetTypes,
               min_probability: minProb / 100,
               min_ev: minEv,
               max_probability: maxProb >= 50 ? null : maxProb / 100,

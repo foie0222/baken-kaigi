@@ -594,7 +594,7 @@ class TestFetchAgentData:
 
         mock_table = MagicMock()
         mock_table.query.return_value = {
-            "Items": [{"user_id": "abc-123", "betting_preference": {"bet_type_preference": "trio_focused"}}],
+            "Items": [{"user_id": "abc-123", "betting_preference": {"selected_bet_types": ["trio", "trifecta"]}}],
         }
         mock_resource = MagicMock()
         mock_resource.Table.return_value = mock_table
@@ -604,7 +604,7 @@ class TestFetchAgentData:
 
         assert result is not None
         assert result["user_id"] == "abc-123"
-        assert result["betting_preference"]["bet_type_preference"] == "trio_focused"
+        assert result["betting_preference"]["selected_bet_types"] == ["trio", "trifecta"]
         mock_table.query.assert_called_once()
         # GSI名を確認
         call_kwargs = mock_table.query.call_args.kwargs

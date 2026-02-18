@@ -103,7 +103,7 @@ class TestUpdateAgent:
             path="/agents/me",
             body={
                 "betting_preference": {
-                    "bet_type_preference": "trio_focused",
+                    "selected_bet_types": ["trio", "trifecta"],
                 },
             },
         )
@@ -111,10 +111,10 @@ class TestUpdateAgent:
         assert response["statusCode"] == 200
 
         body = json.loads(response["body"])
-        assert body["betting_preference"]["bet_type_preference"] == "trio_focused"
+        assert body["betting_preference"]["selected_bet_types"] == ["trio", "trifecta"]
 
     def test_未作成は404(self):
-        event = _make_event(method="PUT", path="/agents/me", body={"betting_preference": {"bet_type_preference": "auto"}})
+        event = _make_event(method="PUT", path="/agents/me", body={"betting_preference": {"selected_bet_types": []}})
         response = agent_handler(event, None)
         assert response["statusCode"] == 404
 
@@ -131,7 +131,7 @@ class TestUpdateAgentPreference:
             path="/agents/me",
             body={
                 "betting_preference": {
-                    "bet_type_preference": "trio_focused",
+                    "selected_bet_types": ["trio", "trifecta"],
                 },
                 "custom_instructions": "三連単が好き",
             },
@@ -139,7 +139,7 @@ class TestUpdateAgentPreference:
         response = agent_handler(event, None)
         body = json.loads(response["body"])
         assert response["statusCode"] == 200
-        assert body["betting_preference"]["bet_type_preference"] == "trio_focused"
+        assert body["betting_preference"]["selected_bet_types"] == ["trio", "trifecta"]
         assert body["custom_instructions"] == "三連単が好き"
 
     def test_GETで好み設定が含まれる(self):
@@ -151,7 +151,7 @@ class TestUpdateAgentPreference:
         body = json.loads(response["body"])
         assert response["statusCode"] == 200
         assert body["betting_preference"] == {
-            "bet_type_preference": "auto",
+            "selected_bet_types": [],
             "min_probability": 0.0,
             "min_ev": 0.0,
             "max_probability": None,
@@ -169,7 +169,7 @@ class TestUpdateAgentPreference:
             path="/agents/me",
             body={
                 "betting_preference": {
-                    "bet_type_preference": "auto",
+                    "selected_bet_types": [],
                     "min_probability": 0.05,
                     "min_ev": 1.5,
                 },
@@ -301,7 +301,7 @@ class TestUpdateAgentPreference:
             path="/agents/me",
             body={
                 "betting_preference": {
-                    "bet_type_preference": "auto",
+                    "selected_bet_types": [],
                 },
                 "custom_instructions": "あ" * 201,
             },
@@ -318,7 +318,7 @@ class TestUpdateAgentPreference:
             path="/agents/me",
             body={
                 "betting_preference": {
-                    "bet_type_preference": "auto",
+                    "selected_bet_types": [],
                     "race_budget": 5000,
                 },
             },

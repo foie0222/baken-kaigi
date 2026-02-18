@@ -38,22 +38,14 @@ def set_betting_preference(preference: dict | None) -> None:
     _current_betting_preference = preference
 
 
-_BET_TYPE_PREFERENCE_MAP: dict[str, list[str]] = {
-    "trio_focused": ["trio", "trifecta"],
-    "exacta_focused": ["exacta", "quinella", "quinella_place"],
-    "quinella_focused": ["quinella", "quinella_place"],
-    "wide_focused": ["quinella_place", "quinella"],
-}
-
-
 def _resolve_bet_types(betting_preference: dict | None) -> list[str]:
-    """好み設定から preferred_bet_types を解決する."""
+    """好み設定から対象券種を解決する."""
     if not betting_preference:
         return DEFAULT_BET_TYPES
-    pref = betting_preference.get("bet_type_preference")
-    if not pref or pref == "auto":
+    selected = betting_preference.get("selected_bet_types")
+    if not selected:
         return DEFAULT_BET_TYPES
-    return _BET_TYPE_PREFERENCE_MAP.get(pref, DEFAULT_BET_TYPES)
+    return list(selected)
 
 
 def _resolve_ev_filter(

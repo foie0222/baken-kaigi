@@ -114,7 +114,7 @@ def _get_agent(event: dict) -> dict:
     return success_response(_agent_to_dict(result.agent), event=event)
 
 
-_VALID_BET_TYPE_PREFERENCES = ("trio_focused", "exacta_focused", "quinella_focused", "wide_focused", "auto")
+_VALID_BET_TYPES = {"win", "place", "quinella", "quinella_place", "exacta", "trio", "trifecta"}
 
 
 def _update_agent(event: dict) -> dict:
@@ -144,11 +144,14 @@ def _update_agent(event: dict) -> dict:
     if betting_preference is not None:
         if not isinstance(betting_preference, dict):
             return bad_request_response("betting_preference must be an object", event=event)
-        btp = betting_preference.get("bet_type_preference")
-        if btp is not None and btp not in _VALID_BET_TYPE_PREFERENCES:
-            return bad_request_response(
-                f"bet_type_preference must be one of: {', '.join(_VALID_BET_TYPE_PREFERENCES)}", event=event
-            )
+        sbt = betting_preference.get("selected_bet_types")
+        if sbt is not None:
+            if not isinstance(sbt, list):
+                return bad_request_response("selected_bet_types must be a list", event=event)
+            if any(not isinstance(t, str) or t not in _VALID_BET_TYPES for t in sbt):
+                return bad_request_response(
+                    f"selected_bet_types must contain only: {', '.join(sorted(_VALID_BET_TYPES))}", event=event
+                )
         # 確率フィルター バリデーション
         min_prob = betting_preference.get("min_probability")
         if min_prob is not None:

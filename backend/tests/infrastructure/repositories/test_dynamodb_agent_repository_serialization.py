@@ -1,6 +1,5 @@
 """DynamoDBリポジトリのシリアライズテスト."""
 from src.domain.entities import Agent
-from src.domain.enums import BetTypePreference
 from src.domain.identifiers import AgentId, UserId
 from src.domain.value_objects import AgentName, BettingPreference
 from src.infrastructure.repositories.dynamodb_agent_repository import DynamoDBAgentRepository
@@ -17,13 +16,13 @@ class TestDynamoDBAgentSerialization:
         )
         agent.update_preference(
             BettingPreference(
-                bet_type_preference=BetTypePreference.TRIO_FOCUSED,
+                selected_bet_types=["trio", "trifecta"],
             ),
             "三連単が好き",
         )
         item = DynamoDBAgentRepository._to_dynamodb_item(agent)
         assert item["betting_preference"] == {
-            "bet_type_preference": "trio_focused",
+            "selected_bet_types": ["trio", "trifecta"],
             "min_probability": 0.0,
             "min_ev": 0.0,
             "max_probability": None,
@@ -38,14 +37,14 @@ class TestDynamoDBAgentSerialization:
             "user_id": "usr_001",
             "name": "ハヤテ",
             "betting_preference": {
-                "bet_type_preference": "trio_focused",
+                "selected_bet_types": ["trio", "trifecta"],
             },
             "custom_instructions": "三連単が好き",
             "created_at": "2026-01-01T00:00:00+00:00",
             "updated_at": "2026-01-01T00:00:00+00:00",
         }
         agent = DynamoDBAgentRepository._from_dynamodb_item(item)
-        assert agent.betting_preference.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert agent.betting_preference.selected_bet_types == ["trio", "trifecta"]
         assert agent.custom_instructions == "三連単が好き"
 
     def test_好み設定なしの既存アイテムから復元するとデフォルト(self):
@@ -74,14 +73,14 @@ class TestDynamoDBAgentSerialization:
                 "total_return": 0,
             },
             "betting_preference": {
-                "bet_type_preference": "trio_focused",
+                "selected_bet_types": ["trio", "trifecta"],
             },
             "custom_instructions": "三連単が好き",
             "created_at": "2026-01-01T00:00:00+00:00",
             "updated_at": "2026-01-01T00:00:00+00:00",
         }
         agent = DynamoDBAgentRepository._from_dynamodb_item(item)
-        assert agent.betting_preference.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert agent.betting_preference.selected_bet_types == ["trio", "trifecta"]
         assert agent.custom_instructions == "三連単が好き"
 
     def test_旧データにtarget_styleとpriorityが含まれていても復元できる(self):
@@ -90,7 +89,7 @@ class TestDynamoDBAgentSerialization:
             "user_id": "usr_001",
             "name": "ハヤテ",
             "betting_preference": {
-                "bet_type_preference": "trio_focused",
+                "selected_bet_types": ["trio", "trifecta"],
                 "target_style": "big_longshot",
                 "priority": "roi",
             },
@@ -99,7 +98,7 @@ class TestDynamoDBAgentSerialization:
             "updated_at": "2026-01-01T00:00:00+00:00",
         }
         agent = DynamoDBAgentRepository._from_dynamodb_item(item)
-        assert agent.betting_preference.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert agent.betting_preference.selected_bet_types == ["trio", "trifecta"]
         assert agent.custom_instructions == "三連単が好き"
 
     def test_非デフォルトのフィルター設定をシリアライズ復元できる(self):
@@ -110,7 +109,6 @@ class TestDynamoDBAgentSerialization:
         )
         agent.update_preference(
             BettingPreference(
-                bet_type_preference=BetTypePreference.AUTO,
                 min_probability=0.03,
                 min_ev=1.5,
                 max_probability=0.25,
@@ -136,7 +134,6 @@ class TestDynamoDBAgentSerialization:
         )
         agent.update_preference(
             BettingPreference(
-                bet_type_preference=BetTypePreference.AUTO,
                 min_probability=0.05,
                 min_ev=1.5,
                 max_probability=0.25,
@@ -174,7 +171,6 @@ class TestDynamoDBAgentSerialization:
         )
         agent.update_preference(
             BettingPreference(
-                bet_type_preference=BetTypePreference.AUTO,
                 min_probability=0.05,
                 min_ev=1.0,
             ),

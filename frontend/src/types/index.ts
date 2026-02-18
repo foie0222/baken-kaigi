@@ -501,10 +501,8 @@ export interface LossLimitCheckResult {
 }
 
 // 好み設定
-export type BetTypePreference = 'trio_focused' | 'exacta_focused' | 'quinella_focused' | 'wide_focused' | 'auto';
-
 export interface BettingPreference {
-  bet_type_preference: BetTypePreference;
+  selected_bet_types: BetType[];
   min_probability?: number;
   min_ev?: number;
   max_probability?: number | null;

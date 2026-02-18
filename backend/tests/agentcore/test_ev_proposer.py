@@ -387,30 +387,16 @@ class TestResolveBetTypes:
     def test_空辞書の場合はデフォルト券種(self):
         assert _resolve_bet_types({}) == DEFAULT_BET_TYPES
 
-    def test_autoの場合はデフォルト券種(self):
-        assert _resolve_bet_types({"bet_type_preference": "auto"}) == DEFAULT_BET_TYPES
+    def test_selected_bet_typesが空の場合はデフォルト券種(self):
+        assert _resolve_bet_types({"selected_bet_types": []}) == DEFAULT_BET_TYPES
 
-    def test_trio_focusedの場合は三連系(self):
-        result = _resolve_bet_types({"bet_type_preference": "trio_focused"})
-        assert "trio" in result
-        assert "trifecta" in result
+    def test_selected_bet_typesが指定されている場合はそのまま返す(self):
+        result = _resolve_bet_types({"selected_bet_types": ["win", "trio"]})
+        assert result == ["win", "trio"]
 
-    def test_exacta_focusedの場合は馬単系(self):
-        result = _resolve_bet_types({"bet_type_preference": "exacta_focused"})
-        assert "exacta" in result
-        assert "quinella" in result
-
-    def test_quinella_focusedの場合は馬連系(self):
-        result = _resolve_bet_types({"bet_type_preference": "quinella_focused"})
-        assert "quinella" in result
-        assert "quinella_place" in result
-
-    def test_wide_focusedの場合はワイド系(self):
-        result = _resolve_bet_types({"bet_type_preference": "wide_focused"})
-        assert "quinella_place" in result
-
-    def test_不明な値の場合はデフォルト券種(self):
-        assert _resolve_bet_types({"bet_type_preference": "unknown"}) == DEFAULT_BET_TYPES
+    def test_selected_bet_types単一券種(self):
+        result = _resolve_bet_types({"selected_bet_types": ["quinella_place"]})
+        assert result == ["quinella_place"]
 
 
 class TestResolveEvFilter:
@@ -426,7 +412,7 @@ class TestResolveEvFilter:
 
     def test_フィルター値が反映される(self):
         pref = {
-            "bet_type_preference": "auto",
+            "selected_bet_types": [],
             "min_probability": 0.05,
             "min_ev": 1.5,
             "max_probability": 0.30,

@@ -67,7 +67,7 @@ const mockAgentObj: Agent = {
   agent_id: 'agent_001',
   user_id: 'user_001',
   name: 'うまもん',
-  betting_preference: { bet_type_preference: 'auto' },
+  betting_preference: { selected_bet_types: [] },
   created_at: '2024-01-01T00:00:00',
   updated_at: '2024-01-01T00:00:00',
 }

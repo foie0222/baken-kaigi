@@ -1,16 +1,14 @@
 """好み設定値オブジェクト."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-from ..enums import BetTypePreference
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
 class BettingPreference:
     """ユーザーの馬券購入好み設定."""
 
-    bet_type_preference: BetTypePreference
+    selected_bet_types: list[str] = field(default_factory=list)
     min_probability: float = 0.0
     min_ev: float = 0.0
     max_probability: float | None = None
@@ -20,14 +18,12 @@ class BettingPreference:
     @classmethod
     def default(cls) -> BettingPreference:
         """デフォルト値で作成する."""
-        return cls(
-            bet_type_preference=BetTypePreference.AUTO,
-        )
+        return cls()
 
     def to_dict(self) -> dict:
         """辞書に変換する."""
         return {
-            "bet_type_preference": self.bet_type_preference.value,
+            "selected_bet_types": list(self.selected_bet_types),
             "min_probability": self.min_probability,
             "min_ev": self.min_ev,
             "max_probability": self.max_probability,
@@ -42,8 +38,9 @@ class BettingPreference:
             return cls.default()
         max_prob_raw = data.get("max_probability")
         max_ev_raw = data.get("max_ev")
+        raw_types = data.get("selected_bet_types")
         return cls(
-            bet_type_preference=BetTypePreference(data.get("bet_type_preference", "auto")),
+            selected_bet_types=list(raw_types) if isinstance(raw_types, (list, tuple)) else [],
             min_probability=float(data.get("min_probability", 0.0)),
             min_ev=float(data.get("min_ev", 0.0)),
             max_probability=float(max_prob_raw) if max_prob_raw is not None else None,

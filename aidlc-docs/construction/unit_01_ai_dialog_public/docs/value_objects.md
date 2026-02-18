@@ -26,8 +26,7 @@
 | 列挙 | LossLimitChangeStatus | 限度額変更ステータス |
 | コア | LossLimitCheckResult | 限度額チェック結果 |
 | 参照 | RaceReference | レースへの参照情報 |
-| エージェント | BettingPreference | ユーザーの馬券購入好み設定 |
-| 列挙 | BetTypePreference | 券種の好み |
+| エージェント | BettingPreference | ユーザーの馬券購入好み設定（購入券種を直接選択） |
 | 列挙 | TargetStyle | 狙い方 |
 | 列挙 | BettingPriority | 重視ポイント |
 

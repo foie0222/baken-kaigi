@@ -2,7 +2,6 @@
 import pytest
 
 from src.domain.entities import Agent
-from src.domain.enums import BetTypePreference
 from src.domain.identifiers import AgentId, UserId
 from src.domain.value_objects import AgentName, BettingPreference
 
@@ -68,11 +67,11 @@ class TestAgentBettingPreference:
             name=AgentName("ハヤテ"),
         )
         new_pref = BettingPreference(
-            bet_type_preference=BetTypePreference.TRIO_FOCUSED,
+            selected_bet_types=["trio", "trifecta"],
         )
         agent.update_preference(new_pref, "三連単の1着固定が好き")
 
-        assert agent.betting_preference.bet_type_preference == BetTypePreference.TRIO_FOCUSED
+        assert agent.betting_preference.selected_bet_types == ["trio", "trifecta"]
         assert agent.custom_instructions == "三連単の1着固定が好き"
 
     def test_custom_instructionsは200文字以内(self):
@@ -98,7 +97,7 @@ class TestAgentBettingPreference:
 
     def test_to_dictにrace_budgetが含まれる(self):
         pref = BettingPreference(
-            bet_type_preference=BetTypePreference.AUTO,
+            selected_bet_types=["trio", "trifecta"],
             race_budget=5000,
         )
         d = pref.to_dict()
@@ -106,13 +105,13 @@ class TestAgentBettingPreference:
 
     def test_from_dictでrace_budgetが復元される(self):
         data = {
-            "bet_type_preference": "auto",
+            "selected_bet_types": ["trio", "trifecta"],
             "race_budget": 3000,
         }
         pref = BettingPreference.from_dict(data)
         assert pref.race_budget == 3000
 
     def test_from_dictでrace_budget省略時はデフォルト0(self):
-        data = {"bet_type_preference": "auto"}
+        data = {"selected_bet_types": ["trio"]}
         pref = BettingPreference.from_dict(data)
         assert pref.race_budget == 0
