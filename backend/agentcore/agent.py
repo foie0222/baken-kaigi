@@ -228,24 +228,31 @@ def _extract_bet_actions(text: str) -> tuple[str, list[dict]]:
 
 
 def _ensure_bet_proposal_separator(message_text: str) -> str:
-    """買い目提案のセパレータが欠落している場合、ツール結果キャッシュから復元する."""
-    from response_utils import BET_PROPOSALS_SEPARATOR, inject_bet_proposal_separator
+    """ツール結果キャッシュで買い目JSONを常に置換する.
+
+    LLMがセパレータ付きで切り詰められた（truncated）JSONを出力するケースがあるため、
+    キャッシュがある場合は常にキャッシュの全件データで置換する。
+    """
+    from response_utils import BET_PROPOSALS_SEPARATOR, replace_or_inject_bet_proposal_json
     from tools.bet_proposal import get_last_proposal_result
     from tools.ev_proposer import get_last_ev_proposal_result
 
-    # セパレータ有無に関わらず、呼び出し単位でツール結果キャッシュを必ず取得して消費する
+    # 呼び出し単位でツール結果キャッシュを必ず取得して消費する
     cached_result = get_last_proposal_result()
     cached_ev_result = get_last_ev_proposal_result()
 
-    if BET_PROPOSALS_SEPARATOR in message_text:
-        return message_text
-
     # EVプロポーザルのキャッシュを優先（新フロー）、なければ既存キャッシュ
     effective_result = cached_ev_result or cached_result
-    if effective_result is not None:
-        logger.info("BET_PROPOSALS_JSON separator missing, restoring from cached tool result")
 
-    return inject_bet_proposal_separator(message_text, effective_result)
+    has_separator = BET_PROPOSALS_SEPARATOR in message_text
+    has_cache = effective_result is not None and "error" not in effective_result
+
+    if has_cache and has_separator:
+        logger.info("LLM output contains truncated JSON, replacing with cached tool result")
+    elif has_cache and not has_separator:
+        logger.info("BET_PROPOSALS_JSON separator missing, injecting cached tool result")
+
+    return replace_or_inject_bet_proposal_json(message_text, effective_result)
 
 
 # DynamoDB リソース（コネクション再利用）
