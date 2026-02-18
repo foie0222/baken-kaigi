@@ -416,9 +416,8 @@ class BakenKaigiApiStack(Stack):
                     "bedrock:InvokeModelWithResponseStream",
                 ],
                 resources=[
-                    f"arn:aws:bedrock:*::foundation-model/*",
-                    f"arn:aws:bedrock:*:*:inference-profile/*",
-                    f"arn:aws:bedrock:{self.region}:{self.account}:*",
+                    f"arn:aws:bedrock:{self.region}::foundation-model/*",
+                    f"arn:aws:bedrock:{self.region}:*:inference-profile/*",
                 ],
             )
         )
@@ -432,12 +431,6 @@ class BakenKaigiApiStack(Stack):
                     "logs:PutLogEvents",
                     "logs:DescribeLogStreams",
                     "logs:DescribeLogGroups",
-                    "logs:PutDeliverySource",
-                    "logs:PutDeliveryDestination",
-                    "logs:CreateDelivery",
-                    "logs:GetDeliverySource",
-                    "logs:DeleteDeliverySource",
-                    "logs:DeleteDeliveryDestination",
                 ],
                 resources=[f"arn:aws:logs:{self.region}:{self.account}:*"],
             )
