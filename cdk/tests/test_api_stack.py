@@ -390,10 +390,148 @@ class TestApiStack:
         )
 
 
-# NOTE: AgentCore RuntimeはCDKではなくagentcore CLIで管理するようになったため、
-# TestAgentCoreRuntimeRoleテストクラスは削除されました。
-# 詳細: CDK管理のAgentCore Runtimeは30秒初期化タイムアウトで失敗するため、
-# agentcore CLIでデプロイしたAgentを使用するように変更。
+class TestAgentCoreRuntimeRolePermissions:
+    """AgentCore Runtime ロールの IAM 権限テスト."""
+
+    def test_bedrock_invoke_with_inference_profile(self, template):
+        """Bedrock呼び出し権限にInvokeModel/InvokeModelWithResponseStreamが含まれること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Action": [
+                                        "bedrock:InvokeModel",
+                                        "bedrock:InvokeModelWithResponseStream",
+                                    ],
+                                    "Effect": "Allow",
+                                    # Resource はリージョントークン展開で Fn::Join になるため
+                                    # 型のみ検証（配列であること）
+                                    "Resource": Match.any_value(),
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_cloudwatch_logs_permissions(self, template):
+        """CloudWatch Logs権限にDescribeLogStreams/DescribeLogGroupsが含まれること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Action": [
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents",
+                                        "logs:DescribeLogStreams",
+                                        "logs:DescribeLogGroups",
+                                    ],
+                                    "Effect": "Allow",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_xray_tracing_permissions(self, template):
+        """X-Rayトレーシング権限にGetSamplingRules/GetSamplingTargetsが含まれること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Action": [
+                                        "xray:PutTraceSegments",
+                                        "xray:PutTelemetryRecords",
+                                        "xray:GetSamplingRules",
+                                        "xray:GetSamplingTargets",
+                                    ],
+                                    "Effect": "Allow",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_agentcore_identity_permissions(self, template):
+        """AgentCore Identity権限が設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Action": Match.array_with(
+                                        [
+                                            "bedrock-agentcore:GetToken",
+                                            "bedrock-agentcore:PutToken",
+                                        ]
+                                    ),
+                                    "Effect": "Allow",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
+
+    def test_cloudwatch_metrics_namespace_condition(self, template):
+        """CloudWatch Metricsにnamespace条件が設定されること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::IAM::Policy",
+            {
+                "PolicyDocument": {
+                    "Statement": Match.array_with(
+                        [
+                            Match.object_like(
+                                {
+                                    "Action": "cloudwatch:PutMetricData",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "cloudwatch:namespace": [
+                                                "BakenKaigi/AgentTools",
+                                                "bedrock-agentcore",
+                                            ],
+                                        },
+                                    },
+                                    "Effect": "Allow",
+                                }
+                            ),
+                        ]
+                    ),
+                },
+            },
+        )
 
 
 class TestCognitoGoogleProvider:

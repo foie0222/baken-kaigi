@@ -406,11 +406,19 @@ class BakenKaigiApiStack(Stack):
             )
         )
 
-        # Bedrock InvokeModel 権限
+        # Bedrock モデル呼び出し権限
+        # inference profile（jp.anthropic.claude-*）を使用するため、
+        # foundation-model/* に加えて inference-profile/* も必要
         agentcore_runtime_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["bedrock:InvokeModel"],
-                resources=[f"arn:aws:bedrock:{self.region}::foundation-model/*"],
+                actions=[
+                    "bedrock:InvokeModel",
+                    "bedrock:InvokeModelWithResponseStream",
+                ],
+                resources=[
+                    f"arn:aws:bedrock:{self.region}::foundation-model/*",
+                    f"arn:aws:bedrock:{self.region}:*:inference-profile/*",
+                ],
             )
         )
 
@@ -421,6 +429,8 @@ class BakenKaigiApiStack(Stack):
                     "logs:CreateLogGroup",
                     "logs:CreateLogStream",
                     "logs:PutLogEvents",
+                    "logs:DescribeLogStreams",
+                    "logs:DescribeLogGroups",
                 ],
                 resources=[f"arn:aws:logs:{self.region}:{self.account}:*"],
             )
@@ -433,7 +443,10 @@ class BakenKaigiApiStack(Stack):
                 resources=["*"],
                 conditions={
                     "StringEquals": {
-                        "cloudwatch:namespace": "BakenKaigi/AgentTools",
+                        "cloudwatch:namespace": [
+                            "BakenKaigi/AgentTools",
+                            "bedrock-agentcore",
+                        ],
                     },
                 },
             )
@@ -445,6 +458,8 @@ class BakenKaigiApiStack(Stack):
                 actions=[
                     "xray:PutTraceSegments",
                     "xray:PutTelemetryRecords",
+                    "xray:GetSamplingRules",
+                    "xray:GetSamplingTargets",
                 ],
                 resources=["*"],
             )
@@ -456,6 +471,10 @@ class BakenKaigiApiStack(Stack):
                 actions=[
                     "bedrock-agentcore:GetToken",
                     "bedrock-agentcore:PutToken",
+                    "bedrock-agentcore:GetResourceApiKey",
+                    "bedrock-agentcore:GetResourceOauth2Token",
+                    "bedrock-agentcore:CreateWorkloadIdentity",
+                    "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
                 ],
                 resources=["*"],
             )
