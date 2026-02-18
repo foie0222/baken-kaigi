@@ -85,11 +85,11 @@ class TestUpdateAgentPreferenceUseCase:
         result = uc.execute(
             "usr_001",
             betting_preference={
-                "bet_type_preference": "trio_focused",
+                "selected_bet_types": ["trio", "trifecta"],
             },
             custom_instructions="三連単が好き",
         )
-        assert result.agent.betting_preference.bet_type_preference.value == "trio_focused"
+        assert result.agent.betting_preference.selected_bet_types == ["trio", "trifecta"]
         assert result.agent.custom_instructions == "三連単が好き"
 
     def test_好み設定のみ更新できる(self):
@@ -100,7 +100,7 @@ class TestUpdateAgentPreferenceUseCase:
         result = uc.execute(
             "usr_001",
             betting_preference={
-                "bet_type_preference": "wide_focused",
+                "selected_bet_types": ["quinella_place", "quinella"],
             },
         )
-        assert result.agent.betting_preference.bet_type_preference.value == "wide_focused"
+        assert result.agent.betting_preference.selected_bet_types == ["quinella_place", "quinella"]
