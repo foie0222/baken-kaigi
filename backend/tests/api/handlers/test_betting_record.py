@@ -379,6 +379,31 @@ class TestGetBettingSummaryHandler:
         assert body["total_payout"] == 300
         assert body["record_count"] == 1
 
+    def test_win_rateが百分率で返される(self) -> None:
+        repo = _setup_deps()
+        # 2件中1件的中 → 50%
+        record1 = _make_record()
+        record1.settle(Money.of(300))
+        repo.save(record1)
+        record2 = BettingRecord.create(
+            user_id=UserId("user-001"),
+            race_id=RaceId("202605051212"),
+            race_name="東京12R",
+            race_date=date(2026, 5, 5),
+            venue="東京",
+            bet_type=BetType.WIN,
+            horse_numbers=HorseNumbers.of(2),
+            amount=Money.of(100),
+        )
+        record2.settle(Money.of(0))
+        repo.save(record2)
+
+        event = _auth_event(query_params={"period": "all_time"})
+        result = get_betting_summary_handler(event, None)
+        body = json.loads(result["body"])
+        # domain層では0.5だが、API応答では百分率 50.0 で返す
+        assert body["win_rate"] == 50.0
+
     def test_デフォルトperiodはall_time(self) -> None:
         _setup_deps()
         event = _auth_event()

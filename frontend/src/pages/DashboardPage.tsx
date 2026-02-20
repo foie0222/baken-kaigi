@@ -198,7 +198,7 @@ function RecentRecords({ records }: { records: BettingRecord[] }) {
       </div>
       {recent.map((record) => {
         const betLabel = BetTypeLabels[record.betType as keyof typeof BetTypeLabels] || record.betType;
-        const isWin = record.profit > 0;
+        const isWin = record.payout > 0;
         return (
           <div
             key={record.recordId}
@@ -226,7 +226,7 @@ function RecentRecords({ records }: { records: BettingRecord[] }) {
               </div>
               <div style={{
                 fontSize: 11,
-                color: isWin ? '#2e7d32' : '#c62828',
+                color: record.status !== 'SETTLED' ? '#666' : isWin ? '#2e7d32' : '#c62828',
                 fontWeight: 600,
               }}>
                 {record.status === 'SETTLED' ? (isWin ? 'HIT' : 'MISS') : record.status === 'PENDING' ? '---' : 'CANCEL'}

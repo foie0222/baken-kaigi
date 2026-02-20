@@ -173,7 +173,7 @@ export function HistoryPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {pagedRecords.map((record) => {
               const betLabel = BetTypeLabels[record.betType as keyof typeof BetTypeLabels] || record.betType;
-              const isWin = record.profit > 0;
+              const isWin = record.payout > 0;
               const isSettled = record.status === 'SETTLED';
 
               return (
