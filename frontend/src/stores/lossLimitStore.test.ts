@@ -52,21 +52,28 @@ describe('useLossLimitStore', () => {
       expect(state.isLoading).toBe(false);
     });
 
-    it('設定成功後にisLoadingがfalseに戻る', async () => {
-      mockedApiClient.setLossLimit.mockResolvedValue({ success: true });
-      mockedApiClient.getLossLimit.mockResolvedValue({
-        success: true,
-        data: {
-          lossLimit: 30000,
-          totalLossThisMonth: 0,
-          remainingLossLimit: 30000,
-          pendingChange: null,
-        },
+    it('設定失敗時にisLoadingがfalseに戻りerrorがセットされる', async () => {
+      mockedApiClient.setLossLimit.mockResolvedValue({
+        success: false,
+        error: '設定に失敗しました',
       });
 
-      await useLossLimitStore.getState().setLossLimit(30000);
+      await useLossLimitStore.getState().setLossLimit(50000);
 
-      expect(useLossLimitStore.getState().isLoading).toBe(false);
+      const state = useLossLimitStore.getState();
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBe('設定に失敗しました');
+      expect(mockedApiClient.getLossLimit).not.toHaveBeenCalled();
+    });
+
+    it('API例外時にisLoadingがfalseに戻りerrorがセットされる', async () => {
+      mockedApiClient.setLossLimit.mockRejectedValue(new Error('ネットワークエラー'));
+
+      await useLossLimitStore.getState().setLossLimit(50000);
+
+      const state = useLossLimitStore.getState();
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBe('ネットワークエラー');
     });
   });
 
@@ -105,6 +112,20 @@ describe('useLossLimitStore', () => {
       expect(state.isLoading).toBe(false);
       expect(result).not.toBeNull();
       expect(result?.changeId).toBe('change-1');
+    });
+
+    it('変更リクエスト失敗時にisLoadingがfalseに戻りerrorがセットされる', async () => {
+      mockedApiClient.requestLossLimitChange.mockResolvedValue({
+        success: false,
+        error: '変更リクエストに失敗しました',
+      });
+
+      const result = await useLossLimitStore.getState().requestChange(30000);
+
+      const state = useLossLimitStore.getState();
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBe('変更リクエストに失敗しました');
+      expect(result).toBeNull();
     });
 
     it('PENDING（増額）の場合はfetchせずpendingChangeをセットする', async () => {
@@ -152,6 +173,19 @@ describe('useLossLimitStore', () => {
       expect(state.totalLossThisMonth).toBe(20000);
       expect(state.remainingLossLimit).toBe(80000);
       expect(state.isLoading).toBe(false);
+    });
+
+    it('API失敗時にisLoadingがfalseに戻りerrorがセットされる', async () => {
+      mockedApiClient.getLossLimit.mockResolvedValue({
+        success: false,
+        error: '取得に失敗しました',
+      });
+
+      await useLossLimitStore.getState().fetchLossLimit();
+
+      const state = useLossLimitStore.getState();
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBe('取得に失敗しました');
     });
 
     it('isLoading中の重複呼び出しをスキップする', async () => {
