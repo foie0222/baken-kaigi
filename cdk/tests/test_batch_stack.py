@@ -25,16 +25,16 @@ class TestBatchStack:
     """バッチスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が9個作成されること（スクレイパー8 + チェックサム1）."""
-        template.resource_count_is("AWS::Lambda::Function", 9)
+        """Lambda関数が11個作成されること（スクレイパー8 + チェックサム1 + 自動投票2）."""
+        template.resource_count_is("AWS::Lambda::Function", 11)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること（バッチ用）."""
         template.resource_count_is("AWS::Lambda::LayerVersion", 1)
 
     def test_eventbridge_rules_created(self, template):
-        """EventBridgeルールが11個作成されること."""
-        template.resource_count_is("AWS::Events::Rule", 11)
+        """EventBridgeルールが12個作成されること."""
+        template.resource_count_is("AWS::Events::Rule", 12)
 
     def test_no_dynamodb_tables(self, template):
         """DynamoDBテーブルはバッチスタックに含まれないこと."""
@@ -150,6 +150,38 @@ class TestBatchStack:
                         "SPEED_INDICES_TABLE_NAME": "baken-kaigi-speed-indices",
                     },
                 },
+            },
+        )
+
+    def test_auto_bet_executor_lambda(self, template):
+        """自動投票 BetExecutor Lambda が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-auto-bet-executor",
+                "Handler": "batch.auto_bet_executor.handler",
+                "Timeout": 120,
+            },
+        )
+
+    def test_auto_bet_orchestrator_lambda(self, template):
+        """自動投票 Orchestrator Lambda が存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-auto-bet-orchestrator",
+                "Handler": "batch.auto_bet_orchestrator.handler",
+                "Timeout": 60,
+            },
+        )
+
+    def test_auto_bet_orchestrator_rule(self, template):
+        """自動投票 Orchestrator EventBridge ルールが存在すること."""
+        template.has_resource_properties(
+            "AWS::Events::Rule",
+            {
+                "Name": "baken-kaigi-auto-bet-orchestrator-rule",
+                "ScheduleExpression": "cron(0/15 0-7 ? * SAT,SUN *)",
             },
         )
 

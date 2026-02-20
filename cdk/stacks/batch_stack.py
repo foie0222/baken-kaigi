@@ -3,12 +3,14 @@
 スクレイパー Lambda + EventBridge ルールを管理する。
 BakenKaigiApiStack から分離されたステートレスリソースのみ含む。
 """
+import os
 from pathlib import Path
 
 from aws_cdk import BundlingOptions, Duration, Stack
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_events as events
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
@@ -491,3 +493,124 @@ class BakenKaigiBatchStack(Stack):
             ),
         )
         checksum_rule.add_target(targets.LambdaFunction(jra_checksum_updater_fn))
+
+        # ========================================
+        # 自動投票 Lambda
+        # ========================================
+
+        target_user_id = os.environ.get("AUTO_BET_USER_ID", "")
+
+        # --- 購入記録テーブル参照 ---
+        purchase_order_table = dynamodb.Table.from_table_name(
+            self, "PurchaseOrderTable", "baken-kaigi-purchase-order"
+        )
+
+        # --- BetExecutor Lambda (VPC内、IPAT投票実行) ---
+        auto_bet_executor_props: dict = {
+            "runtime": lambda_.Runtime.PYTHON_3_12,
+            "timeout": Duration.seconds(120),
+            "memory_size": 512,
+            "layers": [batch_deps_layer],
+            "environment": {
+                "PYTHONPATH": "/var/task:/opt/python",
+                "TARGET_USER_ID": target_user_id,
+                "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
+            },
+        }
+        if vpc is not None:
+            auto_bet_executor_props["vpc"] = vpc
+            auto_bet_executor_props["vpc_subnets"] = ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+            )
+        if use_jravan and jravan_api_url is not None:
+            auto_bet_executor_props["environment"]["JRAVAN_API_URL"] = jravan_api_url
+
+        auto_bet_executor_fn = lambda_.Function(
+            self,
+            "AutoBetExecutorFunction",
+            handler="batch.auto_bet_executor.handler",
+            code=backend_code,
+            function_name="baken-kaigi-auto-bet-executor",
+            description="自動投票 BetExecutor（レース発走5分前にパイプライン実行→IPAT投票）",
+            **auto_bet_executor_props,
+        )
+        ai_predictions_table.grant_read_data(auto_bet_executor_fn)
+        purchase_order_table.grant_write_data(auto_bet_executor_fn)
+        auto_bet_executor_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["secretsmanager:GetSecretValue"],
+                resources=[
+                    f"arn:aws:secretsmanager:{self.region}:{self.account}"
+                    f":secret:baken-kaigi/ipat/*"
+                ],
+            )
+        )
+
+        # --- Orchestrator Lambda (VPC外、スケジュール管理) ---
+        auto_bet_orchestrator_fn = lambda_.Function(
+            self,
+            "AutoBetOrchestratorFunction",
+            handler="batch.auto_bet_orchestrator.handler",
+            code=backend_code,
+            function_name="baken-kaigi-auto-bet-orchestrator",
+            description="自動投票 Orchestrator（15分間隔でレース確認→スケジュール作成）",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            timeout=Duration.seconds(60),
+            memory_size=256,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "BET_EXECUTOR_ARN": auto_bet_executor_fn.function_arn,
+                "JRAVAN_API_URL": jravan_api_url or "",
+            },
+        )
+
+        # Scheduler → BetExecutor invoke 用 IAM ロール
+        scheduler_role = iam.Role(
+            self,
+            "AutoBetSchedulerRole",
+            role_name="baken-kaigi-auto-bet-scheduler-role",
+            assumed_by=iam.ServicePrincipal("scheduler.amazonaws.com"),
+        )
+        auto_bet_executor_fn.grant_invoke(scheduler_role)
+
+        auto_bet_orchestrator_fn.add_environment(
+            "SCHEDULER_ROLE_ARN", scheduler_role.role_arn
+        )
+
+        # Orchestrator に Scheduler 操作権限
+        auto_bet_orchestrator_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "scheduler:CreateSchedule",
+                    "scheduler:DeleteSchedule",
+                    "scheduler:GetSchedule",
+                ],
+                resources=["*"],
+            )
+        )
+        # Orchestrator に PassRole 権限（Scheduler がロールを引き受けるため）
+        auto_bet_orchestrator_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["iam:PassRole"],
+                resources=[scheduler_role.role_arn],
+            )
+        )
+
+        # --- EventBridge ルール（土日 09:15-16:00 JST = 00:15-07:00 UTC, 15分間隔）---
+        auto_bet_orchestrator_rule = events.Rule(
+            self,
+            "AutoBetOrchestratorRule",
+            rule_name="baken-kaigi-auto-bet-orchestrator-rule",
+            description="自動投票 Orchestrator を土日09:15-16:00 JSTに15分間隔で実行",
+            schedule=events.Schedule.cron(
+                minute="0/15",
+                hour="0-7",
+                month="*",
+                week_day="SAT,SUN",
+                year="*",
+            ),
+        )
+        auto_bet_orchestrator_rule.add_target(
+            targets.LambdaFunction(auto_bet_orchestrator_fn)
+        )
