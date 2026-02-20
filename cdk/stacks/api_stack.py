@@ -575,17 +575,14 @@ class BakenKaigiApiStack(Stack):
             "LOSS_LIMIT_CHANGE_TABLE_NAME": loss_limit_change_table.table_name,
             "AGENT_TABLE_NAME": agent_table.table_name,
             "AGENT_REVIEW_TABLE_NAME": agent_review_table.table_name,
+            "RACES_TABLE_NAME": races_table.table_name,
+            "RUNNERS_TABLE_NAME": runners_table.table_name,
             "CODE_VERSION": "6",  # コード更新強制用
         }
 
         # 開発用オリジン許可時の環境変数を追加
         if allow_dev_origins:
             lambda_environment["ALLOW_DEV_ORIGINS"] = "true"
-
-        # JRA-VAN 連携時の環境変数を追加
-        if use_jravan:
-            lambda_environment["RACE_DATA_PROVIDER"] = "jravan"
-            lambda_environment["JRAVAN_API_URL"] = jravan_api_url  # type: ignore
 
         lambda_common_props: dict = {
             "runtime": lambda_.Runtime.PYTHON_3_12,
@@ -1846,6 +1843,12 @@ class BakenKaigiApiStack(Stack):
 
         # 投票記録関連 Lambda に Betting Record テーブルへのアクセス権限を付与
         betting_record_table.grant_read_write_data(betting_record_fn)
+
+        # レース関連 Lambda に Races/Runners テーブルへの読み取り権限を付与
+        races_table.grant_read_data(get_races_fn)
+        runners_table.grant_read_data(get_races_fn)
+        races_table.grant_read_data(get_race_detail_fn)
+        runners_table.grant_read_data(get_race_detail_fn)
 
         # ========================================
         # 出力
