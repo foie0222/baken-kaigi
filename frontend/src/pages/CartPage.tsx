@@ -117,7 +117,7 @@ export function CartPage() {
   const { items, removeItem, updateItemAmount, clearCart, getTotalAmount } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { status: ipatStatus, checkStatus: checkIpatStatus } = useIpatSettingsStore();
-  const { lossLimit, totalLossThisMonth, remainingLossLimit, isLoading: isLossLimitLoading, error: lossLimitError } = useLossLimitStore();
+  const { lossLimit, totalLossThisMonth, remainingLossLimit, isLoading: isLossLimitLoading, error: lossLimitError, fetchLossLimit } = useLossLimitStore();
   const totalAmount = getTotalAmount();
   const isLossLimitReached = lossLimit !== null && remainingLossLimit !== null && remainingLossLimit <= 0;
 
@@ -132,8 +132,9 @@ export function CartPage() {
   useEffect(() => {
     if (isAuthenticated) {
       checkIpatStatus();
+      fetchLossLimit();
     }
-  }, [isAuthenticated, checkIpatStatus]);
+  }, [isAuthenticated, checkIpatStatus, fetchLossLimit]);
 
   const handleClearCart = () => {
     if (window.confirm('カートの中身をすべて削除しますか？')) {
