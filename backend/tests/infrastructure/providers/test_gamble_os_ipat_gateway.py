@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from src.domain.enums import IpatBetType, IpatVenueCode
 from src.domain.ports import IpatGatewayError
-from src.domain.value_objects import IpatBetLine, IpatCredentials
+from src.domain.value_objects import IpatBalance, IpatBetLine, IpatCredentials
 from src.infrastructure.providers.gamble_os_ipat_gateway import (
     GambleOsIpatGateway,
 )
@@ -288,6 +288,105 @@ class TestGambleOsIpatGatewaySubmitBets(unittest.TestCase):
         buyeye = payload["buyeye"]
         race_no_part = buyeye.split(",")[2]
         assert race_no_part == "01"
+
+
+# ============================================================
+# 残高照会テスト
+# ============================================================
+class TestGambleOsIpatGatewayGetBalance(unittest.TestCase):
+    """残高照会 get_balance のテスト."""
+
+    def setUp(self) -> None:
+        self.sm_client = _mock_secrets_manager()
+        self.credentials = _make_credentials()
+
+    @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
+    def test_残高取得正常系_フィールドマッピング(self, mock_requests: MagicMock) -> None:
+        mock_requests.post.return_value = _mock_response(
+            json_data={
+                "ret": 0,
+                "msg": "",
+                "results": {
+                    "day_buy_money": 5000,
+                    "total_buy_money": 30000,
+                    "buy_limit_money": 100000,
+                },
+            }
+        )
+        gw = GambleOsIpatGateway(secrets_client=self.sm_client)
+        balance = gw.get_balance(self.credentials)
+
+        assert isinstance(balance, IpatBalance)
+        assert balance.bet_dedicated_balance == 5000  # day_buy_money
+        assert balance.settle_possible_balance == 30000  # total_buy_money
+        assert balance.limit_vote_amount == 100000  # buy_limit_money
+        assert balance.bet_balance == 95000  # buy_limit_money - day_buy_money
+
+    @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
+    def test_残高取得エラー_ret負でIpatGatewayError(self, mock_requests: MagicMock) -> None:
+        mock_requests.post.return_value = _mock_response(
+            json_data={"ret": -1, "msg": "セッション切れ", "results": {}}
+        )
+        gw = GambleOsIpatGateway(secrets_client=self.sm_client)
+        with self.assertRaises(IpatGatewayError) as cm:
+            gw.get_balance(self.credentials)
+        assert "セッション切れ" in str(cm.exception)
+
+    @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
+    def test_残高取得_フィールド欠損でIpatGatewayError(self, mock_requests: MagicMock) -> None:
+        mock_requests.post.return_value = _mock_response(
+            json_data={
+                "ret": 0,
+                "msg": "",
+                "results": {
+                    "day_buy_money": 5000,
+                    # total_buy_money, buy_limit_money 欠損
+                },
+            }
+        )
+        gw = GambleOsIpatGateway(secrets_client=self.sm_client)
+        with self.assertRaises(IpatGatewayError):
+            gw.get_balance(self.credentials)
+
+    @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
+    def test_残高照会エンドポイントURL(self, mock_requests: MagicMock) -> None:
+        mock_requests.post.return_value = _mock_response(
+            json_data={
+                "ret": 0,
+                "msg": "",
+                "results": {
+                    "day_buy_money": 0,
+                    "total_buy_money": 0,
+                    "buy_limit_money": 100000,
+                },
+            }
+        )
+        gw = GambleOsIpatGateway(secrets_client=self.sm_client)
+        gw.get_balance(self.credentials)
+
+        call_args = mock_requests.post.call_args
+        url = call_args[0][0] if call_args[0] else call_args[1].get("url")
+        assert url == "https://api.gamble-os.net/systems/ip-balance"
+
+    @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
+    def test_残高照会_HTTPエラーでIpatGatewayError(self, mock_requests: MagicMock) -> None:
+        import requests as req_lib
+
+        mock_requests.post.side_effect = req_lib.RequestException("Timeout")
+        mock_requests.RequestException = req_lib.RequestException
+        gw = GambleOsIpatGateway(secrets_client=self.sm_client)
+        with self.assertRaises(IpatGatewayError):
+            gw.get_balance(self.credentials)
+
+    @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
+    def test_残高照会_results欠損でIpatGatewayError(self, mock_requests: MagicMock) -> None:
+        mock_requests.post.return_value = _mock_response(
+            json_data={"ret": 0, "msg": ""}
+            # results キー自体が欠損
+        )
+        gw = GambleOsIpatGateway(secrets_client=self.sm_client)
+        with self.assertRaises(IpatGatewayError):
+            gw.get_balance(self.credentials)
 
 
 # ============================================================
