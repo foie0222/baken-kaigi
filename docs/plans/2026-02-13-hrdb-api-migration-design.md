@@ -208,7 +208,7 @@ class HrdbClient:
 
 Secrets Manager:
 - シークレット名: `baken-kaigi/gamble-os-credentials`
-- 内容: `{"club_id": "daikinoue0222@gmail.com", "club_password": "..."}`
+- 内容: `{"tncid": "...", "tncpw": "..."}`（HRDB-APIパラメータ名に準拠）
 
 ### Phase 2: データ層切り替え
 

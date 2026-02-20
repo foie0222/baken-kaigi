@@ -199,6 +199,33 @@ class TestParseRunTime:
     def test_空文字(self):
         assert _parse_run_time("") is None
 
+    def test_3桁の不正データ(self):
+        assert _parse_run_time("132") is None
+
+    def test_5桁の不正データ(self):
+        assert _parse_run_time("13265") is None
+
+    def test_非数字を含むデータ(self):
+        assert _parse_run_time("1a26") is None
+
+
+class TestConvertRunnerRowEdgeCases:
+    """convert_runner_row のエッジケーステスト."""
+
+    def test_斤量ゼロはNone(self):
+        """FTNWGHT="0" → weight_carriedはNone（フィルタ済み）."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(FTNWGHT="0")
+        result = convert_runner_row(row, scraped_at)
+        assert "weight_carried" not in result
+
+    def test_斤量空文字はNone(self):
+        """FTNWGHT="" → weight_carriedはNone（フィルタ済み）."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(FTNWGHT="")
+        result = convert_runner_row(row, scraped_at)
+        assert "weight_carried" not in result
+
 
 class TestValidateDate:
     """_validate_date のテスト."""

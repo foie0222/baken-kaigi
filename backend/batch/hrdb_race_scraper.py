@@ -38,7 +38,7 @@ def _parse_run_time(runtm: str) -> str | None:
     Returns:
         "M:SS.T" 形式の文字列。"0000"または空文字はNone。
     """
-    if not runtm or runtm == "0000":
+    if not runtm or runtm == "0000" or len(runtm) != 4 or not runtm.isdigit():
         return None
     # runtm = "1326" → 分=1, 秒=32, コンマ=6 → "1:32.6"
     minutes = int(runtm[0])
@@ -103,7 +103,7 @@ def convert_runner_row(row: dict, scraped_at: datetime) -> dict:
         "jockey_name": row["JKYNM4"].strip(),
         "trainer_id": row["TRNRCD"].strip(),
         "trainer_name": row["TRNRNM4"].strip(),
-        "weight_carried": Decimal(ftnwght) / 10,
+        "weight_carried": Decimal(ftnwght) / 10 if ftnwght and ftnwght != "0" else None,
         "finish_position": int(fixplc) if fixplc != "00" else None,
         "time": _parse_run_time(runtm),
         "odds": Decimal(tanodds) / 10 if tanodds != "0000" else None,

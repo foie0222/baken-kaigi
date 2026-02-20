@@ -1025,7 +1025,7 @@ git commit -m "feat: HRDBスクレイパーLambda + EventBridge定義（CDK）"
 ```bash
 aws secretsmanager create-secret \
   --name baken-kaigi/gamble-os-credentials \
-  --secret-string '{"club_id":"daikinoue0222@gmail.com","club_password":"bf46135d"}' \
+  --secret-string '{"tncid":"YOUR_CLUB_ID","tncpw":"YOUR_PASSWORD"}' \
   --region ap-northeast-1
 ```
 
@@ -1046,8 +1046,8 @@ sys.path.insert(0, ".")
 from batch.hrdb_client import HrdbClient
 
 client = HrdbClient(
-    club_id="daikinoue0222@gmail.com",
-    club_password="bf46135d",
+    club_id="YOUR_CLUB_ID",
+    club_password="YOUR_PASSWORD",
 )
 
 # 直近のレースデータ取得テスト
