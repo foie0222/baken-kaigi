@@ -195,19 +195,18 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
                 to_date.strftime("%Y%m%d")
             )
 
-        items: list[dict] = []
+        dates: set[date] = set()
         response = self._races_table.scan(**scan_kwargs)
-        items.extend(response.get("Items", []))
+        for item in response.get("Items", []):
+            rd = item["race_date"]
+            dates.add(date(int(rd[:4]), int(rd[4:6]), int(rd[6:8])))
 
         while "LastEvaluatedKey" in response:
             scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
             response = self._races_table.scan(**scan_kwargs)
-            items.extend(response.get("Items", []))
-
-        dates = set()
-        for item in items:
-            rd = item["race_date"]
-            dates.add(date(int(rd[:4]), int(rd[4:6]), int(rd[6:8])))
+            for item in response.get("Items", []):
+                rd = item["race_date"]
+                dates.add(date(int(rd[:4]), int(rd[4:6]), int(rd[6:8])))
 
         return sorted(dates, reverse=True)
 
