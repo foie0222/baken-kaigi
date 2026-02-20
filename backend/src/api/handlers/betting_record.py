@@ -113,7 +113,7 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
             race_name=race_name,
             race_date=race_date,
             venue=venue,
-            bet_type=bet_type,
+            bet_type=bet_type.lower(),
             horse_numbers=horse_numbers,
             amount=amount,
         )
@@ -166,7 +166,7 @@ def get_betting_records_handler(event: dict, context: Any) -> dict:
             date_from=date_from,
             date_to=date_to,
             venue=venue,
-            bet_type=bet_type,
+            bet_type=bet_type.lower() if bet_type else bet_type,
         )
     except (ValueError, KeyError) as e:
         return bad_request_response(str(e), event=event)
