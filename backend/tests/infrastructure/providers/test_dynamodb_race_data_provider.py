@@ -67,7 +67,7 @@ class TestGetRace:
         assert result.race_id == "202602140505"
         assert result.race_name == "サンプルレース"
         assert result.race_number == 5
-        assert result.venue == "東京"
+        assert result.venue == "05"
         assert result.start_time == datetime(2026, 2, 14, 14, 25, tzinfo=JST)
         assert result.betting_deadline == result.start_time
         assert result.track_condition == "良"
@@ -243,9 +243,11 @@ class TestGetRacesByDate:
         mock_table = MagicMock()
         item1 = _make_race_item()
         item1["venue"] = "東京"
+        item1["venue_code"] = "05"
         item1["race_number"] = Decimal("1")
         item2 = _make_race_item()
         item2["venue"] = "中山"
+        item2["venue_code"] = "06"
         item2["race_number"] = Decimal("3")
         item2["race_id"] = "202602140303"
         mock_table.query.return_value = {"Items": [item2, item1]}
@@ -257,26 +259,28 @@ class TestGetRacesByDate:
 
         assert len(result) == 2
         assert all(isinstance(r, RaceData) for r in result)
-        # venue順 → race_number順
-        assert result[0].venue == "中山"
-        assert result[1].venue == "東京"
+        # venue_code順 → race_number順
+        assert result[0].venue == "05"
+        assert result[1].venue == "06"
 
     def test_venueフィルタで絞り込める(self):
         mock_table = MagicMock()
         item_tokyo = _make_race_item()
         item_tokyo["venue"] = "東京"
+        item_tokyo["venue_code"] = "05"
         item_nakayama = _make_race_item()
         item_nakayama["venue"] = "中山"
+        item_nakayama["venue_code"] = "06"
         item_nakayama["race_id"] = "202602140303"
         mock_table.query.return_value = {"Items": [item_tokyo, item_nakayama]}
 
         provider = DynamoDbRaceDataProvider(
             races_table=mock_table, runners_table=MagicMock()
         )
-        result = provider.get_races_by_date(date(2026, 2, 14), venue="東京")
+        result = provider.get_races_by_date(date(2026, 2, 14), venue="05")
 
         assert len(result) == 1
-        assert result[0].venue == "東京"
+        assert result[0].venue == "05"
 
     def test_該当レースがない場合は空リストを返す(self):
         mock_table = MagicMock()

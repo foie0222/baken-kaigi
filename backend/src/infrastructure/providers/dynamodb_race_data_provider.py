@@ -69,14 +69,19 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     def get_races_by_date(
         self, target_date: date, venue: str | None = None
     ) -> list[RaceData]:
-        """日付でレース一覧を取得する."""
+        """日付でレース一覧を取得する.
+
+        Args:
+            target_date: 対象日付
+            venue: 競馬場コード（例: "05"=東京）。Noneの場合は全開催場。
+        """
         race_date = target_date.strftime("%Y%m%d")
         response = self._races_table.query(
             KeyConditionExpression=Key("race_date").eq(race_date)
         )
         items = response.get("Items", [])
         if venue is not None:
-            items = [item for item in items if item.get("venue") == venue]
+            items = [item for item in items if item.get("venue_code") == venue]
         races = [self._to_race_data(item) for item in items]
         races.sort(key=lambda r: (r.venue, r.race_number))
         return races
@@ -102,7 +107,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             race_id=item["race_id"],
             race_name=item["race_name"],
             race_number=int(item["race_number"]),
-            venue=item["venue"],
+            venue=item["venue_code"],
             start_time=start_time,
             betting_deadline=start_time,
             track_condition=track_condition,
