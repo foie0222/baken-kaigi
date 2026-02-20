@@ -33,10 +33,7 @@ class TestGenerateWinBets:
     def test_edge範囲内の馬が買い目になる(self):
         combined = {3: 0.25, 7: 0.20, 1: 0.15, 5: 0.12, 9: 0.10, 2: 0.08}
         mkt = {3: 0.21, 7: 0.19, 1: 0.14, 5: 0.13, 9: 0.11, 2: 0.09}
-        odds_win = {
-            "3": {"o": 4.8}, "7": {"o": 5.3}, "1": {"o": 7.1},
-            "5": {"o": 7.7}, "9": {"o": 9.1}, "2": {"o": 11.1},
-        }
+        odds_win = {"3": 4.8, "7": 5.3, "1": 7.1, "5": 7.7, "9": 9.1, "2": 11.1}
         bets = generate_win_bets(combined, mkt, odds_win)
         assert len(bets) > 0
         for b in bets:
@@ -47,7 +44,7 @@ class TestGenerateWinBets:
     def test_edge範囲外はスキップ(self):
         combined = {3: 0.25}
         mkt = {3: 0.24}  # edge = 0.01 < 0.03
-        odds_win = {"3": {"o": 4.0}}
+        odds_win = {"3": 4.0}
         bets = generate_win_bets(combined, mkt, odds_win)
         assert len(bets) == 0
 
@@ -57,11 +54,11 @@ class TestGeneratePlaceBets:
         ranked = _make_ranked()
         agree = _make_agree_counts()
         odds_place = {
-            "3": {"lo": 1.1, "mid": 1.5, "hi": 2.0},  # mid < 3.0 → 除外
-            "7": {"lo": 2.5, "mid": 4.0, "hi": 6.0},  # Top4, 合意3, mid 4.0 → 対象
-            "1": {"lo": 2.0, "mid": 3.5, "hi": 5.0},  # Top4, 合意3, mid 3.5 → 対象
-            "5": {"lo": 3.0, "mid": 5.0, "hi": 7.0},  # Top4, 合意2, mid 5.0 → 対象
-            "9": {"lo": 4.0, "mid": 6.5, "hi": 9.0},  # Top5 → 除外（Top4以内）
+            "3": {"min": 1.1, "max": 2.0},  # mid=1.55 < 3.0 → 除外
+            "7": {"min": 2.5, "max": 6.0},  # Top4, 合意3, mid=4.25 → 対象
+            "1": {"min": 2.0, "max": 5.0},  # Top4, 合意3, mid=3.5 → 対象
+            "5": {"min": 3.0, "max": 7.0},  # Top4, 合意2, mid=5.0 → 対象
+            "9": {"min": 4.0, "max": 9.0},  # Top5 → 除外（Top4以内）
         }
         bets = generate_place_bets(ranked, odds_place, agree)
         horse_nums = [b.horse_numbers for b in bets]

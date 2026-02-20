@@ -54,7 +54,7 @@ def generate_win_bets(
             continue
         if hn_str not in odds_win:
             continue
-        odds = odds_win[hn_str]["o"]
+        odds = odds_win[hn_str]
         if odds <= 1:
             continue
         kelly_frac = (est_prob * odds - 1) / (odds - 1)
@@ -80,7 +80,8 @@ def generate_place_bets(
         hn_str = str(hn)
         if hn_str not in odds_place:
             continue
-        mid = odds_place[hn_str].get("mid", 0)
+        entry = odds_place[hn_str]
+        mid = (entry["min"] + entry["max"]) / 2
         if mid < PLACE_MID_LO or mid > PLACE_MID_HI:
             continue
         bets.append(BetProposal(bet_type="place", horse_numbers=[hn], amount=100))

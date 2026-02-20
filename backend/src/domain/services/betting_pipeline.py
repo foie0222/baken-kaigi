@@ -55,11 +55,14 @@ def log_opinion_pool(
 
 
 def market_implied_probs(odds_win: dict) -> dict[int, float]:
-    """単勝オッズからMarket Implied Probabilitiesを算出."""
+    """単勝オッズからMarket Implied Probabilitiesを算出.
+
+    JRA-VAN APIの単勝オッズはフラットなfloat: {"1": 14.9, "2": 5.0}
+    """
     raw = {}
-    for hn_str, info in odds_win.items():
-        if info["o"] > 0:
-            raw[int(hn_str)] = 1.0 / info["o"]
+    for hn_str, odds_val in odds_win.items():
+        if odds_val > 0:
+            raw[int(hn_str)] = 1.0 / odds_val
     total = sum(raw.values())
     return {h: p / total for h, p in raw.items()} if total > 0 else {}
 
