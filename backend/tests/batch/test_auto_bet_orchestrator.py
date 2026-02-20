@@ -3,14 +3,61 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from batch.auto_bet_orchestrator import (
+    _get_today_races,
     _schedule_name,
     handler,
 )
+
+JST = timezone(timedelta(hours=9))
 
 
 class TestScheduleName:
     def test_race_idからスケジュール名を生成(self):
         assert _schedule_name("202602210501") == "auto-bet-202602210501"
+
+
+class TestGetTodayRaces:
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_DynamoDBからレース一覧を取得(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "1010"},
+                {"race_date": "20260221", "race_id": "202602210502", "post_time": "1040"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert len(result) == 2
+        assert result[0]["race_id"] == "202602210501"
+        assert result[0]["start_time"] == "2026-02-21T10:10:00+09:00"
+        assert result[1]["start_time"] == "2026-02-21T10:40:00+09:00"
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_post_time未設定のレースはスキップ(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "1010"},
+                {"race_date": "20260221", "race_id": "202602210502", "post_time": ""},
+                {"race_date": "20260221", "race_id": "202602210503"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert len(result) == 1
+        assert result[0]["race_id"] == "202602210501"
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_非開催日は空リスト(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {"Items": []}
+
+        result = _get_today_races("20260221")
+        assert result == []
 
 
 class TestHandler:

@@ -1,6 +1,6 @@
 """自動投票 Orchestrator Lambda.
 
-15分間隔で起動。当日レース一覧を取得し、
+15分間隔で起動。DynamoDB racesテーブルから当日レース一覧を取得し、
 発走5分前の one-time スケジュールを EventBridge Scheduler で動的に作成する。
 """
 import json
@@ -9,12 +9,12 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import boto3
-import requests
+from boto3.dynamodb.conditions import Key
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-JRAVAN_API_URL = os.environ.get("JRAVAN_API_URL", "http://10.0.1.100:8000")
+RACES_TABLE_NAME = os.environ.get("RACES_TABLE_NAME", "baken-kaigi-races")
 BET_EXECUTOR_ARN = os.environ.get("BET_EXECUTOR_ARN", "")
 SCHEDULER_ROLE_ARN = os.environ.get("SCHEDULER_ROLE_ARN", "")
 SCHEDULE_GROUP = os.environ.get("SCHEDULE_GROUP", "default")
@@ -67,10 +67,29 @@ def _schedule_name(race_id: str) -> str:
 
 
 def _get_today_races(date_str: str) -> list[dict]:
-    """JRA-VAN API からレース一覧を取得."""
-    resp = requests.get(f"{JRAVAN_API_URL}/races", params={"date": date_str}, timeout=30)
-    resp.raise_for_status()
-    return resp.json()
+    """DynamoDB races テーブルから当日のレース一覧を取得."""
+    dynamodb = boto3.resource("dynamodb", region_name="ap-northeast-1")
+    table = dynamodb.Table(RACES_TABLE_NAME)
+    resp = table.query(
+        KeyConditionExpression=Key("race_date").eq(date_str),
+    )
+    races = []
+    for item in resp.get("Items", []):
+        post_time = item.get("post_time", "")
+        if not post_time or len(post_time) < 4:
+            continue
+        hour = int(post_time[:2])
+        minute = int(post_time[2:4])
+        dt = datetime(
+            int(date_str[:4]),
+            int(date_str[4:6]),
+            int(date_str[6:8]),
+            hour,
+            minute,
+            tzinfo=JST,
+        )
+        races.append({"race_id": item["race_id"], "start_time": dt.isoformat()})
+    return races
 
 
 def _schedule_exists(scheduler, name: str) -> bool:
