@@ -76,10 +76,12 @@ def _get_today_races(date_str: str) -> list[dict]:
     races = []
     for item in resp.get("Items", []):
         post_time = item.get("post_time", "")
-        if not post_time or len(post_time) < 4:
+        if not post_time or len(post_time) < 4 or not post_time[:4].isdigit():
             continue
         hour = int(post_time[:2])
         minute = int(post_time[2:4])
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            continue
         dt = datetime(
             int(date_str[:4]),
             int(date_str[4:6]),
