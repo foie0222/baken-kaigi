@@ -333,6 +333,55 @@ class BakenKaigiApiStack(Stack):
             ),
         )
 
+        # Races テーブル（HRDBレースデータ）
+        races_table = dynamodb.Table(
+            self,
+            "RacesTable",
+            table_name="baken-kaigi-races",
+            partition_key=dynamodb.Attribute(
+                name="race_date",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="race_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute="ttl",
+        )
+
+        # Runners テーブル（HRDB出走馬データ）
+        runners_table = dynamodb.Table(
+            self,
+            "RunnersTable",
+            table_name="baken-kaigi-runners",
+            partition_key=dynamodb.Attribute(
+                name="race_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="horse_number",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute="ttl",
+        )
+        # horse_id での検索用 GSI
+        runners_table.add_global_secondary_index(
+            index_name="horse_id-index",
+            partition_key=dynamodb.Attribute(
+                name="horse_id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            sort_key=dynamodb.Attribute(
+                name="race_date",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            projection_type=dynamodb.ProjectionType.ALL,
+        )
+
         # Betting Record テーブル
         betting_record_table = dynamodb.Table(
             self,
@@ -397,6 +446,8 @@ class BakenKaigiApiStack(Stack):
         ai_predictions_table.grant_read_data(agentcore_runtime_role)
         speed_indices_table.grant_read_data(agentcore_runtime_role)
         agent_table.grant_read_data(agentcore_runtime_role)
+        races_table.grant_read_data(agentcore_runtime_role)
+        runners_table.grant_read_data(agentcore_runtime_role)
 
         # API Gateway - API Key 取得権限
         agentcore_runtime_role.add_to_policy(
