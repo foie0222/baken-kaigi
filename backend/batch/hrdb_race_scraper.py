@@ -47,6 +47,14 @@ def _parse_run_time(runtm: str) -> str | None:
     return f"{minutes}:{seconds:02d}.{tenths}"
 
 
+def _safe_int(value: str, default: int | None = None) -> int | None:
+    """空文字や非数値を安全にintに変換する."""
+    v = value.strip()
+    if not v or not v.isdigit():
+        return default
+    return int(v)
+
+
 def convert_race_row(row: dict, scraped_at: datetime) -> dict:
     """RACEMSTのCSV行をDynamoDBアイテムに変換する."""
     opdt = row["OPDT"].strip()
@@ -54,7 +62,7 @@ def convert_race_row(row: dict, scraped_at: datetime) -> dict:
     rno = row["RNO"].strip()
     trackcd = row["TRACKCD"].strip()
 
-    return {
+    item = {
         "race_date": opdt,
         "race_id": hrdb_to_race_id(opdt, rcoursecd, rno),
         "venue": VENUE_CODE_MAP[rcoursecd],
@@ -62,11 +70,11 @@ def convert_race_row(row: dict, scraped_at: datetime) -> dict:
         "race_number": int(rno),
         "race_name": row["RNMHON"].strip(),
         "grade": row["GCD"].strip(),
-        "distance": int(row["DIST"].strip()),
+        "distance": _safe_int(row["DIST"].strip()),
         "track_type": TRACK_TYPE_MAP.get(trackcd[0], f"不明({trackcd})"),
         "track_code": trackcd,
-        "horse_count": int(row["ENTNUM"].strip()),
-        "run_count": int(row["RUNNUM"].strip()),
+        "horse_count": _safe_int(row["ENTNUM"].strip()),
+        "run_count": _safe_int(row["RUNNUM"].strip()),
         "post_time": row["POSTTM"].strip(),
         "weather_code": row["WEATHERCD"].strip(),
         "turf_condition_code": row["TSTATCD"].strip(),
@@ -76,6 +84,7 @@ def convert_race_row(row: dict, scraped_at: datetime) -> dict:
         "scraped_at": scraped_at.isoformat(),
         "ttl": int((scraped_at + timedelta(days=TTL_DAYS)).timestamp()),
     }
+    return {k: v for k, v in item.items() if v is not None}
 
 
 def convert_runner_row(row: dict, scraped_at: datetime) -> dict:

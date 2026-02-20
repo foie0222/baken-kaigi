@@ -2,10 +2,16 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+from botocore.exceptions import ClientError
+
 from batch.auto_bet_orchestrator import (
+    _get_today_races,
     _schedule_name,
     handler,
 )
+
+JST = timezone(timedelta(hours=9))
 
 
 class TestScheduleName:
@@ -13,13 +19,130 @@ class TestScheduleName:
         assert _schedule_name("202602210501") == "auto-bet-202602210501"
 
 
+class TestGetTodayRaces:
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_DynamoDBからレース一覧を取得(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "1010"},
+                {"race_date": "20260221", "race_id": "202602210502", "post_time": "1040"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert len(result) == 2
+        assert result[0]["race_id"] == "202602210501"
+        assert result[0]["start_time"] == "2026-02-21T10:10:00+09:00"
+        assert result[1]["start_time"] == "2026-02-21T10:40:00+09:00"
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_post_time未設定のレースはスキップ(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "1010"},
+                {"race_date": "20260221", "race_id": "202602210502", "post_time": ""},
+                {"race_date": "20260221", "race_id": "202602210503"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert len(result) == 1
+        assert result[0]["race_id"] == "202602210501"
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_非開催日は空リスト(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {"Items": []}
+
+        result = _get_today_races("20260221")
+        assert result == []
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_非数字を含むpost_timeはスキップ(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "12ab"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert result == []
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_無効な時刻のpost_timeはスキップ(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "2599"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert result == []
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_ページネーションで全件取得(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {"race_date": "20260221", "race_id": "202602210501", "post_time": "1010"},
+                ],
+                "LastEvaluatedKey": {"race_date": "20260221", "race_id": "202602210501"},
+            },
+            {
+                "Items": [
+                    {"race_date": "20260221", "race_id": "202602210502", "post_time": "1040"},
+                ],
+            },
+        ]
+
+        result = _get_today_races("20260221")
+        assert len(result) == 2
+        assert mock_table.query.call_count == 2
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_DynamoDBクエリエラーは伝播(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Access denied"}},
+            "Query",
+        )
+
+        with pytest.raises(ClientError):
+            _get_today_races("20260221")
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_クエリパラメータが正しい(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {"Items": []}
+
+        _get_today_races("20260221")
+
+        mock_table.query.assert_called_once()
+        call_kwargs = mock_table.query.call_args[1]
+        assert "KeyConditionExpression" in call_kwargs
+
+
 class TestHandler:
+    @patch("batch.auto_bet_orchestrator.boto3")
     @patch("batch.auto_bet_orchestrator._create_schedule")
     @patch("batch.auto_bet_orchestrator._schedule_exists")
     @patch("batch.auto_bet_orchestrator._get_today_races")
     @patch("batch.auto_bet_orchestrator.datetime")
     def test_未スケジュールのレースにスケジュール作成(
-        self, mock_dt, mock_races, mock_exists, mock_create
+        self, mock_dt, mock_races, mock_exists, mock_create, _mock_boto3
     ):
         now = datetime(2026, 2, 21, 0, 15, tzinfo=timezone.utc)
         mock_dt.now.return_value = now
@@ -34,12 +157,13 @@ class TestHandler:
         assert result["created"] == 2
         assert mock_create.call_count == 2
 
+    @patch("batch.auto_bet_orchestrator.boto3")
     @patch("batch.auto_bet_orchestrator._create_schedule")
     @patch("batch.auto_bet_orchestrator._schedule_exists")
     @patch("batch.auto_bet_orchestrator._get_today_races")
     @patch("batch.auto_bet_orchestrator.datetime")
     def test_既存スケジュールはスキップ(
-        self, mock_dt, mock_races, mock_exists, mock_create
+        self, mock_dt, mock_races, mock_exists, mock_create, _mock_boto3
     ):
         now = datetime(2026, 2, 21, 0, 15, tzinfo=timezone.utc)
         mock_dt.now.return_value = now
@@ -54,12 +178,13 @@ class TestHandler:
         assert result["skipped"] == 1
         mock_create.assert_not_called()
 
+    @patch("batch.auto_bet_orchestrator.boto3")
     @patch("batch.auto_bet_orchestrator._create_schedule")
     @patch("batch.auto_bet_orchestrator._schedule_exists")
     @patch("batch.auto_bet_orchestrator._get_today_races")
     @patch("batch.auto_bet_orchestrator.datetime")
     def test_過去のレースはスキップ(
-        self, mock_dt, mock_races, mock_exists, mock_create
+        self, mock_dt, mock_races, mock_exists, mock_create, _mock_boto3
     ):
         # now is after the race fire_at time (10:00 - 5min = 09:55 JST = 00:55 UTC)
         now = datetime(2026, 2, 21, 1, 0, tzinfo=timezone.utc)

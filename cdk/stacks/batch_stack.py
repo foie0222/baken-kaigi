@@ -633,7 +633,7 @@ class BakenKaigiBatchStack(Stack):
             )
         )
 
-        # --- Orchestrator Lambda (VPC外、スケジュール管理) ---
+        # --- Orchestrator Lambda (VPC外、DynamoDBからレース取得→スケジュール管理) ---
         auto_bet_orchestrator_fn = lambda_.Function(
             self,
             "AutoBetOrchestratorFunction",
@@ -648,9 +648,10 @@ class BakenKaigiBatchStack(Stack):
             environment={
                 "PYTHONPATH": "/var/task:/opt/python",
                 "BET_EXECUTOR_ARN": auto_bet_executor_fn.function_arn,
-                "JRAVAN_API_URL": jravan_api_url or "",
+                "RACES_TABLE_NAME": races_table.table_name,
             },
         )
+        races_table.grant_read_data(auto_bet_orchestrator_fn)
 
         # Scheduler → BetExecutor invoke 用 IAM ロール
         scheduler_role = iam.Role(
