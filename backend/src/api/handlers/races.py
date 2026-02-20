@@ -52,11 +52,11 @@ def get_race_dates(event: dict, context: Any) -> dict:
 def get_races(event: dict, context: Any) -> dict:
     """レース一覧を取得する.
 
-    GET /races?date=2024-06-01&venue=東京
+    GET /races?date=2024-06-01&venue=05
 
     Query Parameters:
         date: 日付（必須、YYYY-MM-DD形式）
-        venue: 開催場（オプション）
+        venue: 競馬場コード（オプション、例: "05"=東京）
 
     Returns:
         レース一覧
