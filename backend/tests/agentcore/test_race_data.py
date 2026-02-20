@@ -12,7 +12,7 @@ try:
     # agentcoreモジュールをインポートできるようにパスを追加
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / "agentcore"))
 
-    from tools.race_data import get_race_runners, _extract_race_conditions
+    from tools.race_data import get_race_runners, _extract_race_conditions, venue_code_to_name
     STRANDS_AVAILABLE = True
 except ImportError:
     STRANDS_AVAILABLE = False
@@ -32,7 +32,7 @@ def _make_api_response(race_overrides=None, runners=None):
     race = {
         "race_id": "202601250611",
         "race_name": "テストレース",
-        "venue": "東京",
+        "venue": "05",
         "track_type": "芝",
         "distance": 1600,
         "horse_count": 16,
@@ -240,3 +240,48 @@ class TestGetRaceRunners:
         result = get_race_runners("202601250611")
 
         assert result["total_runners"] == 3  # runnersが3頭
+
+    @patch("tools.race_data.cached_get")
+    def test_venue_codeが競馬場名に変換される(self, mock_get):
+        """APIがvenue_code("05")を返す場合、venue名("東京")に変換される."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_api_response(
+            race_overrides={"venue": "09"}
+        )
+        mock_get.return_value = mock_response
+
+        result = get_race_runners("202601250911")
+
+        assert result["venue"] == "阪神"
+
+    @patch("tools.race_data.cached_get")
+    def test_不明なvenue_codeはそのまま返す(self, mock_get):
+        """未知のvenue_codeはそのまま返される."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = _make_api_response(
+            race_overrides={"venue": "99"}
+        )
+        mock_get.return_value = mock_response
+
+        result = get_race_runners("202601259911")
+
+        assert result["venue"] == "99"
+
+
+class TestVenueCodeToName:
+    """venue_code_to_name のテスト."""
+
+    def test_全JRA競馬場コードを名前に変換できる(self):
+        assert venue_code_to_name("01") == "札幌"
+        assert venue_code_to_name("05") == "東京"
+        assert venue_code_to_name("09") == "阪神"
+        assert venue_code_to_name("10") == "小倉"
+
+    def test_不明なコードはそのまま返す(self):
+        assert venue_code_to_name("99") == "99"
+        assert venue_code_to_name("") == ""
+
+    def test_すでに名前の場合はそのまま返す(self):
+        assert venue_code_to_name("東京") == "東京"

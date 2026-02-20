@@ -8,6 +8,24 @@ from strands import tool
 
 from .jravan_client import cached_get, get_api_url
 
+VENUE_CODE_TO_NAME: dict[str, str] = {
+    "01": "札幌",
+    "02": "函館",
+    "03": "福島",
+    "04": "新潟",
+    "05": "東京",
+    "06": "中山",
+    "07": "中京",
+    "08": "京都",
+    "09": "阪神",
+    "10": "小倉",
+}
+
+
+def venue_code_to_name(code: str) -> str:
+    """競馬場コード（例: "05"）を名前（例: "東京"）に変換する."""
+    return VENUE_CODE_TO_NAME.get(code, code)
+
 
 def _fetch_race_detail(race_id: str) -> dict:
     """JRA-VAN APIからレース詳細を取得する共通関数."""
@@ -15,7 +33,11 @@ def _fetch_race_detail(race_id: str) -> dict:
         f"{get_api_url()}/races/{race_id}",
     )
     response.raise_for_status()
-    return response.json()
+    data = response.json()
+    race = data.get("race")
+    if race and "venue" in race:
+        race["venue"] = venue_code_to_name(race["venue"])
+    return data
 
 
 def _extract_race_conditions(race: dict) -> list[str]:
