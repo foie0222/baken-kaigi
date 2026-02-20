@@ -76,7 +76,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         )
         items = response.get("Items", [])
         if venue is not None:
-            items = [item for item in items if item.get("venue") == venue]
+            items = [item for item in items if item.get("venue_code") == venue]
         races = [self._to_race_data(item) for item in items]
         races.sort(key=lambda r: (r.venue, r.race_number))
         return races
@@ -102,7 +102,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             race_id=item["race_id"],
             race_name=item["race_name"],
             race_number=int(item["race_number"]),
-            venue=item["venue"],
+            venue=item.get("venue_code", ""),
             start_time=start_time,
             betting_deadline=start_time,
             track_condition=track_condition,
