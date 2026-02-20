@@ -213,7 +213,7 @@ def get_betting_summary_handler(event: dict, context: Any) -> dict:
         "total_investment": summary.total_investment.value,
         "total_payout": summary.total_payout.value,
         "net_profit": summary.net_profit,
-        "win_rate": summary.win_rate,
+        "win_rate": summary.win_rate * 100,
         "record_count": summary.record_count,
         "roi": summary.roi,
     }, event=event)
