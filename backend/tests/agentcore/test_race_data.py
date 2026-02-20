@@ -275,7 +275,13 @@ class TestVenueCodeToName:
 
     def test_全JRA競馬場コードを名前に変換できる(self):
         assert venue_code_to_name("01") == "札幌"
+        assert venue_code_to_name("02") == "函館"
+        assert venue_code_to_name("03") == "福島"
+        assert venue_code_to_name("04") == "新潟"
         assert venue_code_to_name("05") == "東京"
+        assert venue_code_to_name("06") == "中山"
+        assert venue_code_to_name("07") == "中京"
+        assert venue_code_to_name("08") == "京都"
         assert venue_code_to_name("09") == "阪神"
         assert venue_code_to_name("10") == "小倉"
 
