@@ -33,7 +33,7 @@ def handler(event, context):
         logger.info("レースなし（非開催日）")
         return {"status": "ok", "created": 0, "skipped": 0}
 
-    scheduler = boto3.client("scheduler", region_name="ap-northeast-1")
+    scheduler = boto3.client("scheduler")
     created, skipped = 0, 0
 
     try:
@@ -68,29 +68,40 @@ def _schedule_name(race_id: str) -> str:
 
 def _get_today_races(date_str: str) -> list[dict]:
     """DynamoDB races テーブルから当日のレース一覧を取得."""
-    dynamodb = boto3.resource("dynamodb", region_name="ap-northeast-1")
+    dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(RACES_TABLE_NAME)
-    resp = table.query(
-        KeyConditionExpression=Key("race_date").eq(date_str),
-    )
-    races = []
-    for item in resp.get("Items", []):
-        post_time = item.get("post_time", "")
-        if not post_time or len(post_time) < 4 or not post_time[:4].isdigit():
-            continue
-        hour = int(post_time[:2])
-        minute = int(post_time[2:4])
-        if not (0 <= hour <= 23 and 0 <= minute <= 59):
-            continue
-        dt = datetime(
-            int(date_str[:4]),
-            int(date_str[4:6]),
-            int(date_str[6:8]),
-            hour,
-            minute,
-            tzinfo=JST,
-        )
-        races.append({"race_id": item["race_id"], "start_time": dt.isoformat()})
+    query_kwargs = {"KeyConditionExpression": Key("race_date").eq(date_str)}
+    races: list[dict] = []
+    while True:
+        resp = table.query(**query_kwargs)
+        for item in resp.get("Items", []):
+            post_time = item.get("post_time", "")
+            if not post_time or len(post_time) < 4 or not post_time[:4].isdigit():
+                continue
+            hour = int(post_time[:2])
+            minute = int(post_time[2:4])
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                continue
+            try:
+                dt = datetime(
+                    int(date_str[:4]),
+                    int(date_str[4:6]),
+                    int(date_str[6:8]),
+                    hour,
+                    minute,
+                    tzinfo=JST,
+                )
+            except ValueError:
+                logger.warning(
+                    "無効な日付のためスキップ: race_id=%s, date_str=%s",
+                    item.get("race_id"),
+                    date_str,
+                )
+                continue
+            races.append({"race_id": item["race_id"], "start_time": dt.isoformat()})
+        if "LastEvaluatedKey" not in resp:
+            break
+        query_kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
     return races
 
 

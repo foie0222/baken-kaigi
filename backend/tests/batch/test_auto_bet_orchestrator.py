@@ -2,6 +2,9 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+from botocore.exceptions import ClientError
+
 from batch.auto_bet_orchestrator import (
     _get_today_races,
     _schedule_name,
@@ -58,6 +61,78 @@ class TestGetTodayRaces:
 
         result = _get_today_races("20260221")
         assert result == []
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_非数字を含むpost_timeはスキップ(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "12ab"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert result == []
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_無効な時刻のpost_timeはスキップ(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {
+            "Items": [
+                {"race_date": "20260221", "race_id": "202602210501", "post_time": "2599"},
+            ]
+        }
+
+        result = _get_today_races("20260221")
+        assert result == []
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_ページネーションで全件取得(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {"race_date": "20260221", "race_id": "202602210501", "post_time": "1010"},
+                ],
+                "LastEvaluatedKey": {"race_date": "20260221", "race_id": "202602210501"},
+            },
+            {
+                "Items": [
+                    {"race_date": "20260221", "race_id": "202602210502", "post_time": "1040"},
+                ],
+            },
+        ]
+
+        result = _get_today_races("20260221")
+        assert len(result) == 2
+        assert mock_table.query.call_count == 2
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_DynamoDBクエリエラーは伝播(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.side_effect = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "Access denied"}},
+            "Query",
+        )
+
+        with pytest.raises(ClientError):
+            _get_today_races("20260221")
+
+    @patch("batch.auto_bet_orchestrator.boto3")
+    def test_クエリパラメータが正しい(self, mock_boto3):
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {"Items": []}
+
+        _get_today_races("20260221")
+
+        mock_table.query.assert_called_once()
+        call_kwargs = mock_table.query.call_args[1]
+        assert "KeyConditionExpression" in call_kwargs
 
 
 class TestHandler:
