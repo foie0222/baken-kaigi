@@ -3,6 +3,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("TARGET_USER_ID", "test-user")
+os.environ.setdefault("GAMBLE_OS_SECRET_NAME", "test-secret")
 
 from batch.auto_bet_executor import handler, _run_pipeline, _fetch_predictions
 
