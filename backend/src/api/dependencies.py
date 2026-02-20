@@ -63,12 +63,14 @@ class Dependencies:
     def get_race_data_provider(cls) -> RaceDataProvider:
         """レースデータプロバイダを取得する."""
         if cls._race_data_provider is None:
-            if os.environ.get("RACES_TABLE_NAME") is not None:
+            races_table_name = os.environ.get("RACES_TABLE_NAME")
+            if races_table_name is not None:
                 from src.infrastructure.providers import DynamoDbRaceDataProvider
 
+                runners_table_name = os.environ["RUNNERS_TABLE_NAME"]
                 cls._race_data_provider = DynamoDbRaceDataProvider(
-                    races_table_name=os.environ["RACES_TABLE_NAME"],
-                    runners_table_name=os.environ["RUNNERS_TABLE_NAME"],
+                    races_table_name=races_table_name,
+                    runners_table_name=runners_table_name,
                 )
             else:
                 cls._race_data_provider = MockRaceDataProvider()

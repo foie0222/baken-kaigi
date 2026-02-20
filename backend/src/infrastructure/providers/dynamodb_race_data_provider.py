@@ -156,82 +156,82 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         )
 
     # ------------------------------------------------------------------
-    # 未実装メソッド
+    # DynamoDB未対応メソッド（データなしとして適切な空値を返す）
     # ------------------------------------------------------------------
 
     def get_jockey_stats(self, jockey_id, course):
-        raise NotImplementedError
+        return None
 
     def get_pedigree(self, horse_id):
-        raise NotImplementedError
+        return None
 
     def get_weight_history(self, horse_id, limit=5):
-        raise NotImplementedError
+        return []
 
     def get_race_weights(self, race_id):
-        raise NotImplementedError
+        return {}
 
     def get_jra_checksum(self, venue_code, kaisai_kai, kaisai_nichime, race_number):
-        raise NotImplementedError
+        return None
 
     def get_race_dates(self, from_date=None, to_date=None):
-        raise NotImplementedError
+        return []
 
     def get_past_race_stats(self, track_type, distance, grade_class=None, limit=100):
-        raise NotImplementedError
+        return None
 
     def get_jockey_info(self, jockey_id):
-        raise NotImplementedError
+        return None
 
     def get_jockey_stats_detail(self, jockey_id, year=None, period="recent"):
-        raise NotImplementedError
+        return None
 
     def get_horse_performances(self, horse_id, limit=5, track_type=None):
-        raise NotImplementedError
+        return []
 
     def get_horse_training(self, horse_id, limit=5, days=30):
-        raise NotImplementedError
+        return [], None
 
     def get_extended_pedigree(self, horse_id):
-        raise NotImplementedError
+        return None
 
     def get_odds_history(self, race_id):
-        raise NotImplementedError
+        return None
 
     def get_running_styles(self, race_id):
-        raise NotImplementedError
+        return []
 
     def get_course_aptitude(self, horse_id):
-        raise NotImplementedError
+        return None
 
     def get_trainer_info(self, trainer_id):
-        raise NotImplementedError
+        return None
 
     def get_trainer_stats_detail(self, trainer_id, year=None, period="all"):
-        raise NotImplementedError
+        return None, [], []
 
     def get_stallion_offspring_stats(self, stallion_id, year=None, track_type=None):
-        raise NotImplementedError
+        return None, [], [], [], []
 
     def get_gate_position_stats(
         self, venue, track_type=None, distance=None, track_condition=None, limit=100
     ):
-        raise NotImplementedError
+        return None
 
     def get_race_results(self, race_id):
-        raise NotImplementedError
+        return None
 
     def get_owner_info(self, owner_id):
-        raise NotImplementedError
+        return None
 
     def get_owner_stats(self, owner_id, year=None, period="all"):
-        raise NotImplementedError
+        return None
 
     def get_breeder_info(self, breeder_id):
-        raise NotImplementedError
+        return None
 
     def get_breeder_stats(self, breeder_id, year=None, period="all"):
-        raise NotImplementedError
+        return None
 
     def get_all_odds(self, race_id):
-        raise NotImplementedError
+        return None

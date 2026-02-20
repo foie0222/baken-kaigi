@@ -329,210 +329,111 @@ class TestConstructor:
         assert provider._runners_table is mock_runners
 
 
-class TestNotImplemented:
-    """未実装メソッドのテスト."""
+class TestUnsupportedMethods:
+    """DynamoDB未対応メソッドのテスト."""
 
     def _make_provider(self) -> DynamoDbRaceDataProvider:
         return DynamoDbRaceDataProvider(
             races_table=MagicMock(), runners_table=MagicMock()
         )
 
-    def test_get_jockey_statsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_jockey_stats("01234", "東京芝1600")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_jockey_statsはNoneを返す(self):
+        result = self._make_provider().get_jockey_stats("01234", "東京芝1600")
+        assert result is None
 
-    def test_get_pedigreeは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_pedigree("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_pedigreeはNoneを返す(self):
+        result = self._make_provider().get_pedigree("2020100001")
+        assert result is None
 
-    def test_get_weight_historyは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_weight_history("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_weight_historyは空リストを返す(self):
+        result = self._make_provider().get_weight_history("2020100001")
+        assert result == []
 
-    def test_get_race_weightsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_race_weights(RaceId("202602140505"))
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_race_weightsは空辞書を返す(self):
+        result = self._make_provider().get_race_weights(RaceId("202602140505"))
+        assert result == {}
 
-    def test_get_jra_checksumは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_jra_checksum("05", "01", 2, 5)
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_jra_checksumはNoneを返す(self):
+        result = self._make_provider().get_jra_checksum("05", "01", 2, 5)
+        assert result is None
 
-    def test_get_race_datesは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_race_dates()
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_race_datesは空リストを返す(self):
+        result = self._make_provider().get_race_dates()
+        assert result == []
 
-    def test_get_past_race_statsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_past_race_stats("芝", 1600)
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_past_race_statsはNoneを返す(self):
+        result = self._make_provider().get_past_race_stats("芝", 1600)
+        assert result is None
 
-    def test_get_jockey_infoは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_jockey_info("01234")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_jockey_infoはNoneを返す(self):
+        result = self._make_provider().get_jockey_info("01234")
+        assert result is None
 
-    def test_get_jockey_stats_detailは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_jockey_stats_detail("01234")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_jockey_stats_detailはNoneを返す(self):
+        result = self._make_provider().get_jockey_stats_detail("01234")
+        assert result is None
 
-    def test_get_horse_performancesは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_horse_performances("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_horse_performancesは空リストを返す(self):
+        result = self._make_provider().get_horse_performances("2020100001")
+        assert result == []
 
-    def test_get_horse_trainingは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_horse_training("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_horse_trainingは空リストとNoneのタプルを返す(self):
+        records, summary = self._make_provider().get_horse_training("2020100001")
+        assert records == []
+        assert summary is None
 
-    def test_get_extended_pedigreeは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_extended_pedigree("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_extended_pedigreeはNoneを返す(self):
+        result = self._make_provider().get_extended_pedigree("2020100001")
+        assert result is None
 
-    def test_get_odds_historyは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_odds_history(RaceId("202602140505"))
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_odds_historyはNoneを返す(self):
+        result = self._make_provider().get_odds_history(RaceId("202602140505"))
+        assert result is None
 
-    def test_get_running_stylesは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_running_styles(RaceId("202602140505"))
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_running_stylesは空リストを返す(self):
+        result = self._make_provider().get_running_styles(RaceId("202602140505"))
+        assert result == []
 
-    def test_get_course_aptitudeは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_course_aptitude("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_course_aptitudeはNoneを返す(self):
+        result = self._make_provider().get_course_aptitude("2020100001")
+        assert result is None
 
-    def test_get_trainer_infoは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_trainer_info("01234")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_trainer_infoはNoneを返す(self):
+        result = self._make_provider().get_trainer_info("01234")
+        assert result is None
 
-    def test_get_trainer_stats_detailは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_trainer_stats_detail("01234")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_trainer_stats_detailはNoneと空リストのタプルを返す(self):
+        result = self._make_provider().get_trainer_stats_detail("01234")
+        assert result == (None, [], [])
 
-    def test_get_stallion_offspring_statsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_stallion_offspring_stats("2020100001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_stallion_offspring_statsはNoneと空リストのタプルを返す(self):
+        result = self._make_provider().get_stallion_offspring_stats("2020100001")
+        assert result == (None, [], [], [], [])
 
-    def test_get_gate_position_statsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_gate_position_stats("東京")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_gate_position_statsはNoneを返す(self):
+        result = self._make_provider().get_gate_position_stats("東京")
+        assert result is None
 
-    def test_get_race_resultsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_race_results(RaceId("202602140505"))
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_race_resultsはNoneを返す(self):
+        result = self._make_provider().get_race_results(RaceId("202602140505"))
+        assert result is None
 
-    def test_get_owner_infoは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_owner_info("00001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_owner_infoはNoneを返す(self):
+        result = self._make_provider().get_owner_info("00001")
+        assert result is None
 
-    def test_get_owner_statsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_owner_stats("00001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_owner_statsはNoneを返す(self):
+        result = self._make_provider().get_owner_stats("00001")
+        assert result is None
 
-    def test_get_breeder_infoは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_breeder_info("00001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_breeder_infoはNoneを返す(self):
+        result = self._make_provider().get_breeder_info("00001")
+        assert result is None
 
-    def test_get_breeder_statsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_breeder_stats("00001")
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_breeder_statsはNoneを返す(self):
+        result = self._make_provider().get_breeder_stats("00001")
+        assert result is None
 
-    def test_get_all_oddsは未実装(self):
-        provider = self._make_provider()
-        try:
-            provider.get_all_odds(RaceId("202602140505"))
-            assert False, "NotImplementedError が発生しなかった"
-        except NotImplementedError:
-            pass
+    def test_get_all_oddsはNoneを返す(self):
+        result = self._make_provider().get_all_odds(RaceId("202602140505"))
+        assert result is None
