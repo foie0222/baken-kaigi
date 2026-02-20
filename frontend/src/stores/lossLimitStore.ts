@@ -26,6 +26,7 @@ export const useLossLimitStore = create<LossLimitState>()((set, get) => ({
   error: null,
 
   fetchLossLimit: async () => {
+    if (get().isLoading) return;
     try {
       set({ isLoading: true, error: null });
       const response = await apiClient.getLossLimit();

@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '../test/utils'
 import { fireEvent } from '@testing-library/react'
 import { CartPage } from './CartPage'
 import { useCartStore } from '../stores/cartStore'
+import { useAuthStore } from '../stores/authStore'
+import { useLossLimitStore } from '../stores/lossLimitStore'
 
 describe('CartPage', () => {
   beforeEach(() => {
@@ -148,6 +150,43 @@ describe('CartPage', () => {
       render(<CartPage />)
 
       expect(screen.getByText('1点')).toBeInTheDocument()
+    })
+  })
+
+  describe('負け額上限の取得', () => {
+    beforeEach(() => {
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'win',
+        betMethod: 'normal',
+        horseNumbers: [1],
+        betDisplay: '1',
+        betCount: 1,
+        amount: 1000,
+      })
+    })
+
+    it('認証済みの場合fetchLossLimitが呼ばれる', () => {
+      const fetchLossLimit = vi.fn()
+      useLossLimitStore.setState({ fetchLossLimit })
+      useAuthStore.setState({ isAuthenticated: true })
+
+      render(<CartPage />)
+
+      expect(fetchLossLimit).toHaveBeenCalled()
+    })
+
+    it('未認証の場合fetchLossLimitが呼ばれない', () => {
+      const fetchLossLimit = vi.fn()
+      useLossLimitStore.setState({ fetchLossLimit })
+      useAuthStore.setState({ isAuthenticated: false })
+
+      render(<CartPage />)
+
+      expect(fetchLossLimit).not.toHaveBeenCalled()
     })
   })
 
