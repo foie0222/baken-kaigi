@@ -136,12 +136,13 @@ class TestGetTodayRaces:
 
 
 class TestHandler:
+    @patch("batch.auto_bet_orchestrator.boto3")
     @patch("batch.auto_bet_orchestrator._create_schedule")
     @patch("batch.auto_bet_orchestrator._schedule_exists")
     @patch("batch.auto_bet_orchestrator._get_today_races")
     @patch("batch.auto_bet_orchestrator.datetime")
     def test_未スケジュールのレースにスケジュール作成(
-        self, mock_dt, mock_races, mock_exists, mock_create
+        self, mock_dt, mock_races, mock_exists, mock_create, _mock_boto3
     ):
         now = datetime(2026, 2, 21, 0, 15, tzinfo=timezone.utc)
         mock_dt.now.return_value = now
@@ -156,12 +157,13 @@ class TestHandler:
         assert result["created"] == 2
         assert mock_create.call_count == 2
 
+    @patch("batch.auto_bet_orchestrator.boto3")
     @patch("batch.auto_bet_orchestrator._create_schedule")
     @patch("batch.auto_bet_orchestrator._schedule_exists")
     @patch("batch.auto_bet_orchestrator._get_today_races")
     @patch("batch.auto_bet_orchestrator.datetime")
     def test_既存スケジュールはスキップ(
-        self, mock_dt, mock_races, mock_exists, mock_create
+        self, mock_dt, mock_races, mock_exists, mock_create, _mock_boto3
     ):
         now = datetime(2026, 2, 21, 0, 15, tzinfo=timezone.utc)
         mock_dt.now.return_value = now
@@ -176,12 +178,13 @@ class TestHandler:
         assert result["skipped"] == 1
         mock_create.assert_not_called()
 
+    @patch("batch.auto_bet_orchestrator.boto3")
     @patch("batch.auto_bet_orchestrator._create_schedule")
     @patch("batch.auto_bet_orchestrator._schedule_exists")
     @patch("batch.auto_bet_orchestrator._get_today_races")
     @patch("batch.auto_bet_orchestrator.datetime")
     def test_過去のレースはスキップ(
-        self, mock_dt, mock_races, mock_exists, mock_create
+        self, mock_dt, mock_races, mock_exists, mock_create, _mock_boto3
     ):
         # now is after the race fire_at time (10:00 - 5min = 09:55 JST = 00:55 UTC)
         now = datetime(2026, 2, 21, 1, 0, tzinfo=timezone.utc)
