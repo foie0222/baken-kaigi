@@ -602,6 +602,7 @@ class BakenKaigiBatchStack(Stack):
                 "TARGET_USER_ID": target_user_id,
                 "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
                 "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
+                "GAMBLE_OS_SECRET_NAME": gamble_os_secret.secret_name,
             },
         }
         if vpc is not None:
@@ -632,6 +633,7 @@ class BakenKaigiBatchStack(Stack):
                 ],
             )
         )
+        gamble_os_secret.grant_read(auto_bet_executor_fn)
 
         # --- Orchestrator Lambda (VPC外、スケジュール管理) ---
         auto_bet_orchestrator_fn = lambda_.Function(
