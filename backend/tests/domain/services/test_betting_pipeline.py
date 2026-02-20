@@ -81,17 +81,13 @@ class TestLogOpinionPool:
 
 class TestMarketImpliedProbs:
     def test_オッズから確率変換(self):
-        odds_win = {
-            "1": {"o": 2.0},
-            "2": {"o": 5.0},
-            "3": {"o": 10.0},
-        }
+        odds_win = {"1": 2.0, "2": 5.0, "3": 10.0}
         result = market_implied_probs(odds_win)
         assert abs(sum(result.values()) - 1.0) < 1e-10
         assert result[1] > result[2] > result[3]
 
     def test_オッズ0は除外(self):
-        odds_win = {"1": {"o": 2.0}, "2": {"o": 0}}
+        odds_win = {"1": 2.0, "2": 0}
         result = market_implied_probs(odds_win)
         assert set(result.keys()) == {1}
 
