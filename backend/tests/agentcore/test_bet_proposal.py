@@ -1888,6 +1888,23 @@ class TestAllocateBudgetDutching:
         high_odds = next(b for b in result if b["composite_odds"] == 10.0)
         assert low_odds["amount"] > high_odds["amount"]
 
+    def test_composite_oddsが0の買い目はZeroDivisionErrorにならない(self):
+        bets = [
+            {"composite_odds": 0.0, "expected_value": 1.5},
+            {"composite_odds": 5.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        # odds=0の買い目は除外され、残りの買い目のみが返される
+        assert all(b["composite_odds"] > 0 for b in result)
+
+    def test_全買い目のcomposite_oddsが0なら空リスト(self):
+        bets = [
+            {"composite_odds": 0.0, "expected_value": 1.5},
+            {"composite_odds": 0.0, "expected_value": 1.2},
+        ]
+        result = _allocate_budget_dutching(bets, 3000)
+        assert result == []
+
 
 class TestGenerateBetCandidatesNoMaxBets:
     """MAX_BETS撤廃後の買い目生成テスト."""

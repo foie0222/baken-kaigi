@@ -89,8 +89,6 @@ EV_THRESHOLD = 1.0
 # デフォルト券種リスト（preferred_bet_types未指定時）
 DEFAULT_BET_TYPES = ["quinella", "exacta", "quinella_place", "trio"]
 
-# 組合せ生成対象の最小確率（これ以下の馬は組合せに含めない）
-MIN_PROB_FOR_COMBINATION = 0.02
 
 def _fetch_all_odds(race_id: str) -> dict:
     """JRA-VAN APIから全券種オッズを取得."""
