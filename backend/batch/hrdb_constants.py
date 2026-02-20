@@ -8,8 +8,8 @@ VENUE_CODE_MAP: dict[str, str] = {
     "05": "東京",
     "06": "中山",
     "07": "中京",
-    "08": "阪神",
-    "09": "京都",
+    "08": "京都",
+    "09": "阪神",
     "10": "小倉",
 }
 
@@ -28,13 +28,3 @@ def hrdb_to_race_id(opdt: str, rcoursecd: str, rno: str) -> str:
     return f"{opdt}{rcoursecd.zfill(2)}{rno.zfill(2)}"
 
 
-def parse_race_id(race_id: str) -> tuple[str, str, str]:
-    """12桁のrace_idをパースする.
-
-    Args:
-        race_id: 12桁のrace_id (例: "202602140511")
-
-    Returns:
-        (date, venue_code, race_number) のタプル
-    """
-    return race_id[:8], race_id[8:10], race_id[10:12]

@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from batch.hrdb_race_scraper import (
     _parse_run_time,
+    _validate_date,
     convert_race_row,
     convert_runner_row,
     handler,
@@ -199,6 +200,25 @@ class TestParseRunTime:
         assert _parse_run_time("") is None
 
 
+class TestValidateDate:
+    """_validate_date のテスト."""
+
+    def test_正常な日付(self):
+        assert _validate_date("20260222") == "20260222"
+
+    def test_数字以外を含む文字列(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            _validate_date("2026-02-22")
+
+    def test_桁数不足(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            _validate_date("202602")
+
+    def test_SQLインジェクション(self):
+        with pytest.raises(ValueError, match="Invalid date format"):
+            _validate_date("'; DROP TABLE RACEMST; --")
+
+
 class TestHandler:
     """handler のテスト."""
 
@@ -216,10 +236,17 @@ class TestHandler:
         mock_client.query_dual.return_value = (race_rows, runner_rows)
         mock_get_client.return_value = mock_client
 
-        # DynamoDBテーブルモック
+        # DynamoDBテーブルモック（batch_writer対応）
         mock_races = MagicMock()
-        mock_runners = MagicMock()
+        mock_race_batch = MagicMock()
+        mock_races.batch_writer.return_value.__enter__ = MagicMock(return_value=mock_race_batch)
+        mock_races.batch_writer.return_value.__exit__ = MagicMock(return_value=False)
         mock_get_races_table.return_value = mock_races
+
+        mock_runners = MagicMock()
+        mock_runner_batch = MagicMock()
+        mock_runners.batch_writer.return_value.__enter__ = MagicMock(return_value=mock_runner_batch)
+        mock_runners.batch_writer.return_value.__exit__ = MagicMock(return_value=False)
         mock_get_runners_table.return_value = mock_runners
 
         # 実行
@@ -232,16 +259,16 @@ class TestHandler:
         assert body["races_saved"] == 1
         assert body["runners_saved"] == 1
 
-        # DynamoDBへの書き込み検証
-        mock_races.put_item.assert_called_once()
-        mock_runners.put_item.assert_called_once()
+        # batch_writerへの書き込み検証
+        mock_race_batch.put_item.assert_called_once()
+        mock_runner_batch.put_item.assert_called_once()
 
         # put_itemの引数検証
-        race_item = mock_races.put_item.call_args[1]["Item"]
+        race_item = mock_race_batch.put_item.call_args[1]["Item"]
         assert race_item["race_id"] == "202602220511"
         assert race_item["race_name"] == "フェブラリーステークス"
 
-        runner_item = mock_runners.put_item.call_args[1]["Item"]
+        runner_item = mock_runner_batch.put_item.call_args[1]["Item"]
         assert runner_item["race_id"] == "202602220511"
         assert runner_item["horse_number"] == "01"
         assert runner_item["horse_name"] == "レモンポップ"

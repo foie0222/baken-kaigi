@@ -23,6 +23,8 @@ TTL_DAYS = 14
 TRACK_TYPE_MAP = {
     "1": "芝",
     "2": "ダート",
+    "3": "芝→ダート",
+    "4": "ダート→芝",
     "5": "障害",
 }
 
@@ -61,7 +63,7 @@ def convert_race_row(row: dict, scraped_at: datetime) -> dict:
         "race_name": row["RNMHON"].strip(),
         "grade": row["GCD"].strip(),
         "distance": int(row["DIST"].strip()),
-        "track_type": TRACK_TYPE_MAP[trackcd[0]],
+        "track_type": TRACK_TYPE_MAP.get(trackcd[0], f"不明({trackcd})"),
         "track_code": trackcd,
         "horse_count": int(row["ENTNUM"].strip()),
         "run_count": int(row["RUNNUM"].strip()),
@@ -117,31 +119,41 @@ def convert_runner_row(row: dict, scraped_at: datetime) -> dict:
 def get_hrdb_client() -> HrdbClient:
     """Secrets ManagerからHRDB認証情報を取得してクライアントを生成."""
     sm = boto3.client("secretsmanager")
-    secret = sm.get_secret_value(SecretId="baken-kaigi/gamble-os-credentials")
+    secret_name = os.environ["HRDB_SECRET_NAME"]
+    secret = sm.get_secret_value(SecretId=secret_name)
     creds = json.loads(secret["SecretString"])
     return HrdbClient(
-        club_id=creds["club_id"],
-        club_password=creds["club_password"],
+        club_id=creds["tncid"],
+        club_password=creds["tncpw"],
     )
 
 
 def get_races_table():
     """DynamoDB races テーブルを取得."""
-    table_name = os.environ.get("RACES_TABLE_NAME", "baken-kaigi-races")
+    table_name = os.environ["RACES_TABLE_NAME"]
     return boto3.resource("dynamodb").Table(table_name)
 
 
 def get_runners_table():
     """DynamoDB runners テーブルを取得."""
-    table_name = os.environ.get("RUNNERS_TABLE_NAME", "baken-kaigi-runners")
+    table_name = os.environ["RUNNERS_TABLE_NAME"]
     return boto3.resource("dynamodb").Table(table_name)
+
+
+def _validate_date(date_str: str) -> str:
+    """日付文字列のバリデーション（SQLインジェクション防止）."""
+    if not (len(date_str) == 8 and date_str.isdigit()):
+        raise ValueError(f"Invalid date format: {date_str}")
+    return date_str
 
 
 def handler(event: dict, context) -> dict:
     """レースデータ取得Lambda ハンドラー."""
     offset_days = event.get("offset_days", 1)
     now = datetime.now(JST)
-    target_date = (now + timedelta(days=offset_days)).strftime("%Y%m%d")
+    target_date = _validate_date(
+        (now + timedelta(days=offset_days)).strftime("%Y%m%d")
+    )
     scraped_at = now
 
     logger.info("Fetching HRDB race data for %s (offset_days=%d)", target_date, offset_days)
@@ -157,16 +169,18 @@ def handler(event: dict, context) -> dict:
     runners_table = get_runners_table()
 
     races_saved = 0
-    for row in race_rows:
-        item = convert_race_row(row, scraped_at)
-        races_table.put_item(Item=item)
-        races_saved += 1
+    with races_table.batch_writer() as batch:
+        for row in race_rows:
+            item = convert_race_row(row, scraped_at)
+            batch.put_item(Item=item)
+            races_saved += 1
 
     runners_saved = 0
-    for row in runner_rows:
-        item = convert_runner_row(row, scraped_at)
-        runners_table.put_item(Item=item)
-        runners_saved += 1
+    with runners_table.batch_writer() as batch:
+        for row in runner_rows:
+            item = convert_runner_row(row, scraped_at)
+            batch.put_item(Item=item)
+            runners_saved += 1
 
     logger.info(
         "Saved %d races and %d runners for %s",
