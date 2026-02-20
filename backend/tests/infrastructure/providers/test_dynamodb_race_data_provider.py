@@ -357,9 +357,6 @@ class TestUnsupportedMethods:
         result = self._make_provider().get_jra_checksum("05", "01", 2, 5)
         assert result is None
 
-    def test_get_race_datesは後述の専用テストクラスで検証(self):
-        pass
-
     def test_get_past_race_statsはNoneを返す(self):
         result = self._make_provider().get_past_race_stats("芝", 1600)
         assert result is None
@@ -460,7 +457,7 @@ class TestGetRaceDates:
             from_date=date(2026, 2, 7), to_date=date(2026, 3, 7)
         )
 
-        assert result == [date(2026, 2, 14), date(2026, 2, 15), date(2026, 2, 21)]
+        assert result == [date(2026, 2, 21), date(2026, 2, 15), date(2026, 2, 14)]
 
     def test_引数なしで全件スキャンする(self):
         mock_table = MagicMock()
@@ -473,7 +470,7 @@ class TestGetRaceDates:
 
         result = provider.get_race_dates()
 
-        assert result == [date(2026, 2, 14), date(2026, 2, 21)]
+        assert result == [date(2026, 2, 21), date(2026, 2, 14)]
         call_kwargs = mock_table.scan.call_args[1]
         assert "FilterExpression" not in call_kwargs
 
@@ -531,7 +528,7 @@ class TestGetRaceDates:
             from_date=date(2026, 2, 7), to_date=date(2026, 3, 7)
         )
 
-        assert result == [date(2026, 2, 14), date(2026, 2, 21)]
+        assert result == [date(2026, 2, 21), date(2026, 2, 14)]
         assert mock_table.scan.call_count == 2
 
     def test_ProjectionExpressionでrace_dateのみ取得する(self):

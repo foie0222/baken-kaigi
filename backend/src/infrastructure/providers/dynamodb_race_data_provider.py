@@ -174,8 +174,12 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     def get_jra_checksum(self, venue_code, kaisai_kai, kaisai_nichime, race_number):
         return None
 
-    def get_race_dates(self, from_date=None, to_date=None):
-        """指定期間内の開催日一覧を取得する."""
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        """指定期間内の開催日一覧を取得する（降順）."""
         scan_kwargs: dict = {"ProjectionExpression": "race_date"}
 
         if from_date and to_date:
@@ -205,7 +209,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             rd = item["race_date"]
             dates.add(date(int(rd[:4]), int(rd[4:6]), int(rd[6:8])))
 
-        return sorted(dates)
+        return sorted(dates, reverse=True)
 
     def get_past_race_stats(self, track_type, distance, grade_class=None, limit=100):
         return None
