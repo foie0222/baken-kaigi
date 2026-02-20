@@ -160,7 +160,7 @@ class TestBatchStack:
             {
                 "FunctionName": "baken-kaigi-auto-bet-executor",
                 "Handler": "batch.auto_bet_executor.handler",
-                "Timeout": 120,
+                "Timeout": 180,
             },
         )
 

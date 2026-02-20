@@ -508,13 +508,14 @@ class BakenKaigiBatchStack(Stack):
         # --- BetExecutor Lambda (VPC内、IPAT投票実行) ---
         auto_bet_executor_props: dict = {
             "runtime": lambda_.Runtime.PYTHON_3_12,
-            "timeout": Duration.seconds(120),
+            "timeout": Duration.seconds(180),
             "memory_size": 512,
             "layers": [batch_deps_layer],
             "environment": {
                 "PYTHONPATH": "/var/task:/opt/python",
                 "TARGET_USER_ID": target_user_id,
                 "PURCHASE_ORDER_TABLE_NAME": purchase_order_table.table_name,
+                "AI_PREDICTIONS_TABLE_NAME": ai_predictions_table.table_name,
             },
         }
         if vpc is not None:
@@ -586,7 +587,10 @@ class BakenKaigiBatchStack(Stack):
                     "scheduler:DeleteSchedule",
                     "scheduler:GetSchedule",
                 ],
-                resources=["*"],
+                resources=[
+                    f"arn:aws:scheduler:{self.region}:{self.account}"
+                    f":schedule/default/auto-bet-*"
+                ],
             )
         )
         # Orchestrator に PassRole 権限（Scheduler がロールを引き受けるため）

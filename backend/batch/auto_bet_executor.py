@@ -3,7 +3,6 @@
 レース発走5分前に起動され、決定論的パイプラインで買い目を生成し、
 IPAT投票を実行する。
 """
-import json
 import logging
 import os
 
@@ -43,7 +42,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 JRAVAN_API_URL = os.environ.get("JRAVAN_API_URL", "http://10.0.1.100:8000")
-TARGET_USER_ID = os.environ.get("TARGET_USER_ID", "")
+AI_PREDICTIONS_TABLE = os.environ.get(
+    "AI_PREDICTIONS_TABLE_NAME", "baken-kaigi-ai-predictions"
+)
 
 
 def handler(event, context):
@@ -51,23 +52,31 @@ def handler(event, context):
     race_id = event["race_id"]
     logger.info("BetExecutor started: race_id=%s", race_id)
 
-    dynamodb = boto3.resource("dynamodb", region_name="ap-northeast-1")
-    table = dynamodb.Table("baken-kaigi-ai-predictions")
+    target_user_id = os.environ.get("TARGET_USER_ID", "")
+    if not target_user_id:
+        raise ValueError("TARGET_USER_ID environment variable is required")
 
-    predictions = _fetch_predictions(table, race_id)
-    if len(predictions) < 2:
-        logger.warning("予想ソース不足: %d ソース", len(predictions))
-        return {"status": "ok", "bets_count": 0, "reason": "insufficient_sources"}
+    try:
+        dynamodb = boto3.resource("dynamodb", region_name="ap-northeast-1")
+        table = dynamodb.Table(AI_PREDICTIONS_TABLE)
 
-    odds = _fetch_odds(race_id)
-    bets = _run_pipeline(predictions, odds)
+        predictions = _fetch_predictions(table, race_id)
+        if len(predictions) < 2:
+            logger.warning("予想ソース不足: %d ソース", len(predictions))
+            return {"status": "ok", "bets_count": 0, "reason": "insufficient_sources"}
 
-    if not bets:
-        logger.info("買い目なし")
-        return {"status": "ok", "bets_count": 0, "reason": "no_bets"}
+        odds = _fetch_odds(race_id)
+        bets = _run_pipeline(predictions, odds)
 
-    bet_lines = BetToIpatConverter.convert(race_id, bets)
-    _submit_bets(race_id, bet_lines)
+        if not bets:
+            logger.info("買い目なし")
+            return {"status": "ok", "bets_count": 0, "reason": "no_bets"}
+
+        bet_lines = BetToIpatConverter.convert(race_id, bets)
+        _submit_bets(race_id, bet_lines, target_user_id)
+    except Exception:
+        logger.exception("BetExecutor failed: race_id=%s", race_id)
+        raise
 
     return {"status": "ok", "bets_count": len(bet_lines), "race_id": race_id}
 
@@ -160,14 +169,14 @@ def _run_pipeline(predictions: dict, odds: dict) -> list:
     return all_bets
 
 
-def _submit_bets(race_id, bet_lines):
+def _submit_bets(race_id, bet_lines, target_user_id: str):
     """IPAT投票を実行し、PurchaseOrder を記録."""
-    user_id = UserId(TARGET_USER_ID)
+    user_id = UserId(target_user_id)
 
     creds_provider = SecretsManagerCredentialsProvider()
     credentials = creds_provider.get_credentials(user_id)
     if credentials is None:
-        raise RuntimeError(f"IPAT credentials not found for user: {TARGET_USER_ID}")
+        raise RuntimeError(f"IPAT credentials not found for user: {target_user_id}")
 
     gateway = JraVanIpatGateway(base_url=JRAVAN_API_URL)
 

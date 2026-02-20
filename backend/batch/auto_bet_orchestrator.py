@@ -36,23 +36,27 @@ def handler(event, context):
     scheduler = boto3.client("scheduler", region_name="ap-northeast-1")
     created, skipped = 0, 0
 
-    for race in races:
-        race_id = race["race_id"]
-        name = _schedule_name(race_id)
+    try:
+        for race in races:
+            race_id = race["race_id"]
+            name = _schedule_name(race_id)
 
-        start_time = datetime.fromisoformat(race["start_time"])
-        fire_at = start_time - timedelta(minutes=MINUTES_BEFORE)
+            start_time = datetime.fromisoformat(race["start_time"])
+            fire_at = start_time - timedelta(minutes=MINUTES_BEFORE)
 
-        if fire_at <= now:
-            skipped += 1
-            continue
+            if fire_at <= now:
+                skipped += 1
+                continue
 
-        if _schedule_exists(scheduler, name):
-            skipped += 1
-            continue
+            if _schedule_exists(scheduler, name):
+                skipped += 1
+                continue
 
-        _create_schedule(scheduler, name, fire_at, race_id)
-        created += 1
+            _create_schedule(scheduler, name, fire_at, race_id)
+            created += 1
+    except Exception:
+        logger.exception("Orchestrator failed: date=%s", today)
+        raise
 
     logger.info("完了: created=%d, skipped=%d, total=%d", created, skipped, len(races))
     return {"status": "ok", "created": created, "skipped": skipped}

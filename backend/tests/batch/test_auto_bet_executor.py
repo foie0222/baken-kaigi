@@ -1,5 +1,8 @@
 """BetExecutor Lambda ハンドラのテスト."""
+import os
 from unittest.mock import MagicMock, patch
+
+os.environ.setdefault("TARGET_USER_ID", "test-user")
 
 from batch.auto_bet_executor import handler, _run_pipeline, _fetch_predictions
 
