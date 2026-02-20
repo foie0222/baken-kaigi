@@ -357,9 +357,8 @@ class TestUnsupportedMethods:
         result = self._make_provider().get_jra_checksum("05", "01", 2, 5)
         assert result is None
 
-    def test_get_race_datesは空リストを返す(self):
-        result = self._make_provider().get_race_dates()
-        assert result == []
+    def test_get_race_datesは後述の専用テストクラスで検証(self):
+        pass
 
     def test_get_past_race_statsはNoneを返す(self):
         result = self._make_provider().get_past_race_stats("芝", 1600)
@@ -437,3 +436,112 @@ class TestUnsupportedMethods:
     def test_get_all_oddsはNoneを返す(self):
         result = self._make_provider().get_all_odds(RaceId("202602140505"))
         assert result is None
+
+
+class TestGetRaceDates:
+    """get_race_datesメソッドのテスト."""
+
+    def _make_provider(self, scan_items: list[dict]) -> DynamoDbRaceDataProvider:
+        mock_table = MagicMock()
+        mock_table.scan.return_value = {"Items": scan_items}
+        return DynamoDbRaceDataProvider(
+            races_table=mock_table, runners_table=MagicMock()
+        )
+
+    def test_期間内の開催日をdate型のソート済みリストで返す(self):
+        provider = self._make_provider([
+            {"race_date": "20260215"},
+            {"race_date": "20260214"},
+            {"race_date": "20260215"},  # 重複
+            {"race_date": "20260221"},
+        ])
+
+        result = provider.get_race_dates(
+            from_date=date(2026, 2, 7), to_date=date(2026, 3, 7)
+        )
+
+        assert result == [date(2026, 2, 14), date(2026, 2, 15), date(2026, 2, 21)]
+
+    def test_引数なしで全件スキャンする(self):
+        mock_table = MagicMock()
+        mock_table.scan.return_value = {
+            "Items": [{"race_date": "20260214"}, {"race_date": "20260221"}]
+        }
+        provider = DynamoDbRaceDataProvider(
+            races_table=mock_table, runners_table=MagicMock()
+        )
+
+        result = provider.get_race_dates()
+
+        assert result == [date(2026, 2, 14), date(2026, 2, 21)]
+        call_kwargs = mock_table.scan.call_args[1]
+        assert "FilterExpression" not in call_kwargs
+
+    def test_from_dateのみ指定でフィルタする(self):
+        mock_table = MagicMock()
+        mock_table.scan.return_value = {"Items": [{"race_date": "20260221"}]}
+        provider = DynamoDbRaceDataProvider(
+            races_table=mock_table, runners_table=MagicMock()
+        )
+
+        result = provider.get_race_dates(from_date=date(2026, 2, 15))
+
+        assert result == [date(2026, 2, 21)]
+        call_kwargs = mock_table.scan.call_args[1]
+        assert "FilterExpression" in call_kwargs
+
+    def test_to_dateのみ指定でフィルタする(self):
+        mock_table = MagicMock()
+        mock_table.scan.return_value = {"Items": [{"race_date": "20260214"}]}
+        provider = DynamoDbRaceDataProvider(
+            races_table=mock_table, runners_table=MagicMock()
+        )
+
+        result = provider.get_race_dates(to_date=date(2026, 2, 28))
+
+        assert result == [date(2026, 2, 14)]
+        call_kwargs = mock_table.scan.call_args[1]
+        assert "FilterExpression" in call_kwargs
+
+    def test_レースがない場合は空リストを返す(self):
+        provider = self._make_provider([])
+
+        result = provider.get_race_dates(
+            from_date=date(2026, 3, 1), to_date=date(2026, 3, 31)
+        )
+
+        assert result == []
+
+    def test_ページネーションを正しく処理する(self):
+        mock_table = MagicMock()
+        mock_table.scan.side_effect = [
+            {
+                "Items": [{"race_date": "20260214"}],
+                "LastEvaluatedKey": {"race_date": "20260214"},
+            },
+            {
+                "Items": [{"race_date": "20260221"}],
+            },
+        ]
+        provider = DynamoDbRaceDataProvider(
+            races_table=mock_table, runners_table=MagicMock()
+        )
+
+        result = provider.get_race_dates(
+            from_date=date(2026, 2, 7), to_date=date(2026, 3, 7)
+        )
+
+        assert result == [date(2026, 2, 14), date(2026, 2, 21)]
+        assert mock_table.scan.call_count == 2
+
+    def test_ProjectionExpressionでrace_dateのみ取得する(self):
+        mock_table = MagicMock()
+        mock_table.scan.return_value = {"Items": [{"race_date": "20260214"}]}
+        provider = DynamoDbRaceDataProvider(
+            races_table=mock_table, runners_table=MagicMock()
+        )
+
+        provider.get_race_dates(from_date=date(2026, 2, 7), to_date=date(2026, 3, 7))
+
+        call_kwargs = mock_table.scan.call_args[1]
+        assert call_kwargs["ProjectionExpression"] == "race_date"
