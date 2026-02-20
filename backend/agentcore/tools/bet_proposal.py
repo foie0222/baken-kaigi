@@ -766,7 +766,10 @@ def _allocate_budget_dutching(bets: list[dict], budget: int) -> list[dict]:
     if not bets or budget <= 0:
         return bets
 
-    eligible = [b for b in bets if b.get("expected_value", 0) > 1.0]
+    eligible = [
+        b for b in bets
+        if b.get("expected_value", 0) > 1.0 and float(b.get("composite_odds", 0)) > 0
+    ]
     if not eligible:
         return []
 
