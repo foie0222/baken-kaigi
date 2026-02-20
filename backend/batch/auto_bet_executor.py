@@ -30,7 +30,7 @@ from src.domain.services.bet_generator import (
     generate_win_bets,
 )
 from src.domain.services.bet_to_ipat_converter import BetToIpatConverter
-from src.infrastructure.providers.jravan_ipat_gateway import JraVanIpatGateway
+from src.infrastructure.providers.gamble_os_ipat_gateway import GambleOsIpatGateway
 from src.infrastructure.providers.secrets_manager_credentials_provider import (
     SecretsManagerCredentialsProvider,
 )
@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 JRAVAN_API_URL = os.environ.get("JRAVAN_API_URL", "http://10.0.1.100:8000")
+GAMBLE_OS_SECRET_NAME = os.environ["GAMBLE_OS_SECRET_NAME"]
 AI_PREDICTIONS_TABLE = os.environ.get(
     "AI_PREDICTIONS_TABLE_NAME", "baken-kaigi-ai-predictions"
 )
@@ -178,7 +179,7 @@ def _submit_bets(race_id, bet_lines, target_user_id: str):
     if credentials is None:
         raise RuntimeError(f"IPAT credentials not found for user: {target_user_id}")
 
-    gateway = JraVanIpatGateway(base_url=JRAVAN_API_URL)
+    gateway = GambleOsIpatGateway(secret_name=GAMBLE_OS_SECRET_NAME)
 
     total = sum(line.amount for line in bet_lines)
     order = PurchaseOrder.create(
