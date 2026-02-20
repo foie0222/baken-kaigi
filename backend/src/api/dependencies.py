@@ -130,12 +130,13 @@ class Dependencies:
     def get_ipat_gateway(cls) -> IpatGateway:
         """IPATゲートウェイを取得する."""
         if cls._ipat_gateway is None:
-            if os.environ.get("JRAVAN_API_URL") is not None:
-                from src.infrastructure.providers.jravan_ipat_gateway import (
-                    JraVanIpatGateway,
+            secret_name = os.environ.get("GAMBLE_OS_SECRET_NAME")
+            if secret_name is not None:
+                from src.infrastructure.providers.gamble_os_ipat_gateway import (
+                    GambleOsIpatGateway,
                 )
 
-                cls._ipat_gateway = JraVanIpatGateway()
+                cls._ipat_gateway = GambleOsIpatGateway(secret_name=secret_name)
             else:
                 from src.infrastructure.providers.mock_ipat_gateway import MockIpatGateway
 
