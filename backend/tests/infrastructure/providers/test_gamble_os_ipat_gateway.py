@@ -307,9 +307,9 @@ class TestGambleOsIpatGatewayGetBalance(unittest.TestCase):
                 "ret": 0,
                 "msg": "",
                 "results": {
-                    "day_buy_money": 5000,
-                    "total_buy_money": 30000,
-                    "buy_limit_money": 100000,
+                    "day_buy_money": "5000",
+                    "total_buy_money": "30000",
+                    "buy_limit_money": "100000",
                 },
             }
         )
@@ -339,7 +339,7 @@ class TestGambleOsIpatGatewayGetBalance(unittest.TestCase):
                 "ret": 0,
                 "msg": "",
                 "results": {
-                    "day_buy_money": 5000,
+                    "day_buy_money": "5000",
                     # total_buy_money, buy_limit_money 欠損
                 },
             }
@@ -355,9 +355,9 @@ class TestGambleOsIpatGatewayGetBalance(unittest.TestCase):
                 "ret": 0,
                 "msg": "",
                 "results": {
-                    "day_buy_money": 0,
-                    "total_buy_money": 0,
-                    "buy_limit_money": 100000,
+                    "day_buy_money": "0",
+                    "total_buy_money": "0",
+                    "buy_limit_money": "100000",
                 },
             }
         )

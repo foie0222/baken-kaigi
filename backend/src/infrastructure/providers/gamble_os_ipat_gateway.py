@@ -106,11 +106,13 @@ class GambleOsIpatGateway(IpatGateway):
 
         try:
             results = data["results"]
-            day_buy_money = results["day_buy_money"]
-            total_buy_money = results["total_buy_money"]
-            buy_limit_money = results["buy_limit_money"]
+            day_buy_money = int(results["day_buy_money"])
+            total_buy_money = int(results["total_buy_money"])
+            buy_limit_money = int(results["buy_limit_money"])
         except KeyError as e:
             raise IpatGatewayError(f"残高照会レスポンスにフィールド欠損: {e}") from e
+        except (ValueError, TypeError) as e:
+            raise IpatGatewayError(f"残高照会レスポンスの値が不正: {e}") from e
 
         return IpatBalance(
             bet_dedicated_balance=day_buy_money,
