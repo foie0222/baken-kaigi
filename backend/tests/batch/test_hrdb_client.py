@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from batch.hrdb_client import HrdbClient, API_URL, POLL_INTERVAL_SECONDS, MAX_POLL_ATTEMPTS
 
@@ -67,11 +69,8 @@ class TestHrdbClientQuery:
         mock_post.return_value = submit_resp
 
         client = self._make_client()
-        try:
+        with pytest.raises(RuntimeError, match="-200"):
             client.query("SELECT 1")
-            assert False, "RuntimeError が発生するべき"
-        except RuntimeError as e:
-            assert "-200" in str(e)
 
     @patch("batch.hrdb_client.requests.post")
     def test_ライセンスエラー(self, mock_post):
@@ -81,11 +80,8 @@ class TestHrdbClientQuery:
         mock_post.return_value = submit_resp
 
         client = self._make_client()
-        try:
+        with pytest.raises(RuntimeError, match="-203"):
             client.query("SELECT 1")
-            assert False, "RuntimeError が発生するべき"
-        except RuntimeError as e:
-            assert "-203" in str(e)
 
     @patch("batch.hrdb_client.time.sleep")
     @patch("batch.hrdb_client.requests.post")
@@ -100,11 +96,8 @@ class TestHrdbClientQuery:
         mock_post.side_effect = [submit_resp, state_error]
 
         client = self._make_client()
-        try:
+        with pytest.raises(RuntimeError, match="SQL error for qid=QID_001"):
             client.query("SELECT * FROM nonexistent")
-            assert False, "RuntimeError が発生するべき"
-        except RuntimeError as e:
-            assert "SQL" in str(e)
 
     @patch("batch.hrdb_client.time.sleep")
     @patch("batch.hrdb_client.requests.get")
@@ -147,11 +140,8 @@ class TestHrdbClientQuery:
         mock_post.side_effect = [submit_resp] + [state_processing] * MAX_POLL_ATTEMPTS
 
         client = self._make_client()
-        try:
+        with pytest.raises(TimeoutError):
             client.query("SELECT * FROM huge_table")
-            assert False, "TimeoutError が発生するべき"
-        except TimeoutError:
-            pass
 
         assert mock_sleep.call_count == MAX_POLL_ATTEMPTS
 

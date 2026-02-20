@@ -32,6 +32,7 @@ class HrdbClient:
 
     def query(self, sql: str) -> list[dict]:
         """単一SQLクエリを実行し、結果をlist[dict]で返す."""
+        logger.info("HRDB query: %s", sql[:100])
         qid = self._submit(cmd1=sql)
         self._poll(qid1=qid)
         url = self._get_url(qid1=qid)
@@ -39,9 +40,10 @@ class HrdbClient:
 
     def query_dual(self, sql1: str, sql2: str) -> tuple[list[dict], list[dict]]:
         """2つのSQLクエリを同時実行し、結果のタプルを返す."""
-        qid1, qid2 = self._submit_dual(cmd1=sql1, cmd2=sql2)
+        logger.info("HRDB query_dual: sql1=%s, sql2=%s", sql1[:100], sql2[:100])
+        qid1, qid2 = self._submit(cmd1=sql1, cmd2=sql2)
         self._poll(qid1=qid1, qid2=qid2)
-        url1, url2 = self._get_url_dual(qid1=qid1, qid2=qid2)
+        url1, url2 = self._get_url(qid1=qid1, qid2=qid2)
         return self._download_csv(url1), self._download_csv(url2)
 
     def _base_data(self) -> dict:
@@ -50,45 +52,39 @@ class HrdbClient:
             "tncpw": self._club_password,
         }
 
-    def _submit(self, cmd1: str) -> str:
-        """SQLクエリを送信し、クエリIDを返す."""
+    def _submit(
+        self, cmd1: str, cmd2: str | None = None
+    ) -> str | tuple[str, str]:
+        """SQLクエリを送信し、クエリIDを返す.
+
+        cmd2を指定した場合は2つのクエリIDのタプルを返す。
+        """
         data = self._base_data()
         data["prccd"] = "select"
         data["cmd1"] = cmd1
+        if cmd2 is not None:
+            data["cmd2"] = cmd2
         data["format"] = "json"
 
-        resp = requests.post(API_URL, data=data)
+        resp = requests.post(API_URL, data=data, timeout=30)
+        resp.raise_for_status()
         result = resp.json()
 
         ret1 = result["ret1"]
         self._check_error(ret1, result)
+
+        if cmd2 is not None:
+            ret2 = result["ret2"]
+            self._check_error(ret2, result)
+            return ret1, ret2
+
         return ret1
-
-    def _submit_dual(self, cmd1: str, cmd2: str) -> tuple[str, str]:
-        """2つのSQLクエリを送信し、クエリIDのタプルを返す."""
-        data = self._base_data()
-        data["prccd"] = "select"
-        data["cmd1"] = cmd1
-        data["cmd2"] = cmd2
-        data["format"] = "json"
-
-        resp = requests.post(API_URL, data=data)
-        result = resp.json()
-
-        ret1 = result["ret1"]
-        self._check_error(ret1, result)
-        ret2 = result["ret2"]
-        self._check_error(ret2, result)
-        return ret1, ret2
 
     def _check_error(self, ret: str, result: dict) -> None:
         """retが負の値ならRuntimeErrorを送出."""
-        try:
-            if int(ret) < 0:
-                msg = result.get("msg", "不明なエラー")
-                raise RuntimeError(f"HRDB API error: ret={ret}, msg={msg}")
-        except ValueError:
-            pass
+        if ret.lstrip("-").isdigit() and int(ret) < 0:
+            msg = result.get("msg", "不明なエラー")
+            raise RuntimeError(f"HRDB API error: ret={ret}, msg={msg}")
 
     def _poll(self, qid1: str, qid2: str | None = None) -> None:
         """クエリ完了までポーリング."""
@@ -99,16 +95,21 @@ class HrdbClient:
             if qid2 is not None:
                 data["qid2"] = qid2
 
-            resp = requests.post(API_URL, data=data)
+            resp = requests.post(API_URL, data=data, timeout=30)
+            resp.raise_for_status()
             result = resp.json()
 
             state1 = result["ret1"]
             if state1 == "6":
-                raise RuntimeError("SQL error")
+                raise RuntimeError(
+                    f"HRDB-API SQL error for qid={qid1}"
+                )
 
             state2 = result.get("ret2")
             if state2 == "6":
-                raise RuntimeError("SQL error")
+                raise RuntimeError(
+                    f"HRDB-API SQL error for qid={qid2}"
+                )
 
             # 両方完了しているか確認
             done1 = state1 == "2"
@@ -123,26 +124,26 @@ class HrdbClient:
             f"HRDB polling timed out after {MAX_POLL_ATTEMPTS} attempts"
         )
 
-    def _get_url(self, qid1: str) -> str:
-        """CSV ダウンロードURLを取得."""
+    def _get_url(
+        self, qid1: str, qid2: str | None = None
+    ) -> str | tuple[str, str]:
+        """CSV ダウンロードURLを取得.
+
+        qid2を指定した場合は2つのURLのタプルを返す。
+        """
         data = self._base_data()
         data["prccd"] = "geturl"
         data["qid1"] = qid1
+        if qid2 is not None:
+            data["qid2"] = qid2
 
-        resp = requests.post(API_URL, data=data)
+        resp = requests.post(API_URL, data=data, timeout=30)
+        resp.raise_for_status()
         result = resp.json()
+
+        if qid2 is not None:
+            return result["ret1"], result["ret2"]
         return result["ret1"]
-
-    def _get_url_dual(self, qid1: str, qid2: str) -> tuple[str, str]:
-        """2つのCSV ダウンロードURLを取得."""
-        data = self._base_data()
-        data["prccd"] = "geturl"
-        data["qid1"] = qid1
-        data["qid2"] = qid2
-
-        resp = requests.post(API_URL, data=data)
-        result = resp.json()
-        return result["ret1"], result["ret2"]
 
     def _download_csv(self, url: str) -> list[dict]:
         """CSVをダウンロードしてlist[dict]にパース.
@@ -150,7 +151,8 @@ class HrdbClient:
         HRDBのCSVはShift-JISでエンコードされており、
         値がスペースでパディングされているためトリムする。
         """
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=60)
+        resp.raise_for_status()
         text = resp.content.decode("shift_jis")
         reader = csv.DictReader(io.StringIO(text))
         rows = []
