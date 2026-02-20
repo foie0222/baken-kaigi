@@ -5,6 +5,7 @@ GAMBLE-OS API を直接呼び出して IPAT 投票・残高照会を行う。
 import json
 import logging
 
+import boto3
 import requests
 
 from src.domain.enums import IpatBetType
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 _BET_ENDPOINT = "https://api.gamble-os.net/systems/ip-bet-kb"
 _BALANCE_ENDPOINT = "https://api.gamble-os.net/systems/ip-balance"
+_REQUEST_TIMEOUT = 25
 
 _BET_TYPE_CODE: dict[IpatBetType, str] = {
     IpatBetType.TANSYO: "TAN",
@@ -35,12 +37,12 @@ class GambleOsIpatGateway(IpatGateway):
     def __init__(
         self,
         *,
-        secrets_client: object,
+        secrets_client: object | None = None,
         secret_name: str = _DEFAULT_SECRET_NAME,
         dry_run: bool = False,
     ) -> None:
         """初期化."""
-        self._secrets_client = secrets_client
+        self._secrets_client = secrets_client or boto3.client("secretsmanager")
         self._secret_name = secret_name
         self._dry_run = dry_run
         self._cached_credentials: dict[str, str] | None = None
@@ -68,7 +70,7 @@ class GambleOsIpatGateway(IpatGateway):
         }
 
         try:
-            response = requests.post(_BET_ENDPOINT, data=payload)
+            response = requests.post(_BET_ENDPOINT, data=payload, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
@@ -93,7 +95,7 @@ class GambleOsIpatGateway(IpatGateway):
         }
 
         try:
-            response = requests.post(_BALANCE_ENDPOINT, data=payload)
+            response = requests.post(_BALANCE_ENDPOINT, data=payload, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
