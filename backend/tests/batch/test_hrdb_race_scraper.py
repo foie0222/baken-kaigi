@@ -120,6 +120,18 @@ class TestConvertRaceRow:
 
         assert result["track_type"] == "障害"
 
+    def test_未来レースで数値フィールドが空(self):
+        """RUNNUM等が空文字の未来レースでもエラーにならないこと."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_race_row(RUNNUM="", ENTNUM="", DIST="")
+
+        result = convert_race_row(row, scraped_at)
+
+        assert result["race_id"] == "202602220511"
+        assert "run_count" not in result
+        assert "horse_count" not in result
+        assert "distance" not in result
+
 
 class TestConvertRunnerRow:
     """convert_runner_row のテスト."""
