@@ -69,7 +69,7 @@ class TestGetRace:
         assert result.race_number == 5
         assert result.venue == "05"
         assert result.start_time == datetime(2026, 2, 14, 14, 25, tzinfo=JST)
-        assert result.betting_deadline == result.start_time
+        assert result.betting_deadline == result.start_time - timedelta(minutes=2)
         assert result.track_condition == "良"
         assert result.track_type == "芝"
         assert result.distance == 1600
