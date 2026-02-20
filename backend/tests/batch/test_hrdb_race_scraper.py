@@ -238,6 +238,24 @@ class TestConvertRunnerRowEdgeCases:
         result = convert_runner_row(row, scraped_at)
         assert "weight_carried" not in result
 
+    def test_未来レースで結果フィールドが空(self):
+        """未来レースではFIXPLC,RUNTM,TANODDS,TANNINKI等が空でもエラーにならない."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(
+            FIXPLC="", RUNTM="", TANODDS="", TANNINKI="",
+            FTNWGHT="", WAKNO="", AGE="",
+        )
+        result = convert_runner_row(row, scraped_at)
+        assert result["race_id"] == "202602220511"
+        assert result["horse_number"] == "01"
+        assert "finish_position" not in result
+        assert "time" not in result
+        assert "odds" not in result
+        assert "popularity" not in result
+        assert "weight_carried" not in result
+        assert "waku_ban" not in result
+        assert "age" not in result
+
 
 class TestValidateDate:
     """_validate_date のテスト."""
