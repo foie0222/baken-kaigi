@@ -58,7 +58,8 @@ export const useLossLimitStore = create<LossLimitState>()((set, get) => ({
         set({ isLoading: false, error: response.error || '限度額の設定に失敗しました' });
         return;
       }
-      // サーバーから最新値を取得
+      // fetchLossLimitのisLoadingガードに阻まれないようリセットしてから取得
+      set({ isLoading: false });
       await get().fetchLossLimit();
     } catch (error) {
       set({
@@ -78,7 +79,8 @@ export const useLossLimitStore = create<LossLimitState>()((set, get) => ({
       }
       const { appliedImmediately, ...changeData } = response.data;
       if (appliedImmediately) {
-        // 即時反映（減額）の場合、サーバーから最新値を取得
+        // fetchLossLimitのisLoadingガードに阻まれないようリセットしてから取得
+        set({ isLoading: false });
         await get().fetchLossLimit();
         return changeData;
       }
