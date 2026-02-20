@@ -109,7 +109,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             race_number=int(item["race_number"]),
             venue=item["venue_code"],
             start_time=start_time,
-            betting_deadline=start_time,
+            betting_deadline=start_time - timedelta(minutes=2),
             track_condition=track_condition,
             track_type=track_type,
             distance=int(item.get("distance", 0)),

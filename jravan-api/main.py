@@ -419,7 +419,7 @@ def get_races(
             venue=r["venue_code"],
             venue_name=r["venue_name"],
             start_time=start_time,
-            betting_deadline=start_time,
+            betting_deadline=start_time - timedelta(minutes=2),
             distance=r["distance"] or 0,
             track_type=r["track_type"] or "",
             track_condition=r["track_condition"] or "",
