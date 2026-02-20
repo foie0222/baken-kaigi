@@ -389,6 +389,97 @@ class TestApiStack:
             },
         )
 
+    def test_races_dynamodb_table(self, template):
+        """レースデータ用DynamoDBテーブルが存在すること."""
+        template.has_resource_properties(
+            "AWS::DynamoDB::Table",
+            {
+                "TableName": "baken-kaigi-races",
+                "KeySchema": [
+                    {"AttributeName": "race_date", "KeyType": "HASH"},
+                    {"AttributeName": "race_id", "KeyType": "RANGE"},
+                ],
+                "BillingMode": "PAY_PER_REQUEST",
+                "TimeToLiveSpecification": {
+                    "AttributeName": "ttl",
+                    "Enabled": True,
+                },
+            },
+        )
+
+    def test_races_table_removal_policy(self, template):
+        """レーステーブルのDeletionPolicyがDeleteであること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource(
+            "AWS::DynamoDB::Table",
+            {
+                "Properties": Match.object_like(
+                    {"TableName": "baken-kaigi-races"}
+                ),
+                "DeletionPolicy": "Delete",
+                "UpdateReplacePolicy": "Delete",
+            },
+        )
+
+    def test_runners_dynamodb_table(self, template):
+        """出走馬データ用DynamoDBテーブルが存在すること."""
+        template.has_resource_properties(
+            "AWS::DynamoDB::Table",
+            {
+                "TableName": "baken-kaigi-runners",
+                "KeySchema": [
+                    {"AttributeName": "race_id", "KeyType": "HASH"},
+                    {"AttributeName": "horse_number", "KeyType": "RANGE"},
+                ],
+                "BillingMode": "PAY_PER_REQUEST",
+                "TimeToLiveSpecification": {
+                    "AttributeName": "ttl",
+                    "Enabled": True,
+                },
+            },
+        )
+
+    def test_runners_table_removal_policy(self, template):
+        """出走馬テーブルのDeletionPolicyがDeleteであること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource(
+            "AWS::DynamoDB::Table",
+            {
+                "Properties": Match.object_like(
+                    {"TableName": "baken-kaigi-runners"}
+                ),
+                "DeletionPolicy": "Delete",
+                "UpdateReplacePolicy": "Delete",
+            },
+        )
+
+    def test_runners_table_horse_id_gsi(self, template):
+        """出走馬テーブルにhorse_id-index GSIが存在すること."""
+        from aws_cdk.assertions import Match
+
+        template.has_resource_properties(
+            "AWS::DynamoDB::Table",
+            {
+                "TableName": "baken-kaigi-runners",
+                "GlobalSecondaryIndexes": Match.array_with(
+                    [
+                        Match.object_like(
+                            {
+                                "IndexName": "horse_id-index",
+                                "KeySchema": [
+                                    {"AttributeName": "horse_id", "KeyType": "HASH"},
+                                    {"AttributeName": "race_date", "KeyType": "RANGE"},
+                                ],
+                                "Projection": {"ProjectionType": "ALL"},
+                            }
+                        ),
+                    ]
+                ),
+            },
+        )
+
 
 class TestAgentCoreRuntimeRolePermissions:
     """AgentCore Runtime ロールの IAM 権限テスト."""

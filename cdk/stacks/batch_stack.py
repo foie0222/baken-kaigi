@@ -13,6 +13,7 @@ from aws_cdk import aws_events as events
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_lambda as lambda_
+from aws_cdk import aws_secretsmanager as secretsmanager
 from constructs import Construct
 
 
@@ -53,6 +54,19 @@ class BakenKaigiBatchStack(Stack):
         )
         speed_indices_table = dynamodb.Table.from_table_name(
             self, "SpeedIndicesTable", "baken-kaigi-speed-indices"
+        )
+        races_table = dynamodb.Table.from_table_name(
+            self, "RacesTable", "baken-kaigi-races"
+        )
+        runners_table = dynamodb.Table.from_table_name(
+            self, "RunnersTable", "baken-kaigi-runners"
+        )
+
+        # ========================================
+        # Secrets Manager 参照
+        # ========================================
+        gamble_os_secret = secretsmanager.Secret.from_secret_name_v2(
+            self, "GambleOsSecret", "baken-kaigi/gamble-os-credentials"
         )
 
         # ========================================
@@ -244,6 +258,32 @@ class BakenKaigiBatchStack(Stack):
             },
         )
         speed_indices_table.grant_write_data(daily_speed_scraper_fn)
+
+        # ========================================
+        # HRDB レーススクレイパー Lambda
+        # ========================================
+
+        hrdb_race_scraper = lambda_.Function(
+            self,
+            "HrdbRaceScraper",
+            handler="batch.hrdb_race_scraper.handler",
+            code=backend_code,
+            function_name="baken-kaigi-hrdb-race-scraper",
+            description="HRDBレースデータスクレイピング（HRDB-API / 毎晩21時・毎朝8:30）",
+            timeout=Duration.seconds(600),
+            memory_size=512,
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            layers=[batch_deps_layer],
+            environment={
+                "PYTHONPATH": "/var/task:/opt/python",
+                "RACES_TABLE_NAME": races_table.table_name,
+                "RUNNERS_TABLE_NAME": runners_table.table_name,
+                "HRDB_SECRET_NAME": gamble_os_secret.secret_name,
+            },
+        )
+        races_table.grant_write_data(hrdb_race_scraper)
+        runners_table.grant_write_data(hrdb_race_scraper)
+        gamble_os_secret.grant_read(hrdb_race_scraper)
 
         # ========================================
         # EventBridge ルール（AI予想スクレイパー）
@@ -443,6 +483,52 @@ class BakenKaigiBatchStack(Stack):
             ),
         )
         daily_speed_rule.add_target(targets.LambdaFunction(daily_speed_scraper_fn))
+
+        # ========================================
+        # EventBridge ルール（HRDB レーススクレイパー）
+        # ========================================
+
+        # HRDB 夜（毎晩 21:00 JST = 12:00 UTC、翌日分を前日取得）
+        hrdb_evening_rule = events.Rule(
+            self,
+            "HrdbRaceScraperEveningRule",
+            rule_name="baken-kaigi-hrdb-race-scraper-evening-rule",
+            description="HRDB: 翌日のレースデータ取得 (毎晩21:00 JST)",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="12",
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        hrdb_evening_rule.add_target(
+            targets.LambdaFunction(
+                hrdb_race_scraper,
+                event=events.RuleTargetInput.from_object({"offset_days": 1}),
+            )
+        )
+
+        # HRDB 朝（毎朝 8:30 JST = 23:30 UTC 前日、当日分を再取得）
+        hrdb_morning_rule = events.Rule(
+            self,
+            "HrdbRaceScraperMorningRule",
+            rule_name="baken-kaigi-hrdb-race-scraper-morning-rule",
+            description="HRDB: 当日のレースデータ更新 (毎朝8:30 JST)",
+            schedule=events.Schedule.cron(
+                minute="30",
+                hour="23",
+                month="*",
+                week_day="*",
+                year="*",
+            ),
+        )
+        hrdb_morning_rule.add_target(
+            targets.LambdaFunction(
+                hrdb_race_scraper,
+                event=events.RuleTargetInput.from_object({"offset_days": 0}),
+            )
+        )
 
         # ========================================
         # JRAチェックサム自動更新バッチ
