@@ -147,24 +147,25 @@ def _run_pipeline(predictions: dict, odds: dict) -> list:
             return all_bets
 
         ranked = sorted(place_combined.items(), key=lambda x: x[1], reverse=True)
-        agree_counts = compute_agree_counts(source_probs_list, top_n=4)
+        agree_src3 = compute_agree_counts(source_probs_list, top_n=3)
+        agree_src4 = compute_agree_counts(source_probs_list, top_n=4)
 
         if "place" in odds:
-            all_bets.extend(generate_place_bets(ranked, odds["place"], agree_counts))
+            all_bets.extend(generate_place_bets(ranked, odds["place"], agree_src3))
 
         if "quinella_place" in odds:
             all_bets.extend(
-                generate_wide_bets(ranked, odds["quinella_place"], agree_counts)
+                generate_wide_bets(ranked, odds["quinella_place"], agree_src3)
             )
 
         if "quinella" in odds:
             all_bets.extend(
-                generate_quinella_bets(ranked, odds["quinella"], agree_counts)
+                generate_quinella_bets(ranked, odds["quinella"], agree_src4)
             )
 
         if "quinella" in odds:
             all_bets.extend(
-                generate_exacta_bets(ranked, odds["quinella"], agree_counts)
+                generate_exacta_bets(ranked, odds["quinella"], agree_src4)
             )
 
     return all_bets
