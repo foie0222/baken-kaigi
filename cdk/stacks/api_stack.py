@@ -1849,7 +1849,7 @@ class BakenKaigiApiStack(Stack):
         runners_table.grant_read_data(get_races_fn)
         races_table.grant_read_data(get_race_detail_fn)
         runners_table.grant_read_data(get_race_detail_fn)
-        races_table.grant(get_race_dates_fn, "dynamodb:Scan")
+        races_table.grant_read_data(get_race_dates_fn)
 
         # ========================================
         # 出力
