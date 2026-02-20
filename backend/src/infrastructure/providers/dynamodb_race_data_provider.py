@@ -6,7 +6,7 @@ DynamoDB テーブルからレース・出走馬データを取得する。
 from datetime import date, datetime, timedelta, timezone
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 
 from src.domain.identifiers import RaceId
 from src.domain.ports import RaceData, RaceDataProvider, RunnerData
@@ -174,8 +174,42 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     def get_jra_checksum(self, venue_code, kaisai_kai, kaisai_nichime, race_number):
         return None
 
-    def get_race_dates(self, from_date=None, to_date=None):
-        return []
+    def get_race_dates(
+        self,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[date]:
+        """指定期間内の開催日一覧を取得する（降順）."""
+        scan_kwargs: dict = {"ProjectionExpression": "race_date"}
+
+        if from_date and to_date:
+            scan_kwargs["FilterExpression"] = Attr("race_date").between(
+                from_date.strftime("%Y%m%d"), to_date.strftime("%Y%m%d")
+            )
+        elif from_date:
+            scan_kwargs["FilterExpression"] = Attr("race_date").gte(
+                from_date.strftime("%Y%m%d")
+            )
+        elif to_date:
+            scan_kwargs["FilterExpression"] = Attr("race_date").lte(
+                to_date.strftime("%Y%m%d")
+            )
+
+        items: list[dict] = []
+        response = self._races_table.scan(**scan_kwargs)
+        items.extend(response.get("Items", []))
+
+        while "LastEvaluatedKey" in response:
+            scan_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+            response = self._races_table.scan(**scan_kwargs)
+            items.extend(response.get("Items", []))
+
+        dates = set()
+        for item in items:
+            rd = item["race_date"]
+            dates.add(date(int(rd[:4]), int(rd[4:6]), int(rd[6:8])))
+
+        return sorted(dates, reverse=True)
 
     def get_past_race_stats(self, track_type, distance, grade_class=None, limit=100):
         return None
