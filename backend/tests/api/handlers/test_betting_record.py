@@ -658,7 +658,7 @@ class TestBettingRecordExceptionHandling:
             lambda: (_ for _ in ()).throw(RuntimeError("DynamoDB connection error")),
         )
 
-    def test_create_betting_recordでリポジトリ例外時に500(self, monkeypatch):
+    def test_create_betting_recordでリポジトリ例外時に500(self, monkeypatch) -> None:
         self._make_repo_raise(monkeypatch)
         event = _auth_event(body={
             "race_id": "race-001",
@@ -673,21 +673,21 @@ class TestBettingRecordExceptionHandling:
         assert result["statusCode"] == 500
         assert "Access-Control-Allow-Origin" in result["headers"]
 
-    def test_get_betting_recordsでリポジトリ例外時に500(self, monkeypatch):
+    def test_get_betting_recordsでリポジトリ例外時に500(self, monkeypatch) -> None:
         self._make_repo_raise(monkeypatch)
         event = _auth_event()
         result = get_betting_records_handler(event, None)
         assert result["statusCode"] == 500
         assert "Access-Control-Allow-Origin" in result["headers"]
 
-    def test_get_betting_summaryでリポジトリ例外時に500(self, monkeypatch):
+    def test_get_betting_summaryでリポジトリ例外時に500(self, monkeypatch) -> None:
         self._make_repo_raise(monkeypatch)
         event = _auth_event(query_params={"period": "all_time"})
         result = get_betting_summary_handler(event, None)
         assert result["statusCode"] == 500
         assert "Access-Control-Allow-Origin" in result["headers"]
 
-    def test_settle_betting_recordでリポジトリ例外時に500(self, monkeypatch):
+    def test_settle_betting_recordでリポジトリ例外時に500(self, monkeypatch) -> None:
         self._make_repo_raise(monkeypatch)
         event = _auth_event(
             path_params={"record_id": "rec-001"},

@@ -14,7 +14,6 @@ from src.api.response import (
     unauthorized_response,
 )
 
-logger = logging.getLogger(__name__)
 from src.application.use_cases.create_betting_record import CreateBettingRecordUseCase
 from src.application.use_cases.get_betting_records import GetBettingRecordsUseCase
 from src.application.use_cases.get_betting_summary import GetBettingSummaryUseCase
@@ -22,6 +21,8 @@ from src.application.use_cases.settle_betting_record import (
     BettingRecordNotFoundError,
     SettleBettingRecordUseCase,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def betting_record_handler(event: dict, context: Any) -> dict:
