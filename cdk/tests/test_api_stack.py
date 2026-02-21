@@ -718,7 +718,7 @@ class TestCorsConfiguration:
             {"HttpMethod": "OPTIONS"},
         )
 
-    def test_gateway_responseにワイルドカードを使わない(self, template_without_dev_origins):
+    def test_gateway_response_does_not_use_wildcard_origin(self, template_without_dev_origins):
         """Gateway ResponseのAccess-Control-Allow-Originにワイルドカード(*)を使わないこと."""
         resources = template_without_dev_origins.find_resources(
             "AWS::ApiGateway::GatewayResponse"
