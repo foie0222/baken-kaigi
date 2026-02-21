@@ -1249,7 +1249,7 @@ class BakenKaigiApiStack(Stack):
         # Gateway Responses（API Gatewayが直接返すエラーにCORSヘッダーを付与）
         # ========================================
         cors_headers = {
-            "Access-Control-Allow-Origin": "'*'",
+            "Access-Control-Allow-Origin": f"'{cors_origins[0]}'",
             "Access-Control-Allow-Headers": f"'{','.join(cors_allow_headers)}'",
             "Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
         }

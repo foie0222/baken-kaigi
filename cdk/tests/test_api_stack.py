@@ -717,3 +717,18 @@ class TestCorsConfiguration:
             "AWS::ApiGateway::Method",
             {"HttpMethod": "OPTIONS"},
         )
+
+    def test_gateway_response_does_not_use_wildcard_origin(self, template_without_dev_origins):
+        """Gateway ResponseのAccess-Control-Allow-Originにワイルドカード(*)を使わないこと."""
+        resources = template_without_dev_origins.find_resources(
+            "AWS::ApiGateway::GatewayResponse"
+        )
+        for logical_id, resource in resources.items():
+            headers = resource.get("Properties", {}).get("ResponseParameters", {})
+            origin_header = headers.get(
+                "gatewayresponse.header.Access-Control-Allow-Origin", ""
+            )
+            assert origin_header != "'*'", (
+                f"{logical_id}: Gateway ResponseのAccess-Control-Allow-Originに"
+                "ワイルドカード(*)が使われています"
+            )

@@ -59,7 +59,7 @@ def _make_response(body: Any, status_code: int = 200, event: dict | None = None)
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": _get_cors_origin(event),
-            "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Guest-Id",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization,x-api-key,X-Guest-Id",
             "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         },
         "body": json.dumps(body, ensure_ascii=False, default=str),
