@@ -57,6 +57,8 @@ jobs:
           cdk deploy BakenKaigiApiStack --context jravan=true --require-approval never
           cdk deploy BakenKaigiBatchStack --context jravan=true --require-approval never
         working-directory: cdk
+        env:
+          AUTO_BET_USER_ID: ${{ secrets.AUTO_BET_USER_ID }}
 
       - name: Output CDK deployment summary
         run: |
