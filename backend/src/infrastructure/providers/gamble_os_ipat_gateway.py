@@ -65,9 +65,12 @@ class GambleOsIpatGateway(IpatGateway):
             "pin": credentials.pin,
             "pno": credentials.pars_number,
             "betcd": "betchk" if self._dry_run else "bet",
-            "money": str(total_amount // 100),
+            "money": str(total_amount),
             "buyeye": buyeye,
         }
+
+        logger.info("GAMBLE-OS投票: buyeye=%s", buyeye)
+        logger.info("GAMBLE-OS投票: money=%s, betcd=%s", payload["money"], payload["betcd"])
 
         try:
             response = requests.post(_BET_ENDPOINT, data=payload, timeout=_REQUEST_TIMEOUT)
@@ -75,6 +78,8 @@ class GambleOsIpatGateway(IpatGateway):
             data = response.json()
         except requests.RequestException as e:
             raise IpatGatewayError(f"投票送信失敗: {e}") from e
+
+        logger.info("GAMBLE-OS応答: %s", data)
 
         if data.get("ret", -1) < 0:
             raise IpatGatewayError(data.get("msg", "Unknown error"))
@@ -139,17 +144,16 @@ class GambleOsIpatGateway(IpatGateway):
     def _build_buyeye(bet_lines: list[IpatBetLine]) -> str:
         """buyeye フォーマット文字列を構築する.
 
-        フォーマット: 日付,レース場コード,レース番号,式別,方式,金額(100円単位),買い目,マルチ
+        フォーマット: 日付,レース場コード,レース番号,式別,方式,金額,買い目,マルチ
         各行を ":" で連結し、末尾も ":" で終わる。
         """
         parts: list[str] = []
         for line in bet_lines:
             bet_code = _BET_TYPE_CODE[line.bet_type]
             race_no = f"{line.race_number:02d}"
-            amount_units = line.amount // 100
             entry = (
                 f"{line.opdt},{line.venue_code.value},{race_no},"
-                f"{bet_code},NORMAL,{amount_units},{line.number},"
+                f"{bet_code},NORMAL,{line.amount},{line.number},"
             )
             parts.append(entry)
         return ":".join(parts) + ":"
