@@ -62,17 +62,20 @@ def handler(event, context):
         table = dynamodb.Table(AI_PREDICTIONS_TABLE)
 
         predictions = _fetch_predictions(table, race_id)
+        _log_predictions(predictions)
         if len(predictions) < 2:
             logger.warning("予想ソース不足: %d ソース", len(predictions))
             return {"status": "ok", "bets_count": 0, "reason": "insufficient_sources"}
 
         odds = _fetch_odds(race_id)
+        logger.info("オッズ取得: %s", list(odds.keys()))
         bets = _run_pipeline(predictions, odds)
 
         if not bets:
             logger.info("買い目なし")
             return {"status": "ok", "bets_count": 0, "reason": "no_bets"}
 
+        _log_bets(bets)
         bet_lines = BetToIpatConverter.convert(race_id, bets)
         _submit_bets(race_id, bet_lines, target_user_id)
     except Exception:
@@ -80,6 +83,34 @@ def handler(event, context):
         raise
 
     return {"status": "ok", "bets_count": len(bet_lines), "race_id": race_id}
+
+
+BET_TYPE_LABELS = {
+    "win": "単勝",
+    "place": "複勝",
+    "wide": "ワイド",
+    "quinella": "馬連",
+    "exacta": "馬単",
+}
+
+
+def _log_predictions(predictions: dict) -> None:
+    """取得した予想ソースと上位馬番をログ出力."""
+    logger.info("予想ソース: %d/%d", len(predictions), len(SOURCES))
+    for source, preds in predictions.items():
+        top5 = [f"{p['rank']}位={p['horse_number']}番(score={p['score']:.1f})" for p in preds[:5]]
+        logger.info("  %s: %s", source, ", ".join(top5))
+
+
+def _log_bets(bets) -> None:
+    """生成された買い目をログ出力."""
+    logger.info("=== 買い目生成結果: %d点 ===", len(bets))
+    for bet in bets:
+        label = BET_TYPE_LABELS.get(bet.bet_type, bet.bet_type)
+        horses = "-".join(str(h) for h in bet.horse_numbers)
+        logger.info("  %s %s %d円", label, horses, bet.amount)
+    total = sum(b.amount for b in bets)
+    logger.info("合計投票額: %d円", total)
 
 
 def _fetch_predictions(table, race_id: str) -> dict:
