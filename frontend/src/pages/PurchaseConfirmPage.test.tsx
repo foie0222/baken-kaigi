@@ -25,7 +25,7 @@ function addTestCartItem() {
   useCartStore.getState().addItem({
     raceId: '20260208050101',
     raceName: 'テストレース',
-    raceVenue: '05',
+    raceVenue: '東京',
     raceNumber: '1R',
     betType: 'win',
     betMethod: 'normal',
