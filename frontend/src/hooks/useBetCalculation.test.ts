@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateBetCount } from './useBetCalculation';
+import { calculateBetCount, getBetBreakdown } from './useBetCalculation';
 import type { ColumnSelections } from '../types';
 
 const emptySelections: ColumnSelections = { col1: [], col2: [], col3: [] };
@@ -194,6 +194,71 @@ describe('calculateBetCount', () => {
     it('フォーメーション: 列が空だと0点', () => {
       const selections: ColumnSelections = { col1: [1, 2], col2: [], col3: [] };
       expect(calculateBetCount('quinella', 'formation', selections)).toBe(0);
+    });
+  });
+});
+
+describe('getBetBreakdown', () => {
+  describe('三連複（trio）軸1頭流し', () => {
+    it('相手4頭の場合、組み合わせの式を表示する', () => {
+      const selections: ColumnSelections = { col1: [1], col2: [2, 3, 4, 5], col3: [] };
+      const betCount = calculateBetCount('trio', 'nagashi', selections); // 4C2 = 6
+      const breakdown = getBetBreakdown('trio', 'nagashi', selections, betCount);
+      expect(breakdown).not.toBeNull();
+      expect(breakdown!.formula).toBe('4C2 = 6点');
+      expect(breakdown!.detail).toContain('組み合わせ');
+      expect(breakdown!.detail).not.toContain('順列');
+    });
+
+    it('相手3頭の場合、組み合わせの式を表示する', () => {
+      const selections: ColumnSelections = { col1: [1], col2: [2, 3, 4], col3: [] };
+      const betCount = calculateBetCount('trio', 'nagashi', selections); // 3C2 = 3
+      const breakdown = getBetBreakdown('trio', 'nagashi', selections, betCount);
+      expect(breakdown).not.toBeNull();
+      expect(breakdown!.formula).toBe('3C2 = 3点');
+    });
+  });
+
+  describe('三連単（trifecta）軸1頭流し', () => {
+    it('相手4頭の場合、順列の式を表示する', () => {
+      const selections: ColumnSelections = { col1: [1], col2: [2, 3, 4, 5], col3: [] };
+      const betCount = calculateBetCount('trifecta', 'nagashi_1', selections); // 4*3 = 12
+      const breakdown = getBetBreakdown('trifecta', 'nagashi_1', selections, betCount);
+      expect(breakdown).not.toBeNull();
+      expect(breakdown!.formula).toBe('4 × 3 = 12点');
+      expect(breakdown!.detail).toContain('順列');
+    });
+  });
+
+  describe('三連複（trio）軸1頭マルチ流し', () => {
+    it('三連複ではマルチは存在しないが、仮にnagashi_1_multiが来たら組み合わせベースで表示する', () => {
+      // trio + nagashi_1_multi: baseCount = combination(3, 2) = 3, * 3 = 9
+      const selections: ColumnSelections = { col1: [1], col2: [2, 3, 4], col3: [] };
+      const betCount = calculateBetCount('trio', 'nagashi_1_multi', selections);
+      if (betCount > 0) {
+        const breakdown = getBetBreakdown('trio', 'nagashi_1_multi', selections, betCount);
+        expect(breakdown).not.toBeNull();
+        expect(breakdown!.detail).toContain('組み合わせ');
+        expect(breakdown!.detail).not.toContain('順列');
+      }
+    });
+  });
+
+  describe('三連単（trifecta）軸1頭マルチ流し', () => {
+    it('相手3頭で順列×マルチ3倍の式を表示する', () => {
+      const selections: ColumnSelections = { col1: [1], col2: [2, 3, 4], col3: [] };
+      const betCount = calculateBetCount('trifecta', 'nagashi_1_multi', selections); // 3*2*3 = 18
+      const breakdown = getBetBreakdown('trifecta', 'nagashi_1_multi', selections, betCount);
+      expect(breakdown).not.toBeNull();
+      expect(breakdown!.formula).toBe('3 × 2 × 3 = 18点');
+      expect(breakdown!.detail).toContain('順列');
+    });
+  });
+
+  describe('betCountが0の場合', () => {
+    it('nullを返す', () => {
+      const selections: ColumnSelections = { col1: [], col2: [], col3: [] };
+      expect(getBetBreakdown('trio', 'nagashi', selections, 0)).toBeNull();
     });
   });
 });

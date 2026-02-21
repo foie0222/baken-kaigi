@@ -229,16 +229,31 @@ export function getBetBreakdown(
       };
     } else if (required === 3) {
       if (axisCount === 1) {
-        if (multiplier > 1) {
+        if (ordered) {
+          // 三連単: 順列
+          if (multiplier > 1) {
+            return {
+              formula: `${partners} × ${partners-1} × ${multiplier} = ${betCount}点`,
+              detail: `相手${partners}頭の順列 × マルチ${multiplier}倍`
+            };
+          }
           return {
-            formula: `${partners} × ${partners-1} × ${multiplier} = ${betCount}点`,
-            detail: `相手${partners}頭の順列 × マルチ${multiplier}倍`
+            formula: `${partners} × ${partners-1} = ${betCount}点`,
+            detail: `軸1頭固定、相手${partners}頭の順列`
+          };
+        } else {
+          // 三連複: 組み合わせ
+          if (multiplier > 1) {
+            return {
+              formula: `${partners}C2 × ${multiplier} = ${betCount}点`,
+              detail: `相手${partners}頭の組み合わせ × マルチ${multiplier}倍`
+            };
+          }
+          return {
+            formula: `${partners}C2 = ${betCount}点`,
+            detail: `軸1頭固定、相手${partners}頭の組み合わせ`
           };
         }
-        return {
-          formula: `${partners} × ${partners-1} = ${betCount}点`,
-          detail: `軸1頭固定、相手${partners}頭の順列`
-        };
       } else {
         if (multiplier > 1) {
           return {
