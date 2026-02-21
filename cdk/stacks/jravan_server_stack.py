@@ -93,8 +93,13 @@ class JraVanServerStack(Stack):
         )
         nat_sg.add_ingress_rule(
             ec2.Peer.ipv4(self.vpc.vpc_cidr_block),
-            ec2.Port.all_traffic(),
-            "Allow all traffic from VPC",
+            ec2.Port.tcp(80),
+            "Allow HTTP from VPC",
+        )
+        nat_sg.add_ingress_rule(
+            ec2.Peer.ipv4(self.vpc.vpc_cidr_block),
+            ec2.Port.tcp(443),
+            "Allow HTTPS from VPC",
         )
 
         # fck-nat: 軽量 NAT AMI (arm64/t4g 対応)
@@ -119,6 +124,7 @@ class JraVanServerStack(Stack):
             ),
             security_group=nat_sg,
             source_dest_check=False,
+            associate_public_ip_address=True,
         )
 
         # PRIVATE_ISOLATED サブネットにデフォルトルート追加
