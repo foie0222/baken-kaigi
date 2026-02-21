@@ -491,3 +491,61 @@ class TestGetReviews:
         event = _make_event(method="GET", path="/agents/me/reviews")
         response = agent_review_handler(event, None)
         assert response["statusCode"] == 404
+
+
+class TestUserIdType:
+    """ハンドラーがuse caseにstr型のuser_idを渡すことを検証する.
+
+    require_authenticated_user_idはUserId型を返すが、
+    use caseはstr型を期待する。ハンドラーは.valueでstrに変換して渡す必要がある。
+    """
+
+    def _get_saved_agent(self):
+        """リポジトリから保存済みエージェントを取得する."""
+        repo = Dependencies.get_agent_repository()
+        agents = list(repo._agents.values())
+        assert len(agents) == 1
+        return agents[0]
+
+    def test_create_agentで保存されるuser_idはstr型(self):
+        event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(event, None)
+        agent = self._get_saved_agent()
+        assert isinstance(agent.user_id.value, str), (
+            f"user_id.value should be str, got {type(agent.user_id.value).__name__}"
+        )
+
+    def test_update_agentで保存されるuser_idはstr型(self):
+        create_event = _make_event(method="POST", path="/agents", body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        update_event = _make_event(
+            method="PUT",
+            path="/agents/me",
+            body={"betting_preference": {"selected_bet_types": ["win"]}},
+        )
+        agent_handler(update_event, None)
+        agent = self._get_saved_agent()
+        assert isinstance(agent.user_id.value, str), (
+            f"user_id.value should be str, got {type(agent.user_id.value).__name__}"
+        )
+
+    def test_get_agentのレスポンスuser_idはCognitoのsubと一致(self):
+        sub = "usr_exact_match"
+        create_event = _make_event(method="POST", path="/agents", sub=sub, body={"name": "ハヤテ"})
+        agent_handler(create_event, None)
+
+        get_event = _make_event(method="GET", path="/agents/me", sub=sub)
+        response = agent_handler(get_event, None)
+        body = json.loads(response["body"])
+        assert body["user_id"] == sub
+
+    def test_get_reviewsで別ユーザーのエージェントは取得しない(self):
+        """UserId二重ラップだとfind_by_user_idの比較で不整合が起きる."""
+        create_event = _make_event(method="POST", path="/agents", sub="user_a", body={"name": "A"})
+        agent_handler(create_event, None)
+
+        # 別ユーザー(user_b)としてレビュー取得を試みるが、他ユーザーのエージェントは取得できない
+        get_event = _make_event(method="GET", path="/agents/me/reviews", sub="user_b")
+        response = agent_review_handler(get_event, None)
+        assert response["statusCode"] == 404

@@ -21,8 +21,6 @@ from src.application.use_cases import (
     ReviewAlreadyExistsError,
     UpdateAgentUseCase,
 )
-from src.domain.identifiers import UserId
-
 
 def _agent_to_dict(agent) -> dict:
     """AgentエンティティをAPIレスポンス用dictに変換する."""
@@ -84,7 +82,7 @@ def _create_agent(event: dict) -> dict:
     use_case = CreateAgentUseCase(repository)
 
     try:
-        result = use_case.execute(user_id, name)
+        result = use_case.execute(user_id.value, name)
     except AgentAlreadyExistsError:
         return conflict_response("Agent already exists for this user", event=event)
     except ValueError as e:
@@ -107,7 +105,7 @@ def _get_agent(event: dict) -> dict:
     use_case = GetAgentUseCase(repository)
 
     try:
-        result = use_case.execute(user_id)
+        result = use_case.execute(user_id.value)
     except AgentNotFoundError:
         return not_found_response("Agent", event=event)
 
@@ -195,7 +193,7 @@ def _update_agent(event: dict) -> dict:
     repository = Dependencies.get_agent_repository()
     use_case = UpdateAgentUseCase(repository)
 
-    kwargs: dict = {"user_id": user_id}
+    kwargs: dict = {"user_id": user_id.value}
     if betting_preference is not None:
         kwargs["betting_preference"] = betting_preference
     if custom_instructions_specified:
@@ -240,7 +238,7 @@ def _get_reviews(event: dict) -> dict:
     agent_repo = Dependencies.get_agent_repository()
     review_repo = Dependencies.get_agent_review_repository()
 
-    agent = agent_repo.find_by_user_id(UserId(user_id))
+    agent = agent_repo.find_by_user_id(user_id)
     if agent is None:
         return not_found_response("Agent", event=event)
 
@@ -309,7 +307,7 @@ def _create_review(event: dict) -> dict:
     use_case = CreateAgentReviewUseCase(agent_repo, review_repo)
 
     try:
-        result = use_case.execute(user_id, race_id, race_date, race_name, bets)
+        result = use_case.execute(user_id.value, race_id, race_date, race_name, bets)
     except AgentNotFoundError:
         return not_found_response("Agent", event=event)
     except ReviewAlreadyExistsError:
