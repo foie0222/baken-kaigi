@@ -17,25 +17,29 @@ function formatOdds(item: CartItem): string | null {
   return null;
 }
 
-function CartItemAmountInput({ itemId, amount, onUpdate }: {
+function CartItemAmountInput({ itemId, amount, betCount, onUpdate }: {
   itemId: string;
   amount: number;
+  betCount: number;
   onUpdate: (itemId: string, amount: number) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(String(amount));
+  const step = BET_AMOUNT_STEP * betCount;
+  const minAmount = MIN_BET_AMOUNT * betCount;
+  const maxAmount = Math.floor(MAX_BET_AMOUNT / step) * step;
 
   useEffect(() => {
     setValue(String(amount));
   }, [amount]);
 
   const handleDecrement = () => {
-    const next = Math.max(MIN_BET_AMOUNT, amount - BET_AMOUNT_STEP);
+    const next = Math.max(minAmount, amount - step);
     onUpdate(itemId, next);
   };
 
   const handleIncrement = () => {
-    const next = Math.min(MAX_BET_AMOUNT, amount + BET_AMOUNT_STEP);
+    const next = Math.min(maxAmount, amount + step);
     onUpdate(itemId, next);
   };
 
@@ -46,12 +50,13 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
 
   const commitEdit = () => {
     let parsed = parseInt(value, 10);
-    if (isNaN(parsed) || parsed < MIN_BET_AMOUNT) {
-      parsed = MIN_BET_AMOUNT;
-    } else if (parsed > MAX_BET_AMOUNT) {
-      parsed = MAX_BET_AMOUNT;
+    if (isNaN(parsed) || parsed < minAmount) {
+      parsed = minAmount;
+    } else if (parsed > maxAmount) {
+      parsed = maxAmount;
     }
-    parsed = Math.round(parsed / BET_AMOUNT_STEP) * BET_AMOUNT_STEP;
+    parsed = Math.floor(parsed / step) * step;
+    if (parsed < minAmount) parsed = minAmount;
     onUpdate(itemId, parsed);
     setIsEditing(false);
   };
@@ -62,7 +67,7 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
         type="button"
         className="cart-stepper-btn"
         onClick={handleDecrement}
-        disabled={amount <= MIN_BET_AMOUNT}
+        disabled={amount <= minAmount}
         aria-label="金額を減らす"
       >
         −
@@ -85,9 +90,9 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
             }
           }}
           autoFocus
-          min={MIN_BET_AMOUNT}
-          max={MAX_BET_AMOUNT}
-          step={BET_AMOUNT_STEP}
+          min={minAmount}
+          max={maxAmount}
+          step={step}
         />
       ) : (
         <button
@@ -103,7 +108,7 @@ function CartItemAmountInput({ itemId, amount, onUpdate }: {
         type="button"
         className="cart-stepper-btn"
         onClick={handleIncrement}
-        disabled={amount >= MAX_BET_AMOUNT}
+        disabled={amount >= maxAmount}
         aria-label="金額を増やす"
       >
         +
@@ -199,6 +204,7 @@ export function CartPage() {
                     <CartItemAmountInput
                       itemId={item.id}
                       amount={item.amount}
+                      betCount={item.betCount ?? 1}
                       onUpdate={updateItemAmount}
                     />
                   </div>
