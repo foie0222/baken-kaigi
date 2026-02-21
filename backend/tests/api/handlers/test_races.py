@@ -1099,3 +1099,119 @@ class TestGetAllOddsHandler:
         assert response["statusCode"] == 400
 
 
+class _ErrorRaceDataProvider(MockRaceDataProvider):
+    """プロバイダ呼び出しで例外を投げるテスト用プロバイダ."""
+
+    def get_race_dates(self, from_date=None, to_date=None):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_races_by_date(self, target_date, venue=None):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_race(self, race_id):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_runners(self, race_id):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_odds_history(self, race_id):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_running_styles(self, race_id):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_all_odds(self, race_id):
+        raise RuntimeError("DynamoDB connection error")
+
+    def get_race_results(self, race_id):
+        raise RuntimeError("DynamoDB connection error")
+
+
+class TestRaceHandlerExceptionHandling:
+    """プロバイダ例外時にCORSヘッダー付き500が返ることを検証する."""
+
+    def _setup_error_provider(self):
+        provider = _ErrorRaceDataProvider()
+        Dependencies.set_race_data_provider(provider)
+
+    def test_get_race_datesでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_race_dates
+
+        self._setup_error_provider()
+        event = {"queryStringParameters": None}
+        response = get_race_dates(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+    def test_get_racesでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_races
+
+        self._setup_error_provider()
+        event = {
+            "queryStringParameters": {"date": "2026-02-01"},
+        }
+        response = get_races(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+    def test_get_race_detailでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_race_detail
+
+        self._setup_error_provider()
+        event = {
+            "pathParameters": {"race_id": "race_001"},
+            "queryStringParameters": None,
+        }
+        response = get_race_detail(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+    def test_get_odds_historyでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_odds_history
+
+        self._setup_error_provider()
+        event = {
+            "pathParameters": {"race_id": "race_001"},
+            "queryStringParameters": None,
+        }
+        response = get_odds_history(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+    def test_get_running_stylesでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_running_styles
+
+        self._setup_error_provider()
+        event = {
+            "pathParameters": {"race_id": "race_001"},
+            "queryStringParameters": None,
+        }
+        response = get_running_styles(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+    def test_get_race_resultsでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_race_results
+
+        self._setup_error_provider()
+        event = {
+            "pathParameters": {"race_id": "race_001"},
+            "queryStringParameters": None,
+        }
+        response = get_race_results(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+    def test_get_all_oddsでプロバイダ例外時に500(self):
+        from src.api.handlers.races import get_all_odds
+
+        self._setup_error_provider()
+        event = {
+            "pathParameters": {"race_id": "race_001"},
+            "queryStringParameters": None,
+        }
+        response = get_all_odds(event, None)
+        assert response["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in response["headers"]
+
+

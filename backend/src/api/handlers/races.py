@@ -1,12 +1,15 @@
 """レースAPI ハンドラー."""
+import logging
 from datetime import date, datetime
 from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
-from src.api.response import bad_request_response, not_found_response, success_response
+from src.api.response import bad_request_response, internal_error_response, not_found_response, success_response
 from src.application.use_cases import GetRaceDetailUseCase, GetRaceListUseCase
 from src.domain.identifiers import RaceId
+
+logger = logging.getLogger(__name__)
 
 
 def get_race_dates(event: dict, context: Any) -> dict:
@@ -41,8 +44,12 @@ def get_race_dates(event: dict, context: Any) -> dict:
             return bad_request_response("Invalid to date format. Use YYYY-MM-DD", event=event)
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    dates = provider.get_race_dates(from_date, to_date)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        dates = provider.get_race_dates(from_date, to_date)
+    except Exception:
+        logger.exception("Failed to get race dates")
+        return internal_error_response(event=event)
 
     return success_response({
         "dates": [d.isoformat() for d in dates],
@@ -74,9 +81,13 @@ def get_races(event: dict, context: Any) -> dict:
     venue = get_query_parameter(event, "venue")
 
     # ユースケース実行
-    provider = Dependencies.get_race_data_provider()
-    use_case = GetRaceListUseCase(provider)
-    result = use_case.execute(target_date, venue)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        use_case = GetRaceListUseCase(provider)
+        result = use_case.execute(target_date, venue)
+    except Exception:
+        logger.exception("Failed to get races for date=%s", date_str)
+        return internal_error_response(event=event)
 
     # レスポンス構築
     races = [
@@ -128,10 +139,14 @@ def get_race_detail(event: dict, context: Any) -> dict:
         return bad_request_response("race_id is required", event=event)
 
     # ユースケース実行
-    provider = Dependencies.get_race_data_provider()
-    use_case = GetRaceDetailUseCase(provider)
-    race_id = RaceId(race_id_str)
-    result = use_case.execute(race_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        use_case = GetRaceDetailUseCase(provider)
+        race_id = RaceId(race_id_str)
+        result = use_case.execute(race_id)
+    except Exception:
+        logger.exception("Failed to get race detail for race_id=%s", race_id_str)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Race", event=event)
@@ -208,9 +223,13 @@ def get_odds_history(event: dict, context: Any) -> dict:
         return bad_request_response("race_id is required", event=event)
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    race_id = RaceId(race_id_str)
-    result = provider.get_odds_history(race_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        race_id = RaceId(race_id_str)
+        result = provider.get_odds_history(race_id)
+    except Exception:
+        logger.exception("Failed to get odds history for race_id=%s", race_id_str)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Race", event=event)
@@ -272,9 +291,13 @@ def get_running_styles(event: dict, context: Any) -> dict:
         return bad_request_response("race_id is required", event=event)
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    race_id = RaceId(race_id_str)
-    result = provider.get_running_styles(race_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        race_id = RaceId(race_id_str)
+        result = provider.get_running_styles(race_id)
+    except Exception:
+        logger.exception("Failed to get running styles for race_id=%s", race_id_str)
+        return internal_error_response(event=event)
 
     # レスポンス構築
     response = [
@@ -306,9 +329,13 @@ def get_race_results(event: dict, context: Any) -> dict:
         return bad_request_response("race_id is required", event=event)
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    race_id = RaceId(race_id_str)
-    result = provider.get_race_results(race_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        race_id = RaceId(race_id_str)
+        result = provider.get_race_results(race_id)
+    except Exception:
+        logger.exception("Failed to get race results for race_id=%s", race_id_str)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Race results", event=event)
@@ -363,8 +390,12 @@ def get_all_odds(event: dict, context: Any) -> dict:
     if not race_id_str:
         return bad_request_response("race_id is required", event=event)
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_all_odds(RaceId(race_id_str))
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_all_odds(RaceId(race_id_str))
+    except Exception:
+        logger.exception("Failed to get all odds for race_id=%s", race_id_str)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("オッズデータが見つかりません", event=event)
