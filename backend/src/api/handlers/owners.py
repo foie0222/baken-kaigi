@@ -1,9 +1,12 @@
 """馬主・生産者API ハンドラー."""
+import logging
 from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
-from src.api.response import bad_request_response, not_found_response, success_response
+from src.api.response import bad_request_response, internal_error_response, not_found_response, success_response
+
+logger = logging.getLogger(__name__)
 
 
 def get_owner_info(event: dict, context: Any) -> dict:
@@ -21,8 +24,12 @@ def get_owner_info(event: dict, context: Any) -> dict:
     if not owner_id:
         return bad_request_response("owner_id is required", event=event)
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_owner_info(owner_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_owner_info(owner_id)
+    except Exception:
+        logger.exception("Failed to get owner info for owner_id=%s", owner_id)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Owner", event=event)
@@ -71,8 +78,12 @@ def get_owner_stats(event: dict, context: Any) -> dict:
     if period not in ("recent", "all"):
         return bad_request_response("period must be 'recent' or 'all'", event=event)
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_owner_stats(owner_id, year=year, period=period)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_owner_stats(owner_id, year=year, period=period)
+    except Exception:
+        logger.exception("Failed to get owner stats for owner_id=%s", owner_id)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Owner stats", event=event)
@@ -111,8 +122,12 @@ def get_breeder_info(event: dict, context: Any) -> dict:
     if not breeder_id:
         return bad_request_response("breeder_id is required", event=event)
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_breeder_info(breeder_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_breeder_info(breeder_id)
+    except Exception:
+        logger.exception("Failed to get breeder info for breeder_id=%s", breeder_id)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Breeder", event=event)
@@ -161,8 +176,12 @@ def get_breeder_stats(event: dict, context: Any) -> dict:
     if period not in ("recent", "all"):
         return bad_request_response("period must be 'recent' or 'all'", event=event)
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_breeder_stats(breeder_id, year=year, period=period)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_breeder_stats(breeder_id, year=year, period=period)
+    except Exception:
+        logger.exception("Failed to get breeder stats for breeder_id=%s", breeder_id)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Breeder stats", event=event)

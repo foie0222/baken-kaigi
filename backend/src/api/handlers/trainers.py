@@ -4,7 +4,7 @@ from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
-from src.api.response import bad_request_response, not_found_response, success_response
+from src.api.response import bad_request_response, internal_error_response, not_found_response, success_response
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,12 @@ def get_trainer_info(event: dict, context: Any) -> dict:
         return bad_request_response("trainer_id is required", event=event)
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    trainer_info = provider.get_trainer_info(trainer_id)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        trainer_info = provider.get_trainer_info(trainer_id)
+    except Exception:
+        logger.exception("Failed to get trainer info for trainer_id=%s", trainer_id)
+        return internal_error_response(event=event)
 
     if not trainer_info:
         return not_found_response("Trainer", event=event)
@@ -85,10 +89,14 @@ def get_trainer_stats(event: dict, context: Any) -> dict:
         )
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    stats, track_stats, class_stats = provider.get_trainer_stats_detail(
-        trainer_id, year, period
-    )
+    try:
+        provider = Dependencies.get_race_data_provider()
+        stats, track_stats, class_stats = provider.get_trainer_stats_detail(
+            trainer_id, year, period
+        )
+    except Exception:
+        logger.exception("Failed to get trainer stats for trainer_id=%s", trainer_id)
+        return internal_error_response(event=event)
 
     if not stats:
         return not_found_response("Trainer stats", event=event)
