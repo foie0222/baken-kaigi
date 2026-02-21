@@ -121,7 +121,7 @@ def _create_schedule(scheduler, name: str, fire_at: datetime, race_id: str):
         Name=name,
         GroupName=SCHEDULE_GROUP,
         ScheduleExpression=schedule_expression,
-        ScheduleExpressionTimezone="UTC",
+        ScheduleExpressionTimezone="Asia/Tokyo",
         FlexibleTimeWindow={"Mode": "OFF"},
         Target={
             "Arn": BET_EXECUTOR_ARN,
