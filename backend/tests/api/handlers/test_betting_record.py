@@ -203,6 +203,23 @@ class TestCreateBettingRecordHandler:
         result = create_betting_record_handler(event, None)
         assert result["statusCode"] == 400
 
+    def test_大文字のbet_typeで正常作成(self) -> None:
+        """フロントエンドが大文字でbet_typeを送信しても正常に作成される."""
+        _setup_deps()
+        event = _auth_event(body={
+            "race_id": "202605051211",
+            "race_name": "東京11R 日本ダービー",
+            "race_date": "2026-05-05",
+            "venue": "東京",
+            "bet_type": "WIN",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 201
+        body = json.loads(result["body"])
+        assert body["bet_type"] == "win"
+
     def test_不正なbet_typeで400(self) -> None:
         _setup_deps()
         event = _auth_event(body={
@@ -346,6 +363,19 @@ class TestGetBettingRecordsHandler:
         assert result["statusCode"] == 200
         body = json.loads(result["body"])
         assert len(body) == 1
+
+    def test_大文字のbet_typeでフィルタ取得(self) -> None:
+        """大文字のbet_typeクエリパラメータでもフィルタが機能する."""
+        repo = _setup_deps()
+        repo.save(_make_record(bet_type=BetType.WIN))
+        repo.save(_make_record(bet_type=BetType.QUINELLA))
+
+        event = _auth_event(query_params={"bet_type": "WIN"})
+        result = get_betting_records_handler(event, None)
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert len(body) == 1
+        assert body[0]["bet_type"] == "win"
 
     def test_空リスト(self) -> None:
         _setup_deps()
