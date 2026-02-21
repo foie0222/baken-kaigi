@@ -314,18 +314,18 @@ describe('CartPage', () => {
       expect(decrementBtn).toBeDisabled()
     })
 
-    it('手動入力がbetCount×100の倍数に丸められる', () => {
+    it('手動入力がbetCount×100の倍数に切り捨てられる', () => {
       render(<CartPage />)
 
       const amountBtn = screen.getByRole('button', { name: '金額 600円 タップで編集' })
       fireEvent.click(amountBtn)
 
       const input = screen.getByRole('spinbutton')
-      // 1000円を入力 → 6の倍数×100 = 1200に丸められる
+      // 1000円を入力 → floor(1000/600)*600 = 600に切り捨て
       fireEvent.change(input, { target: { value: '1000' } })
       fireEvent.blur(input)
 
-      expect(screen.getByRole('button', { name: '金額 1200円 タップで編集' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '金額 600円 タップで編集' })).toBeInTheDocument()
     })
 
     it('[−]ボタンで金額がbetCount×100(=600)減る', () => {
