@@ -23,6 +23,7 @@ from src.domain.services.betting_pipeline import (
     source_to_probs,
 )
 from src.domain.services.bet_generator import (
+    BetProposal,
     generate_exacta_bets,
     generate_place_bets,
     generate_quinella_bets,
@@ -102,7 +103,7 @@ def _log_predictions(predictions: dict) -> None:
         logger.info("  %s: %s", source, ", ".join(top5))
 
 
-def _log_bets(bets) -> None:
+def _log_bets(bets: list[BetProposal]) -> None:
     """生成された買い目をログ出力."""
     logger.info("=== 買い目生成結果: %d点 ===", len(bets))
     for bet in bets:
@@ -143,8 +144,6 @@ def _fetch_odds(race_id: str) -> dict:
 
 def _run_pipeline(predictions: dict, odds: dict) -> list:
     """決定論的パイプラインで5券種の買い目を生成."""
-    from src.domain.services.bet_generator import BetProposal
-
     all_bets: list[BetProposal] = []
 
     # --- 単勝用: WIN_WEIGHTS ---
