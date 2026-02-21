@@ -38,7 +38,7 @@ class DynamoDBLossLimitChangeRepository(LossLimitChangeRepository):
 
     def find_pending_by_user_id(self, user_id: UserId) -> list[LossLimitChange]:
         """ユーザーIDで保留中の変更リクエストを検索する."""
-        query_kwargs: dict = {
+        query_kwargs = {
             "IndexName": "user_id-index",
             "KeyConditionExpression": Key("user_id").eq(str(user_id.value)),
             "FilterExpression": Attr("status").eq(LossLimitChangeStatus.PENDING.value),

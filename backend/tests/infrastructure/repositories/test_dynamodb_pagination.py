@@ -2,8 +2,6 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.domain.enums import LossLimitChangeStatus, LossLimitChangeType, PurchaseStatus
 from src.infrastructure.repositories.dynamodb_loss_limit_change_repository import (
     DynamoDBLossLimitChangeRepository,
