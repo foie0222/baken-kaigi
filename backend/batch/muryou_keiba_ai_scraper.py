@@ -26,6 +26,7 @@ BASE_URL = "https://muryou-keiba-ai.jp"
 SOURCE_NAME = "muryou-keiba-ai"
 TTL_DAYS = 7
 REQUEST_DELAY_SECONDS = 1.0  # サーバー負荷軽減のための遅延
+MAX_ARCHIVE_PAGES = 5  # 月後半はレースが2ページ目以降に押し出されるため
 
 # タイムゾーン
 JST = timezone(timedelta(hours=9))
@@ -284,18 +285,27 @@ def scrape_races(offset_days: int = 1) -> dict[str, Any]:
         "errors": [],
     }
 
-    # Step 1: アーカイブページからレース一覧を取得
-    archive_url = f"{BASE_URL}/predict/?y={target_date.year}&month={target_date.month:02d}"
-    logger.info(f"Fetching archive page: {archive_url}")
-    archive_soup = fetch_page(archive_url)
-    if not archive_soup:
-        results["success"] = False
-        results["errors"].append("Failed to fetch archive page")
-        return results
+    # Step 1: アーカイブページからレース一覧を取得（ページネーション対応）
+    races: list[dict] = []
+    for page in range(1, MAX_ARCHIVE_PAGES + 1):
+        if page == 1:
+            archive_url = f"{BASE_URL}/predict/?y={target_date.year}&month={target_date.month:02d}"
+        else:
+            archive_url = f"{BASE_URL}/predict/page/{page}/?y={target_date.year}&month={target_date.month:02d}"
+        logger.info(f"Fetching archive page {page}: {archive_url}")
+        archive_soup = fetch_page(archive_url)
+        if not archive_soup:
+            results["success"] = False
+            results["errors"].append(f"Failed to fetch archive page {page}")
+            return results
+        page_races = parse_race_list_page(archive_soup, date_str)
+        races.extend(page_races)
+        if page_races:
+            logger.info(f"Found {len(page_races)} races on page {page}")
+            break  # 対象日のレースが見つかったらそれ以上ページを辿らない
+        time.sleep(REQUEST_DELAY_SECONDS)
 
-    races = parse_race_list_page(archive_soup, date_str)
     if not races:
-        # 開催がない日は正常終了扱い
         logger.info(f"No JRA races found for {date_str}")
         results["races_scraped"] = 0
         return results
