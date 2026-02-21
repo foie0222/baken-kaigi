@@ -77,6 +77,71 @@ class JraVanServerStack(Stack):
         else:
             self.vpc = vpc
 
+        # ========================================
+        # NAT Instance（fck-nat, t4g.nano）
+        # Lambda（ISOLATED サブネット）から外部 API（gamble-os.net）へ
+        # アクセスするために必要。NAT Gateway（~$32/月）の代わりに
+        # NAT Instance（~$3/月）でコスト削減。
+        # ========================================
+        nat_sg = ec2.SecurityGroup(
+            self,
+            "NatInstanceSG",
+            vpc=self.vpc,
+            security_group_name="jravan-nat-instance-sg",
+            description="Security group for NAT instance",
+            allow_all_outbound=True,
+        )
+        nat_sg.add_ingress_rule(
+            ec2.Peer.ipv4(self.vpc.vpc_cidr_block),
+            ec2.Port.tcp(80),
+            "Allow HTTP from VPC",
+        )
+        nat_sg.add_ingress_rule(
+            ec2.Peer.ipv4(self.vpc.vpc_cidr_block),
+            ec2.Port.tcp(443),
+            "Allow HTTPS from VPC",
+        )
+
+        # fck-nat: 軽量 NAT AMI (arm64/t4g 対応)
+        # https://fck-nat.dev/
+        # 固定理由: MachineImage.lookup() はスタックに concrete な account が必要だが、
+        # app.py で account=None のため使用不可。Windows AMI と同様にピン留め。
+        # 更新時: aws ec2 describe-images --owners 568608671756 \
+        #   --filters "Name=name,Values=fck-nat-al2023-*-arm64-*" \
+        #   --query 'Images | sort_by(@, &CreationDate) | [-1]' --region ap-northeast-1
+        FCK_NAT_AMI_ID = "ami-0e00b812422d8cf2c"  # fck-nat-al2023-hvm-1.4.0-arm64
+        nat_instance = ec2.Instance(
+            self,
+            "NatInstance",
+            instance_name="jravan-nat-instance",
+            instance_type=ec2.InstanceType("t4g.nano"),
+            machine_image=ec2.MachineImage.generic_linux(
+                {"ap-northeast-1": FCK_NAT_AMI_ID},
+            ),
+            vpc=self.vpc,
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PUBLIC,
+            ),
+            security_group=nat_sg,
+            source_dest_check=False,
+            associate_public_ip_address=True,
+        )
+
+        # PRIVATE_ISOLATED サブネットにデフォルトルート追加
+        # サブネットタイプは変更しない（VPC 再作成リスク回避）
+        for idx, subnet in enumerate(
+            self.vpc.select_subnets(
+                subnet_type=ec2.SubnetType.PRIVATE_ISOLATED,
+            ).subnets
+        ):
+            ec2.CfnRoute(
+                self,
+                f"NatRoute{idx}",
+                route_table_id=subnet.route_table.route_table_id,
+                destination_cidr_block="0.0.0.0/0",
+                instance_id=nat_instance.instance_id,
+            )
+
         # Secrets Manager VPC Interface Endpoint
         # Lambda（ISOLATED サブネット）から Secrets Manager へアクセスするために必要
         self.vpc.add_interface_endpoint(
@@ -268,6 +333,13 @@ class JraVanServerStack(Stack):
             "DeployBucketName",
             value=self.deploy_bucket.bucket_name,
             export_name="JraVanDeployBucketName",
+        )
+
+        CfnOutput(
+            self,
+            "NatInstanceId",
+            value=nat_instance.instance_id,
+            description="NAT Instance ID",
         )
 
     def _create_ec2_scheduler(self) -> None:
