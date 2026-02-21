@@ -286,6 +286,17 @@ class TestMakeResponse:
 
         assert response["headers"]["Access-Control-Allow-Origin"] == "https://bakenkaigi.com"
 
+    def test_allow_headersにx_api_keyが含まれる(self):
+        """Allow-Headersにx-api-keyが含まれること."""
+        from agentcore_handler import _make_response
+
+        response = _make_response({})
+        tokens = {h.strip() for h in response["headers"]["Access-Control-Allow-Headers"].split(",")}
+        assert "x-api-key" in tokens
+        assert "X-Guest-Id" in tokens
+        assert "Content-Type" in tokens
+        assert "Authorization" in tokens
+
 
 class TestInvokeAgentcore:
     """invoke_agentcore 関数のテスト."""
