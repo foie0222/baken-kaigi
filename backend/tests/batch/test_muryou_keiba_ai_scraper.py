@@ -855,3 +855,88 @@ class TestScrapeRaces:
         assert results["races_scraped"] == 1
         save_call = mock_save.call_args
         assert save_call.kwargs["race_id"] == "202602080801"
+
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
+    @patch("batch.muryou_keiba_ai_scraper.save_predictions")
+    @patch("batch.muryou_keiba_ai_scraper.fetch_page")
+    @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
+    def test_1ページ目に対象日なし_2ページ目で発見(self, mock_get_table, mock_fetch, mock_save, mock_dt):
+        """正常系: 1ページ目に対象日のレースがなく、2ページ目で発見する."""
+        from batch.muryou_keiba_ai_scraper import scrape_races
+
+        JST = timezone(timedelta(hours=9))
+        fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = datetime
+
+        mock_table = MagicMock()
+        mock_get_table.return_value = mock_table
+
+        # 1ページ目: 2/9のレースのみ（対象日2/8なし）
+        page1_html = """
+        <html><body><ul>
+            <li><a href="https://muryou-keiba-ai.jp/predict/2026/02/07/19500/">
+                東京 2月9日 1R 09:55 3歳未勝利
+            </a></li>
+        </ul></body></html>
+        """
+        # 2ページ目: 2/8のレースあり
+        page2_html = """
+        <html><body><ul>
+            <li><a href="https://muryou-keiba-ai.jp/predict/2026/02/05/19477/">
+                京都 2月8日 1R 09:55 3歳未勝利
+            </a></li>
+        </ul></body></html>
+        """
+        race_html = """
+        <html><body>
+            <table class="race_table baken_race_table"><tbody>
+                <tr>
+                    <td><p class="umaban_wrap">1</p></td>
+                    <td><p class="bamei_wrap"><a href="#" class="bamei"><strong>馬A</strong></a></p></td>
+                    <td><p class="predict_wrap"><span class="predict">70.0</span></p></td>
+                </tr>
+            </tbody></table>
+        </body></html>
+        """
+
+        page1_soup = BeautifulSoup(page1_html, TEST_PARSER)
+        page2_soup = BeautifulSoup(page2_html, TEST_PARSER)
+        race_soup = BeautifulSoup(race_html, TEST_PARSER)
+        mock_fetch.side_effect = [page1_soup, page2_soup, race_soup]
+
+        results = scrape_races(offset_days=1)
+
+        assert results["success"] is True
+        assert results["races_scraped"] == 1
+        assert mock_fetch.call_count == 3
+
+    @patch("batch.muryou_keiba_ai_scraper.datetime")
+    @patch("batch.muryou_keiba_ai_scraper.fetch_page")
+    @patch("batch.muryou_keiba_ai_scraper.get_dynamodb_table")
+    def test_2ページ目取得失敗時はエラー(self, mock_get_table, mock_fetch, mock_dt):
+        """異常系: 2ページ目の取得に失敗した場合、success=Falseを返す."""
+        from batch.muryou_keiba_ai_scraper import scrape_races
+
+        JST = timezone(timedelta(hours=9))
+        fixed_now = datetime(2026, 2, 7, 21, 0, 0, tzinfo=JST)
+        mock_dt.now.return_value = fixed_now
+        mock_dt.side_effect = datetime
+
+        mock_table = MagicMock()
+        mock_get_table.return_value = mock_table
+
+        page1_html = """
+        <html><body><ul>
+            <li><a href="https://muryou-keiba-ai.jp/predict/2026/02/07/19500/">
+                東京 2月9日 1R 09:55 3歳未勝利
+            </a></li>
+        </ul></body></html>
+        """
+        page1_soup = BeautifulSoup(page1_html, TEST_PARSER)
+        mock_fetch.side_effect = [page1_soup, None]
+
+        results = scrape_races(offset_days=1)
+
+        assert results["success"] is False
+        assert "Failed to fetch archive page 2" in results["errors"]
