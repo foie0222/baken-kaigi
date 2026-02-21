@@ -84,7 +84,7 @@ export function PurchaseConfirmPage() {
   // レース情報をカートアイテムから取得（items.length > 0 が保証されている）
   const firstItem = items[0];
   const raceDate = firstItem.raceId.slice(0, 8);
-  const courseCode = firstItem.raceVenue;
+  const courseCode = firstItem.raceId.slice(8, 10);
   const raceNumber = parseInt(firstItem.raceNumber.replace('R', '') || '0', 10);
 
   const isPurchaseDisabled = isLoading || !balance || totalAmount > balance.betBalance;
