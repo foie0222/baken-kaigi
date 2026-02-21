@@ -1,4 +1,5 @@
 """投票記録APIハンドラー."""
+import logging
 import math
 from typing import Any
 
@@ -7,10 +8,12 @@ from src.api.dependencies import Dependencies
 from src.api.request import get_body, get_path_parameter, get_query_parameter
 from src.api.response import (
     bad_request_response,
+    internal_error_response,
     not_found_response,
     success_response,
     unauthorized_response,
 )
+
 from src.application.use_cases.create_betting_record import CreateBettingRecordUseCase
 from src.application.use_cases.get_betting_records import GetBettingRecordsUseCase
 from src.application.use_cases.get_betting_summary import GetBettingSummaryUseCase
@@ -18,6 +21,8 @@ from src.application.use_cases.settle_betting_record import (
     BettingRecordNotFoundError,
     SettleBettingRecordUseCase,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def betting_record_handler(event: dict, context: Any) -> dict:
@@ -102,11 +107,10 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
     if amount <= 0:
         return bad_request_response("amount must be a positive number", event=event)
 
-    use_case = CreateBettingRecordUseCase(
-        betting_record_repository=Dependencies.get_betting_record_repository(),
-    )
-
     try:
+        use_case = CreateBettingRecordUseCase(
+            betting_record_repository=Dependencies.get_betting_record_repository(),
+        )
         record = use_case.execute(
             user_id=user_id.value,
             race_id=race_id,
@@ -119,6 +123,9 @@ def create_betting_record_handler(event: dict, context: Any) -> dict:
         )
     except (ValueError, KeyError) as e:
         return bad_request_response(str(e), event=event)
+    except Exception:
+        logger.exception("Failed to create betting record")
+        return internal_error_response(event=event)
 
     return success_response(
         {
@@ -156,11 +163,10 @@ def get_betting_records_handler(event: dict, context: Any) -> dict:
     venue = get_query_parameter(event, "venue")
     bet_type = get_query_parameter(event, "bet_type")
 
-    use_case = GetBettingRecordsUseCase(
-        betting_record_repository=Dependencies.get_betting_record_repository(),
-    )
-
     try:
+        use_case = GetBettingRecordsUseCase(
+            betting_record_repository=Dependencies.get_betting_record_repository(),
+        )
         records = use_case.execute(
             user_id=user_id.value,
             date_from=date_from,
@@ -170,6 +176,9 @@ def get_betting_records_handler(event: dict, context: Any) -> dict:
         )
     except (ValueError, KeyError) as e:
         return bad_request_response(str(e), event=event)
+    except Exception:
+        logger.exception("Failed to get betting records")
+        return internal_error_response(event=event)
 
     return success_response([
         {
@@ -203,11 +212,14 @@ def get_betting_summary_handler(event: dict, context: Any) -> dict:
 
     period = get_query_parameter(event, "period", default="all_time")
 
-    use_case = GetBettingSummaryUseCase(
-        betting_record_repository=Dependencies.get_betting_record_repository(),
-    )
-
-    summary = use_case.execute(user_id=user_id.value, period=period)
+    try:
+        use_case = GetBettingSummaryUseCase(
+            betting_record_repository=Dependencies.get_betting_record_repository(),
+        )
+        summary = use_case.execute(user_id=user_id.value, period=period)
+    except Exception:
+        logger.exception("Failed to get betting summary")
+        return internal_error_response(event=event)
 
     return success_response({
         "total_investment": summary.total_investment.value,
@@ -252,11 +264,10 @@ def settle_betting_record_handler(event: dict, context: Any) -> dict:
     if payout < 0:
         return bad_request_response("payout must be a non-negative number", event=event)
 
-    use_case = SettleBettingRecordUseCase(
-        betting_record_repository=Dependencies.get_betting_record_repository(),
-    )
-
     try:
+        use_case = SettleBettingRecordUseCase(
+            betting_record_repository=Dependencies.get_betting_record_repository(),
+        )
         record = use_case.execute(
             user_id=user_id.value,
             record_id=record_id,
@@ -266,6 +277,9 @@ def settle_betting_record_handler(event: dict, context: Any) -> dict:
         return not_found_response("Betting record", event=event)
     except ValueError as e:
         return bad_request_response(str(e), event=event)
+    except Exception:
+        logger.exception("Failed to settle betting record for record_id=%s", record_id)
+        return internal_error_response(event=event)
 
     return success_response({
         "record_id": record.record_id.value,

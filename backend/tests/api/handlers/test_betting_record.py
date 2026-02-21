@@ -645,3 +645,54 @@ class TestBettingRecordRouter:
         event = {"resource": "/unknown", "httpMethod": "GET"}
         result = betting_record_handler(event, None)
         assert result["statusCode"] == 400
+
+
+class TestBettingRecordExceptionHandling:
+    """リポジトリ例外時にCORSヘッダー付き500が返ることを検証する."""
+
+    @staticmethod
+    def _make_repo_raise(monkeypatch):
+        """Dependencies.get_betting_record_repositoryを例外送出に差し替える."""
+        monkeypatch.setattr(
+            "src.api.handlers.betting_record.Dependencies.get_betting_record_repository",
+            lambda: (_ for _ in ()).throw(RuntimeError("DynamoDB connection error")),
+        )
+
+    def test_create_betting_recordでリポジトリ例外時に500(self, monkeypatch) -> None:
+        self._make_repo_raise(monkeypatch)
+        event = _auth_event(body={
+            "race_id": "race-001",
+            "race_name": "テストレース",
+            "race_date": "2026-01-01",
+            "venue": "東京",
+            "bet_type": "win",
+            "horse_numbers": [1],
+            "amount": 100,
+        })
+        result = create_betting_record_handler(event, None)
+        assert result["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in result["headers"]
+
+    def test_get_betting_recordsでリポジトリ例外時に500(self, monkeypatch) -> None:
+        self._make_repo_raise(monkeypatch)
+        event = _auth_event()
+        result = get_betting_records_handler(event, None)
+        assert result["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in result["headers"]
+
+    def test_get_betting_summaryでリポジトリ例外時に500(self, monkeypatch) -> None:
+        self._make_repo_raise(monkeypatch)
+        event = _auth_event(query_params={"period": "all_time"})
+        result = get_betting_summary_handler(event, None)
+        assert result["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in result["headers"]
+
+    def test_settle_betting_recordでリポジトリ例外時に500(self, monkeypatch) -> None:
+        self._make_repo_raise(monkeypatch)
+        event = _auth_event(
+            path_params={"record_id": "rec-001"},
+            body={"payout": 500},
+        )
+        result = settle_betting_record_handler(event, None)
+        assert result["statusCode"] == 500
+        assert "Access-Control-Allow-Origin" in result["headers"]
