@@ -580,6 +580,10 @@ class BakenKaigiApiStack(Stack):
             "CODE_VERSION": "6",  # コード更新強制用
         }
 
+        # JRA-VAN API URL（オッズ取得に使用）
+        if jravan_api_url is not None:
+            lambda_environment["JRAVAN_API_URL"] = jravan_api_url
+
         # 開発用オリジン許可時の環境変数を追加
         if allow_dev_origins:
             lambda_environment["ALLOW_DEV_ORIGINS"] = "true"

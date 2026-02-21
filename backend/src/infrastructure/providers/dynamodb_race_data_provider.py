@@ -3,13 +3,17 @@
 DynamoDB テーブルからレース・出走馬データを取得する。
 """
 
+import logging
 from datetime import date, datetime, timedelta, timezone
 
 import boto3
+import requests
 from boto3.dynamodb.conditions import Attr, Key
 
 from src.domain.identifiers import RaceId
-from src.domain.ports import RaceData, RaceDataProvider, RunnerData
+from src.domain.ports import AllOddsData, RaceData, RaceDataProvider, RunnerData
+
+logger = logging.getLogger(__name__)
 
 JST = timezone(timedelta(hours=9))
 
@@ -26,6 +30,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         runners_table=None,
         races_table_name: str = "baken-kaigi-races",
         runners_table_name: str = "baken-kaigi-runners",
+        jravan_api_url: str | None = None,
     ) -> None:
         """初期化.
 
@@ -34,6 +39,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             runners_table: runnersテーブルオブジェクト（テスト用DI）
             races_table_name: racesテーブル名
             runners_table_name: runnersテーブル名
+            jravan_api_url: JRA-VAN APIのベースURL（オッズ取得に使用）
         """
         if races_table is not None:
             self._races_table = races_table
@@ -44,6 +50,8 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             self._runners_table = runners_table
         else:
             self._runners_table = boto3.resource("dynamodb").Table(runners_table_name)
+
+        self._jravan_api_url = jravan_api_url
 
     def get_race(self, race_id: RaceId) -> RaceData | None:
         """レース情報を取得する."""
@@ -271,5 +279,28 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     def get_breeder_stats(self, breeder_id, year=None, period="all"):
         return None
 
-    def get_all_odds(self, race_id):
-        return None
+    def get_all_odds(self, race_id: RaceId) -> AllOddsData | None:
+        """全券種のオッズを一括取得する（JRA-VAN API経由）."""
+        if self._jravan_api_url is None:
+            return None
+        try:
+            response = requests.get(
+                f"{self._jravan_api_url}/races/{race_id}/odds",
+                timeout=10,
+            )
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            return AllOddsData(
+                race_id=str(race_id),
+                win=data.get("win", {}),
+                place=data.get("place", {}),
+                quinella=data.get("quinella", {}),
+                quinella_place=data.get("quinella_place", {}),
+                exacta=data.get("exacta", {}),
+                trio=data.get("trio", {}),
+                trifecta=data.get("trifecta", {}),
+            )
+        except requests.RequestException as e:
+            logger.warning("Could not get all odds for race %s: %s", race_id, e)
+            return None
