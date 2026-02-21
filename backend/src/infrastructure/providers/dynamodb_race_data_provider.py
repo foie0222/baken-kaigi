@@ -280,7 +280,14 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         return None
 
     def get_all_odds(self, race_id: RaceId) -> AllOddsData | None:
-        """全券種のオッズを一括取得する（JRA-VAN API経由）."""
+        """全券種のオッズを一括取得する（JRA-VAN API経由）.
+
+        Args:
+            race_id: レースID
+
+        Returns:
+            全券種オッズデータ、取得できない場合はNone
+        """
         if self._jravan_api_url is None:
             return None
         try:
@@ -290,7 +297,15 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             )
             if response.status_code != 200:
                 return None
-            data = response.json()
+            try:
+                data = response.json()
+            except (ValueError, requests.exceptions.JSONDecodeError) as e:
+                logger.warning(
+                    "Invalid JSON when getting all odds for race %s: %s",
+                    race_id,
+                    e,
+                )
+                return None
             return AllOddsData(
                 race_id=str(race_id),
                 win=data.get("win", {}),

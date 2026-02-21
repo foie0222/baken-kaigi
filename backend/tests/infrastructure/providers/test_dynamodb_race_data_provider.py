@@ -452,6 +452,10 @@ class TestGetAllOdds:
             "trifecta": {"1-2-3": 200.0, "1-3-2": 350.0},
         }
 
+    _PATCH_TARGET = (
+        "src.infrastructure.providers.dynamodb_race_data_provider.requests.get"
+    )
+
     def test_JRA_VAN_APIからオッズを取得してAllOddsDataを返す(self):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -463,7 +467,7 @@ class TestGetAllOdds:
             jravan_api_url="http://10.0.0.203:8000",
         )
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
+        with patch(self._PATCH_TARGET, return_value=mock_response) as mock_get:
             result = provider.get_all_odds(RaceId("202602140505"))
 
         assert result is not None
@@ -486,7 +490,7 @@ class TestGetAllOdds:
             jravan_api_url="http://10.0.0.203:8000",
         )
 
-        with patch("requests.get", return_value=mock_response):
+        with patch(self._PATCH_TARGET, return_value=mock_response):
             result = provider.get_all_odds(RaceId("202602149999"))
 
         assert result is None
@@ -508,7 +512,7 @@ class TestGetAllOdds:
             jravan_api_url="http://10.0.0.203:8000",
         )
 
-        with patch("requests.get", side_effect=requests.ConnectionError("timeout")):
+        with patch(self._PATCH_TARGET, side_effect=requests.ConnectionError("timeout")):
             result = provider.get_all_odds(RaceId("202602140505"))
 
         assert result is None
@@ -524,7 +528,7 @@ class TestGetAllOdds:
             jravan_api_url="http://10.0.0.203:8000",
         )
 
-        with patch("requests.get", return_value=mock_response):
+        with patch(self._PATCH_TARGET, return_value=mock_response):
             result = provider.get_all_odds(RaceId("202602140505"))
 
         assert result is not None
@@ -532,6 +536,22 @@ class TestGetAllOdds:
         assert result.place == {}
         assert result.quinella == {}
         assert result.trifecta == {}
+
+    def test_不正なJSONレスポンス時はNoneを返す(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+
+        with patch(self._PATCH_TARGET, return_value=mock_response):
+            result = provider.get_all_odds(RaceId("202602140505"))
+
+        assert result is None
 
 
 class TestGetRaceDates:
