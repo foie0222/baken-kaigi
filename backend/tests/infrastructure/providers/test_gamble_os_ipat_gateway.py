@@ -102,8 +102,8 @@ class TestGambleOsIpatGatewaySubmitBets(unittest.TestCase):
         call_args = mock_requests.post.call_args
         payload = call_args[1]["data"] if "data" in call_args[1] else call_args[1].get("json")
         buyeye = payload["buyeye"]
-        # フォーマット: 日付,レース場コード,レース番号,式別,方式,金額,買い目,マルチ
-        assert buyeye == "20260207,05,11,TAN,NORMAL,100,01,:"
+        # フォーマット: 日付,レース場コード,レース番号,式別,方式,金額(100円単位),買い目,マルチ
+        assert buyeye == "20260207,05,11,TAN,NORMAL,1,01,:"
 
     @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
     def test_buyeyeフォーマット_三連単(self, mock_requests: MagicMock) -> None:
@@ -123,7 +123,7 @@ class TestGambleOsIpatGatewaySubmitBets(unittest.TestCase):
         call_args = mock_requests.post.call_args
         payload = call_args[1]["data"] if "data" in call_args[1] else call_args[1].get("json")
         buyeye = payload["buyeye"]
-        assert buyeye == "20260207,09,01,SANTAN,NORMAL,500,01-02-03,:"
+        assert buyeye == "20260207,09,01,SANTAN,NORMAL,5,01-02-03,:"
 
     @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
     def test_複数買い目の連結(self, mock_requests: MagicMock) -> None:
@@ -143,8 +143,8 @@ class TestGambleOsIpatGatewaySubmitBets(unittest.TestCase):
         parts = buyeye.split(":")
         # 最後の ":" で終わるため、末尾は空文字列
         assert len(parts) == 3  # 2買い目 + 末尾空文字列
-        assert parts[0] == "20260207,05,11,TAN,NORMAL,100,01,"
-        assert parts[1] == "20260207,05,11,FUKU,NORMAL,200,03,"
+        assert parts[0] == "20260207,05,11,TAN,NORMAL,1,01,"
+        assert parts[1] == "20260207,05,11,FUKU,NORMAL,2,03,"
 
     @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
     def test_IPAT認証情報マッピング(self, mock_requests: MagicMock) -> None:
@@ -234,7 +234,7 @@ class TestGambleOsIpatGatewaySubmitBets(unittest.TestCase):
 
         call_args = mock_requests.post.call_args
         payload = call_args[1]["data"] if "data" in call_args[1] else call_args[1].get("json")
-        assert payload["money"] == "400"
+        assert payload["money"] == "4"
 
     @patch("src.infrastructure.providers.gamble_os_ipat_gateway.requests")
     def test_投票エンドポイントURL(self, mock_requests: MagicMock) -> None:
