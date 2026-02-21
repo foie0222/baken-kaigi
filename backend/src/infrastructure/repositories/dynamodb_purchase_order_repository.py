@@ -38,12 +38,18 @@ class DynamoDBPurchaseOrderRepository(PurchaseOrderRepository):
 
     def find_by_user_id(self, user_id: UserId) -> list[PurchaseOrder]:
         """ユーザーIDで検索する."""
-        response = self._table.query(
-            IndexName="user_id-index",
-            KeyConditionExpression=Key("user_id").eq(str(user_id.value)),
-            ScanIndexForward=False,
-        )
-        items = response["Items"]
+        query_kwargs = {
+            "IndexName": "user_id-index",
+            "KeyConditionExpression": Key("user_id").eq(str(user_id.value)),
+            "ScanIndexForward": False,
+        }
+        items: list[dict] = []
+        response = self._table.query(**query_kwargs)
+        items.extend(response["Items"])
+        while "LastEvaluatedKey" in response:
+            query_kwargs["ExclusiveStartKey"] = response["LastEvaluatedKey"]
+            response = self._table.query(**query_kwargs)
+            items.extend(response["Items"])
         return [self._from_dynamodb_item(item) for item in items]
 
     @staticmethod
