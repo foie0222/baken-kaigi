@@ -545,6 +545,7 @@ class TestUserIdType:
         create_event = _make_event(method="POST", path="/agents", sub="user_a", body={"name": "A"})
         agent_handler(create_event, None)
 
-        get_event = _make_event(method="GET", path="/agents/me/reviews", sub="user_a")
+        # 別ユーザー(user_b)としてレビュー取得を試みるが、他ユーザーのエージェントは取得できない
+        get_event = _make_event(method="GET", path="/agents/me/reviews", sub="user_b")
         response = agent_review_handler(get_event, None)
-        assert response["statusCode"] == 200
+        assert response["statusCode"] == 404
