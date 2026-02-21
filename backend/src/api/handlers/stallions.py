@@ -1,9 +1,12 @@
 """種牡馬（スタリオン）API ハンドラー."""
+import logging
 from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
-from src.api.response import bad_request_response, not_found_response, success_response
+from src.api.response import bad_request_response, internal_error_response, not_found_response, success_response
+
+logger = logging.getLogger(__name__)
 
 
 def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
@@ -48,10 +51,14 @@ def get_stallion_offspring_stats(event: dict, context: Any) -> dict:
         )
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    stats, track_stats, distance_stats, condition_stats, top_offspring = (
-        provider.get_stallion_offspring_stats(stallion_id, year, track_type)
-    )
+    try:
+        provider = Dependencies.get_race_data_provider()
+        stats, track_stats, distance_stats, condition_stats, top_offspring = (
+            provider.get_stallion_offspring_stats(stallion_id, year, track_type)
+        )
+    except Exception:
+        logger.exception("Failed to get stallion offspring stats for stallion_id=%s", stallion_id)
+        return internal_error_response(event=event)
 
     if not stats:
         return not_found_response("Stallion", event=event)

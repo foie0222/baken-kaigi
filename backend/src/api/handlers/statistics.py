@@ -1,9 +1,12 @@
 """統計API ハンドラー."""
+import logging
 from typing import Any
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_query_parameter
-from src.api.response import bad_request_response, not_found_response, success_response
+from src.api.response import bad_request_response, internal_error_response, not_found_response, success_response
+
+logger = logging.getLogger(__name__)
 
 # トラックコード → トラック種別 変換マップ
 TRACK_TYPE_MAP = {"1": "芝", "2": "ダート", "3": "障害"}
@@ -57,14 +60,18 @@ def get_gate_position_stats(event: dict, context: Any) -> dict:
             return bad_request_response("Invalid limit format", event=event)
 
     # プロバイダから取得
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_gate_position_stats(
-        venue=venue,
-        track_type=track_type,
-        distance=distance,
-        track_condition=track_condition,
-        limit=limit,
-    )
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_gate_position_stats(
+            venue=venue,
+            track_type=track_type,
+            distance=distance,
+            track_condition=track_condition,
+            limit=limit,
+        )
+    except Exception:
+        logger.exception("Failed to get gate position stats for venue=%s", venue)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Gate position statistics", event=event)
@@ -154,13 +161,17 @@ def get_past_race_stats(event: dict, context: Any) -> dict:
         return bad_request_response("track_code must be one of 1, 2, 3", event=event)
     track_type = TRACK_TYPE_MAP[track_code]
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_past_race_stats(
-        track_type=track_type,
-        distance=distance,
-        grade_class=grade_code,
-        limit=limit,
-    )
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_past_race_stats(
+            track_type=track_type,
+            distance=distance,
+            grade_class=grade_code,
+            limit=limit,
+        )
+    except Exception:
+        logger.exception("Failed to get past race stats for track_type=%s, distance=%s", track_type, distance)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Past race statistics", event=event)
@@ -246,8 +257,12 @@ def get_jockey_course_stats(event: dict, context: Any) -> dict:
     if venue:
         course = f"{venue}{course}"
 
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_jockey_stats(jockey_id=jockey_id, course=course)
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_jockey_stats(jockey_id=jockey_id, course=course)
+    except Exception:
+        logger.exception("Failed to get jockey course stats for jockey_id=%s", jockey_id)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Jockey course statistics", event=event)
@@ -323,13 +338,17 @@ def get_popularity_payout_stats(event: dict, context: Any) -> dict:
     track_type = TRACK_TYPE_MAP[track_code]
 
     # 過去レース統計から人気別データを取得
-    provider = Dependencies.get_race_data_provider()
-    result = provider.get_past_race_stats(
-        track_type=track_type,
-        distance=distance,
-        grade_class=None,
-        limit=limit,
-    )
+    try:
+        provider = Dependencies.get_race_data_provider()
+        result = provider.get_past_race_stats(
+            track_type=track_type,
+            distance=distance,
+            grade_class=None,
+            limit=limit,
+        )
+    except Exception:
+        logger.exception("Failed to get popularity payout stats for track_type=%s", track_type)
+        return internal_error_response(event=event)
 
     if result is None:
         return not_found_response("Popularity payout statistics", event=event)
