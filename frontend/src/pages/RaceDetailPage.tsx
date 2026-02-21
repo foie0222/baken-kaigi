@@ -173,6 +173,7 @@ export function RaceDetailPage() {
 
     setSelections(initialSelections);
     setBetAmount(100);
+    setAmountInput('100');
     showToast(result === 'merged' ? '同じ買い目の金額を合算しました' : 'カートに追加しました');
   };
 

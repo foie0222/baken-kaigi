@@ -39,6 +39,7 @@ vi.mock('../api/client', () => ({
         ],
       },
     }),
+    getAllOdds: vi.fn().mockResolvedValue({ success: false }),
   },
 }))
 
@@ -184,6 +185,33 @@ describe('RaceDetailPage', () => {
 
       const guideText = await screen.findByText(/カートに追加後、購入確認へ進めます/i)
       expect(guideText).toHaveClass('ai-guide-text')
+    })
+  })
+
+  describe('手動モード - カート追加後の金額リセット', () => {
+    it('カート追加後に金額入力欄が100にリセットされる', async () => {
+      const { user } = render(<RaceDetailPage />)
+
+      // 手動モードに切り替え
+      const manualLink = await screen.findByText('手動で買い目を選ぶ')
+      await user.click(manualLink)
+
+      // 馬を1頭選択（単勝なので1頭でOK）
+      const checkboxes = await screen.findAllByRole('checkbox')
+      await user.click(checkboxes[0])
+
+      // 金額を5000に変更（プリセットボタン使用）
+      const preset5000 = await screen.findByRole('button', { name: '¥5,000' })
+      await user.click(preset5000)
+      const amountInput = await screen.findByRole('spinbutton')
+      expect(amountInput).toHaveValue(5000)
+
+      // カートに追加
+      const addButton = await screen.findByRole('button', { name: /カートに追加/i })
+      await user.click(addButton)
+
+      // 金額入力欄が100にリセットされていること
+      expect(amountInput).toHaveValue(100)
     })
   })
 
