@@ -2,10 +2,13 @@
 
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
+import requests
 
 from src.domain.identifiers import RaceId
-from src.domain.ports import RaceData, RunnerData
+from src.domain.ports import AllOddsData, RaceData, RunnerData
 from src.infrastructure.providers.dynamodb_race_data_provider import (
     DynamoDbRaceDataProvider,
 )
@@ -434,8 +437,120 @@ class TestUnsupportedMethods:
         result = self._make_provider().get_breeder_stats("00001")
         assert result is None
 
-    def test_get_all_oddsはNoneを返す(self):
-        result = self._make_provider().get_all_odds(RaceId("202602140505"))
+class TestGetAllOdds:
+    """get_all_oddsメソッドのテスト."""
+
+    def _make_odds_response(self) -> dict:
+        """テスト用オッズレスポンスを生成する."""
+        return {
+            "win": {"1": 5.4, "2": 12.0, "3": 3.1},
+            "place": {"1": {"min": 1.5, "max": 2.0}, "2": {"min": 3.0, "max": 4.5}},
+            "quinella": {"1-2": 15.0, "1-3": 8.0},
+            "quinella_place": {"1-2": 5.0, "1-3": 3.5},
+            "exacta": {"1-2": 30.0, "2-1": 50.0},
+            "trio": {"1-2-3": 40.0},
+            "trifecta": {"1-2-3": 200.0, "1-3-2": 350.0},
+        }
+
+    _PATCH_TARGET = (
+        "src.infrastructure.providers.dynamodb_race_data_provider.requests.get"
+    )
+
+    def test_JRA_VAN_APIからオッズを取得してAllOddsDataを返す(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = self._make_odds_response()
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+
+        with patch(self._PATCH_TARGET, return_value=mock_response) as mock_get:
+            result = provider.get_all_odds(RaceId("202602140505"))
+
+        assert result is not None
+        assert isinstance(result, AllOddsData)
+        assert result.race_id == "202602140505"
+        assert result.win == {"1": 5.4, "2": 12.0, "3": 3.1}
+        assert result.trifecta == {"1-2-3": 200.0, "1-3-2": 350.0}
+        mock_get.assert_called_once_with(
+            "http://10.0.0.203:8000/races/202602140505/odds",
+            timeout=10,
+        )
+
+    def test_JRA_VAN_APIが404を返した場合Noneを返す(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+
+        with patch(self._PATCH_TARGET, return_value=mock_response):
+            result = provider.get_all_odds(RaceId("202602149999"))
+
+        assert result is None
+
+    def test_jravan_api_urlが未設定の場合Noneを返す(self):
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+        )
+
+        result = provider.get_all_odds(RaceId("202602140505"))
+
+        assert result is None
+
+    def test_ネットワークエラー時はNoneを返す(self):
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+
+        with patch(self._PATCH_TARGET, side_effect=requests.ConnectionError("timeout")):
+            result = provider.get_all_odds(RaceId("202602140505"))
+
+        assert result is None
+
+    def test_レスポンスにキーが不足している場合は空dictで補完する(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"win": {"1": 3.0}}
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+
+        with patch(self._PATCH_TARGET, return_value=mock_response):
+            result = provider.get_all_odds(RaceId("202602140505"))
+
+        assert result is not None
+        assert result.win == {"1": 3.0}
+        assert result.place == {}
+        assert result.quinella == {}
+        assert result.trifecta == {}
+
+    def test_不正なJSONレスポンス時はNoneを返す(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(),
+            runners_table=MagicMock(),
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+
+        with patch(self._PATCH_TARGET, return_value=mock_response):
+            result = provider.get_all_odds(RaceId("202602140505"))
+
         assert result is None
 
 

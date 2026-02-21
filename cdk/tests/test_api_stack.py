@@ -732,3 +732,51 @@ class TestCorsConfiguration:
                 f"{logical_id}: Gateway ResponseのAccess-Control-Allow-Originに"
                 "ワイルドカード(*)が使われています"
             )
+
+
+class TestJravanApiUrl:
+    """JRAVAN_API_URL環境変数のテスト."""
+
+    @pytest.fixture(scope="class")
+    def template_with_jravan(self):
+        """jravan_api_url指定のCloudFormationテンプレートを生成."""
+        import aws_cdk as cdk
+        from aws_cdk import assertions
+
+        from stacks.api_stack import BakenKaigiApiStack
+
+        app = cdk.App(context={"agentcore_agent_id": "test-agent-id"})
+        stack = BakenKaigiApiStack(
+            app,
+            "TestStackWithJravan",
+            jravan_api_url="http://10.0.0.203:8000",
+        )
+        return assertions.Template.from_stack(stack)
+
+    def test_jravan_api_url指定時にLambda環境変数に含まれる(self, template_with_jravan):
+        """jravan_api_url指定時、Lambda環境変数にJRAVAN_API_URLが設定されること."""
+        resources = template_with_jravan.find_resources("AWS::Lambda::Function")
+        found = False
+        for _logical_id, resource in resources.items():
+            env_vars = (
+                resource.get("Properties", {})
+                .get("Environment", {})
+                .get("Variables", {})
+            )
+            if env_vars.get("JRAVAN_API_URL") == "http://10.0.0.203:8000":
+                found = True
+                break
+        assert found, "Lambda環境変数にJRAVAN_API_URLが設定されていません"
+
+    def test_jravan_api_url未指定時にLambda環境変数に含まれない(self, template):
+        """jravan_api_url未指定時、Lambda環境変数にJRAVAN_API_URLが含まれないこと."""
+        resources = template.find_resources("AWS::Lambda::Function")
+        for logical_id, resource in resources.items():
+            env_vars = (
+                resource.get("Properties", {})
+                .get("Environment", {})
+                .get("Variables", {})
+            )
+            assert "JRAVAN_API_URL" not in env_vars, (
+                f"{logical_id}: jravan_api_url未指定時にJRAVAN_API_URLが設定されています"
+            )

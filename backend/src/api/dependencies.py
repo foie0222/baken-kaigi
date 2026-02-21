@@ -71,6 +71,7 @@ class Dependencies:
                 cls._race_data_provider = DynamoDbRaceDataProvider(
                     races_table_name=races_table_name,
                     runners_table_name=runners_table_name,
+                    jravan_api_url=os.environ.get("JRAVAN_API_URL"),
                 )
             else:
                 cls._race_data_provider = MockRaceDataProvider()
