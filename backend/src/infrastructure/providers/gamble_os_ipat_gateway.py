@@ -69,12 +69,17 @@ class GambleOsIpatGateway(IpatGateway):
             "buyeye": buyeye,
         }
 
+        logger.info("GAMBLE-OS投票: buyeye=%s", buyeye)
+        logger.info("GAMBLE-OS投票: money=%s, betcd=%s", payload["money"], payload["betcd"])
+
         try:
             response = requests.post(_BET_ENDPOINT, data=payload, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
             raise IpatGatewayError(f"投票送信失敗: {e}") from e
+
+        logger.info("GAMBLE-OS応答: %s", data)
 
         if data.get("ret", -1) < 0:
             raise IpatGatewayError(data.get("msg", "Unknown error"))
