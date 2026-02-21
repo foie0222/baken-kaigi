@@ -102,6 +102,18 @@ class TestCreateAgentReviewUseCase:
         assert result.review.profit == -200
         assert "絞り込む" in result.review.review_text
 
+    def test_21件以上のレビューがあっても重複チェックが機能する(self):
+        agent_repo, review_repo = _setup()
+        uc = CreateAgentReviewUseCase(agent_repo, review_repo)
+
+        # 21件の異なるレースで振り返りを作成
+        for i in range(21):
+            uc.execute("usr_001", f"race_{i:03d}", "2026-02-01", f"レース{i}", _make_bets())
+
+        # 最初のレース(race_000)の重複作成を試みる → エラーになるべき
+        with pytest.raises(ReviewAlreadyExistsError):
+            uc.execute("usr_001", "race_000", "2026-02-01", "レース0", _make_bets())
+
     def test_振り返りがリポジトリに保存される(self):
         agent_repo, review_repo = _setup()
         uc = CreateAgentReviewUseCase(agent_repo, review_repo)

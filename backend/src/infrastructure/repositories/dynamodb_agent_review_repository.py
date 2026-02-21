@@ -6,6 +6,8 @@ from datetime import datetime
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from boto3.dynamodb.conditions import Attr
+
 from src.domain.entities import AgentReview, BetResult
 from src.domain.identifiers import AgentId, RaceId, ReviewId
 from src.domain.ports.agent_review_repository import AgentReviewRepository
@@ -43,6 +45,22 @@ class DynamoDBAgentReviewRepository(AgentReviewRepository):
         )
         items = response["Items"]
         return [self._from_dynamodb_item(item) for item in items]
+
+    def exists_by_agent_and_race(self, agent_id: AgentId, race_id: RaceId) -> bool:
+        """指定エージェント・レースの振り返りが存在するか判定する."""
+        query_params = {
+            "IndexName": "agent_id-index",
+            "KeyConditionExpression": Key("agent_id").eq(str(agent_id.value)),
+            "FilterExpression": Attr("race_id").eq(str(race_id.value)),
+            "Select": "COUNT",
+        }
+        while True:
+            response = self._table.query(**query_params)
+            if response["Count"] > 0:
+                return True
+            if "LastEvaluatedKey" not in response:
+                return False
+            query_params["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
     @staticmethod
     def _to_dynamodb_item(review: AgentReview) -> dict:
