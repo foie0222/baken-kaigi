@@ -61,8 +61,8 @@ class TestApiStack:
     """APIスタックのテスト."""
 
     def test_lambda_functions_created(self, template):
-        """Lambda関数が44個作成されること（API 32 + IPAT 7 + 賭け履歴 1 + 損失制限 1 + エージェント 2 + オッズ 1）."""
-        template.resource_count_is("AWS::Lambda::Function", 44)
+        """Lambda関数が46個作成されること（API 32 + IPAT 7 + 賭け履歴 1 + 損失制限 1 + エージェント 2 + オッズ 1 + AI予想 1 + スピード指数 1）."""
+        template.resource_count_is("AWS::Lambda::Function", 46)
 
     def test_lambda_layer_created(self, template):
         """Lambda Layerが1個作成されること（API用）."""
@@ -341,6 +341,26 @@ class TestApiStack:
             {
                 "FunctionName": "baken-kaigi-get-breeder-stats",
                 "Handler": "src.api.handlers.owners.get_breeder_stats",
+            },
+        )
+
+    def test_ai_predictions_endpoint(self, template):
+        """GET /races/{race_id}/ai-predictions エンドポイントが存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-ai-predictions",
+                "Handler": "src.api.handlers.races.get_ai_predictions",
+            },
+        )
+
+    def test_speed_indices_endpoint(self, template):
+        """GET /races/{race_id}/speed-indices エンドポイントが存在すること."""
+        template.has_resource_properties(
+            "AWS::Lambda::Function",
+            {
+                "FunctionName": "baken-kaigi-get-speed-indices",
+                "Handler": "src.api.handlers.races.get_speed_indices",
             },
         )
 

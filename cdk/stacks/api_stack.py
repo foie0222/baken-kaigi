@@ -879,6 +879,34 @@ class BakenKaigiApiStack(Stack):
             **lambda_common_props,
         )
 
+        # AI予想データAPI
+        get_ai_predictions_fn = lambda_.Function(
+            self,
+            "GetAiPredictionsFunction",
+            handler="src.api.handlers.races.get_ai_predictions",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-ai-predictions",
+            description="AI予想データ取得",
+            **lambda_common_props,
+        )
+
+        # スピード指数データAPI
+        get_speed_indices_fn = lambda_.Function(
+            self,
+            "GetSpeedIndicesFunction",
+            handler="src.api.handlers.races.get_speed_indices",
+            code=lambda_.Code.from_asset(
+                str(project_root / "backend"),
+                exclude=["tests", ".venv", ".git", "__pycache__", "*.pyc"],
+            ),
+            function_name="baken-kaigi-get-speed-indices",
+            description="スピード指数データ取得",
+            **lambda_common_props,
+        )
+
         # 馬主API
         get_owner_info_fn = lambda_.Function(
             self,
@@ -1353,6 +1381,18 @@ class BakenKaigiApiStack(Stack):
         race_odds = race.add_resource("odds")
         race_odds.add_method(
             "GET", apigw.LambdaIntegration(get_all_odds_fn), api_key_required=True
+        )
+
+        # /races/{race_id}/ai-predictions
+        race_ai_predictions = race.add_resource("ai-predictions")
+        race_ai_predictions.add_method(
+            "GET", apigw.LambdaIntegration(get_ai_predictions_fn), api_key_required=True
+        )
+
+        # /races/{race_id}/speed-indices
+        race_speed_indices = race.add_resource("speed-indices")
+        race_speed_indices.add_method(
+            "GET", apigw.LambdaIntegration(get_speed_indices_fn), api_key_required=True
         )
 
         # /horses
@@ -1854,6 +1894,10 @@ class BakenKaigiApiStack(Stack):
         races_table.grant_read_data(get_race_detail_fn)
         runners_table.grant_read_data(get_race_detail_fn)
         races_table.grant_read_data(get_race_dates_fn)
+
+        # AI予想/スピード指数 Lambda にテーブルへの読み取り権限を付与
+        ai_predictions_table.grant_read_data(get_ai_predictions_fn)
+        speed_indices_table.grant_read_data(get_speed_indices_fn)
 
         # ========================================
         # 出力
