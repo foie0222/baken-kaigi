@@ -541,5 +541,29 @@ export interface AgentReview {
   created_at: string;
 }
 
+// AI予想
+export interface AiPrediction {
+  horse_number: number;
+  score: number;
+  rank: number;
+}
+
+export interface AiPredictionsResponse {
+  race_id: string;
+  predictions: Record<string, AiPrediction[]>;
+}
+
+// スピード指数
+export interface SpeedIndex {
+  horse_number: number;
+  speed_index: number;
+  rank: number;
+}
+
+export interface SpeedIndicesResponse {
+  race_id: string;
+  indices: Record<string, SpeedIndex[]>;
+}
+
 // アプリ状態
 export type PageType = 'races' | 'dashboard' | 'history' | 'settings' | 'cart';

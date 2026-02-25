@@ -24,6 +24,8 @@ import type {
   Agent,
   AgentReview,
   BettingPreference,
+  AiPredictionsResponse,
+  SpeedIndicesResponse,
 } from '../types';
 import { mapApiRaceToRace, mapApiRaceDetailToRaceDetail } from '../types';
 import { fetchAuthSession } from 'aws-amplify/auth';
@@ -729,6 +731,20 @@ class ApiClient {
       return { success: true, data: res.data.reviews };
     }
     return { success: false, error: res.error };
+  }
+
+  // AI予想取得
+  async getAiPredictions(raceId: string): Promise<ApiResponse<AiPredictionsResponse>> {
+    return this.request<AiPredictionsResponse>(
+      `/races/${encodeURIComponent(raceId)}/ai-predictions`
+    );
+  }
+
+  // スピード指数取得
+  async getSpeedIndices(raceId: string): Promise<ApiResponse<SpeedIndicesResponse>> {
+    return this.request<SpeedIndicesResponse>(
+      `/races/${encodeURIComponent(raceId)}/speed-indices`
+    );
   }
 
   // AgentCore が利用可能かどうか

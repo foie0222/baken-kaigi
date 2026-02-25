@@ -1,0 +1,794 @@
+/* RaceDashboardPage - PC full-width dark theme dashboard */
+
+/* Race header bar */
+.dashboard-race-header {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-race-number {
+  background: var(--color-primary);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dashboard-race-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.dashboard-race-conditions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-race-conditions .condition-tag {
+  font-size: 12px;
+}
+
+.dashboard-jra-link {
+  margin-left: auto;
+}
+
+/* Main layout: table + betting panel side by side */
+.dashboard-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.dashboard-table-area {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/* Betting panel - sticky right sidebar */
+.dashboard-betting-panel {
+  width: 340px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.betting-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Betting panel selectors */
+.panel-selector-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.panel-selector {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text);
+  font-family: inherit;
+}
+
+.panel-selector:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.panel-selector.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.panel-selector .arrow {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+/* Amount input in panel */
+.panel-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.panel-amount-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.panel-amount-input-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.panel-amount-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+}
+
+.panel-stepper-btn {
+  width: 32px;
+  height: 36px;
+  border: none;
+  background: rgba(255,255,255,0.06);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.panel-stepper-btn:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.panel-amount-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.panel-currency {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.panel-amount-input {
+  width: 60px;
+  border: none;
+  background: none;
+  padding: 8px 2px;
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.panel-amount-presets {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.panel-preset-btn {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-family: inherit;
+}
+
+.panel-preset-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--color-text);
+}
+
+/* Bet summary and selection display */
+.panel-selection-display {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.panel-selection-display.has-selection {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.panel-selection-numbers {
+  font-weight: 600;
+  color: var(--color-primary);
+  flex: 1;
+}
+
+.panel-bet-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(233, 69, 96, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.panel-bet-summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: rgba(233, 69, 96, 0.08);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-primary);
+}
+
+.panel-clear-btn {
+  background: none;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.panel-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Add to cart button */
+.panel-add-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 8px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.panel-add-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.panel-add-btn:disabled {
+  background: #444;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* Cart section inside panel */
+.panel-cart-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 16px 0;
+}
+
+.panel-cart-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.panel-cart-empty {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 16px 0;
+}
+
+.panel-cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 13px;
+}
+
+.panel-cart-item-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-cart-bet-type {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.panel-cart-bet-display {
+  font-size: 12px;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-cart-item-amount {
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.panel-cart-remove {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 14px;
+  margin-left: 4px;
+}
+
+.panel-cart-remove:hover {
+  color: #ef4444;
+}
+
+.panel-cart-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.panel-confirm-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--color-success);
+  color: #0a0a0f;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.panel-confirm-btn:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   Horse Data Table - newspaper style
+   ============================================ */
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dashboard-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.dashboard-table th {
+  background: #12121f;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--color-border);
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+.dashboard-table th:last-child {
+  border-right: none;
+}
+
+/* Column group headers */
+.dashboard-table th.col-group-ai {
+  background: rgba(233, 69, 96, 0.12);
+  color: var(--color-primary);
+  border-bottom: 2px solid rgba(233, 69, 96, 0.3);
+}
+
+.dashboard-table th.col-group-ai:first-of-type {
+  border-left: 2px solid rgba(233, 69, 96, 0.2);
+}
+
+.dashboard-table th.col-group-speed {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border-bottom: 2px solid rgba(99, 102, 241, 0.3);
+}
+
+.dashboard-table th.col-group-speed:first-of-type {
+  border-left: 2px solid rgba(99, 102, 241, 0.2);
+}
+
+.dashboard-table td {
+  padding: 8px 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+
+.dashboard-table td:last-child {
+  border-right: none;
+}
+
+.dashboard-table tbody tr {
+  transition: background 0.15s;
+}
+
+.dashboard-table tbody tr:nth-child(even) {
+  background: rgba(255,255,255,0.015);
+}
+
+.dashboard-table tbody tr:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.dashboard-table tbody tr.row-selected {
+  background: rgba(233, 69, 96, 0.10);
+}
+
+.dashboard-table tbody tr.row-selected:hover {
+  background: rgba(233, 69, 96, 0.14);
+}
+
+/* Checkbox column */
+.td-checkbox {
+  width: 32px;
+}
+
+.td-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+/* Waku border indicator */
+.td-waku {
+  width: 6px;
+  padding: 0 !important;
+}
+
+.waku-indicator {
+  width: 4px;
+  height: 28px;
+  border-radius: 2px;
+  margin: 0 auto;
+}
+
+/* Horse number */
+.td-horse-number {
+  width: 36px;
+}
+
+.horse-num-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
+/* Horse name and jockey */
+.td-horse-name {
+  text-align: left;
+  padding-left: 10px !important;
+  min-width: 100px;
+}
+
+.horse-name-text {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.horse-jockey-text {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Weight column */
+.td-weight {
+  white-space: nowrap;
+  min-width: 44px;
+  font-size: 12px;
+}
+
+.weight-value {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.weight-diff {
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.weight-diff.plus {
+  color: var(--color-warning);
+}
+
+.weight-diff.minus {
+  color: #60a5fa;
+}
+
+.weight-diff.zero {
+  color: var(--color-text-muted);
+}
+
+/* AI prediction score cells */
+.td-ai-score {
+  min-width: 48px;
+  font-weight: 600;
+  font-size: 13px;
+  position: relative;
+}
+
+/* Speed index cells */
+.td-speed-index {
+  min-width: 48px;
+  font-weight: 600;
+  font-size: 13px;
+  position: relative;
+}
+
+/* Score value + rank badge */
+.score-value {
+  position: relative;
+  z-index: 1;
+}
+
+.score-rank {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.score-rank.rank-1 {
+  background: #e94560;
+  color: #fff;
+}
+
+.score-rank.rank-2 {
+  background: rgba(245, 158, 11, 0.7);
+  color: #fff;
+}
+
+.score-rank.rank-3 {
+  background: rgba(74, 222, 128, 0.5);
+  color: #fff;
+}
+
+/* Odds column */
+.td-odds {
+  min-width: 50px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.td-odds.odds-top1 {
+  color: #e94560;
+  font-size: 15px;
+}
+
+.td-odds.odds-top2 {
+  color: #f59e0b;
+}
+
+.td-odds.odds-top3 {
+  color: #4ade80;
+}
+
+/* Popularity column */
+.td-popularity {
+  min-width: 36px;
+  color: var(--color-text-muted);
+}
+
+.popularity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.popularity-badge.pop-1 {
+  background: rgba(233, 69, 96, 0.2);
+  color: var(--color-primary);
+}
+
+.popularity-badge.pop-2 {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+}
+
+.popularity-badge.pop-3 {
+  background: rgba(74, 222, 128, 0.2);
+  color: var(--color-success);
+}
+
+/* Column group left border on data cells */
+.col-group-first-ai {
+  border-left: 2px solid rgba(233, 69, 96, 0.2);
+}
+
+.col-group-first-speed {
+  border-left: 2px solid rgba(99, 102, 241, 0.2);
+}
+
+/* No data placeholder */
+.no-data {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+/* Loading & error states */
+.dashboard-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  font-size: 16px;
+  color: var(--color-text-muted);
+}
+
+.dashboard-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  min-height: 300px;
+}
+
+.dashboard-error-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--color-primary);
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.dashboard-error-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 8px;
+}
+
+.dashboard-error-message {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+.dashboard-error-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dashboard-error-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.dashboard-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 14px;
+  padding: 0;
+  margin-bottom: 16px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dashboard-back-btn:hover {
+  opacity: 0.8;
+}
