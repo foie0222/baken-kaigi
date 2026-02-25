@@ -252,10 +252,10 @@ export function SinglePageApp() {
 
   useEffect(() => {
     if (dateButtons.length === 0 || selectedDateIdx >= dateButtons.length) {
-      if (!datesLoading) setRacesLoading(false);
       return;
     }
     const selectedDate = dateButtons[selectedDateIdx];
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchRaces is async; setState occurs after await
     void fetchRaces(selectedDate, true);
   }, [selectedDateIdx, dateButtons, fetchRaces, datesLoading]);
 
@@ -279,32 +279,25 @@ export function SinglePageApp() {
     ? races.filter((r) => r.venue === selectedVenue)
     : races;
 
-  // Auto-select first race when filtered races change
-  useEffect(() => {
-    if (filteredRaces.length > 0 && !selectedRaceId) {
-      setSelectedRaceId(filteredRaces[0].id);
-    }
-  }, [filteredRaces, selectedRaceId]);
+  // 有効なレースID: 明示的に選択されていなければ最初のレースを使用
+  const effectiveRaceId = selectedRaceId ?? (filteredRaces.length > 0 ? filteredRaces[0].id : null);
 
   // =============================================
   // FETCH: Race detail + AI predictions + speed indices
   // =============================================
   useEffect(() => {
-    if (!selectedRaceId) {
-      setRace(null);
-      setAiPredictions(null);
-      setSpeedIndices(null);
-      setRaceError(null);
+    if (!effectiveRaceId) {
       return;
     }
 
     let isMounted = true;
 
     const fetchDetail = async () => {
-      setRaceLoading(true);
-      setRaceError(null);
+      setRace(null);
       setAiPredictions(null);
       setSpeedIndices(null);
+      setRaceError(null);
+      setRaceLoading(true);
 
       // Reset betting state for new race
       setBetType('win');
@@ -313,7 +306,7 @@ export function SinglePageApp() {
       setBetAmount(100);
       setAmountInput('100');
 
-      const decodedId = decodeURIComponent(selectedRaceId);
+      const decodedId = decodeURIComponent(effectiveRaceId);
 
       const response = await apiClient.getRaceDetail(decodedId);
       if (!isMounted) return;
@@ -341,7 +334,7 @@ export function SinglePageApp() {
 
     fetchDetail();
     return () => { isMounted = false; };
-  }, [selectedRaceId]);
+  }, [effectiveRaceId]);
 
   // =============================================
   // Betting handlers (copied from RaceDashboardPage)
@@ -637,7 +630,7 @@ export function SinglePageApp() {
             filteredRaces.map((r) => (
               <button
                 key={r.id}
-                className={`race-num-pill ${selectedRaceId === r.id ? 'active' : ''} ${r.gradeClass && ['G1', 'G2', 'G3'].includes(r.gradeClass) ? 'has-grade' : ''}`}
+                className={`race-num-pill ${effectiveRaceId === r.id ? 'active' : ''} ${r.gradeClass && ['G1', 'G2', 'G3'].includes(r.gradeClass) ? 'has-grade' : ''}`}
                 onClick={() => handleRaceNumberClick(r.id)}
                 title={r.name || `${r.number}R`}
               >
@@ -651,7 +644,7 @@ export function SinglePageApp() {
       {/* =============================================
           Main Content Area
           ============================================= */}
-      {!selectedRaceId ? (
+      {!effectiveRaceId ? (
         /* Empty state - no race selected */
         <div className="spa-empty-state">
           <div className="spa-empty-icon">🏇</div>
