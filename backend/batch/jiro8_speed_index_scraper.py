@@ -299,7 +299,7 @@ def scrape_races(offset_days: int = 1) -> dict[str, Any]:
         results["races_scraped"] = 0
         return results
 
-    logger.info(f"Found {len(venues)} venues for {target_date}: {venues}")
+    logger.info(f"Found {len(venues)} venues for {date_str}: {venues}")
 
     # Step 2: 各レースページをスクレイピング
     for venue_info in venues:

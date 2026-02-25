@@ -58,6 +58,7 @@
 
     /* レイアウト */
     --app-max-width: 100%;
+    --bottom-nav-height: 0px;
 
     /* z-index スケール */
     --z-index-header: 100;

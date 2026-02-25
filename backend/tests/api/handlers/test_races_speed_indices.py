@@ -41,16 +41,16 @@ class TestGetSpeedIndices:
                     "race_id": "202401010101",
                     "source": "jiro8-speed",
                     "indices": [
-                        {"horse_number": Decimal("1"), "index": Decimal("78.5"), "rank": Decimal("1")},
-                        {"horse_number": Decimal("4"), "index": Decimal("72.0"), "rank": Decimal("2")},
+                        {"horse_number": Decimal("1"), "speed_index": Decimal("78.5"), "rank": Decimal("1")},
+                        {"horse_number": Decimal("4"), "speed_index": Decimal("72.0"), "rank": Decimal("2")},
                     ],
                 },
                 {
                     "race_id": "202401010101",
                     "source": "kichiuma-speed",
                     "indices": [
-                        {"horse_number": Decimal("4"), "index": Decimal("80.0"), "rank": Decimal("1")},
-                        {"horse_number": Decimal("1"), "index": Decimal("75.0"), "rank": Decimal("2")},
+                        {"horse_number": Decimal("4"), "speed_index": Decimal("80.0"), "rank": Decimal("1")},
+                        {"horse_number": Decimal("1"), "speed_index": Decimal("75.0"), "rank": Decimal("2")},
                     ],
                 },
             ],
@@ -66,7 +66,7 @@ class TestGetSpeedIndices:
         assert "kichiuma-speed" in body["indices"]
         assert len(body["indices"]["jiro8-speed"]) == 2
         assert body["indices"]["jiro8-speed"][0]["horse_number"] == 1
-        assert body["indices"]["jiro8-speed"][0]["index"] == 78.5
+        assert body["indices"]["jiro8-speed"][0]["speed_index"] == 78.5
         assert body["indices"]["jiro8-speed"][0]["rank"] == 1
 
     def test_Decimal型がfloatとintに変換される(self, mock_dynamodb_table):
@@ -77,7 +77,7 @@ class TestGetSpeedIndices:
                     "race_id": "202401010101",
                     "source": "daily-speed",
                     "indices": [
-                        {"horse_number": Decimal("7"), "index": Decimal("65.8"), "rank": Decimal("3")},
+                        {"horse_number": Decimal("7"), "speed_index": Decimal("65.8"), "rank": Decimal("3")},
                     ],
                 },
             ],
@@ -90,7 +90,7 @@ class TestGetSpeedIndices:
         idx = body["indices"]["daily-speed"][0]
         # Decimal("7") -> int(7), Decimal("65.8") -> float(65.8), Decimal("3") -> int(3)
         assert isinstance(idx["horse_number"], int)
-        assert isinstance(idx["index"], float)
+        assert isinstance(idx["speed_index"], float)
         assert isinstance(idx["rank"], int)
 
     def test_DynamoDBエラー時に500を返す(self, mock_dynamodb_table):
