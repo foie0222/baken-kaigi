@@ -509,19 +509,6 @@
   accent-color: var(--color-primary);
 }
 
-/* Waku border indicator */
-.td-waku {
-  width: 6px;
-  padding: 0 !important;
-}
-
-.waku-indicator {
-  width: 4px;
-  height: 28px;
-  border-radius: 2px;
-  margin: 0 auto;
-}
-
 /* Horse number */
 .td-horse-number {
   width: 36px;

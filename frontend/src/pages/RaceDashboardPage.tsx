@@ -387,7 +387,6 @@ export function RaceDashboardPage() {
             <thead>
               <tr>
                 <th></th>
-                <th></th>
                 <th>馬番</th>
                 <th style={{ textAlign: 'left', paddingLeft: 10 }}>馬名</th>
                 <th className="td-finish-position">着順</th>
@@ -423,14 +422,6 @@ export function RaceDashboardPage() {
                         checked={selected}
                         onChange={() => toggleHorseSelection(horse.number)}
                         onClick={(e) => e.stopPropagation()}
-                      />
-                    </td>
-
-                    {/* Waku color indicator */}
-                    <td className="td-waku">
-                      <div
-                        className="waku-indicator"
-                        style={{ backgroundColor: horse.color }}
                       />
                     </td>
 
