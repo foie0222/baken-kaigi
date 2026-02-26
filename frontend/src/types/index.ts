@@ -68,6 +68,7 @@ export interface ApiRunner {
   popularity: number;
   weight?: number;       // 馬体重(kg)
   weight_diff?: number;  // 前走比増減
+  finish_position?: number;  // 着順（未確定はundefined）
 }
 
 export interface ApiRacesResponse {
@@ -142,6 +143,7 @@ export interface Horse {
   textColor: string;
   weight?: number;      // 馬体重(kg)
   weightDiff?: number;  // 前走比増減
+  finishPosition?: number;  // 着順（未確定はundefined）
 }
 
 export interface RaceDetail extends Race {
@@ -205,6 +207,7 @@ export function mapApiRaceDetailToRaceDetail(
         textColor: wakuColor.text,
         weight: runner.weight,
         weightDiff: runner.weight_diff,
+        finishPosition: runner.finish_position,
       };
     }),
   };

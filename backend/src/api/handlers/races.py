@@ -202,6 +202,9 @@ def get_race_detail(event: dict, context: Any) -> dict:
             "odds": r.odds,
             "popularity": r.popularity,
         }
+        # 着順を追加（確定している場合）
+        if r.finish_position is not None:
+            runner_dict["finish_position"] = r.finish_position
         # 馬体重を追加（存在する場合）
         weight_data = race_weights.get(r.horse_number)
         if weight_data:

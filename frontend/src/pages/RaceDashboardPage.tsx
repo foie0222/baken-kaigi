@@ -389,6 +389,7 @@ export function RaceDashboardPage() {
                 <th></th>
                 <th>馬番</th>
                 <th style={{ textAlign: 'left', paddingLeft: 10 }}>馬名</th>
+                <th>着順</th>
                 <th>体重</th>
                 {aiSourceKeys.map((key) => (
                   <th key={`ai-${key}`} className="col-group-ai">
@@ -450,6 +451,17 @@ export function RaceDashboardPage() {
                     <td className="td-horse-name">
                       <div className="horse-name-text">{horse.name}</div>
                       <div className="horse-jockey-text">{horse.jockey}</div>
+                    </td>
+
+                    {/* Finish position */}
+                    <td className="td-finish-position">
+                      {horse.finishPosition != null ? (
+                        <span className={`finish-badge ${horse.finishPosition >= 1 && horse.finishPosition <= 3 ? `finish-${horse.finishPosition}` : ''}`}>
+                          {horse.finishPosition}
+                        </span>
+                      ) : (
+                        <span className="no-data">-</span>
+                      )}
                     </td>
 
                     {/* Weight */}

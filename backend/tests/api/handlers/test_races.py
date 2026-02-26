@@ -690,6 +690,56 @@ class TestGetRaceDetailHandler:
         assert runner2["weight"] == 456
         assert runner2["weight_diff"] == -2
 
+    def test_着順がレスポンスに含まれる(self) -> None:
+        """着順付きのランナーがレスポンスに含まれることを確認."""
+        from src.api.handlers.races import get_race_detail
+
+        provider = MockRaceDataProvider()
+        provider.add_race(
+            RaceData(
+                race_id="2024060111",
+                race_name="テストレース",
+                race_number=11,
+                venue="東京",
+                start_time=datetime(2024, 6, 1, 15, 40),
+                betting_deadline=datetime(2024, 6, 1, 15, 35),
+                track_condition="良",
+            )
+        )
+        provider.add_runners(
+            "2024060111",
+            [
+                RunnerData(
+                    horse_number=1,
+                    horse_name="一着馬",
+                    horse_id="h1",
+                    jockey_name="騎手A",
+                    jockey_id="j1",
+                    odds="3.5",
+                    popularity=1,
+                    finish_position=1,
+                ),
+                RunnerData(
+                    horse_number=2,
+                    horse_name="未確定馬",
+                    horse_id="h2",
+                    jockey_name="騎手B",
+                    jockey_id="j2",
+                    odds="10.0",
+                    popularity=5,
+                ),
+            ],
+        )
+        Dependencies.set_race_data_provider(provider)
+
+        event = {"pathParameters": {"race_id": "2024060111"}}
+        response = get_race_detail(event, None)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["runners"][0]["finish_position"] == 1
+        assert "finish_position" not in body["runners"][1]
+
     def test_馬体重データがない場合はweightフィールドが含まれない(self) -> None:
         """馬体重データが存在しない場合、レスポンスにweightフィールドが含まれないことを確認."""
         from src.api.handlers.races import get_race_detail
