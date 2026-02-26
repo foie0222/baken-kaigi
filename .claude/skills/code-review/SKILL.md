@@ -56,7 +56,7 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments \
   "path": "backend/src/domain/ports/race_data_provider.py",
   "line": 25,
   "body": "Consider adding type hints for the return value",
-  "user": "github-actions[bot]"
+  "user": { "login": "github-actions[bot]" }
 }
 ```
 
