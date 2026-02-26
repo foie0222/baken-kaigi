@@ -1,7 +1,7 @@
 ---
-name: copilot-review
-description: GitHub Copilot PRレビュー対応ワークフロー（コメント取得→修正→返信→解決）
-version: 1.0.0
+name: code-review
+description: Claude Code Action PRレビュー対応ワークフロー（コメント取得→修正→返信→解決）
+version: 2.0.0
 tools:
   - Read
   - Write
@@ -13,26 +13,26 @@ skill_type: workflow
 auto_invoke: false
 ---
 
-# Copilot PRレビュー対応ワークフロー
+# Claude Code Action PRレビュー対応ワークフロー
 
 ## 概要
 
-GitHub Copilot によるPRレビューコメントへの対応を効率化します。レビューコメントの取得から修正、返信、スレッド解決までを自動化し、PRレビュー対応時間を15分→3分に短縮（80%削減）します。
+GitHub Actions上のClaude Code Action（`anthropics/claude-code-action@v1`）によるPRレビューコメントへの対応を効率化します。レビューコメントの取得から修正、返信、スレッド解決までを自動化します。
 
-**重要**: ブランチ保護ルールにより、全てのコメントを解決しないとマージできません。
+**仕組み**: PRが作成・更新されると `.github/workflows/claude-review.yml` が自動実行され、Claude Codeがインラインコメント（レビュースレッド）を投稿します。GitHub Rulesetにより、全スレッド解決 + claude-review ステータスチェック通過がマージ条件です。
 
 ## 入力形式
 
 スキル呼び出し時にPR番号を指定してください:
 
 ```
-/copilot-review <PR番号>
+/code-review <PR番号>
 ```
 
 または
 
 ```
-/copilot-review
+/code-review
 
 PR番号: <番号>
 ```
@@ -56,12 +56,12 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments \
   "path": "backend/src/domain/ports/race_data_provider.py",
   "line": 25,
   "body": "Consider adding type hints for the return value",
-  "user": "copilot"
+  "user": { "login": "github-actions[bot]" }
 }
 ```
 
 **判断基準**:
-- Copilotによるコメント（`user: "copilot"`）のみを対象
+- Claude Code Action によるコメント（`user.login: "github-actions[bot]"`）を対象
 - 人間のレビュアーコメントは別途確認を促す
 
 ### ステップ2: コメント内容の分析と優先度付け
@@ -117,7 +117,7 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments \
 
 **提案フォーマット**:
 ```
-📝 レビューコメント #1 [Critical]
+レビューコメント #1 [Critical]
 ファイル: backend/src/domain/ports/race_data_provider.py:25
 指摘: Consider adding type hints for the return value
 
@@ -130,64 +130,14 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments \
 
 ユーザーの承認後、Editツールを使用して修正を実施します。
 
-**修正パターン**:
-
-#### パターン1: 型ヒント追加
-```python
-# Before
-def get_race(self, race_id):
-    pass
-
-# After
-def get_race(self, race_id: RaceId) -> RaceData | None:
-    pass
-```
-
-#### パターン2: エラーハンドリング追加
-```python
-# Before
-data = response.json()
-return data["value"]
-
-# After
-try:
-    data = response.json()
-    return data.get("value")
-except (KeyError, ValueError) as e:
-    logger.error(f"Failed to parse response: {e}")
-    return None
-```
-
-#### パターン3: テスト追加
-```python
-def test_get_race_not_found():
-    """存在しないレースIDの場合Noneを返す."""
-    # Arrange
-    provider = MockRaceDataProvider()
-    race_id = RaceId("invalid_id")
-
-    # Act
-    result = provider.get_race(race_id)
-
-    # Assert
-    assert result is None
-```
-
 ### ステップ5: コミット・プッシュ
 
 修正をコミットしてプッシュします。
 
-**コマンド**:
-```bash
-git add <修正ファイル>
-git commit -m "fix: Copilotレビュー指摘対応 - <概要>"
-git push
-```
-
 **コミットメッセージ例**:
-- `fix: Copilotレビュー指摘対応 - 型ヒント追加`
-- `fix: Copilotレビュー指摘対応 - エラーハンドリング改善`
-- `test: Copilotレビュー指摘対応 - テストケース追加`
+- `fix: Claude Codeレビュー指摘対応 - 型ヒント追加`
+- `fix: Claude Codeレビュー指摘対応 - エラーハンドリング改善`
+- `test: Claude Codeレビュー指摘対応 - テストケース追加`
 
 ### ステップ6: コメントに返信
 
@@ -204,7 +154,7 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments/<コメントID>/rep
 
 #### 修正した場合:
 ```
-✅ 修正しました。
+修正しました。
 
 変更内容:
 - <変更1>
@@ -215,7 +165,7 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments/<コメントID>/rep
 
 #### 説明で対応する場合:
 ```
-📝 現在の実装理由
+現在の実装理由
 
 <理由の説明>
 
@@ -269,7 +219,6 @@ mutation {
 
 **確認コマンド**:
 ```bash
-# 未解決のスレッド数を確認
 gh api graphql -f query='
 query {
   repository(owner: "foie0222", name: "baken-kaigi") {
@@ -289,22 +238,22 @@ query {
 ## 出力形式
 
 ```
-📊 Copilot レビュー対応サマリー
+Claude Code レビュー対応サマリー
 
 PR番号: #<番号>
 レビューコメント総数: <件数>
 
 対応状況:
-✅ 修正済み: <件数>
-📝 説明返信: <件数>
-⏭️  スキップ: <件数>
+- 修正済み: <件数>
+- 説明返信: <件数>
+- スキップ: <件数>
 
 詳細:
 ---
-📝 コメント #1 [Critical]
+コメント #1 [Critical]
 ファイル: backend/src/domain/ports/race_data_provider.py:25
 指摘: Consider adding type hints for the return value
-対応: ✅ 修正済み
+対応: 修正済み
 返信: "型ヒントを追加しました。"
 ---
 
@@ -346,149 +295,20 @@ PR番号: #<番号>
 
 ### コミットメッセージ
 
-- `fix: Copilotレビュー指摘対応 - <具体的な修正内容>`
+- `fix: Claude Codeレビュー指摘対応 - <具体的な修正内容>`
 - 複数ファイル修正の場合は概要を記載
 
 ### 返信メッセージ
 
 - 簡潔に（3行以内）
-- 絵文字で状態を明示（✅, 📝, ⚠️）
 - コミットハッシュを含める
 
-## 使用例
+## マージ条件（GitHub Ruleset）
 
-### 例1: 型ヒント不足の指摘に対応
+以下がすべて満たされないとマージできない:
 
-```
-/copilot-review 42
-
-📊 Copilot レビュー対応サマリー
-
-PR番号: #42
-レビューコメント総数: 3件
-
-対応状況:
-✅ 修正済み: 2件
-📝 説明返信: 1件
-
-詳細:
----
-📝 コメント #1 [High]
-ファイル: backend/src/domain/ports/race_data_provider.py:25
-指摘: Consider adding type hints for the return value
-対応: ✅ 修正済み
-返信: "戻り値の型ヒントを追加しました。"
-コミット: abc1234
----
-📝 コメント #2 [Medium]
-ファイル: backend/src/api/handlers/races.py:50
-指摘: Consider extracting this to a separate function
-対応: 📝 説明返信
-返信: "現状のロジックは十分シンプルであり、抽出するとかえって複雑になると判断しました。"
----
-
-次のアクション:
-- [x] 全スレッド解決確認
-- [ ] CI/CD成功確認
-- [ ] マージ実行
-```
-
-### 例2: セキュリティ指摘への対応
-
-```
-/copilot-review 45
-
-📊 Copilot レビュー対応サマリー
-
-PR番号: #45
-レビューコメント総数: 1件
-
-対応状況:
-✅ 修正済み: 1件
-
-詳細:
----
-📝 コメント #1 [Critical]
-ファイル: backend/src/api/handlers/races.py:30
-指摘: Potential SQL injection vulnerability
-対応: ✅ 修正済み
-返信: "パラメータ化クエリに変更し、SQLインジェクションを防止しました。"
-コミット: def5678
----
-
-次のアクション:
-- [x] 全スレッド解決確認
-- [x] CI/CD成功確認
-- [ ] マージ実行
-```
-
-## 参照コマンド
-
-### GitHub CLI (gh) コマンド一覧
-
-```bash
-# PR一覧表示
-gh pr list
-
-# PR詳細表示
-gh pr view <PR番号>
-
-# レビューコメント取得
-gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments
-
-# コメントに返信
-gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments/<コメントID>/replies \
-  -X POST -f body='返信内容'
-
-# スレッド情報取得
-gh api graphql -f query='...'
-
-# スレッド解決
-gh api graphql -f query='mutation { resolveReviewThread(...) }'
-```
-
-### GraphQL クエリテンプレート
-
-#### 未解決スレッド一覧取得
-```graphql
-query {
-  repository(owner: "foie0222", name: "baken-kaigi") {
-    pullRequest(number: <PR番号>) {
-      reviewThreads(first: 20) {
-        nodes {
-          id
-          isResolved
-          comments(first: 1) {
-            nodes {
-              body
-              path
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-#### スレッド解決
-```graphql
-mutation {
-  resolveReviewThread(input: {threadId: "<スレッドID>"}) {
-    thread {
-      isResolved
-    }
-  }
-}
-```
-
-## 注意事項
-
-- **ブランチ保護**: 全コメント解決しないとマージ不可
-- **CI/CD**: レビュー対応後も必ずCI/CDの成功を確認
-- **人間レビュー**: Copilot以外のレビューコメントは別途対応
-- **過剰な修正**: 指摘が不適切な場合は説明返信で対応（盲目的に修正しない）
-- **git worktree**: 作業は feature ブランチで実施
+1. **Required status checks**: Backend Tests, Frontend Tests, CDK Synth Check, claude-review
+2. **Review thread resolution**: 全インラインコメントスレッドが解決済み
 
 ## 絶対ルール
 
@@ -522,9 +342,9 @@ mutation {
 Critical/High指摘に対してこれらの返信をした場合、PRはマージ不可。
 
 **特に「テスト不足」の指摘に対して**:
-- ❌ 「テストは別PRで追加します」→ 禁止
-- ❌ 「時間がないのでテストはスキップします」→ 禁止
-- ✅ テストコードを書いてコミットする → 正しい対応
+- テストは別PRで追加します → 禁止
+- 時間がないのでテストはスキップします → 禁止
+- テストコードを書いてコミットする → 正しい対応
 
 ## 対応完了の定義
 
