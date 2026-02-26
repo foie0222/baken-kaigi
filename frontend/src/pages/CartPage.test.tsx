@@ -279,4 +279,77 @@ describe('CartPage', () => {
       expect(screen.getByRole('button', { name: '金額 1000円 タップで編集' })).toBeInTheDocument()
     })
   })
+
+  describe('マルチベット（BOX等）の金額ステッパー', () => {
+    beforeEach(() => {
+      // 三連単BOX 3頭 = 6点 × 100円 = 600円
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'trifecta',
+        betMethod: 'box',
+        horseNumbers: [1, 3, 7],
+        betDisplay: 'BOX 1-3-7',
+        betCount: 6,
+        amount: 600,
+      })
+    })
+
+    it('[+]ボタンで金額がbetCount×100(=600)増える', () => {
+      render(<CartPage />)
+
+      const incrementBtn = screen.getByRole('button', { name: '金額を増やす' })
+      fireEvent.click(incrementBtn)
+
+      // 600 + 600 = 1200
+      expect(screen.getByRole('button', { name: '金額 1200円 タップで編集' })).toBeInTheDocument()
+    })
+
+    it('[−]ボタンが最低金額(betCount×100=600)でdisabledになる', () => {
+      render(<CartPage />)
+
+      const decrementBtn = screen.getByRole('button', { name: '金額を減らす' })
+      expect(decrementBtn).toBeDisabled()
+    })
+
+    it('手動入力がbetCount×100の倍数に切り捨てられる', () => {
+      render(<CartPage />)
+
+      const amountBtn = screen.getByRole('button', { name: '金額 600円 タップで編集' })
+      fireEvent.click(amountBtn)
+
+      const input = screen.getByRole('spinbutton')
+      // 1000円を入力 → floor(1000/600)*600 = 600に切り捨て
+      fireEvent.change(input, { target: { value: '1000' } })
+      fireEvent.blur(input)
+
+      expect(screen.getByRole('button', { name: '金額 600円 タップで編集' })).toBeInTheDocument()
+    })
+
+    it('[−]ボタンで金額がbetCount×100(=600)減る', () => {
+      // 1200円に増額
+      useCartStore.getState().clearCart()
+      useCartStore.getState().addItem({
+        raceId: 'test-race-1',
+        raceName: 'テストレース',
+        raceVenue: '東京',
+        raceNumber: '1R',
+        betType: 'trifecta',
+        betMethod: 'box',
+        horseNumbers: [1, 3, 7],
+        betDisplay: 'BOX 1-3-7',
+        betCount: 6,
+        amount: 1200,
+      })
+
+      render(<CartPage />)
+
+      const decrementBtn = screen.getByRole('button', { name: '金額を減らす' })
+      fireEvent.click(decrementBtn)
+
+      expect(screen.getByRole('button', { name: '金額 600円 タップで編集' })).toBeInTheDocument()
+    })
+  })
 })
