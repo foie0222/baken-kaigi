@@ -279,6 +279,33 @@ describe('mapApiRaceDetailToRaceDetail', () => {
     expect(detail.horses[0].weight).toBeUndefined()
     expect(detail.horses[0].weightDiff).toBeUndefined()
   })
+
+  it('着順データが正しく変換される', () => {
+    const runnersWithFinish: ApiRunner[] = [
+      {
+        horse_number: 1,
+        waku_ban: 1,
+        horse_name: '一着馬',
+        jockey_name: '騎手A',
+        odds: '3.5',
+        popularity: 1,
+        finish_position: 1,
+      },
+      {
+        horse_number: 2,
+        waku_ban: 2,
+        horse_name: '未確定馬',
+        jockey_name: '騎手B',
+        odds: '10.0',
+        popularity: 5,
+      },
+    ]
+
+    const detail = mapApiRaceDetailToRaceDetail(mockApiRace, runnersWithFinish)
+
+    expect(detail.horses[0].finishPosition).toBe(1)
+    expect(detail.horses[1].finishPosition).toBeUndefined()
+  })
 })
 
 describe('BetTypeLabels', () => {
