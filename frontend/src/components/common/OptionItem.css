@@ -3,14 +3,15 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border: 2px solid #e8e8e8;
+  border: 2px solid var(--color-border);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
-  background: white;
+  background: rgba(255,255,255,0.03);
   width: 100%;
   text-align: left;
   font-family: inherit;
+  color: var(--color-text);
 }
 
 .option-item:active {
@@ -18,8 +19,8 @@
 }
 
 .option-item.selected {
-  background: #e8f5e9;
-  border-color: #1a5f2a;
+  background: rgba(233, 69, 96, 0.1);
+  border-color: var(--color-primary);
 }
 
 .option-item.disabled {
@@ -30,7 +31,7 @@
 .option-check {
   width: 22px;
   height: 22px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--color-border);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -41,8 +42,8 @@
 }
 
 .option-item.selected .option-check {
-  background: #1a5f2a;
-  border-color: #1a5f2a;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: white;
 }
 
@@ -53,20 +54,20 @@
 .option-title {
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text);
 }
 
 .option-desc {
   font-size: 11px;
-  color: #888;
+  color: var(--color-text-muted);
   margin-top: 2px;
 }
 
 .option-badge {
   font-size: 11px;
   font-weight: 600;
-  color: #ff6b35;
-  background: #fff3e0;
+  color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.15);
   padding: 3px 8px;
   border-radius: 4px;
 }
@@ -74,12 +75,12 @@
 .option-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border);
 }
 
 .option-section-title {
   font-size: 12px;
   font-weight: 600;
-  color: #888;
+  color: var(--color-text-muted);
   margin-bottom: 10px;
 }

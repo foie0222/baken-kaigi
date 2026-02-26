@@ -99,6 +99,11 @@ def convert_runner_row(row: dict, scraped_at: datetime) -> dict:
     tanninki = row["TANNINKI"].strip()
     ftnwght = row["FTNWGHT"].strip()
 
+    # 馬体重フィールド
+    wght = row.get("WGHT", "").strip()
+    zogensign = row.get("ZOGENSIGN", "").strip()
+    zogendiff = row.get("ZOGENDIFF", "").strip()
+
     item = {
         "race_id": hrdb_to_race_id(opdt, rcoursecd, rno),
         "horse_number": umano.zfill(2),
@@ -117,6 +122,8 @@ def convert_runner_row(row: dict, scraped_at: datetime) -> dict:
         "time": _parse_run_time(runtm),
         "odds": Decimal(tanodds) / 10 if tanodds and tanodds != "0000" else None,
         "popularity": _safe_int(tanninki) if tanninki and tanninki != "00" else None,
+        "weight": _safe_int(wght) if wght and wght != "000" else None,
+        "weight_diff": int(zogendiff) * (-1 if zogensign == "-" else 1) if zogendiff and _safe_int(zogendiff) is not None and zogensign in ("+", "-", "0") else None,
         "scraped_at": scraped_at.isoformat(),
         "ttl": int((scraped_at + timedelta(days=TTL_DAYS)).timestamp()),
     }

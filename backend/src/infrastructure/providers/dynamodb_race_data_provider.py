@@ -11,7 +11,7 @@ import requests
 from boto3.dynamodb.conditions import Attr, Key
 
 from src.domain.identifiers import RaceId
-from src.domain.ports import AllOddsData, RaceData, RaceDataProvider, RunnerData
+from src.domain.ports import AllOddsData, RaceData, RaceDataProvider, RunnerData, WeightData
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +182,19 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
         return []
 
     def get_race_weights(self, race_id):
-        return {}
+        """runners テーブルからレースの馬体重を取得する."""
+        response = self._runners_table.query(
+            KeyConditionExpression=Key("race_id").eq(str(race_id))
+        )
+        items = response.get("Items", [])
+        weights = {}
+        for item in items:
+            w = item.get("weight")
+            if w is not None:
+                horse_number = int(item["horse_number"])
+                weight_diff = int(item.get("weight_diff", 0))
+                weights[horse_number] = WeightData(weight=int(w), weight_diff=weight_diff)
+        return weights
 
     def get_jra_checksum(self, venue_code, kaisai_kai, kaisai_nichime, race_number):
         return None

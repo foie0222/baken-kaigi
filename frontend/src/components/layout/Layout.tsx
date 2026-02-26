@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
-import { BottomNav } from './BottomNav';
 import { Toast } from '../common/Toast';
 import { CookieConsentBanner } from '../common/CookieConsentBanner';
 import { LossLimitAlert } from '../loss-limit/LossLimitAlert';
@@ -25,7 +24,6 @@ export function Layout() {
       <main>
         <Outlet />
       </main>
-      <BottomNav />
       <CookieConsentBanner />
       <Toast />
     </div>

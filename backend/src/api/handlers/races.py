@@ -1,7 +1,12 @@
 """レースAPI ハンドラー."""
 import logging
+import os
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
+
+import boto3
+from boto3.dynamodb.conditions import Key
 
 from src.api.dependencies import Dependencies
 from src.api.request import get_path_parameter, get_query_parameter
@@ -410,3 +415,113 @@ def get_all_odds(event: dict, context: Any) -> dict:
         "trio": result.trio,
         "trifecta": result.trifecta,
     }, event=event)
+
+
+def _convert_decimals(obj: Any) -> Any:
+    """DynamoDB の Decimal 型を float/int に変換する.
+
+    Args:
+        obj: 変換対象のオブジェクト
+
+    Returns:
+        Decimal が float/int に変換されたオブジェクト
+    """
+    if isinstance(obj, Decimal):
+        if obj == int(obj):
+            return int(obj)
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: _convert_decimals(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_convert_decimals(i) for i in obj]
+    return obj
+
+
+def get_ai_predictions(event: dict, context: Any) -> dict:
+    """レースのAI予想データを取得する.
+
+    GET /races/{race_id}/ai-predictions
+
+    Path Parameters:
+        race_id: レースID
+
+    Returns:
+        AI予想データ（ソース別）
+    """
+    race_id_str = get_path_parameter(event, "race_id")
+    if not race_id_str:
+        return bad_request_response("race_id is required", event=event)
+
+    try:
+        table_name = os.environ.get("AI_PREDICTIONS_TABLE_NAME", "baken-kaigi-ai-predictions")
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(table_name)
+
+        response = table.query(
+            KeyConditionExpression=Key("race_id").eq(race_id_str),
+        )
+
+        items = response.get("Items", [])
+        if not items:
+            return not_found_response("AI predictions", event=event)
+
+        # ソース別にグルーピング
+        predictions: dict[str, list] = {}
+        for item in items:
+            source = item.get("source", "unknown")
+            preds = item.get("predictions", [])
+            predictions[source] = _convert_decimals(preds)
+
+        return success_response({
+            "race_id": race_id_str,
+            "predictions": predictions,
+        }, event=event)
+
+    except Exception:
+        logger.exception("Failed to get AI predictions for race_id=%s", race_id_str)
+        return internal_error_response(event=event)
+
+
+def get_speed_indices(event: dict, context: Any) -> dict:
+    """レースのスピード指数データを取得する.
+
+    GET /races/{race_id}/speed-indices
+
+    Path Parameters:
+        race_id: レースID
+
+    Returns:
+        スピード指数データ（ソース別）
+    """
+    race_id_str = get_path_parameter(event, "race_id")
+    if not race_id_str:
+        return bad_request_response("race_id is required", event=event)
+
+    try:
+        table_name = os.environ.get("SPEED_INDICES_TABLE_NAME", "baken-kaigi-speed-indices")
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(table_name)
+
+        response = table.query(
+            KeyConditionExpression=Key("race_id").eq(race_id_str),
+        )
+
+        items = response.get("Items", [])
+        if not items:
+            return not_found_response("Speed indices", event=event)
+
+        # ソース別にグルーピング
+        indices: dict[str, list] = {}
+        for item in items:
+            source = item.get("source", "unknown")
+            idx = item.get("indices", [])
+            indices[source] = _convert_decimals(idx)
+
+        return success_response({
+            "race_id": race_id_str,
+            "indices": indices,
+        }, event=event)
+
+    except Exception:
+        logger.exception("Failed to get speed indices for race_id=%s", race_id_str)
+        return internal_error_response(event=event)

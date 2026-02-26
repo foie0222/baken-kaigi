@@ -1,0 +1,261 @@
+/* SinglePageApp - Compact race selector bar + inline dashboard */
+
+/* =============================================
+   Race Selector Bar (top of page)
+   ============================================= */
+.race-selector-bar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.selector-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.selector-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+/* Date pills */
+.date-pill {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.date-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text);
+}
+
+.date-pill.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* Venue pills */
+.venue-pill {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.venue-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text);
+}
+
+.venue-pill.active {
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Race number pills */
+.race-number-pills {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.race-num-pill {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.race-num-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text);
+}
+
+.race-num-pill.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.race-num-pill.has-grade {
+  border-color: rgba(233, 69, 96, 0.4);
+}
+
+/* Loading state for selector */
+.selector-loading {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 4px 0;
+}
+
+/* =============================================
+   Empty state (no race selected)
+   ============================================= */
+.spa-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.spa-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.spa-empty-text {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.spa-empty-subtext {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* =============================================
+   Race info bar (shown when race is selected)
+   ============================================= */
+.spa-race-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.spa-race-badge {
+  background: var(--color-primary);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.spa-race-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.spa-race-conditions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.spa-race-conditions .condition-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted);
+}
+
+.spa-jra-link {
+  margin-left: auto;
+}
+
+/* =============================================
+   Inline dashboard loading
+   ============================================= */
+.spa-dashboard-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  font-size: 15px;
+  color: var(--color-text-muted);
+}
+
+/* =============================================
+   Floating cart button
+   ============================================= */
+.floating-cart-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 90;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 16px rgba(233, 69, 96, 0.4);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.floating-cart-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.5);
+}
+
+.floating-cart-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 2px solid var(--color-bg);
+}

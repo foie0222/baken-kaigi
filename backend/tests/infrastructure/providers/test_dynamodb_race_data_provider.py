@@ -8,7 +8,7 @@ import pytest
 import requests
 
 from src.domain.identifiers import RaceId
-from src.domain.ports import AllOddsData, RaceData, RunnerData
+from src.domain.ports import AllOddsData, RaceData, RunnerData, WeightData
 from src.infrastructure.providers.dynamodb_race_data_provider import (
     DynamoDbRaceDataProvider,
 )
@@ -356,9 +356,60 @@ class TestUnsupportedMethods:
         result = self._make_provider().get_weight_history("2020100001")
         assert result == []
 
-    def test_get_race_weightsは空辞書を返す(self):
-        result = self._make_provider().get_race_weights(RaceId("202602140505"))
-        assert result == {}
+    def test_get_race_weightsでrunnersテーブルから馬体重を取得できる(self):
+        mock_runners = MagicMock()
+        mock_runners.query.return_value = {
+            "Items": [
+                {
+                    "race_id": "202602140505",
+                    "horse_number": "01",
+                    "weight": Decimal("480"),
+                    "weight_diff": Decimal("2"),
+                },
+                {
+                    "race_id": "202602140505",
+                    "horse_number": "05",
+                    "weight": Decimal("462"),
+                    "weight_diff": Decimal("-4"),
+                },
+            ]
+        }
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(), runners_table=mock_runners
+        )
+
+        result = provider.get_race_weights(RaceId("202602140505"))
+
+        assert len(result) == 2
+        assert result[1] == WeightData(weight=480, weight_diff=2)
+        assert result[5] == WeightData(weight=462, weight_diff=-4)
+
+    def test_get_race_weightsでweight未設定のrunnerは除外される(self):
+        mock_runners = MagicMock()
+        mock_runners.query.return_value = {
+            "Items": [
+                {
+                    "race_id": "202602140505",
+                    "horse_number": "01",
+                    "weight": Decimal("480"),
+                    "weight_diff": Decimal("2"),
+                },
+                {
+                    "race_id": "202602140505",
+                    "horse_number": "03",
+                    # weight なし（未計量）
+                },
+            ]
+        }
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(), runners_table=mock_runners
+        )
+
+        result = provider.get_race_weights(RaceId("202602140505"))
+
+        assert len(result) == 1
+        assert 1 in result
+        assert 3 not in result
 
     def test_get_jra_checksumはNoneを返す(self):
         result = self._make_provider().get_jra_checksum("05", "01", 2, 5)

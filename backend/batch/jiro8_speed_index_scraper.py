@@ -86,20 +86,14 @@ def fetch_page(url: str) -> BeautifulSoup | None:
         return None
 
 
-def find_venue_codes_for_date(soup: BeautifulSoup, target_date: str, year_2digit: str = "") -> list[dict]:
-    """トップページから対象日付の競馬場コードを取得.
+def find_venue_codes_for_date(soup: BeautifulSoup, year_2digit: str = "") -> list[dict]:
+    """トップページから開催中の競馬場コードを取得.
 
-    サイトのトップページには2つの方法で開催情報が掲載される:
-    1. フィーチャードリンク: ページ上部に当日レースへの相対パスリンク
-       (例: /index.php?code=2605010411 → 東京11R)
-    2. サイドバー: 過去日付のリンク（当日はリンクなし、太字表示のみ）
-
-    当日のデータ取得にはフィーチャードリンクを優先し、
-    フォールバックとしてサイドバーの日付テキスト周辺からも探索する。
+    ページ内の全リンクから index.php?code=YYVVRRDDNN パターンを抽出し、
+    kai/nichiが"99"（プレースホルダー）でない有効な会場を返す。
 
     Args:
         soup: トップページのBeautifulSoup
-        target_date: 対象日付 (例: "2/8")
         year_2digit: 対象年の2桁表記 (例: "26")
 
     Returns:
@@ -108,17 +102,13 @@ def find_venue_codes_for_date(soup: BeautifulSoup, target_date: str, year_2digit
     venues = []
     seen_venue_codes = set()
 
-    # 方法1: フィーチャードリンク（相対パス）から取得
-    # トップページ上部に当日レースへの相対パスリンクがある
-    # 例: /index.php?code=2605010411 (東京11R), /index.php?code=2608020411 (京都11R)
-    for link in soup.find_all("a", href=re.compile(r"^/index\.php\?code=\d{10}$")):
+    for link in soup.find_all("a", href=re.compile(r"index\.php\?code=\d{10}")):
         href = link.get("href", "")
         match = re.search(r"code=(\d{10})", href)
         if not match:
             continue
 
         code = match.group(1)
-        # year_2digitが指定されている場合、対象年のコードのみ使用
         if year_2digit and not code.startswith(year_2digit):
             continue
 
@@ -138,36 +128,6 @@ def find_venue_codes_for_date(soup: BeautifulSoup, target_date: str, year_2digit
                 "kai": kai,
                 "nichi": nichi,
             })
-
-    if venues:
-        return venues
-
-    # 方法2: サイドバーの日付テキスト周辺から検索（フォールバック）
-    for link in soup.find_all("a", href=re.compile(r"index\.php\?code=\d{10}")):
-        href = link.get("href", "")
-        match = re.search(r"code=(\d{10})", href)
-        if not match:
-            continue
-
-        code = match.group(1)
-        venue_code = code[2:4]
-        kai = code[4:6]
-        nichi = code[6:8]
-
-        venue_name = VENUE_CODE_TO_NAME.get(venue_code)
-        if not venue_name or kai == "99" or nichi == "99":
-            continue
-
-        parent = link.find_parent("td")
-        if parent and target_date in parent.get_text():
-            if venue_code not in seen_venue_codes:
-                seen_venue_codes.add(venue_code)
-                venues.append({
-                    "venue": venue_name,
-                    "venue_code": venue_code,
-                    "kai": kai,
-                    "nichi": nichi,
-                })
 
     return venues
 
@@ -318,7 +278,6 @@ def scrape_races(offset_days: int = 1) -> dict[str, Any]:
     target = scraped_at + timedelta(days=offset_days)
     date_str = target.strftime("%Y%m%d")
     year_2digit = target.strftime("%y")
-    target_date = f"{target.month}/{target.day}"
 
     results = {
         "success": True,
@@ -334,13 +293,13 @@ def scrape_races(offset_days: int = 1) -> dict[str, Any]:
         results["errors"].append("Failed to fetch top page")
         return results
 
-    venues = find_venue_codes_for_date(top_soup, target_date, year_2digit)
+    venues = find_venue_codes_for_date(top_soup, year_2digit)
     if not venues:
-        logger.info(f"No venues found for {target_date}")
+        logger.info(f"No venues found for {date_str}")
         results["races_scraped"] = 0
         return results
 
-    logger.info(f"Found {len(venues)} venues for {target_date}: {venues}")
+    logger.info(f"Found {len(venues)} venues for {date_str}: {venues}")
 
     # Step 2: 各レースページをスクレイピング
     for venue_info in venues:

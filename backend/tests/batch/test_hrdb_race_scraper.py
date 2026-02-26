@@ -64,6 +64,9 @@ def _make_runner_row(**overrides) -> dict:
         "RUNTM": "1326",
         "TANODDS": "0034",
         "TANNINKI": "01",
+        "WGHT": "480",
+        "ZOGENSIGN": "+",
+        "ZOGENDIFF": "002",
     }
     row.update(overrides)
     return row
@@ -255,6 +258,60 @@ class TestConvertRunnerRowEdgeCases:
         assert "weight_carried" not in result
         assert "waku_ban" not in result
         assert "age" not in result
+
+
+class TestConvertRunnerRowWeight:
+    """convert_runner_row の馬体重テスト."""
+
+    def test_馬体重の基本変換(self):
+        """WGHT=480, ZOGENSIGN="+", ZOGENDIFF="002" → weight=480, weight_diff=2."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(WGHT="480", ZOGENSIGN="+", ZOGENDIFF="002")
+
+        result = convert_runner_row(row, scraped_at)
+
+        assert result["weight"] == 480
+        assert result["weight_diff"] == 2
+
+    def test_馬体重マイナス増減(self):
+        """ZOGENSIGN="-", ZOGENDIFF="004" → weight_diff=-4."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(ZOGENSIGN="-", ZOGENDIFF="004")
+
+        result = convert_runner_row(row, scraped_at)
+
+        assert result["weight_diff"] == -4
+
+    def test_馬体重ゼロ増減(self):
+        """ZOGENSIGN="0", ZOGENDIFF="000" → weight_diff=0."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(ZOGENSIGN="0", ZOGENDIFF="000")
+
+        result = convert_runner_row(row, scraped_at)
+
+        assert result["weight_diff"] == 0
+
+    def test_馬体重未計量(self):
+        """WGHT="000" → weight は item に含まれない（Noneフィルタ）."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row(WGHT="000")
+
+        result = convert_runner_row(row, scraped_at)
+
+        assert "weight" not in result
+
+    def test_馬体重カラム不在(self):
+        """WGHT, ZOGENSIGN, ZOGENDIFF キーがない場合 → weight は item に含まれない."""
+        scraped_at = datetime(2026, 2, 20, 12, 0, 0, tzinfo=JST)
+        row = _make_runner_row()
+        del row["WGHT"]
+        del row["ZOGENSIGN"]
+        del row["ZOGENDIFF"]
+
+        result = convert_runner_row(row, scraped_at)
+
+        assert "weight" not in result
+        assert "weight_diff" not in result
 
 
 class TestValidateDate:

@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
-import { RacesPage } from './pages/RacesPage';
-import { RaceDetailPage } from './pages/RaceDetailPage';
+import { SinglePageApp } from './pages/SinglePageApp';
 import { CartPage } from './pages/CartPage';
 
 import { DashboardPage } from './pages/DashboardPage';
@@ -44,9 +43,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          {/* 認証不要ページ */}
-          <Route index element={<RacesPage />} />
-          <Route path="races/:raceId" element={<RaceDetailPage />} />
+          {/* メインページ（SPA - シングルページ） */}
+          <Route index element={<SinglePageApp />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="bet-review" element={<Navigate to="/" replace />} />
           <Route path="settings" element={<SettingsPage />} />
