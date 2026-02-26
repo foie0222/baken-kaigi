@@ -45,4 +45,6 @@ jobs:
             レビュー完了後、`gh pr review ${{ github.event.pull_request.number }} --comment --body "..."` で
             レビュー結果をPRレビューとして投稿してください。
             問題がある場合はインラインコメントも使ってください。
-          claude_args: "--max-turns 10"
+          claude_args: |
+            --max-turns 10
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(cat:*),Bash(wc:*),Read,Glob,Grep"
