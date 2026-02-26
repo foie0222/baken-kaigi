@@ -66,7 +66,7 @@ cd backend && pytest
 
 ## スキル
 
-- `/copilot-review` - GitHub Copilot PRレビュー対応
+- `/code-review` - Claude Code Action PRレビュー対応
 - `/verification` - 本番環境（bakenkaigi.com）動作確認
 
 ## 作業方針
