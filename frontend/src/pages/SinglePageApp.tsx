@@ -443,7 +443,6 @@ export function SinglePageApp() {
             <table className="dashboard-table">
               <thead>
                 <tr>
-                  <th></th>
                   <th>馬番</th>
                     <th style={{ textAlign: 'left', paddingLeft: 10 }}>馬名</th>
                     <th className="td-finish-position">着順</th>
@@ -465,12 +464,6 @@ export function SinglePageApp() {
                 <tbody>
                   {race.horses.map((horse: Horse) => (
                       <tr key={horse.number}>
-                        <td className="td-waku">
-                          <div
-                            className="waku-indicator"
-                            style={{ backgroundColor: horse.color }}
-                          />
-                        </td>
                         <td className="td-horse-number">
                           <span
                             className="horse-num-circle"
