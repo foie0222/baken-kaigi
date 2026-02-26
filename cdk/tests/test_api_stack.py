@@ -420,10 +420,6 @@ class TestApiStack:
                     {"AttributeName": "race_id", "KeyType": "RANGE"},
                 ],
                 "BillingMode": "PAY_PER_REQUEST",
-                "TimeToLiveSpecification": {
-                    "AttributeName": "ttl",
-                    "Enabled": True,
-                },
             },
         )
 
@@ -453,10 +449,6 @@ class TestApiStack:
                     {"AttributeName": "horse_number", "KeyType": "RANGE"},
                 ],
                 "BillingMode": "PAY_PER_REQUEST",
-                "TimeToLiveSpecification": {
-                    "AttributeName": "ttl",
-                    "Enabled": True,
-                },
             },
         )
 

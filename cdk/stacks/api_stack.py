@@ -86,7 +86,6 @@ class BakenKaigiApiStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,  # 開発環境用
-            time_to_live_attribute="ttl",
         )
 
         # スピード指数テーブル
@@ -104,7 +103,6 @@ class BakenKaigiApiStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
-            time_to_live_attribute="ttl",
         )
 
         # Agent テーブル
@@ -348,7 +346,6 @@ class BakenKaigiApiStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
-            time_to_live_attribute="ttl",
         )
 
         # Runners テーブル（HRDB出走馬データ）
@@ -366,7 +363,6 @@ class BakenKaigiApiStack(Stack):
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
-            time_to_live_attribute="ttl",
         )
         # horse_id での検索用 GSI
         runners_table.add_global_secondary_index(
