@@ -56,12 +56,12 @@ gh api repos/foie0222/baken-kaigi/pulls/<PR番号>/comments \
   "path": "backend/src/domain/ports/race_data_provider.py",
   "line": 25,
   "body": "Consider adding type hints for the return value",
-  "user": "github-actions"
+  "user": "github-actions[bot]"
 }
 ```
 
 **判断基準**:
-- Claude Code Action によるコメント（`user: "github-actions"`）を対象
+- Claude Code Action によるコメント（`user.login: "github-actions[bot]"`）を対象
 - 人間のレビュアーコメントは別途確認を促す
 
 ### ステップ2: コメント内容の分析と優先度付け
