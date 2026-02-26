@@ -159,9 +159,9 @@ export function SinglePageApp() {
           if (todayIdx >= 0) {
             setSelectedDateIdx(todayIdx);
           } else {
-            // 今日が開催日でなければ、直近の過去開催日を選択
+            // 今日が開催日でなければ、直近の過去開催日。過去がなければ最初の未来開催日
             const pastIdx = allDates.filter(d => d <= todayStr).length - 1;
-            setSelectedDateIdx(pastIdx >= 0 ? pastIdx : allDates.length - 1);
+            setSelectedDateIdx(pastIdx >= 0 ? pastIdx : 0);
           }
           isInitialDateSet.current = true;
         }
@@ -550,7 +550,7 @@ export function SinglePageApp() {
             dateButtons.map((dateStr, index) => (
               <button
                 key={dateStr}
-                ref={selectedDateIdx === index ? (el) => { el?.scrollIntoView({ block: 'nearest', inline: 'center' }); } : undefined}
+                ref={selectedDateIdx === index ? (el) => { if (el && el.dataset.scrolledOnce !== 'true') { el.scrollIntoView({ block: 'nearest', inline: 'center' }); el.dataset.scrolledOnce = 'true'; } } : undefined}
                 className={`date-pill ${selectedDateIdx === index ? 'active' : ''}`}
                 onClick={() => handleDateChange(index)}
               >
