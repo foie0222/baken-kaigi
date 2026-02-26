@@ -1,0 +1,60 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    branches: [main]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            このPRのコードレビューを行ってください。
+
+            ## レビュー観点
+
+            1. **セキュリティ**
+               - 入力検証、認証、認可の問題
+               - IAM最小権限の原則
+               - シークレットのハードコード
+
+            2. **コード品質**
+               - DDD（ドメイン駆動設計）の原則に沿っているか
+               - 早期リターン、単一責任の原則
+               - マジックナンバー禁止
+               - any型の使用禁止（TypeScript）
+               - 具体的な例外型でのキャッチ（Python）
+
+            3. **パフォーマンス**
+               - N+1問題、不要な再レンダリング
+               - DynamoDBクエリの効率性
+
+            4. **テスト**
+               - 新機能にテストが追加されているか
+               - エッジケースのカバレッジ
+
+            5. **エラーハンドリング**
+               - エラーを握りつぶしていないか
+               - フォールバックの多用を避けているか
+
+            問題を発見した場合はインラインコメントで具体的に指摘してください。
+            軽微な問題はまとめてトップレベルコメントに記載してください。
+          claude_args: "--max-turns 10"
