@@ -3,7 +3,7 @@
 #
 # stdin から JSON を受け取り、以下の制御を行う:
 # - gh pr merge: AIレビュー投稿済み + 全コメント解決済みの場合のみ許可
-#   - 対象レビュアー: copilot-pull-request-reviewer, github-actions[bot]
+#   - 対象レビュアー: copilot-pull-request-reviewer, github-actions
 # - GitHub API 直接呼び出し: ブロック（hookバイパス防止）
 # - gh pr close: 許可
 # - resolveReviewThread: 許可
@@ -117,10 +117,11 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
 
   # AIレビューとコメントの確認（1回のクエリで取得）
   # ※レビュー本文（body）またはコード行コメントのいずれかが存在すればOK
-  # ※対象レビュアー: copilot-pull-request-reviewer, github-actions[bot]
+  # ※対象レビュアー: copilot-pull-request-reviewer, github-actions
   # ※各スレッドで最大10件のコメントを取得し、レビュアーの返信コメントも検知
   # 許可するレビュアーのリスト
-  ALLOWED_REVIEWERS='["copilot-pull-request-reviewer", "github-actions[bot]"]'
+  # GraphQL APIではbot userのloginに [bot] サフィックスが付かない
+  ALLOWED_REVIEWERS='["copilot-pull-request-reviewer", "github-actions"]'
 
   REVIEW_QUERY=$(cat <<EOF
 query {
