@@ -28,6 +28,7 @@ import { BetTypeSheet } from '../components/bet/BetTypeSheet';
 import { BetMethodSheet } from '../components/bet/BetMethodSheet';
 import { useBetCalculation } from '../hooks/useBetCalculation';
 import { MAX_BET_AMOUNT } from '../constants/betting';
+import { FinishPositionBadge } from '../components/FinishPositionBadge';
 import './RaceDashboardPage.css';
 
 const initialSelections: ColumnSelections = { col1: [], col2: [], col3: [] };
@@ -455,13 +456,7 @@ export function RaceDashboardPage() {
 
                     {/* Finish position */}
                     <td className="td-finish-position">
-                      {horse.finishPosition != null ? (
-                        <span className={`finish-badge ${horse.finishPosition >= 1 && horse.finishPosition <= 3 ? `finish-${horse.finishPosition}` : ''}`}>
-                          {horse.finishPosition}
-                        </span>
-                      ) : (
-                        <span className="no-data">-</span>
-                      )}
+                      <FinishPositionBadge position={horse.finishPosition} />
                     </td>
 
                     {/* Weight */}

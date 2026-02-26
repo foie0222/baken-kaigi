@@ -15,6 +15,7 @@ import {
 import { apiClient } from '../api/client';
 import { toJapaneseError } from '../stores/purchaseStore';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
+import { FinishPositionBadge } from '../components/FinishPositionBadge';
 import './SinglePageApp.css';
 import './RaceDashboardPage.css';
 
@@ -488,13 +489,7 @@ export function SinglePageApp() {
                         </td>
                         {/* Finish position */}
                         <td className="td-finish-position">
-                          {horse.finishPosition != null ? (
-                            <span className={`finish-badge ${horse.finishPosition >= 1 && horse.finishPosition <= 3 ? `finish-${horse.finishPosition}` : ''}`}>
-                              {horse.finishPosition}
-                            </span>
-                          ) : (
-                            <span className="no-data">-</span>
-                          )}
+                          <FinishPositionBadge position={horse.finishPosition} />
                         </td>
                         <td className="td-weight">
                           {horse.weight ? (

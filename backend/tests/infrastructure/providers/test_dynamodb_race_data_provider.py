@@ -223,6 +223,19 @@ class TestGetRunners:
         assert result[0].finish_position == 1
         assert isinstance(result[0].finish_position, int)
 
+    def test_着順が0以下の場合ValueErrorを送出する(self):
+        item = _make_runner_item()
+        item["finish_position"] = Decimal("0")
+        mock_table = MagicMock()
+        mock_table.query.return_value = {"Items": [item]}
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(), runners_table=mock_table
+        )
+
+        with pytest.raises(ValueError, match="Invalid finish_position"):
+            provider.get_runners(RaceId("202602140505"))
+
     def test_出走馬が存在しない場合は空リストを返す(self):
         mock_table = MagicMock()
         mock_table.query.return_value = {"Items": []}
