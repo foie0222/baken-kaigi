@@ -42,9 +42,13 @@ jobs:
             4. **テスト** - 新機能のテスト追加、エッジケースカバレッジ
             5. **エラーハンドリング** - エラー握りつぶし、フォールバック多用の回避
 
-            レビュー完了後、`gh pr review ${{ github.event.pull_request.number }} --comment --body "..."` で
-            レビュー結果をPRレビューとして投稿してください。
-            問題がある場合はインラインコメントも使ってください。
+            ## 指摘の投稿方法
+
+            - 具体的なコードの問題は `mcp__github_inline_comment__create_inline_comment` を使い、
+              該当行にインラインコメントとして投稿してください。これにより解決必須のスレッドが作られます。
+            - 全体の総評は `gh pr review ${{ github.event.pull_request.number }} --comment --body "..."` で
+              PRレビューとして投稿してください。
+            - テキストメッセージとしてレビュー結果を返さないでください。必ずGitHubコメントとして投稿してください。
           claude_args: |
-            --max-turns 10
-            --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(cat:*),Bash(wc:*),Read,Glob,Grep"
+            --max-turns 15
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(cat:*),Bash(wc:*),Read,Glob,Grep"
