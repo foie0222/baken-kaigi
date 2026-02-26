@@ -456,7 +456,7 @@ export function RaceDashboardPage() {
                     {/* Finish position */}
                     <td className="td-finish-position">
                       {horse.finishPosition != null ? (
-                        <span className={`finish-badge ${horse.finishPosition <= 3 ? `finish-${horse.finishPosition}` : ''}`}>
+                        <span className={`finish-badge ${horse.finishPosition >= 1 && horse.finishPosition <= 3 ? `finish-${horse.finishPosition}` : ''}`}>
                           {horse.finishPosition}
                         </span>
                       ) : (
