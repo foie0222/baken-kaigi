@@ -157,6 +157,8 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     @staticmethod
     def _to_runner_data(item: dict) -> RunnerData:
         """DynamoDB アイテムを RunnerData に変換する."""
+        raw_fp = item.get("finish_position")
+        finish_position = int(raw_fp) if raw_fp is not None else None
         return RunnerData(
             horse_number=int(item["horse_number"]),
             horse_name=item["horse_name"],
@@ -166,6 +168,7 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
             odds=str(item.get("odds", "0")),
             popularity=int(item.get("popularity", 0)),
             waku_ban=int(item.get("waku_ban", 0)),
+            finish_position=finish_position,
         )
 
     # ------------------------------------------------------------------

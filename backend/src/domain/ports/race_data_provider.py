@@ -41,6 +41,7 @@ class RunnerData:
     odds: str
     popularity: int
     waku_ban: int = 0  # 枠番（1-8）
+    finish_position: int | None = None  # 着順（未確定はNone）
 
 
 @dataclass(frozen=True)

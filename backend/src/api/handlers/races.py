@@ -201,6 +201,7 @@ def get_race_detail(event: dict, context: Any) -> dict:
             "jockey_name": r.jockey_name,
             "odds": r.odds,
             "popularity": r.popularity,
+            "finish_position": r.finish_position,
         }
         # 馬体重を追加（存在する場合）
         weight_data = race_weights.get(r.horse_number)
