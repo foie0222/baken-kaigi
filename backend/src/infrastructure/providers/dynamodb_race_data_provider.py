@@ -158,7 +158,13 @@ class DynamoDbRaceDataProvider(RaceDataProvider):
     def _to_runner_data(item: dict) -> RunnerData:
         """DynamoDB アイテムを RunnerData に変換する."""
         raw_fp = item.get("finish_position")
-        finish_position = int(raw_fp) if raw_fp is not None else None
+        if raw_fp is not None:
+            finish_position = int(raw_fp)
+            if finish_position < 1:
+                msg = f"Invalid finish_position: {finish_position}. Must be >= 1."
+                raise ValueError(msg)
+        else:
+            finish_position = None
         return RunnerData(
             horse_number=int(item["horse_number"]),
             horse_name=item["horse_name"],
