@@ -1,7 +1,5 @@
 # 着順カラム追加 Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** RaceDashboardPage の出走馬テーブルに着順カラムを常時表示する（未確定は「-」、1〜3着はハイライト）
 
 **Architecture:** `get_race_detail` APIレスポンスに `finish_position` を追加し、フロントエンドで表示。DB（`baken-kaigi-runners`テーブル）にはすでに `finish_position` が保存されているため、新規データソースは不要。
