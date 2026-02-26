@@ -32,3 +32,12 @@ test('undefinedは"-"を表示する', () => {
   render(<FinishPositionBadge position={undefined} />);
   expect(screen.getByText('-')).toBeInTheDocument();
 });
+
+// バックエンドで finish_position < 1 は弾かれるが、
+// 万一不正値が渡された場合はハイライトなしで数値を表示する（意図的な仕様）
+test('0以下の値はハイライトなしで数値を表示する', () => {
+  render(<FinishPositionBadge position={0} />);
+  const el = screen.getByText('0');
+  expect(el).toHaveClass('finish-badge');
+  expect(el.className).not.toMatch(/finish-\d/);
+});

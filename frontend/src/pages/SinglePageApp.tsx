@@ -446,7 +446,7 @@ export function SinglePageApp() {
                   <th></th>
                   <th>馬番</th>
                     <th style={{ textAlign: 'left', paddingLeft: 10 }}>馬名</th>
-                    <th>着順</th>
+                    <th className="td-finish-position">着順</th>
                     <th>体重</th>
                     <th>オッズ</th>
                     <th>人気</th>
