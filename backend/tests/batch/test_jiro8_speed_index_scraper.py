@@ -195,9 +195,7 @@ class TestSaveIndices:
         assert item["venue"] == "東京"
         assert item["race_number"] == 11
         assert len(item["indices"]) == 1
-        assert "ttl" in item
-        expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
-        assert item["ttl"] == expected_ttl
+        assert "ttl" not in item
 
     def test_scraped_atがISO形式で保存(self):
         """正常系: scraped_atがISO形式で保存される."""

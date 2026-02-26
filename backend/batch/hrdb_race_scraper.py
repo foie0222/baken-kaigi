@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 JST = timezone(timedelta(hours=9))
-TTL_DAYS = 14
 
 TRACK_TYPE_MAP = {
     "1": "芝",
@@ -82,7 +81,6 @@ def convert_race_row(row: dict, scraped_at: datetime) -> dict:
         "kaisai_kai": row["KAI"].strip(),
         "kaisai_nichime": row["NITIME"].strip(),
         "scraped_at": scraped_at.isoformat(),
-        "ttl": int((scraped_at + timedelta(days=TTL_DAYS)).timestamp()),
     }
     return {k: v for k, v in item.items() if v is not None}
 
@@ -125,7 +123,6 @@ def convert_runner_row(row: dict, scraped_at: datetime) -> dict:
         "weight": _safe_int(wght) if wght and wght != "000" else None,
         "weight_diff": int(zogendiff) * (-1 if zogensign == "-" else 1) if zogendiff and _safe_int(zogendiff) is not None and zogensign in ("+", "-", "0") else None,
         "scraped_at": scraped_at.isoformat(),
-        "ttl": int((scraped_at + timedelta(days=TTL_DAYS)).timestamp()),
     }
 
     # DynamoDBはNone値を受け付けないためフィルタ

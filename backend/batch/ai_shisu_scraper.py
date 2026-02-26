@@ -22,7 +22,6 @@ logger.setLevel(logging.INFO)
 BASE_URL = "https://www.ai-shisu.com"
 EVENT_DATES_URL = f"{BASE_URL}/event_dates"
 SOURCE_NAME = "ai-shisu"
-TTL_DAYS = 7
 REQUEST_DELAY_SECONDS = 1.0  # サーバー負荷軽減のための遅延
 
 # タイムゾーン
@@ -210,9 +209,6 @@ def save_predictions(
     scraped_at: datetime,
 ) -> None:
     """予想データをDynamoDBに保存."""
-    # TTL計算（7日後）
-    ttl = int((scraped_at + timedelta(days=TTL_DAYS)).timestamp())
-
     item = {
         "race_id": race_id,
         "source": SOURCE_NAME,
@@ -220,7 +216,6 @@ def save_predictions(
         "race_number": race_number,
         "predictions": predictions,
         "scraped_at": scraped_at.isoformat(),
-        "ttl": ttl,
     }
 
     table.put_item(Item=item)
