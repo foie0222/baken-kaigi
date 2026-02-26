@@ -207,6 +207,21 @@ class TestGetRunners:
         assert runner.odds == "5.4"
         assert runner.popularity == 2
         assert runner.waku_ban == 3
+        assert runner.finish_position is None
+
+    def test_着順がDecimalからintに変換される(self):
+        item = _make_runner_item()
+        item["finish_position"] = Decimal("1")
+        mock_table = MagicMock()
+        mock_table.query.return_value = {"Items": [item]}
+
+        provider = DynamoDbRaceDataProvider(
+            races_table=MagicMock(), runners_table=mock_table
+        )
+        result = provider.get_runners(RaceId("202602140505"))
+
+        assert result[0].finish_position == 1
+        assert isinstance(result[0].finish_position, int)
 
     def test_出走馬が存在しない場合は空リストを返す(self):
         mock_table = MagicMock()
