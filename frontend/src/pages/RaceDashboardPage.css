@@ -792,3 +792,38 @@
 .dashboard-back-btn:hover {
   opacity: 0.8;
 }
+
+/* Finish position column */
+.td-finish-position {
+  min-width: 36px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.finish-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 4px;
+  color: var(--color-text-muted);
+}
+
+.finish-badge.finish-1 {
+  background: rgba(233, 69, 96, 0.2);
+  color: var(--color-primary);
+}
+
+.finish-badge.finish-2 {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+}
+
+.finish-badge.finish-3 {
+  background: rgba(74, 222, 128, 0.2);
+  color: var(--color-success);
+}
