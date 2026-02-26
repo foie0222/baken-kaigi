@@ -81,61 +81,10 @@ function getTodayDateStr(): string {
 
 function getSearchRange(): { from: string; to: string } {
   const today = new Date();
-  const from = new Date(today);
-  from.setDate(today.getDate() - 14);
-  const to = new Date(today);
-  to.setDate(today.getDate() + 14);
-
-  const formatDate = (d: Date) => {
-    const year = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${m}-${day}`;
-  };
-
-  return { from: formatDate(from), to: formatDate(to) };
-}
-
-function selectDisplayDates(dates: string[]): string[] {
-  if (dates.length === 0) return [];
-
-  const today = new Date();
-  const todayStr = getTodayDateStr();
-  const dayOfWeek = today.getDay();
-
-  const sortedDates = [...dates].sort();
-
-  if (sortedDates.includes(todayStr)) {
-    const todayDate = new Date(todayStr);
-    const weekend = sortedDates.filter((d: string) => {
-      const diff = Math.abs(new Date(d).getTime() - todayDate.getTime());
-      return diff <= 2 * 24 * 60 * 60 * 1000;
-    });
-    if (weekend.length > 0) {
-      if (weekend.length <= 2) return weekend;
-      const todayIndex = weekend.indexOf(todayStr);
-      if (todayIndex === -1) return weekend.slice(0, 2);
-      const nearest = weekend
-        .filter((d: string) => d !== todayStr)
-        .map((d: string) => ({
-          date: d,
-          diff: Math.abs(new Date(d).getTime() - todayDate.getTime()),
-        }))
-        .sort((a, b) => a.diff - b.diff)[0]?.date;
-      if (!nearest) return [todayStr];
-      return [todayStr, nearest].sort();
-    }
-  }
-
-  if (dayOfWeek >= 5 || dayOfWeek === 0) {
-    const futureDates = sortedDates.filter(d => d >= todayStr);
-    if (futureDates.length > 0) return futureDates.slice(0, 2);
-  }
-
-  const pastDates = sortedDates.filter(d => d <= todayStr).reverse();
-  if (pastDates.length > 0) return pastDates.slice(0, 2).reverse();
-
-  return sortedDates.slice(0, 2);
+  const year = today.getFullYear();
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  return { from, to };
 }
 
 export function SinglePageApp() {
@@ -200,14 +149,19 @@ export function SinglePageApp() {
       if (!isMounted) return;
 
       if (response.success && response.data) {
-        const displayDates = selectDisplayDates(response.data);
-        setDateButtons(displayDates);
+        const allDates = [...response.data].sort();
+        setDateButtons(allDates);
 
-        if (!isInitialDateSet.current && displayDates.length > 0) {
+        if (!isInitialDateSet.current && allDates.length > 0) {
+          // 今日以前の直近開催日をデフォルト選択
           const todayStr = getTodayDateStr();
-          const todayIdx = displayDates.indexOf(todayStr);
+          const todayIdx = allDates.indexOf(todayStr);
           if (todayIdx >= 0) {
             setSelectedDateIdx(todayIdx);
+          } else {
+            // 今日が開催日でなければ、直近の過去開催日を選択
+            const pastIdx = allDates.filter(d => d <= todayStr).length - 1;
+            setSelectedDateIdx(pastIdx >= 0 ? pastIdx : allDates.length - 1);
           }
           isInitialDateSet.current = true;
         }
@@ -596,6 +550,7 @@ export function SinglePageApp() {
             dateButtons.map((dateStr, index) => (
               <button
                 key={dateStr}
+                ref={selectedDateIdx === index ? (el) => { el?.scrollIntoView({ block: 'nearest', inline: 'center' }); } : undefined}
                 className={`date-pill ${selectedDateIdx === index ? 'active' : ''}`}
                 onClick={() => handleDateChange(index)}
               >
