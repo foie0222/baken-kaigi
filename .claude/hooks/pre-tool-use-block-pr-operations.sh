@@ -2,7 +2,8 @@
 # PreToolUse hook: PRマージを条件付きで許可
 #
 # stdin から JSON を受け取り、以下の制御を行う:
-# - gh pr merge: Copilotレビュー投稿済み + 全コメント解決済みの場合のみ許可
+# - gh pr merge: AIレビュー投稿済み + 全コメント解決済みの場合のみ許可
+#   - 対象レビュアー: copilot-pull-request-reviewer, github-actions
 # - GitHub API 直接呼び出し: ブロック（hookバイパス防止）
 # - gh pr close: 許可
 # - resolveReviewThread: 許可
@@ -93,7 +94,7 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
     exit 2
   fi
 
-  # リポジトリ情報を取得してバリデーション（Copilotコメント確認に必要）
+  # リポジトリ情報を取得してバリデーション（AIレビューコメント確認に必要）
   # 注: 先に cd を実行しているので、現在のディレクトリから取得
   REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"' 2>/dev/null || echo "")
   OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
@@ -114,10 +115,15 @@ if echo "$COMMAND" | grep -qE '(^|[;&|])[[:space:]]*([[:alnum:]/._~-]+/)?gh[[:sp
     exit 2
   fi
 
-  # Copilotレビューとコメントの確認（1回のクエリで取得）
+  # AIレビューとコメントの確認（1回のクエリで取得）
   # ※レビュー本文（body）またはコード行コメントのいずれかが存在すればOK
-  # ※各スレッドで最大10件のコメントを取得し、Copilotの返信コメントも検知
-  COPILOT_QUERY=$(cat <<EOF
+  # ※対象レビュアー: copilot-pull-request-reviewer, github-actions
+  # ※各スレッドで最大10件のコメントを取得し、レビュアーの返信コメントも検知
+  # 許可するレビュアーのリスト
+  # GraphQL APIではbot userのloginに [bot] サフィックスが付かない
+  ALLOWED_REVIEWERS='["copilot-pull-request-reviewer", "github-actions"]'
+
+  REVIEW_QUERY=$(cat <<EOF
 query {
   repository(owner: "$OWNER", name: "$REPO") {
     pullRequest(number: $PR_NUMBER) {
@@ -144,7 +150,7 @@ query {
 EOF
   )
 
-  QUERY_RESULT=$(gh api graphql -f query="$COPILOT_QUERY" 2>/dev/null || echo "")
+  QUERY_RESULT=$(gh api graphql -f query="$REVIEW_QUERY" 2>/dev/null || echo "")
   if [ -z "$QUERY_RESULT" ]; then
     echo "BLOCK: PRの状態を確認できませんでした（APIリクエスト失敗）。" >&2
     exit 2
@@ -165,24 +171,24 @@ EOF
     exit 2
   fi
 
-  # Copilotのレビュー本文（body）の存在確認
+  # AIレビュアーのレビュー本文（body）の存在確認
   # bodyが空でないレビューをカウント（author が null の場合も考慮）
-  COPILOT_REVIEW_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviews.nodes[] | select(.author != null and .author.login == "copilot-pull-request-reviewer" and .body != null and .body != "")] | length' 2>/dev/null)
-  if [ -z "$COPILOT_REVIEW_COUNT" ] || ! echo "$COPILOT_REVIEW_COUNT" | grep -qE '^[0-9]+$'; then
-    echo "BLOCK: PRの状態を確認できませんでした（Copilotレビュー数の取得に失敗）。" >&2
+  AI_REVIEW_COUNT=$(echo "$QUERY_RESULT" | jq --argjson reviewers "$ALLOWED_REVIEWERS" '[.data.repository.pullRequest.reviews.nodes[] | select(.author != null and (.author.login as $l | $reviewers | any(. == $l)) and .body != null and .body != "")] | length' 2>/dev/null)
+  if [ -z "$AI_REVIEW_COUNT" ] || ! echo "$AI_REVIEW_COUNT" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: PRの状態を確認できませんでした（AIレビュー数の取得に失敗）。" >&2
     exit 2
   fi
 
-  # Copilotのコード行コメント数を確認（author が null の場合も考慮）
-  COPILOT_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author != null and .author.login == "copilot-pull-request-reviewer")] | length' 2>/dev/null)
-  if [ -z "$COPILOT_COMMENT_COUNT" ] || ! echo "$COPILOT_COMMENT_COUNT" | grep -qE '^[0-9]+$'; then
-    echo "BLOCK: PRの状態を確認できませんでした（Copilotコメント数の取得に失敗）。" >&2
+  # AIレビュアーのコード行コメント数を確認（author が null の場合も考慮）
+  AI_COMMENT_COUNT=$(echo "$QUERY_RESULT" | jq --argjson reviewers "$ALLOWED_REVIEWERS" '[.data.repository.pullRequest.reviewThreads.nodes[].comments.nodes[] | select(.author != null and (.author.login as $l | $reviewers | any(. == $l)))] | length' 2>/dev/null)
+  if [ -z "$AI_COMMENT_COUNT" ] || ! echo "$AI_COMMENT_COUNT" | grep -qE '^[0-9]+$'; then
+    echo "BLOCK: PRの状態を確認できませんでした（AIコメント数の取得に失敗）。" >&2
     exit 2
   fi
 
   # レビュー本文またはコード行コメントのいずれかが存在すればOK
-  if [ "$COPILOT_REVIEW_COUNT" -eq 0 ] && [ "$COPILOT_COMMENT_COUNT" -eq 0 ]; then
-    echo "BLOCK: Copilotのレビュー本文またはコード行コメントがありません。Copilotレビューが完了してからマージしてください。" >&2
+  if [ "$AI_REVIEW_COUNT" -eq 0 ] && [ "$AI_COMMENT_COUNT" -eq 0 ]; then
+    echo "BLOCK: AIレビュアー（Copilot または Claude Code）のレビュー本文またはコード行コメントがありません。レビューが完了してからマージしてください。" >&2
     exit 2
   fi
 
