@@ -1,39 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAppStore } from '../stores/appStore';
-import { useCartStore } from '../stores/cartStore';
 import type {
   Race,
   RaceDetail,
   Horse,
-  BetType,
-  BetMethod,
-  ColumnSelections,
   AiPredictionsResponse,
   SpeedIndicesResponse,
   AiPrediction,
   SpeedIndex,
 } from '../types';
 import {
-  BetTypeLabels,
-  BetTypeRequiredHorses,
-  BetTypeOrdered,
-  extractOdds,
   getVenueName,
   isJraVenue,
 } from '../types';
 import { apiClient } from '../api/client';
 import { toJapaneseError } from '../stores/purchaseStore';
 import { buildJraShutsubaUrl } from '../utils/jraUrl';
-import { getBetMethodLabel } from '../utils/betMethods';
-import { BetTypeSheet } from '../components/bet/BetTypeSheet';
-import { BetMethodSheet } from '../components/bet/BetMethodSheet';
-import { CartModal } from '../components/common/CartModal';
-import { useBetCalculation } from '../hooks/useBetCalculation';
-import { MAX_BET_AMOUNT } from '../constants/betting';
 import './SinglePageApp.css';
 import './RaceDashboardPage.css';
-
-const initialSelections: ColumnSelections = { col1: [], col2: [], col3: [] };
 
 // AI prediction source display names
 const AI_SOURCE_NAMES: Record<string, string> = {
@@ -88,13 +71,6 @@ function getSearchRange(): { from: string; to: string } {
 }
 
 export function SinglePageApp() {
-  const showToast = useAppStore((state) => state.showToast);
-  const addItem = useCartStore((state) => state.addItem);
-  const cartItems = useCartStore((state) => state.items);
-  const removeItem = useCartStore((state) => state.removeItem);
-  const getTotalAmount = useCartStore((state) => state.getTotalAmount);
-  const getItemCount = useCartStore((state) => state.getItemCount);
-
   // ---------- Date / Venue / Race selector state ----------
   const [dateButtons, setDateButtons] = useState<string[]>([]);
   const [selectedDateIdx, setSelectedDateIdx] = useState(0);
@@ -117,23 +93,6 @@ export function SinglePageApp() {
   // AI predictions & speed indices
   const [aiPredictions, setAiPredictions] = useState<AiPredictionsResponse | null>(null);
   const [speedIndices, setSpeedIndices] = useState<SpeedIndicesResponse | null>(null);
-
-  // ---------- Betting state ----------
-  const [betType, setBetType] = useState<BetType>('win');
-  const [betMethod, setBetMethod] = useState<BetMethod>('normal');
-  const [selections, setSelections] = useState<ColumnSelections>(initialSelections);
-  const [betAmount, setBetAmount] = useState(100);
-  const [amountInput, setAmountInput] = useState('100');
-
-  // Bottom sheets
-  const [isBetTypeSheetOpen, setIsBetTypeSheetOpen] = useState(false);
-  const [isBetMethodSheetOpen, setIsBetMethodSheetOpen] = useState(false);
-
-  // Cart modal
-  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
-
-  // Bet count calculation
-  const { betCount } = useBetCalculation(betType, betMethod, selections);
 
   // =============================================
   // FETCH: Race dates
@@ -253,13 +212,6 @@ export function SinglePageApp() {
       setRaceError(null);
       setRaceLoading(true);
 
-      // Reset betting state for new race
-      setBetType('win');
-      setBetMethod('normal');
-      setSelections(initialSelections);
-      setBetAmount(100);
-      setAmountInput('100');
-
       const decodedId = decodeURIComponent(effectiveRaceId);
 
       const response = await apiClient.getRaceDetail(decodedId);
@@ -290,158 +242,6 @@ export function SinglePageApp() {
     return () => { isMounted = false; };
   }, [effectiveRaceId]);
 
-  // =============================================
-  // Betting handlers (copied from RaceDashboardPage)
-  // =============================================
-  const handleBetTypeChange = (type: BetType) => {
-    setBetType(type);
-    setBetMethod('normal');
-    setSelections(initialSelections);
-  };
-
-  const handleBetMethodChange = (method: BetMethod) => {
-    setBetMethod(method);
-    setSelections(initialSelections);
-  };
-
-  const handleAmountMinus = () => {
-    if (betAmount > 100) {
-      const newAmount = betAmount <= 500 ? betAmount - 100 : betAmount - 500;
-      const clamped = Math.max(100, newAmount);
-      setBetAmount(clamped);
-      setAmountInput(String(clamped));
-    }
-  };
-
-  const handleAmountPlus = () => {
-    const increment = betAmount < 500 ? 100 : 500;
-    const effectiveBetCount = betCount > 0 ? betCount : 1;
-    const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
-    setBetAmount((prev) => {
-      const next = Math.min(prev + increment, maxPerBet);
-      setAmountInput(String(next));
-      return next;
-    });
-  };
-
-  const toggleHorseSelection = useCallback((horseNumber: number) => {
-    setSelections((prev) => {
-      const col = prev.col1;
-      const isSelected = col.includes(horseNumber);
-      const required = BetTypeRequiredHorses[betType];
-
-      if (betMethod === 'normal') {
-        if (isSelected) {
-          return { ...prev, col1: col.filter((n) => n !== horseNumber) };
-        }
-        if (col.length >= required) {
-          return { ...prev, col1: [...col.slice(0, required - 1), horseNumber] };
-        }
-        return { ...prev, col1: [...col, horseNumber] };
-      }
-
-      if (isSelected) {
-        return { ...prev, col1: col.filter((n) => n !== horseNumber) };
-      }
-      return { ...prev, col1: [...col, horseNumber] };
-    });
-  }, [betType, betMethod]);
-
-  const getSelectionDisplay = () => {
-    const hasAny = selections.col1.length > 0 || selections.col2.length > 0 || selections.col3.length > 0;
-    if (!hasAny) return null;
-
-    if (betMethod.startsWith('nagashi')) {
-      const required = BetTypeRequiredHorses[betType];
-      const ordered = BetTypeOrdered[betType];
-
-      if (required === 2 && ordered) {
-        if (betMethod === 'nagashi_2') {
-          const partnerText = selections.col2.length > 0 ? `1着:${selections.col2.join(',')}` : '';
-          const axisText = selections.col1.length > 0 ? `2着軸:${selections.col1.join(',')}` : '';
-          return [partnerText, axisText].filter(Boolean).join(' → ');
-        }
-        const axisText = selections.col1.length > 0 ? `1着軸:${selections.col1.join(',')}` : '';
-        const partnerText = selections.col2.length > 0 ? `2着:${selections.col2.join(',')}` : '';
-        return [axisText, partnerText].filter(Boolean).join(' → ');
-      }
-
-      const axisText = selections.col1.length > 0 ? `軸:${selections.col1.join(',')}` : '';
-      const partnerText = selections.col2.length > 0 ? `相手:${selections.col2.join(',')}` : '';
-      return [axisText, partnerText].filter(Boolean).join(' → ');
-    } else if (betMethod === 'formation') {
-      const parts = [
-        selections.col1.length > 0 ? selections.col1.join(',') : '-',
-        selections.col2.length > 0 ? selections.col2.join(',') : '-',
-        selections.col3.length > 0 ? selections.col3.join(',') : '-',
-      ];
-      const required = BetTypeRequiredHorses[betType];
-      return parts.slice(0, required).join(' x ');
-    } else {
-      const sorted = [...selections.col1].sort((a, b) => a - b);
-      return sorted.join(' - ');
-    }
-  };
-
-  const handleAddToCart = async () => {
-    if (!race || betCount === 0) return;
-
-    let horseNumbersDisplay: number[];
-    if (betMethod === 'formation' || betMethod.startsWith('nagashi')) {
-      const allNumbers = [...new Set([...selections.col1, ...selections.col2, ...selections.col3])];
-      horseNumbersDisplay = allNumbers.sort((a, b) => a - b);
-    } else {
-      horseNumbersDisplay = [...selections.col1].sort((a, b) => a - b);
-    }
-
-    const betDisplay = getSelectionDisplay() || horseNumbersDisplay.join('-');
-
-    let odds: number | undefined;
-    let oddsMin: number | undefined;
-    let oddsMax: number | undefined;
-    try {
-      const oddsResult = await apiClient.getAllOdds(race.id);
-      if (oddsResult.success && oddsResult.data) {
-        const extracted = extractOdds(oddsResult.data, betType, horseNumbersDisplay);
-        odds = extracted.odds;
-        oddsMin = extracted.oddsMin;
-        oddsMax = extracted.oddsMax;
-      }
-    } catch (err: unknown) {
-      console.warn('Failed to fetch odds when adding item to cart:', err);
-    }
-
-    const result = addItem({
-      raceId: race.id,
-      raceName: race.name,
-      raceVenue: race.venue,
-      raceNumber: race.number,
-      betType,
-      betMethod,
-      horseNumbers: horseNumbersDisplay,
-      betDisplay,
-      betCount,
-      columnSelections: { ...selections },
-      amount: betAmount * betCount,
-      odds,
-      oddsMin,
-      oddsMax,
-    });
-
-    if (result === 'different_race' || result === 'invalid_amount') {
-      const message = result === 'different_race'
-        ? 'カートには同じレースの買い目のみ追加できます'
-        : '金額が範囲外です';
-      showToast(message, 'error');
-      return;
-    }
-
-    setSelections(initialSelections);
-    setBetAmount(100);
-    setAmountInput('100');
-    showToast(result === 'merged' ? '同じ買い目の金額を合算しました' : 'カートに追加しました');
-  };
-
   // AI / Speed lookups
   const aiSourceKeys = aiPredictions ? Object.keys(aiPredictions.predictions) : [];
   const speedSourceKeys = speedIndices ? Object.keys(speedIndices.indices) : [];
@@ -459,8 +259,6 @@ export function SinglePageApp() {
     if (!idxs) return undefined;
     return idxs.find((s) => s.horse_number === horseNumber);
   };
-
-  const isHorseSelected = (horseNumber: number) => selections.col1.includes(horseNumber);
 
   // ソース別ランキングマップ: sourceKey → Map<horseNumber, {rank, total}>
   const aiRankMap = (() => {
@@ -505,14 +303,6 @@ export function SinglePageApp() {
     if (horse.popularity > 0) return horse.popularity;
     return popularityMap.get(horse.number) || 0;
   };
-
-  // Betting panel derived values
-  const required = BetTypeRequiredHorses[betType];
-  const canSelectMethod = required > 1;
-  const selectionDisplay = getSelectionDisplay();
-  const totalAmount = betAmount * betCount;
-  const cartTotal = getTotalAmount();
-  const cartItemCount = getItemCount();
 
   // Race number click handler
   const handleRaceNumberClick = (raceId: string) => {
@@ -647,16 +437,13 @@ export function SinglePageApp() {
             )}
           </div>
 
-          {/* Body: Table + Betting Panel */}
-          <div className="dashboard-body">
-            {/* Main Table */}
-            <div className="dashboard-table-area">
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th></th>
-                    <th>馬番</th>
+          {/* Main Table */}
+          <div className="dashboard-table-area">
+            <table className="dashboard-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>馬番</th>
                     <th style={{ textAlign: 'left', paddingLeft: 10 }}>馬名</th>
                     <th>体重</th>
                     <th>オッズ</th>
@@ -674,23 +461,8 @@ export function SinglePageApp() {
                   </tr>
                 </thead>
                 <tbody>
-                  {race.horses.map((horse: Horse) => {
-                    const selected = isHorseSelected(horse.number);
-                    return (
-                      <tr
-                        key={horse.number}
-                        className={selected ? 'row-selected' : ''}
-                        onClick={() => toggleHorseSelection(horse.number)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td className="td-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() => toggleHorseSelection(horse.number)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </td>
+                  {race.horses.map((horse: Horse) => (
+                      <tr key={horse.number}>
                         <td className="td-waku">
                           <div
                             className="waku-indicator"
@@ -783,195 +555,12 @@ export function SinglePageApp() {
                           );
                         })}
                       </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
-
-            {/* Betting Panel */}
-            <div className="dashboard-betting-panel">
-              <div className="betting-panel-title">馬券購入</div>
-
-              {/* Bet type + method selectors */}
-              <div className="panel-selector-row">
-                <button
-                  className="panel-selector"
-                  onClick={() => setIsBetTypeSheetOpen(true)}
-                >
-                  <span>{BetTypeLabels[betType]}</span>
-                  <span className="arrow">▼</span>
-                </button>
-                <button
-                  className={`panel-selector ${!canSelectMethod ? 'disabled' : ''}`}
-                  onClick={() => canSelectMethod && setIsBetMethodSheetOpen(true)}
-                  disabled={!canSelectMethod}
-                >
-                  <span>{getBetMethodLabel(betMethod, betType)}</span>
-                  <span className="arrow">▼</span>
-                </button>
-              </div>
-
-              {/* Selection display */}
-              <div className={`panel-selection-display ${selectionDisplay ? 'has-selection' : ''}`}>
-                {selectionDisplay ? (
-                  <>
-                    <span className="panel-selection-numbers">{selectionDisplay}</span>
-                    {betCount > 0 && <span className="panel-bet-count">{betCount}点</span>}
-                    <button className="panel-clear-btn" onClick={() => setSelections(initialSelections)}>
-                      クリア
-                    </button>
-                  </>
-                ) : (
-                  <span>表のチェックボックスから馬を選択</span>
-                )}
-              </div>
-
-              {/* Amount input */}
-              <div className="panel-amount-row">
-                <span className="panel-amount-label">金額</span>
-                <div className="panel-amount-input-wrapper">
-                  <button className="panel-stepper-btn" onClick={handleAmountMinus}>-</button>
-                  <div className="panel-amount-center">
-                    <span className="panel-currency">¥</span>
-                    <input
-                      type="number"
-                      className="panel-amount-input"
-                      value={amountInput}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        const parsed = parseInt(raw, 10);
-                        if (!isNaN(parsed) && parsed > 0) {
-                          const effectiveBetCount = betCount > 0 ? betCount : 1;
-                          const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
-                          const clamped = Math.min(maxPerBet, Math.max(100, parsed));
-                          setBetAmount(clamped);
-                          setAmountInput(String(clamped));
-                        } else {
-                          setAmountInput(raw);
-                        }
-                      }}
-                      onBlur={() => {
-                        const effectiveBetCount = betCount > 0 ? betCount : 1;
-                        const maxPerBet = Math.floor(MAX_BET_AMOUNT / effectiveBetCount);
-                        const parsed = parseInt(amountInput, 10);
-                        const clamped = Math.min(maxPerBet, Math.max(100, isNaN(parsed) ? 100 : parsed));
-                        setBetAmount(clamped);
-                        setAmountInput(String(clamped));
-                      }}
-                    />
-                  </div>
-                  <button className="panel-stepper-btn" onClick={handleAmountPlus}>+</button>
-                </div>
-              </div>
-
-              <div className="panel-amount-presets">
-                {[100, 500, 1000, 5000].map((amount) => (
-                  <button
-                    key={amount}
-                    className="panel-preset-btn"
-                    onClick={() => { setBetAmount(amount); setAmountInput(String(amount)); }}
-                  >
-                    ¥{amount.toLocaleString()}
-                  </button>
-                ))}
-              </div>
-
-              {/* Bet summary */}
-              {betCount > 0 && (
-                <div className="panel-bet-summary">
-                  <span>{betCount}点</span>
-                  <span>¥{totalAmount.toLocaleString()}</span>
-                </div>
-              )}
-
-              {/* Add to cart */}
-              <button
-                className="panel-add-btn"
-                onClick={handleAddToCart}
-                disabled={betCount === 0}
-              >
-                カートに追加
-              </button>
-
-              {/* Cart section */}
-              <hr className="panel-cart-divider" />
-              <div className="panel-cart-title">カート</div>
-
-              {cartItems.length === 0 ? (
-                <div className="panel-cart-empty">カートは空です</div>
-              ) : (
-                <>
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="panel-cart-item">
-                      <div className="panel-cart-item-info">
-                        <span className="panel-cart-bet-type">{BetTypeLabels[item.betType]}</span>
-                        <span className="panel-cart-bet-display">
-                          {item.betDisplay || item.horseNumbers.join('-')}
-                        </span>
-                      </div>
-                      <span className="panel-cart-item-amount">¥{item.amount.toLocaleString()}</span>
-                      <button
-                        className="panel-cart-remove"
-                        onClick={() => removeItem(item.id)}
-                        title="削除"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-
-                  <div className="panel-cart-total">
-                    <span>合計</span>
-                    <span>¥{cartTotal.toLocaleString()}</span>
-                  </div>
-
-                  <button
-                    className="panel-confirm-btn"
-                    onClick={() => setIsCartModalOpen(true)}
-                  >
-                    購入確認へ →
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
         </>
       )}
-
-      {/* Floating cart button */}
-      <button
-        className="floating-cart-btn"
-        onClick={() => setIsCartModalOpen(true)}
-        type="button"
-        aria-label="カートを開く"
-      >
-        🛒
-        {cartItemCount > 0 && (
-          <span className="floating-cart-badge">{cartItemCount}</span>
-        )}
-      </button>
-
-      {/* Cart modal */}
-      <CartModal
-        isOpen={isCartModalOpen}
-        onClose={() => setIsCartModalOpen(false)}
-      />
-
-      {/* Bottom sheets */}
-      <BetTypeSheet
-        isOpen={isBetTypeSheetOpen}
-        onClose={() => setIsBetTypeSheetOpen(false)}
-        selectedType={betType}
-        onSelect={handleBetTypeChange}
-      />
-      <BetMethodSheet
-        isOpen={isBetMethodSheetOpen}
-        onClose={() => setIsBetMethodSheetOpen(false)}
-        betType={betType}
-        selectedMethod={betMethod}
-        onSelect={handleBetMethodChange}
-      />
     </div>
   );
 }
