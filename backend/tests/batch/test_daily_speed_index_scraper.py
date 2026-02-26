@@ -262,9 +262,7 @@ class TestSaveIndices:
         assert item["source"] == "daily-speed"
         assert item["venue"] == "東京"
         assert item["indices"] == indices
-        assert "ttl" in item
-        expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
-        assert item["ttl"] == expected_ttl
+        assert "ttl" not in item
 
 
 class TestHandler:

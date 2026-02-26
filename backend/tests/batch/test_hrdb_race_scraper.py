@@ -101,9 +101,7 @@ class TestConvertRaceRow:
         assert result["kaisai_kai"] == "01"
         assert result["kaisai_nichime"] == "08"
         assert result["scraped_at"] == scraped_at.isoformat()
-        # TTL: scraped_at + 14日
-        expected_ttl = int((scraped_at + timedelta(days=14)).timestamp())
-        assert result["ttl"] == expected_ttl
+        assert "ttl" not in result
 
     def test_ダートトラック(self):
         """TRACKCD先頭"2" → "ダート"."""
@@ -164,8 +162,7 @@ class TestConvertRunnerRow:
         assert result["odds"] == Decimal("3.4")
         assert result["popularity"] == 1
         assert result["scraped_at"] == scraped_at.isoformat()
-        expected_ttl = int((scraped_at + timedelta(days=14)).timestamp())
-        assert result["ttl"] == expected_ttl
+        assert "ttl" not in result
 
     def test_未確定の着順(self):
         """FIXPLC="00", RUNTM="0000" → None（フィルタ済み）."""

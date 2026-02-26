@@ -278,9 +278,7 @@ class TestSavePredictions:
         assert item["source"] == "umamax"
         assert item["venue"] == "京都"
         assert item["race_number"] == 7
-        assert "ttl" in item
-        expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
-        assert item["ttl"] == expected_ttl
+        assert "ttl" not in item
 
     def test_floatがDecimalに変換されてDynamoDBに保存される(self):
         """正常系: predictionsのfloat値がDecimalに変換されてDynamoDBに保存される."""

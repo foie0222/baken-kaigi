@@ -285,9 +285,7 @@ class TestSavePredictions:
         assert item["venue"] == "京都"
         assert item["race_number"] == 11
         assert item["predictions"] == predictions
-        assert "ttl" in item
-        expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
-        assert item["ttl"] == expected_ttl
+        assert "ttl" not in item
 
     def test_scraped_atがISO形式で保存(self):
         """正常系: scraped_atがISO形式で保存される."""

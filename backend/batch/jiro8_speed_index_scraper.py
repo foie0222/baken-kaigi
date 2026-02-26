@@ -36,7 +36,6 @@ logger.setLevel(logging.INFO)
 # 定数
 SOURCE_NAME = "jiro8-speed"
 BASE_URL = "https://jiro8.sakura.ne.jp"
-TTL_DAYS = 7
 REQUEST_DELAY_SECONDS = 1.0
 
 # タイムゾーン
@@ -244,8 +243,6 @@ def save_indices(
     scraped_at: datetime,
 ) -> None:
     """スピード指数データをDynamoDBに保存."""
-    ttl = int((scraped_at + timedelta(days=TTL_DAYS)).timestamp())
-
     item = {
         "race_id": race_id,
         "source": SOURCE_NAME,
@@ -253,7 +250,6 @@ def save_indices(
         "race_number": race_number,
         "indices": convert_floats(indices),
         "scraped_at": scraped_at.isoformat(),
-        "ttl": ttl,
     }
 
     table.put_item(Item=item)

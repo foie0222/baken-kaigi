@@ -476,10 +476,7 @@ class TestSavePredictions:
         assert item["predictions"] == [
             {"rank": 1, "score": Decimal("65.7"), "horse_number": 2, "horse_name": "馬A"},
         ]
-        assert "ttl" in item
-        # TTLは7日後
-        expected_ttl = int((scraped_at + timedelta(days=7)).timestamp())
-        assert item["ttl"] == expected_ttl
+        assert "ttl" not in item
 
     def test_scraped_atがISO形式で保存(self):
         """正常系: scraped_atがISO形式で保存される."""
