@@ -374,6 +374,21 @@ class TestApiStack:
                     {"AttributeName": "race_id", "KeyType": "HASH"},
                     {"AttributeName": "source", "KeyType": "RANGE"},
                 ],
+                "BillingMode": "PAY_PER_REQUEST",
+            },
+        )
+
+    def test_speed_indices_dynamodb_table(self, template):
+        """スピード指数データ用DynamoDBテーブルが存在すること."""
+        template.has_resource_properties(
+            "AWS::DynamoDB::Table",
+            {
+                "TableName": "baken-kaigi-speed-indices",
+                "KeySchema": [
+                    {"AttributeName": "race_id", "KeyType": "HASH"},
+                    {"AttributeName": "source", "KeyType": "RANGE"},
+                ],
+                "BillingMode": "PAY_PER_REQUEST",
             },
         )
 
