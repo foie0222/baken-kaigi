@@ -738,7 +738,7 @@ class TestGetRaceDetailHandler:
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
         assert body["runners"][0]["finish_position"] == 1
-        assert body["runners"][1].get("finish_position") is None
+        assert "finish_position" not in body["runners"][1]
 
     def test_馬体重データがない場合はweightフィールドが含まれない(self) -> None:
         """馬体重データが存在しない場合、レスポンスにweightフィールドが含まれないことを確認."""
