@@ -445,6 +445,7 @@ export function SinglePageApp() {
                   <th></th>
                   <th>馬番</th>
                     <th style={{ textAlign: 'left', paddingLeft: 10 }}>馬名</th>
+                    <th>着順</th>
                     <th>体重</th>
                     <th>オッズ</th>
                     <th>人気</th>
@@ -484,6 +485,16 @@ export function SinglePageApp() {
                         <td className="td-horse-name">
                           <div className="horse-name-text">{horse.name}</div>
                           <div className="horse-jockey-text">{horse.jockey}</div>
+                        </td>
+                        {/* Finish position */}
+                        <td className="td-finish-position">
+                          {horse.finishPosition != null ? (
+                            <span className={`finish-badge ${horse.finishPosition >= 1 && horse.finishPosition <= 3 ? `finish-${horse.finishPosition}` : ''}`}>
+                              {horse.finishPosition}
+                            </span>
+                          ) : (
+                            <span className="no-data">-</span>
+                          )}
                         </td>
                         <td className="td-weight">
                           {horse.weight ? (
