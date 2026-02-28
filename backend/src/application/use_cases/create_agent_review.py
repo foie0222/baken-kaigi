@@ -71,10 +71,8 @@ class CreateAgentReviewUseCase:
             raise AgentNotFoundError(f"Agent not found for user: {user_id}")
 
         # 同一レースの振り返り重複チェック
-        existing_reviews = self._review_repository.find_by_agent_id(agent.agent_id)
-        for r in existing_reviews:
-            if r.race_id.value == race_id:
-                raise ReviewAlreadyExistsError(f"Review already exists for race: {race_id}")
+        if self._review_repository.exists_by_agent_and_race(agent.agent_id, RaceId(race_id)):
+            raise ReviewAlreadyExistsError(f"Review already exists for race: {race_id}")
 
         if not bets:
             raise ValueError("At least one bet result is required")

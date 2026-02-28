@@ -1,6 +1,6 @@
 """インメモリエージェント振り返りリポジトリ実装."""
 from src.domain.entities import AgentReview
-from src.domain.identifiers import AgentId, ReviewId
+from src.domain.identifiers import AgentId, RaceId, ReviewId
 from src.domain.ports.agent_review_repository import AgentReviewRepository
 
 
@@ -26,3 +26,10 @@ class InMemoryAgentReviewRepository(AgentReviewRepository):
         ]
         reviews.sort(key=lambda r: r.created_at, reverse=True)
         return reviews[:limit]
+
+    def exists_by_agent_and_race(self, agent_id: AgentId, race_id: RaceId) -> bool:
+        """指定エージェント・レースの振り返りが存在するか判定する."""
+        return any(
+            r.agent_id.value == agent_id.value and r.race_id.value == race_id.value
+            for r in self._reviews.values()
+        )
